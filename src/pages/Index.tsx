@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { HabitCard } from "@/components/HabitCard";
 import { TaskCard } from "@/components/TaskCard";
 import { AddItemDialog } from "@/components/AddItemDialog";
 import { StatsCard } from "@/components/StatsCard";
-import { Target, CheckCircle2, TrendingUp, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Target, CheckCircle2, TrendingUp, Calendar, LayoutDashboard, Repeat } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Habit {
@@ -104,6 +106,26 @@ const Index = () => {
           <p className="text-lg text-muted-foreground">
             Construye una mejor versión de ti mismo, día a día
           </p>
+          <div className="flex flex-wrap justify-center gap-3 pt-4">
+            <Link to="/control-room">
+              <Button variant="outline" className="gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Sala de Control
+              </Button>
+            </Link>
+            <Link to="/habits">
+              <Button variant="outline" className="gap-2">
+                <Target className="h-4 w-4" />
+                Hábitos
+              </Button>
+            </Link>
+            <Link to="/routine">
+              <Button variant="outline" className="gap-2">
+                <Repeat className="h-4 w-4" />
+                Rutina Diaria
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Stats Grid */}
