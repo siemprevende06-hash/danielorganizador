@@ -5,7 +5,7 @@ import { TaskCard } from "@/components/TaskCard";
 import { AddItemDialog } from "@/components/AddItemDialog";
 import { StatsCard } from "@/components/StatsCard";
 import { Button } from "@/components/ui/button";
-import { Target, CheckCircle2, TrendingUp, Calendar, LayoutDashboard, Repeat } from "lucide-react";
+import { Target, CheckCircle2, TrendingUp, Calendar, LayoutDashboard, Repeat, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Habit {
@@ -123,6 +123,12 @@ const Index = () => {
               <Button variant="outline" className="gap-2">
                 <Repeat className="h-4 w-4" />
                 Rutina Diaria
+              </Button>
+            </Link>
+            <Link to="/finance">
+              <Button variant="outline" className="gap-2">
+                <Wallet className="h-4 w-4" />
+                Finanzas
               </Button>
             </Link>
           </div>
