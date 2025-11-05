@@ -11,6 +11,16 @@ import Habits from "./pages/Habits";
 import DailyRoutine from "./pages/DailyRoutine";
 import Finance from "./pages/Finance";
 import Projects from "./pages/Projects";
+import Tasks from "./pages/Tasks";
+import DailyView from "./pages/DailyView";
+import WeeklyView from "./pages/WeeklyView";
+import MonthlyView from "./pages/MonthlyView";
+import Goals from "./pages/Goals";
+import Journaling from "./pages/Journaling";
+import Entrepreneurship from "./pages/Entrepreneurship";
+import University from "./pages/University";
+import Tools from "./pages/Tools";
+import Reminders from "./pages/Reminders";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +38,16 @@ const App = () => (
           <Route path="/routine" element={<DailyRoutine />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/daily" element={<DailyView />} />
+          <Route path="/weekly" element={<WeeklyView />} />
+          <Route path="/monthly" element={<MonthlyView />} />
+          <Route path="/goals" element={<Goals />} />
+          <Route path="/journaling" element={<Journaling />} />
+          <Route path="/entrepreneurship" element={<Entrepreneurship />} />
+          <Route path="/university" element={<University />} />
+          <Route path="/tools" element={<Tools />} />
+          <Route path="/reminders" element={<Reminders />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

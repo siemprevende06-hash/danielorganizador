@@ -9,16 +9,24 @@ import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 
+interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 interface ProjectTask {
   id: string;
   title: string;
   completed: boolean;
+  subTasks?: SubTask[];
 }
 
 interface Project {
   id: string;
   name: string;
   description: string;
+  coverImage?: string;
   tasks: ProjectTask[];
 }
 
@@ -28,10 +36,13 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isSubTaskDialogOpen, setIsSubTaskDialogOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [currentTask, setCurrentTask] = useState<ProjectTask | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
+  const [subTaskTitle, setSubTaskTitle] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -46,6 +57,24 @@ export default function ProjectsPage() {
       localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
     }
   }, [projects]);
+
+  const handleImageUpload = (projectId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProjects(prev =>
+        prev.map(p =>
+          p.id === projectId
+            ? { ...p, coverImage: reader.result as string }
+            : p
+        )
+      );
+      toast({ title: 'Imagen actualizada', description: 'La portada del proyecto ha sido actualizada.' });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleCreateProject = () => {
     if (!projectName.trim()) return;
@@ -116,6 +145,57 @@ export default function ProjectsPage() {
     );
   };
 
+  const handleAddSubTask = () => {
+    if (!currentProject || !currentTask || !subTaskTitle.trim()) return;
+
+    const newSubTask: SubTask = {
+      id: `subtask-${Date.now()}`,
+      title: subTaskTitle,
+      completed: false,
+    };
+
+    setProjects(prev =>
+      prev.map(p =>
+        p.id === currentProject.id
+          ? {
+              ...p,
+              tasks: p.tasks.map(t =>
+                t.id === currentTask.id
+                  ? { ...t, subTasks: [...(t.subTasks || []), newSubTask] }
+                  : t
+              ),
+            }
+          : p
+      )
+    );
+
+    setSubTaskTitle('');
+    setIsSubTaskDialogOpen(false);
+    toast({ title: 'Sub-tarea añadida', description: `Sub-tarea añadida a ${currentTask.title}.` });
+  };
+
+  const handleToggleSubTask = (projectId: string, taskId: string, subTaskId: string) => {
+    setProjects(prev =>
+      prev.map(p =>
+        p.id === projectId
+          ? {
+              ...p,
+              tasks: p.tasks.map(t =>
+                t.id === taskId
+                  ? {
+                      ...t,
+                      subTasks: (t.subTasks || []).map(st =>
+                        st.id === subTaskId ? { ...st, completed: !st.completed } : st
+                      ),
+                    }
+                  : t
+              ),
+            }
+          : p
+      )
+    );
+  };
+
   const getProjectProgress = (project: Project) => {
     if (project.tasks.length === 0) return 0;
     const completed = project.tasks.filter(t => t.completed).length;
@@ -172,10 +252,27 @@ export default function ProjectsPage() {
           return (
             <Card key={project.id}>
               <CardHeader>
+                {project.coverImage && (
+                  <div className="mb-4 -mt-6 -mx-6">
+                    <img src={project.coverImage} alt={project.name} className="w-full h-32 object-cover rounded-t-lg" />
+                  </div>
+                )}
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle>{project.name}</CardTitle>
                     <CardDescription className="mt-1">{project.description}</CardDescription>
+                    <div className="mt-2">
+                      <label htmlFor={`cover-${project.id}`} className="text-xs text-muted-foreground cursor-pointer hover:text-primary">
+                        {project.coverImage ? 'Cambiar portada' : 'Añadir portada'}
+                      </label>
+                      <input
+                        id={`cover-${project.id}`}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload(project.id, e)}
+                      />
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
@@ -213,25 +310,52 @@ export default function ProjectsPage() {
                   </div>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {project.tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className="flex items-center gap-2 p-2 rounded-md bg-accent/50 hover:bg-accent"
-                      >
-                        <Checkbox
-                          checked={task.completed}
-                          onCheckedChange={() => handleToggleTask(project.id, task.id)}
-                        />
-                        <span className={`flex-1 text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                          {task.title}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleDeleteTask(project.id, task.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      <div key={task.id} className="space-y-2">
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-accent/50 hover:bg-accent">
+                          <Checkbox
+                            checked={task.completed}
+                            onCheckedChange={() => handleToggleTask(project.id, task.id)}
+                          />
+                          <span className={`flex-1 text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                            {task.title}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-xs px-2"
+                            onClick={() => {
+                              setCurrentProject(project);
+                              setCurrentTask(task);
+                              setIsSubTaskDialogOpen(true);
+                            }}
+                          >
+                            Sub
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleDeleteTask(project.id, task.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        {task.subTasks && task.subTasks.length > 0 && (
+                          <div className="ml-8 space-y-1">
+                            {task.subTasks.map((subTask) => (
+                              <div key={subTask.id} className="flex items-center gap-2 p-1 text-xs">
+                                <Checkbox
+                                  checked={subTask.completed}
+                                  onCheckedChange={() => handleToggleSubTask(project.id, task.id, subTask.id)}
+                                  className="h-3 w-3"
+                                />
+                                <span className={subTask.completed ? 'line-through text-muted-foreground' : ''}>
+                                  {subTask.title}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                     {project.tasks.length === 0 && (
@@ -275,6 +399,28 @@ export default function ProjectsPage() {
           </div>
           <DialogFooter>
             <Button onClick={handleAddTask}>Añadir Tarea</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSubTaskDialogOpen} onOpenChange={setIsSubTaskDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nueva Sub-tarea</DialogTitle>
+            <DialogDescription>
+              Añade una sub-tarea a {currentTask?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <label className="text-sm font-medium">Título de la Sub-tarea</label>
+            <Input
+              value={subTaskTitle}
+              onChange={(e) => setSubTaskTitle(e.target.value)}
+              placeholder="Ej: Crear wireframes"
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={handleAddSubTask}>Añadir Sub-tarea</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
