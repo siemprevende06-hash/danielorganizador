@@ -50,23 +50,21 @@ const Habits = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <header>
-          <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">
-            Seguimiento de Hábitos
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Tu centro de mando para la disciplina diaria
-          </p>
-        </header>
+    <div className="container mx-auto px-4 py-24 space-y-6">
+      <header>
+        <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">
+          Seguimiento de Hábitos
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Tu centro de mando para la disciplina diaria
+        </p>
+      </header>
 
         {isClient && <HabitAreasSummary habitHistory={habitHistory} />}
 
-        <Separator />
+      <Separator />
 
-        {isClient && <HabitTracker habitHistory={habitHistory} setHabitHistory={setHabitHistory} todayTasks={todayTasks} />}
-      </div>
+      {isClient && <HabitTracker habitHistory={habitHistory} setHabitHistory={setHabitHistory} todayTasks={todayTasks} />}
     </div>
   );
 };

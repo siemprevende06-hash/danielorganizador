@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { isToday, parseISO, format, formatISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+import { VisionBoardGrid } from '@/components/VisionBoardGrid';
 import type { Task, HabitHistory, MonthlyGoal, QuarterlyGoal, LifeArea } from '@/lib/definitions';
 import { lifeAreas, centralAreas, socialAreas, habits, quarterlyGoals as initialQuarterlyGoals } from '@/lib/data';
 import { flattenAreas, findAreaById, getAllSubAreaIds, getEffortLevel } from '@/lib/utils';
@@ -581,15 +582,14 @@ export default function ControlRoom() {
   const averageData = productivityData.average;
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <header className='flex justify-between items-center'>
-          <div>
-            <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">Sala de Control</h1>
-            <p className="text-muted-foreground mt-2">
-              Un vistazo rápido al estado de todos los sistemas de tu vida
-            </p>
-          </div>
+    <div className="container mx-auto px-4 py-24 space-y-8">
+      <header className='flex justify-between items-center'>
+        <div>
+          <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">Sala de Control</h1>
+          <p className="text-muted-foreground mt-2">
+            Un vistazo rápido al estado de todos los sistemas de tu vida
+          </p>
+        </div>
           {averageData?.data && (
             <div className='flex flex-nowrap gap-1 justify-end'>
               <ProductivityMeter title="Promedio del Día" {...averageData.data} showCard={false} />
@@ -620,9 +620,21 @@ export default function ControlRoom() {
           </div>
         </div>
 
-        <EmbeddedVisionBoard />
+      <Separator />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Tablero de Visión</CardTitle>
+          <CardDescription>Sube imágenes inspiradoras y márcalas cuando las logres. Cada tarjeta con checkbox se pone verde al completarla.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <VisionBoardGrid />
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <VisionActivationGrid habitHistory={augmentedHabitHistory} />
           <AttractionPillar habitHistory={augmentedHabitHistory} />
         </div>
@@ -671,10 +683,9 @@ export default function ControlRoom() {
           </div>
         )}
 
-        <Separator />
+      <Separator />
 
-        {isClient && <MotivationPanel habitHistory={augmentedHabitHistory} productivityData={productivityData} />}
-      </div>
+      {isClient && <MotivationPanel habitHistory={augmentedHabitHistory} productivityData={productivityData} />}
     </div>
   );
 }

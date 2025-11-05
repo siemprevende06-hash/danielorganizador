@@ -144,17 +144,16 @@ const DailyRoutine = () => {
   const currentPeriod = getCurrentPeriod();
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Header */}
-        <header>
-          <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">
-            Rutina Diaria
-          </h1>
-          <p className="text-lg text-muted-foreground mt-2">
-            La excelencia es un hábito, no un acto
-          </p>
-        </header>
+    <div className="container mx-auto px-4 py-24 space-y-8">
+      {/* Header */}
+      <header>
+        <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">
+          Rutina Diaria
+        </h1>
+        <p className="text-lg text-muted-foreground mt-2">
+          La excelencia es un hábito, no un acto
+        </p>
+      </header>
 
         {/* Progreso general */}
         <Card>
@@ -190,19 +189,18 @@ const DailyRoutine = () => {
           <PeriodSection period="noche" periodTasks={tasksByPeriod.noche} />
         </div>
 
-        {/* Mensaje motivacional */}
-        {progressPercentage === 100 && (
-          <Card className="border-2 border-success">
-            <CardContent className="pt-6 text-center">
-              <CheckCircle2 className="h-12 w-12 text-success mx-auto mb-4" />
-              <h3 className="text-xl font-bold mb-2">¡Día Completado!</h3>
-              <p className="text-muted-foreground">
-                Has cumplido toda tu rutina. Eres la versión más disciplinada de ti mismo.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {/* Mensaje motivacional */}
+      {progressPercentage === 100 && (
+        <Card className="border-2 border-success">
+          <CardContent className="pt-6 text-center">
+            <CheckCircle2 className="h-12 w-12 text-success mx-auto mb-4" />
+            <h3 className="text-xl font-bold mb-2">¡Día Completado!</h3>
+            <p className="text-muted-foreground">
+              Has cumplido toda tu rutina. Eres la versión más disciplinada de ti mismo.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

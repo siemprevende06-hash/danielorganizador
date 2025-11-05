@@ -575,13 +575,12 @@ export default function Finance() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <header>
-            <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">Finanzas Personales</h1>
-            <p className="text-muted-foreground mt-2">Tu centro de mando financiero</p>
-          </header>
+    <div className="container mx-auto px-4 py-24 space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <header>
+          <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">Finanzas Personales</h1>
+          <p className="text-muted-foreground mt-2">Tu centro de mando financiero</p>
+        </header>
           <div className='flex items-center gap-2'>
               <Dialog open={isLoanDialogOpen} onOpenChange={setIsLoanDialogOpen}>
                   <DialogTrigger asChild>
@@ -899,22 +898,21 @@ export default function Finance() {
           </DialogContent>
         </Dialog>
 
-        {/* Revert Transaction Dialog */}
-        <AlertDialog open={isRevertDialogOpen} onOpenChange={setIsRevertDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Revertir transacción?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción eliminará la transacción "{transactionToRevert?.description}" y restaurará el balance de la billetera. Esta acción no se puede deshacer.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleRevertTransaction}>Revertir</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+      {/* Revert Transaction Dialog */}
+      <AlertDialog open={isRevertDialogOpen} onOpenChange={setIsRevertDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Revertir transacción?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará la transacción "{transactionToRevert?.description}" y restaurará el balance de la billetera. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRevertTransaction}>Revertir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
