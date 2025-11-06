@@ -9,6 +9,8 @@ import NotFound from "./pages/NotFound";
 import ControlRoom from "./pages/ControlRoom";
 import Habits from "./pages/Habits";
 import DailyRoutine from "./pages/DailyRoutine";
+import ActivationRoutine from "./pages/ActivationRoutine";
+import DeactivationRoutine from "./pages/DeactivationRoutine";
 import Finance from "./pages/Finance";
 import Projects from "./pages/Projects";
 import Tasks from "./pages/Tasks";
@@ -36,6 +38,9 @@ const App = () => (
           <Route path="/control-room" element={<ControlRoom />} />
           <Route path="/habits" element={<Habits />} />
           <Route path="/routine" element={<DailyRoutine />} />
+          <Route path="/daily-routine" element={<DailyRoutine />} />
+          <Route path="/activation-routine" element={<ActivationRoutine />} />
+          <Route path="/deactivation-routine" element={<DeactivationRoutine />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/tasks" element={<Tasks />} />
