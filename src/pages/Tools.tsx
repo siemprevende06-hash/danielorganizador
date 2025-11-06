@@ -72,22 +72,22 @@ export default function ToolsPage() {
           <CardTitle>Mi Mujer Ideal</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {visionCards.map((card) => (
               <div key={card.id} className="relative">
                 <label
                   htmlFor={`upload-${card.id}`}
-                  className={`block aspect-square rounded-lg border-2 cursor-pointer transition-all ${
+                  className={`block aspect-square rounded-lg border-2 cursor-pointer transition-all overflow-hidden ${
                     card.checked
                       ? 'border-green-500 ring-2 ring-green-500'
                       : 'border-border hover:border-primary'
-                  } ${!card.image ? 'bg-accent' : ''}`}
+                  } ${!card.image ? 'bg-accent' : 'bg-muted'}`}
                 >
                   {card.image ? (
                     <img
                       src={card.image}
                       alt={`Vision ${card.id}`}
-                      className="w-full h-full object-cover rounded-lg"
+                      className="w-full h-full object-contain"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
