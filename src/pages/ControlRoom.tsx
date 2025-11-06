@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { isToday, parseISO, format, formatISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
-import { VisionBoardGrid } from '@/components/VisionBoardGrid';
+import { VisionGoalsBoard } from '@/components/VisionGoalsBoard';
 import type { Task, HabitHistory, MonthlyGoal, QuarterlyGoal, LifeArea } from '@/lib/definitions';
 import { lifeAreas, centralAreas, socialAreas, habits, quarterlyGoals as initialQuarterlyGoals } from '@/lib/data';
 import { flattenAreas, findAreaById, getAllSubAreaIds, getEffortLevel } from '@/lib/utils';
@@ -625,10 +625,10 @@ export default function ControlRoom() {
       <Card>
         <CardHeader>
           <CardTitle>Tablero de Visión</CardTitle>
-          <CardDescription>Sube imágenes inspiradoras y márcalas cuando las logres. Cada tarjeta con checkbox se pone verde al completarla.</CardDescription>
+          <CardDescription>Define tus metas y marca tu nivel de logro: Mínimo, Normal o Máximo</CardDescription>
         </CardHeader>
         <CardContent>
-          <VisionBoardGrid />
+          <VisionGoalsBoard />
         </CardContent>
       </Card>
 
