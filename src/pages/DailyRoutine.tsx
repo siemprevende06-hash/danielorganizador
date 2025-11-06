@@ -15,6 +15,7 @@ interface RoutineBlock {
   currentStreak: number;
   maxStreak: number;
   weeklyCompletion: boolean[];
+  coverImage?: string;
 }
 
 const DailyRoutine = () => {

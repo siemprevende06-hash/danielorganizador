@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Trophy, Clock } from "lucide-react";
+import { CheckCircle2, Flame, Trophy, Clock, ImagePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RoutineBlock {
@@ -18,6 +18,7 @@ interface RoutineBlock {
   currentStreak: number;
   maxStreak: number;
   weeklyCompletion: boolean[];
+  coverImage?: string;
 }
 
 interface RoutineBlockCardProps {
@@ -30,6 +31,8 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
   const [specificTask, setSpecificTask] = useState(block.specificTask || "");
   const [completedGenericTasks, setCompletedGenericTasks] = useState<Set<number>>(new Set());
   const [timeProgress, setTimeProgress] = useState(0);
+  const [coverImage, setCoverImage] = useState(block.coverImage || "");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const calculateProgress = () => {
@@ -71,6 +74,24 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
     onUpdate({ ...block, specificTask: value });
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const imageUrl = reader.result as string;
+        setCoverImage(imageUrl);
+        onUpdate({ ...block, coverImage: imageUrl });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeCoverImage = () => {
+    setCoverImage("");
+    onUpdate({ ...block, coverImage: "" });
+  };
+
   const isBlockComplete = () => {
     const hasSpecificTask = specificTask.trim() !== "";
     const allGenericComplete = !block.genericTasks || 
@@ -80,7 +101,24 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
   };
 
   return (
-    <Card className="hover:shadow-lg transition-all">
+    <Card className="hover:shadow-lg transition-all overflow-hidden">
+      {coverImage && (
+        <div className="relative w-full h-32 overflow-hidden">
+          <img 
+            src={coverImage} 
+            alt={`${block.title} cover`}
+            className="w-full h-full object-cover"
+          />
+          <Button
+            variant="destructive"
+            size="icon"
+            className="absolute top-2 right-2 h-6 w-6"
+            onClick={removeCoverImage}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -103,6 +141,26 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Cover Image Upload */}
+        {!coverImage && (
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full"
+            >
+              <ImagePlus className="h-4 w-4 mr-2" />
+              Agregar Portada
+            </Button>
+          </div>
+        )}
         {/* Time Progress */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-muted-foreground">
