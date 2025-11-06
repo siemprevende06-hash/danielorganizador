@@ -19,6 +19,7 @@ interface RoutineBlock {
   maxStreak: number;
   weeklyCompletion: boolean[];
   coverImage?: string;
+  isHalfTime?: boolean;
 }
 
 interface RoutineBlockCardProps {
@@ -47,7 +48,16 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
       if (currentMinutes < startMinutes) return 0;
       if (currentMinutes > endMinutes) return 100;
       
-      const progress = ((currentMinutes - startMinutes) / (endMinutes - startMinutes)) * 100;
+      const totalDuration = endMinutes - startMinutes;
+      const activeDuration = block.isHalfTime ? totalDuration / 2 : totalDuration;
+      const elapsed = currentMinutes - startMinutes;
+      
+      // If in half time mode and past the active duration, cap at 50%
+      if (block.isHalfTime && elapsed > activeDuration) {
+        return 50;
+      }
+      
+      const progress = ((elapsed) / (totalDuration)) * 100;
       return Math.min(100, Math.max(0, progress));
     };
 
@@ -57,7 +67,7 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
     }, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [block.startTime, block.endTime]);
+  }, [block.startTime, block.endTime, block.isHalfTime]);
 
   const toggleGenericTask = (index: number) => {
     const newCompleted = new Set(completedGenericTasks);
@@ -164,10 +174,31 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
         {/* Time Progress */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>Progreso en tiempo real</span>
+            <span>Progreso en tiempo real {block.isHalfTime && "(Modo reducido)"}</span>
             <span>{Math.round(timeProgress)}%</span>
           </div>
-          <Progress value={timeProgress} className="h-2" />
+          {block.isHalfTime ? (
+            <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+              {/* Active time - first 50% */}
+              <div
+                className="absolute h-full bg-primary transition-all"
+                style={{ 
+                  width: `${Math.min(timeProgress * 2, 50)}%`,
+                  left: 0 
+                }}
+              />
+              {/* Rest time - second 50% */}
+              <div
+                className="absolute h-full bg-blue-500/50 transition-all"
+                style={{ 
+                  width: '50%',
+                  left: '50%' 
+                }}
+              />
+            </div>
+          ) : (
+            <Progress value={timeProgress} className="h-2" />
+          )}
         </div>
 
         {/* Specific Task Input */}

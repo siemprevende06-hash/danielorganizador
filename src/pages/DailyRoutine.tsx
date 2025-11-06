@@ -3,7 +3,9 @@ import { RoutineBlockCard } from "@/components/RoutineBlockCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, Battery, Dumbbell, Briefcase } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface RoutineBlock {
   id: string;
@@ -16,10 +18,14 @@ interface RoutineBlock {
   maxStreak: number;
   weeklyCompletion: boolean[];
   coverImage?: string;
+  isHalfTime?: boolean;
 }
+
+type EnergyMode = "normal" | "lowEnergy" | "gymHalf" | "entrepreneurshipHalf";
 
 const DailyRoutine = () => {
   const [blocks, setBlocks] = useState<RoutineBlock[]>([]);
+  const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
 
   useEffect(() => {
     const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
@@ -93,6 +99,30 @@ const DailyRoutine = () => {
   }).length;
   const progressPercentage = blocks.length > 0 ? (completedBlocks / blocks.length) * 100 : 0;
 
+  const toggleEnergyMode = (mode: EnergyMode) => {
+    if (energyMode === mode) {
+      setEnergyMode("normal");
+      // Reset all blocks to normal
+      setBlocks(blocks.map(block => ({ ...block, isHalfTime: false })));
+    } else {
+      setEnergyMode(mode);
+      // Apply half time to specific blocks based on mode
+      setBlocks(blocks.map(block => {
+        let shouldHalf = false;
+        
+        if (mode === "lowEnergy" && block.title === "Idiomas") {
+          shouldHalf = true;
+        } else if (mode === "gymHalf" && block.title === "Gym") {
+          shouldHalf = true;
+        } else if (mode === "entrepreneurshipHalf" && block.title === "Focus Emprendimiento") {
+          shouldHalf = true;
+        }
+        
+        return { ...block, isHalfTime: shouldHalf };
+      }));
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-24 space-y-8">
       <header>
@@ -103,6 +133,32 @@ const DailyRoutine = () => {
           5:00 AM - 9:00 PM | Bloques estructurados para máxima productividad
         </p>
       </header>
+
+      {/* Energy Mode Buttons */}
+      <div className="flex flex-wrap gap-3">
+        <Button
+          variant={energyMode === "lowEnergy" ? "default" : "outline"}
+          onClick={() => toggleEnergyMode("lowEnergy")}
+          className={cn("transition-all")}
+        >
+          <Battery className="h-4 w-4 mr-2" />
+          Mínimo por Energía
+        </Button>
+        <Button
+          variant={energyMode === "gymHalf" ? "default" : "outline"}
+          onClick={() => toggleEnergyMode("gymHalf")}
+        >
+          <Dumbbell className="h-4 w-4 mr-2" />
+          Gym Reducido
+        </Button>
+        <Button
+          variant={energyMode === "entrepreneurshipHalf" ? "default" : "outline"}
+          onClick={() => toggleEnergyMode("entrepreneurshipHalf")}
+        >
+          <Briefcase className="h-4 w-4 mr-2" />
+          Emprendimiento Reducido
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
