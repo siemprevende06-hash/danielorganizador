@@ -16,7 +16,7 @@ export default function ToolsPage() {
     if (stored) {
       setVisionCards(JSON.parse(stored));
     } else {
-      const initialCards = Array.from({ length: 18 }, (_, i) => ({
+      const initialCards = Array.from({ length: 24 }, (_, i) => ({
         id: `card-${i}`,
         checked: false,
       }));
@@ -72,7 +72,7 @@ export default function ToolsPage() {
           <CardTitle>Mi Mujer Ideal</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-3 gap-6">
             {visionCards.map((card) => (
               <div key={card.id} className="relative">
                 <label
