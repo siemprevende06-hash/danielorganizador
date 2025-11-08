@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isToday } from "date-fns";
-import { lifeAreas, centralAreas, focusedDayRoutine } from "@/lib/data";
-import type { Task, RoutineTaskGroup } from "@/lib/definitions";
+import { lifeAreas, centralAreas } from "@/lib/data";
+import type { Task } from "@/lib/definitions";
 import { Plus, Clock, X } from "lucide-react";
 import {
   Dialog,
@@ -21,93 +21,68 @@ interface TaskWithBlock extends Task {
   blockId?: string;
 }
 
+interface RoutineBlock {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  specificTask?: string;
+  genericTasks?: string[];
+  currentStreak: number;
+  maxStreak: number;
+  weeklyCompletion: boolean[];
+  coverImage?: string;
+  isHalfTime?: boolean;
+}
+
 interface TimeWindow {
   id: string;
   title: string;
   startTime: string;
   endTime: string;
-  blocks: RoutineTaskGroup[];
+  blocks: RoutineBlock[];
 }
 
 export default function Index() {
   const [tasks, setTasks] = useState<TaskWithBlock[]>([]);
+  const [routineBlocks, setRoutineBlocks] = useState<RoutineBlock[]>([]);
   const [blockTasks, setBlockTasks] = useState<{ [blockId: string]: string[] }>({});
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
-  // Define time windows with their blocks
-  const timeWindows: TimeWindow[] = [
-    {
-      id: "morning",
-      title: "Activación Matinal",
-      startTime: "5:00 AM",
-      endTime: "9:00 AM",
-      blocks: focusedDayRoutine.filter(
-        block => 
-          block.id === "wake-up" ||
-          block.id === "morning-routine" ||
-          block.id === "breakfast" ||
-          block.id === "planning" ||
-          block.id === "morning-study"
-      ),
-    },
-    {
-      id: "deep-work-morning",
-      title: "Trabajo Profundo - Mañana",
-      startTime: "9:00 AM",
-      endTime: "1:20 PM",
-      blocks: focusedDayRoutine.filter(
-        block =>
-          block.id === "deep-work-block-1" ||
-          block.id === "break-1" ||
-          block.id === "deep-work-block-2" ||
-          block.id === "break-2" ||
-          block.id === "light-work"
-      ),
-    },
-    {
-      id: "afternoon",
-      title: "Tarde",
-      startTime: "2:00 PM",
-      endTime: "7:00 PM",
-      blocks: focusedDayRoutine.filter(
-        block =>
-          block.id === "lunch" ||
-          block.id === "rest" ||
-          block.id === "deep-work-block-3" ||
-          block.id === "break-3" ||
-          block.id === "deep-work-block-4" ||
-          block.id === "review"
-      ),
-    },
-    {
-      id: "evening",
-      title: "Rutina Vespertina",
-      startTime: "7:00 PM",
-      endTime: "9:00 PM",
-      blocks: focusedDayRoutine.filter(
-        block =>
-          block.id === "exercise" ||
-          block.id === "shower-evening" ||
-          block.id === "dinner" ||
-          block.id === "free-time"
-      ),
-    },
-    {
-      id: "night",
-      title: "Desactivación Nocturna",
-      startTime: "9:00 PM",
-      endTime: "11:00 PM",
-      blocks: focusedDayRoutine.filter(
-        block =>
-          block.id === "wind-down" ||
-          block.id === "night-routine"
-      ),
-    },
-  ];
-
   useEffect(() => {
     setIsClient(true);
+    
+    // Load routine blocks from localStorage (same as DailyRoutine page)
+    const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
+    if (storedBlocks) {
+      setRoutineBlocks(JSON.parse(storedBlocks));
+    } else {
+      const initialBlocks: RoutineBlock[] = [
+        { id: "1", title: "Rutina Activación", startTime: "05:00", endTime: "05:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "2", title: "Idiomas", startTime: "05:30", endTime: "06:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "3", title: "Gym", startTime: "06:00", endTime: "07:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "4", title: "Alistamiento y Desayuno", startTime: "07:00", endTime: "07:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "5", title: "Focus Emprendimiento", startTime: "07:30", endTime: "08:25", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "6", title: "Lectura", startTime: "08:25", endTime: "08:40", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "7", title: "Viaje a CUJAE (Podcast)", startTime: "08:40", endTime: "09:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "8", title: "1er Deep Work", startTime: "09:00", endTime: "10:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "9", title: "2do Deep Work", startTime: "10:30", endTime: "11:50", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "10", title: "3er Deep Work", startTime: "12:00", endTime: "13:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "11", title: "Almuerzo (Game y Ajedrez)", startTime: "13:20", endTime: "14:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "12", title: "4to Deep Work", startTime: "14:00", endTime: "15:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "13", title: "5to Deep Work", startTime: "15:30", endTime: "16:50", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "14", title: "Viaje a Casa (Podcast)", startTime: "16:50", endTime: "17:05", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "15", title: "Rutina de Llegada", startTime: "17:05", endTime: "17:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "16", title: "Focus Universidad", startTime: "17:30", endTime: "19:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "17", title: "Comida y Serie", startTime: "19:00", endTime: "19:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "18", title: "PS4", startTime: "19:30", endTime: "20:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "19", title: "Guitarra o Piano", startTime: "20:00", endTime: "20:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "20", title: "Rutina de Desactivación", startTime: "20:30", endTime: "21:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+      ];
+      setRoutineBlocks(initialBlocks);
+    }
+
     // Load tasks from localStorage
     const storedTasks = localStorage.getItem("tasks");
     if (storedTasks) {
@@ -132,6 +107,61 @@ export default function Index() {
       }
     }
   }, []);
+
+  // Define time windows with their blocks based on time ranges
+  const timeWindows: TimeWindow[] = [
+    {
+      id: "morning",
+      title: "Activación Matinal",
+      startTime: "5:00 AM",
+      endTime: "9:00 AM",
+      blocks: routineBlocks.filter(block => {
+        const hour = parseInt(block.startTime.split(':')[0]);
+        return hour >= 5 && hour < 9;
+      }),
+    },
+    {
+      id: "deep-work-morning",
+      title: "Trabajo Profundo - Mañana",
+      startTime: "9:00 AM",
+      endTime: "1:20 PM",
+      blocks: routineBlocks.filter(block => {
+        const hour = parseInt(block.startTime.split(':')[0]);
+        return hour >= 9 && hour < 14;
+      }),
+    },
+    {
+      id: "afternoon",
+      title: "Tarde",
+      startTime: "2:00 PM",
+      endTime: "7:00 PM",
+      blocks: routineBlocks.filter(block => {
+        const hour = parseInt(block.startTime.split(':')[0]);
+        return hour >= 14 && hour < 19;
+      }),
+    },
+    {
+      id: "evening",
+      title: "Rutina Vespertina",
+      startTime: "7:00 PM",
+      endTime: "9:00 PM",
+      blocks: routineBlocks.filter(block => {
+        const hour = parseInt(block.startTime.split(':')[0]);
+        return hour >= 19 && hour < 21;
+      }),
+    },
+    {
+      id: "night",
+      title: "Desactivación Nocturna",
+      startTime: "9:00 PM",
+      endTime: "11:00 PM",
+      blocks: routineBlocks.filter(block => {
+        const hour = parseInt(block.startTime.split(':')[0]);
+        return hour >= 20 && hour < 23;
+      }),
+    },
+  ];
+
 
   useEffect(() => {
     if (isClient) {
@@ -324,21 +354,13 @@ export default function Index() {
                 return (
                   <Card
                     key={block.id}
-                    className={cn(
-                      "transition-all hover:shadow-md",
-                      block.isFocusBlock && "border-primary bg-primary/5"
-                    )}
+                    className="transition-all hover:shadow-md"
                   >
                     <CardHeader className="pb-3">
                       <div className="space-y-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <CardTitle className="text-sm font-semibold leading-tight">
-                            {block.title}
-                          </CardTitle>
-                          {block.isFocusBlock && (
-                            <Badge variant="default" className="text-xs">Focus</Badge>
-                          )}
-                        </div>
+                        <CardTitle className="text-sm font-semibold leading-tight">
+                          {block.title}
+                        </CardTitle>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           {block.startTime} - {block.endTime}
@@ -346,17 +368,24 @@ export default function Index() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {/* Default tasks */}
-                      <div className="space-y-1">
-                        {block.tasks.map((task, idx) => (
-                          <div
-                            key={idx}
-                            className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded"
-                          >
-                            • {task}
-                          </div>
-                        ))}
-                      </div>
+                      {/* Block default info */}
+                      {block.specificTask && (
+                        <div className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded">
+                          • {block.specificTask}
+                        </div>
+                      )}
+                      {block.genericTasks && block.genericTasks.length > 0 && (
+                        <div className="space-y-1">
+                          {block.genericTasks.map((task, idx) => (
+                            <div
+                              key={idx}
+                              className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded"
+                            >
+                              • {task}
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Assigned tasks from today */}
                       {assignedTaskIds.length > 0 && (
