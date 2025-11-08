@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { isToday } from "date-fns";
 import { lifeAreas, centralAreas } from "@/lib/data";
 import type { Task } from "@/lib/definitions";
-import { Plus, Clock, X, ImagePlus } from "lucide-react";
+import { Plus, Clock, X, ImagePlus, Briefcase } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -423,7 +423,9 @@ export default function Index() {
                         <Button
                           variant={block.effortLevel === "minimum" ? "default" : "outline"}
                           size="sm"
-                          onClick={() => handleUpdateBlock(block.id, { effortLevel: "minimum" })}
+                          onClick={() => handleUpdateBlock(block.id, { 
+                            effortLevel: block.effortLevel === "minimum" ? undefined : "minimum" 
+                          })}
                           className={cn(
                             "flex-1 h-7 text-xs",
                             block.effortLevel === "minimum" && "bg-blue-500 hover:bg-blue-600"
@@ -432,12 +434,14 @@ export default function Index() {
                           Mín
                         </Button>
                         <Button
-                          variant={block.effortLevel === "normal" || !block.effortLevel ? "default" : "outline"}
+                          variant={block.effortLevel === "normal" ? "default" : "outline"}
                           size="sm"
-                          onClick={() => handleUpdateBlock(block.id, { effortLevel: "normal" })}
+                          onClick={() => handleUpdateBlock(block.id, { 
+                            effortLevel: block.effortLevel === "normal" ? undefined : "normal" 
+                          })}
                           className={cn(
                             "flex-1 h-7 text-xs",
-                            (block.effortLevel === "normal" || !block.effortLevel) && "bg-green-500 hover:bg-green-600"
+                            block.effortLevel === "normal" && "bg-green-500 hover:bg-green-600"
                           )}
                         >
                           Norm
@@ -445,7 +449,9 @@ export default function Index() {
                         <Button
                           variant={block.effortLevel === "maximum" ? "default" : "outline"}
                           size="sm"
-                          onClick={() => handleUpdateBlock(block.id, { effortLevel: "maximum" })}
+                          onClick={() => handleUpdateBlock(block.id, { 
+                            effortLevel: block.effortLevel === "maximum" ? undefined : "maximum" 
+                          })}
                           className={cn(
                             "flex-1 h-7 text-xs",
                             block.effortLevel === "maximum" && "bg-yellow-500 hover:bg-yellow-600"
@@ -614,6 +620,111 @@ export default function Index() {
             </div>
           </div>
         ))}
+      </section>
+
+      <Separator className="my-8" />
+
+      {/* Panel de Vida */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">Panel de Vida</h2>
+        
+        {/* Hábitos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Hábitos del Día</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(() => {
+              const habitBlocks = [
+                { id: "1", name: "Rutina de Activación", blockTitle: "Rutina Activación" },
+                { id: "4", name: "Alistamiento y Desayuno", blockTitle: "Alistamiento y Desayuno" },
+                { id: "15", name: "Rutina de Llegada", blockTitle: "Rutina de Llegada" },
+                { id: "20", name: "Rutina de Desactivación", blockTitle: "Bloque de Emergencia" },
+              ];
+
+              return habitBlocks.map(habit => {
+                const block = routineBlocks.find(b => b.id === habit.id);
+                const today = new Date().getDay();
+                const dayIndex = today === 0 ? 6 : today - 1;
+                const isCompleted = block?.weeklyCompletion[dayIndex] || false;
+
+                return (
+                  <div
+                    key={habit.id}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
+                      isCompleted ? "border-green-500 bg-green-500/10" : "border-border"
+                    )}
+                  >
+                    <span className="font-medium">{habit.name}</span>
+                    {isCompleted && (
+                      <Badge variant="default" className="bg-green-500">
+                        Completado
+                      </Badge>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </CardContent>
+        </Card>
+      </section>
+
+      <Separator className="my-8" />
+
+      {/* Panel de Control */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">Panel de Control</h2>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Profesional Académico</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(() => {
+              // Check if any entrepreneurship tasks are completed in any block
+              const entrepreneurshipBlocks = routineBlocks.filter(b => 
+                b.title.toLowerCase().includes("emprendimiento") ||
+                b.title.toLowerCase().includes("focus emprendimiento")
+              );
+
+              const hasEntrepreneurshipTasks = entrepreneurshipBlocks.some(block => {
+                const today = new Date().getDay();
+                const dayIndex = today === 0 ? 6 : today - 1;
+                return block.weeklyCompletion[dayIndex];
+              });
+
+              // Also check if there are assigned entrepreneurship tasks in blocks
+              const hasAssignedEntrepreneurshipTasks = Object.values(blockTasks).some(taskIds => 
+                taskIds.some(taskId => {
+                  const task = getTaskById(taskId);
+                  return task?.areaId === "proyectos-personales" && task.completed;
+                })
+              );
+
+              const isEntrepreneurshipCompleted = hasEntrepreneurshipTasks || hasAssignedEntrepreneurshipTasks;
+
+              return (
+                <div
+                  className={cn(
+                    "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
+                    isEntrepreneurshipCompleted ? "border-green-500 bg-green-500/10" : "border-border"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5" />
+                    <span className="font-medium">Emprendimiento</span>
+                  </div>
+                  {isEntrepreneurshipCompleted && (
+                    <Badge variant="default" className="bg-green-500">
+                      Completado
+                    </Badge>
+                  )}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
       </section>
     </div>
   );

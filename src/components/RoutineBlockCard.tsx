@@ -96,8 +96,8 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
     }
   };
 
-  const setEffortLevelHandler = (level: "minimum" | "normal" | "maximum") => {
-    setEffortLevel(level);
+  const setEffortLevelHandler = (level: "minimum" | "normal" | "maximum" | undefined) => {
+    setEffortLevel(level || "normal");
     onUpdate({ ...block, effortLevel: level });
   };
 
@@ -172,39 +172,39 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
         <div className="space-y-2">
           <label className="text-sm font-medium">Nivel de Esfuerzo</label>
           <div className="flex gap-2">
-            <Button
-              variant={effortLevel === "minimum" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEffortLevelHandler("minimum")}
-              className={cn(
-                "flex-1",
-                effortLevel === "minimum" && "bg-blue-500 hover:bg-blue-600"
-              )}
-            >
-              Mínimo
-            </Button>
-            <Button
-              variant={effortLevel === "normal" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEffortLevelHandler("normal")}
-              className={cn(
-                "flex-1",
-                effortLevel === "normal" && "bg-green-500 hover:bg-green-600"
-              )}
-            >
-              Normal
-            </Button>
-            <Button
-              variant={effortLevel === "maximum" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEffortLevelHandler("maximum")}
-              className={cn(
-                "flex-1",
-                effortLevel === "maximum" && "bg-yellow-500 hover:bg-yellow-600"
-              )}
-            >
-              Máximo
-            </Button>
+          <Button
+            variant={effortLevel === "minimum" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setEffortLevelHandler(effortLevel === "minimum" ? undefined : "minimum")}
+            className={cn(
+              "flex-1",
+              effortLevel === "minimum" && "bg-blue-500 hover:bg-blue-600"
+            )}
+          >
+            Mínimo
+          </Button>
+          <Button
+            variant={effortLevel === "normal" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setEffortLevelHandler(effortLevel === "normal" ? undefined : "normal")}
+            className={cn(
+              "flex-1",
+              effortLevel === "normal" && "bg-green-500 hover:bg-green-600"
+            )}
+          >
+            Normal
+          </Button>
+          <Button
+            variant={effortLevel === "maximum" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setEffortLevelHandler(effortLevel === "maximum" ? undefined : "maximum")}
+            className={cn(
+              "flex-1",
+              effortLevel === "maximum" && "bg-yellow-500 hover:bg-yellow-600"
+            )}
+          >
+            Máximo
+          </Button>
           </div>
         </div>
 
