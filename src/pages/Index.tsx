@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatISO, isToday, parseISO } from "date-fns";
+import { isToday } from "date-fns";
 import { lifeAreas, centralAreas, focusedDayRoutine } from "@/lib/data";
 import type { Task, RoutineTaskGroup } from "@/lib/definitions";
-import { Plus, Clock } from "lucide-react";
+import { Plus, Clock, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,16 +15,96 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 interface TaskWithBlock extends Task {
   blockId?: string;
 }
 
+interface TimeWindow {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  blocks: RoutineTaskGroup[];
+}
+
 export default function Index() {
   const [tasks, setTasks] = useState<TaskWithBlock[]>([]);
-  const [routineBlocks, setRoutineBlocks] = useState<RoutineTaskGroup[]>(focusedDayRoutine);
+  const [blockTasks, setBlockTasks] = useState<{ [blockId: string]: string[] }>({});
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+
+  // Define time windows with their blocks
+  const timeWindows: TimeWindow[] = [
+    {
+      id: "morning",
+      title: "Activación Matinal",
+      startTime: "5:00 AM",
+      endTime: "9:00 AM",
+      blocks: focusedDayRoutine.filter(
+        block => 
+          block.id === "wake-up" ||
+          block.id === "morning-routine" ||
+          block.id === "breakfast" ||
+          block.id === "planning" ||
+          block.id === "morning-study"
+      ),
+    },
+    {
+      id: "deep-work-morning",
+      title: "Trabajo Profundo - Mañana",
+      startTime: "9:00 AM",
+      endTime: "1:20 PM",
+      blocks: focusedDayRoutine.filter(
+        block =>
+          block.id === "deep-work-block-1" ||
+          block.id === "break-1" ||
+          block.id === "deep-work-block-2" ||
+          block.id === "break-2" ||
+          block.id === "light-work"
+      ),
+    },
+    {
+      id: "afternoon",
+      title: "Tarde",
+      startTime: "2:00 PM",
+      endTime: "7:00 PM",
+      blocks: focusedDayRoutine.filter(
+        block =>
+          block.id === "lunch" ||
+          block.id === "rest" ||
+          block.id === "deep-work-block-3" ||
+          block.id === "break-3" ||
+          block.id === "deep-work-block-4" ||
+          block.id === "review"
+      ),
+    },
+    {
+      id: "evening",
+      title: "Rutina Vespertina",
+      startTime: "7:00 PM",
+      endTime: "9:00 PM",
+      blocks: focusedDayRoutine.filter(
+        block =>
+          block.id === "exercise" ||
+          block.id === "shower-evening" ||
+          block.id === "dinner" ||
+          block.id === "free-time"
+      ),
+    },
+    {
+      id: "night",
+      title: "Desactivación Nocturna",
+      startTime: "9:00 PM",
+      endTime: "11:00 PM",
+      blocks: focusedDayRoutine.filter(
+        block =>
+          block.id === "wind-down" ||
+          block.id === "night-routine"
+      ),
+    },
+  ];
 
   useEffect(() => {
     setIsClient(true);
@@ -42,31 +122,22 @@ export default function Index() {
       }
     }
 
-    // Load routine blocks with tasks
-    const storedBlocks = localStorage.getItem("routineBlockTasks");
-    if (storedBlocks) {
+    // Load block tasks
+    const storedBlockTasks = localStorage.getItem("routineBlockTasks");
+    if (storedBlockTasks) {
       try {
-        const parsed = JSON.parse(storedBlocks);
-        setRoutineBlocks(focusedDayRoutine.map(block => ({
-          ...block,
-          tasks: parsed[block.id] || block.tasks
-        })));
+        setBlockTasks(JSON.parse(storedBlockTasks));
       } catch (e) {
-        console.error("Error loading routine blocks:", e);
+        console.error("Error loading block tasks:", e);
       }
     }
   }, []);
 
   useEffect(() => {
     if (isClient) {
-      // Save routine blocks to localStorage
-      const blockTasks: { [key: string]: string[] } = {};
-      routineBlocks.forEach(block => {
-        blockTasks[block.id] = block.tasks;
-      });
       localStorage.setItem("routineBlockTasks", JSON.stringify(blockTasks));
     }
-  }, [routineBlocks, isClient]);
+  }, [blockTasks, isClient]);
 
   if (!isClient) {
     return null;
@@ -97,7 +168,6 @@ export default function Index() {
       )
     );
 
-    // Update in localStorage
     const storedTasks = localStorage.getItem("tasks");
     if (storedTasks) {
       try {
@@ -118,36 +188,34 @@ export default function Index() {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
-    setRoutineBlocks(prev =>
-      prev.map(block =>
-        block.id === blockId
-          ? { ...block, tasks: [...block.tasks, task.title] }
-          : block
-      )
-    );
+    setBlockTasks(prev => ({
+      ...prev,
+      [blockId]: [...(prev[blockId] || []), task.id],
+    }));
     setSelectedBlock(null);
   };
 
-  const handleRemoveTaskFromBlock = (blockId: string, taskTitle: string) => {
-    setRoutineBlocks(prev =>
-      prev.map(block =>
-        block.id === blockId
-          ? { ...block, tasks: block.tasks.filter(t => t !== taskTitle) }
-          : block
-      )
-    );
+  const handleRemoveTaskFromBlock = (blockId: string, taskId: string) => {
+    setBlockTasks(prev => ({
+      ...prev,
+      [blockId]: (prev[blockId] || []).filter(id => id !== taskId),
+    }));
+  };
+
+  const getTaskById = (taskId: string) => {
+    return tasks.find(t => t.id === taskId);
   };
 
   const getPriorityColor = (priority?: 'low' | 'medium' | 'high') => {
     switch (priority) {
       case 'high':
-        return 'text-destructive';
+        return 'destructive';
       case 'medium':
-        return 'text-warning';
+        return 'default';
       case 'low':
-        return 'text-muted-foreground';
+        return 'secondary';
       default:
-        return 'text-foreground';
+        return 'secondary';
     }
   };
 
@@ -168,8 +236,8 @@ export default function Index() {
       </header>
 
       {/* Today's Tasks by Area */}
-      <section className="space-y-6">
-        <h2 className="text-2xl font-semibold">Tareas del Día</h2>
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">Tareas del Día por Área</h2>
         {tasksByArea.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -179,16 +247,16 @@ export default function Index() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {tasksByArea.map(({ area, tasks }) => {
               const Icon = area.icon;
               return (
                 <Card key={area.id}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Icon className="h-5 w-5" />
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Icon className="h-4 w-4" />
                       {area.name}
-                      <Badge variant="secondary" className="ml-auto">
+                      <Badge variant="secondary" className="ml-auto text-xs">
                         {tasks.length}
                       </Badge>
                     </CardTitle>
@@ -197,40 +265,31 @@ export default function Index() {
                     {tasks.map(task => (
                       <div
                         key={task.id}
-                        className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex items-start gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                       >
                         <Checkbox
                           checked={task.completed}
                           onCheckedChange={() => handleToggleTask(task.id)}
-                          className="mt-1"
+                          className="mt-0.5"
                         />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 min-w-0">
                           <p
                             className={cn(
-                              "font-medium",
-                              task.completed && "line-through text-muted-foreground",
-                              !task.completed && getPriorityColor(task.priority)
+                              "text-sm font-medium truncate",
+                              task.completed && "line-through text-muted-foreground"
                             )}
                           >
                             {task.title}
                           </p>
                           {task.description && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs text-muted-foreground truncate">
                               {task.description}
                             </p>
                           )}
                         </div>
                         {task.priority && (
-                          <Badge
-                            variant={
-                              task.priority === 'high'
-                                ? 'destructive'
-                                : task.priority === 'medium'
-                                ? 'default'
-                                : 'secondary'
-                            }
-                          >
-                            {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
+                          <Badge variant={getPriorityColor(task.priority)} className="text-xs">
+                            {task.priority === 'high' ? 'A' : task.priority === 'medium' ? 'M' : 'B'}
                           </Badge>
                         )}
                       </div>
@@ -243,92 +302,177 @@ export default function Index() {
         )}
       </section>
 
-      {/* Routine Blocks */}
-      <section className="space-y-6">
-        <h2 className="text-2xl font-semibold">Bloques de Rutina</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {routineBlocks.map(block => (
-            <Card
-              key={block.id}
-              className={cn(block.isFocusBlock && "border-primary")}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between text-lg">
-                  <span>{block.title}</span>
-                  {block.isFocusBlock && (
-                    <Badge variant="default">Focus</Badge>
-                  )}
-                </CardTitle>
-                {block.startTime && block.endTime && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {block.startTime} - {block.endTime}
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  {block.tasks.map((task, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
-                    >
-                      <span>{task}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveTaskFromBlock(block.id, task)}
-                        className="h-6 w-6 p-0"
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                <Dialog
-                  open={selectedBlock === block.id}
-                  onOpenChange={(open) => setSelectedBlock(open ? block.id : null)}
-                >
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full">
-                      <Plus className="h-4 w-4 mr-1" />
-                      Agregar Tarea
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>
-                        Agregar tarea a: {block.title}
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                      {todayTasks.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-4">
-                          No hay tareas disponibles para hoy
-                        </p>
-                      ) : (
-                        todayTasks.map(task => (
-                          <button
-                            key={task.id}
-                            onClick={() => handleAddTaskToBlock(task.id, block.id)}
-                            className="w-full text-left p-3 rounded-lg hover:bg-muted transition-colors"
+      <Separator className="my-8" />
+
+      {/* Time Windows with Routine Blocks */}
+      <section className="space-y-8">
+        <h2 className="text-2xl font-semibold">Rutina del Día</h2>
+        {timeWindows.map(window => (
+          <div key={window.id} className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="text-xl font-semibold">{window.title}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {window.startTime} - {window.endTime}
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {window.blocks.map(block => {
+                const assignedTaskIds = blockTasks[block.id] || [];
+                return (
+                  <Card
+                    key={block.id}
+                    className={cn(
+                      "transition-all hover:shadow-md",
+                      block.isFocusBlock && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-sm font-semibold leading-tight">
+                            {block.title}
+                          </CardTitle>
+                          {block.isFocusBlock && (
+                            <Badge variant="default" className="text-xs">Focus</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {block.startTime} - {block.endTime}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {/* Default tasks */}
+                      <div className="space-y-1">
+                        {block.tasks.map((task, idx) => (
+                          <div
+                            key={idx}
+                            className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded"
                           >
-                            <p className="font-medium">{task.title}</p>
-                            {task.description && (
-                              <p className="text-sm text-muted-foreground">
-                                {task.description}
-                              </p>
-                            )}
-                          </button>
-                        ))
+                            • {task}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Assigned tasks from today */}
+                      {assignedTaskIds.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Tareas asignadas:
+                          </p>
+                          {assignedTaskIds.map(taskId => {
+                            const task = getTaskById(taskId);
+                            if (!task) return null;
+                            return (
+                              <div
+                                key={taskId}
+                                className="flex items-start gap-2 p-2 bg-primary/10 rounded text-xs"
+                              >
+                                <span className="flex-1 font-medium">{task.title}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveTaskFromBlock(block.id, taskId)}
+                                  className="h-5 w-5 p-0 hover:bg-destructive/20"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+
+                      {/* Add task button */}
+                      <Dialog
+                        open={selectedBlock === block.id}
+                        onOpenChange={(open) => setSelectedBlock(open ? block.id : null)}
+                      >
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full h-8 text-xs">
+                            <Plus className="h-3 w-3 mr-1" />
+                            Asignar Tarea
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>
+                              Asignar tarea a: {block.title}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                            {tasksByArea.length === 0 ? (
+                              <p className="text-center text-muted-foreground py-8">
+                                No hay tareas disponibles para hoy
+                              </p>
+                            ) : (
+                              tasksByArea.map(({ area, tasks }) => {
+                                const Icon = area.icon;
+                                return (
+                                  <div key={area.id} className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm font-semibold sticky top-0 bg-background py-2">
+                                      <Icon className="h-4 w-4" />
+                                      {area.name}
+                                    </div>
+                                    <div className="space-y-1">
+                                      {tasks.map(task => {
+                                        const isAssigned = assignedTaskIds.includes(task.id);
+                                        return (
+                                          <button
+                                            key={task.id}
+                                            onClick={() => !isAssigned && handleAddTaskToBlock(task.id, block.id)}
+                                            disabled={isAssigned}
+                                            className={cn(
+                                              "w-full text-left p-3 rounded-lg transition-colors",
+                                              isAssigned 
+                                                ? "bg-muted/50 cursor-not-allowed opacity-50" 
+                                                : "hover:bg-muted cursor-pointer"
+                                            )}
+                                          >
+                                            <div className="flex items-start justify-between gap-2">
+                                              <div className="flex-1">
+                                                <p className="font-medium text-sm">{task.title}</p>
+                                                {task.description && (
+                                                  <p className="text-xs text-muted-foreground mt-1">
+                                                    {task.description}
+                                                  </p>
+                                                )}
+                                              </div>
+                                              <div className="flex gap-1">
+                                                {task.priority && (
+                                                  <Badge variant={getPriorityColor(task.priority)} className="text-xs">
+                                                    {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
+                                                  </Badge>
+                                                )}
+                                                {isAssigned && (
+                                                  <Badge variant="secondary" className="text-xs">
+                                                    Asignada
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </section>
     </div>
   );
