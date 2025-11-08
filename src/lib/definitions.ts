@@ -4,6 +4,7 @@ export interface Habit {
   id: string;
   title: string;
   areaId: string;
+  icon: LucideIcon;
   effortLevels?: {
     name: string;
     minDuration: number;
@@ -43,6 +44,11 @@ export interface HabitEntry {
     classesAttended?: number;
     totalClasses?: number;
     studyTime?: number;
+    morningRoutine?: boolean;
+    nightRoutine?: boolean;
+    cleanClothes?: boolean;
+    hairGroomed?: boolean;
+    perfumeApplied?: boolean;
   };
 }
 

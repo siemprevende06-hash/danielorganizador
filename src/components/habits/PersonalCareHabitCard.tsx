@@ -1,25 +1,29 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Check, X, Flame, Award, Clock } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { Habit, HabitHistory } from "@/lib/definitions";
 import { formatISO } from "date-fns";
-import { WeekdayCircle } from "./habits/WeekdayCircle";
-import { getWeekDates, getTodayCompletion, getTodayDuration } from "@/lib/habitUtils";
+import { WeekdayCircle } from "./WeekdayCircle";
+import { getWeekDates, getTodayCompletion } from "@/lib/habitUtils";
+import { Flame, Award } from "lucide-react";
 
-interface HabitCardProps {
+interface PersonalCareHabitCardProps {
   habit: Habit;
   habitHistory: HabitHistory;
-  onUpdateStatus: (habitId: string, status: "completed" | "failed") => void;
+  onToggleClothes: (habitId: string) => void;
+  onToggleHair: (habitId: string) => void;
+  onTogglePerfume: (habitId: string) => void;
   onClick: () => void;
 }
 
-export const HabitCard = ({
+export const PersonalCareHabitCard = ({
   habit,
   habitHistory,
-  onUpdateStatus,
+  onToggleClothes,
+  onToggleHair,
+  onTogglePerfume,
   onClick,
-}: HabitCardProps) => {
+}: PersonalCareHabitCardProps) => {
   const todayStr = formatISO(new Date(), { representation: "date" });
   const history = habitHistory[habit.id] || {
     completedDates: [],
@@ -28,19 +32,20 @@ export const HabitCard = ({
   };
 
   const todayEntry = getTodayCompletion(history, todayStr);
-  const todayStatus = todayEntry?.status;
-  const todayDuration = getTodayDuration(history, todayStr);
-  const Icon = habit.icon;
+  const clothesDone = todayEntry?.healthMetrics?.cleanClothes || false;
+  const hairDone = todayEntry?.healthMetrics?.hairGroomed || false;
+  const perfumeDone = todayEntry?.healthMetrics?.perfumeApplied || false;
 
+  const Icon = habit.icon;
   const weekDates = getWeekDates();
 
   return (
     <Card
-      className="cursor-pointer hover:shadow-lg transition-all overflow-hidden"
+      className="cursor-pointer hover:shadow-lg transition-all"
       onClick={onClick}
     >
       {/* Cover Image */}
-      <div className="h-32 bg-gradient-to-br from-primary to-primary/50 rounded-t-lg" />
+      <div className="h-32 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-t-lg" />
 
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
@@ -48,7 +53,7 @@ export const HabitCard = ({
           <h3 className="font-semibold text-lg">{habit.title}</h3>
         </div>
 
-        {/* Streaks and Duration */}
+        {/* Streaks */}
         <div className="flex items-center gap-4 text-sm mt-2">
           <div className="flex items-center gap-1">
             <Flame className="h-4 w-4 text-orange-500" />
@@ -57,10 +62,6 @@ export const HabitCard = ({
           <div className="flex items-center gap-1">
             <Award className="h-4 w-4 text-yellow-500" />
             <span className="font-medium">{history.longestStreak}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock className="h-4 w-4 text-blue-500" />
-            <span className="font-medium">{todayDuration} min</span>
           </div>
         </div>
       </CardHeader>
@@ -76,33 +77,32 @@ export const HabitCard = ({
           })}
         </div>
 
-        {/* Action Buttons */}
+        {/* Checkboxes */}
         <div
-          className="flex gap-2"
+          className="space-y-2"
           onClick={(e) => e.stopPropagation()}
         >
-          <Button
-            variant={todayStatus === "completed" ? "default" : "outline"}
-            className={cn(
-              "flex-1",
-              todayStatus === "completed" && "bg-green-500 hover:bg-green-600"
-            )}
-            onClick={() => onUpdateStatus(habit.id, "completed")}
-          >
-            <Check className="h-4 w-4 mr-1" />
-            Completado
-          </Button>
-          <Button
-            variant={todayStatus === "failed" ? "default" : "outline"}
-            className={cn(
-              "flex-1",
-              todayStatus === "failed" && "bg-destructive hover:bg-destructive/90"
-            )}
-            onClick={() => onUpdateStatus(habit.id, "failed")}
-          >
-            <X className="h-4 w-4 mr-1" />
-            Fallado
-          </Button>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={clothesDone}
+              onCheckedChange={() => onToggleClothes(habit.id)}
+            />
+            <span className="text-sm">Ropa Limpia</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={hairDone}
+              onCheckedChange={() => onToggleHair(habit.id)}
+            />
+            <span className="text-sm">Pelo Arreglado</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={perfumeDone}
+              onCheckedChange={() => onTogglePerfume(habit.id)}
+            />
+            <span className="text-sm">Perfume Aplicado</span>
+          </div>
         </div>
       </CardContent>
     </Card>
