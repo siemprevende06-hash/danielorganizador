@@ -52,8 +52,9 @@ const DailyRoutine = () => {
         { id: "17", title: "Comida y Serie", startTime: "19:00", endTime: "19:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
         { id: "18", title: "PS4", startTime: "19:30", endTime: "20:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
         { id: "19", title: "Guitarra o Piano", startTime: "20:00", endTime: "20:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "20", title: "Rutina de Desactivación", startTime: "20:30", endTime: "21:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "21", title: "Sueño", startTime: "21:00", endTime: "04:55", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "20", title: "Bloque de Emergencia", startTime: "20:30", endTime: "21:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "21", title: "Emergencia Deep Work", startTime: "21:00", endTime: "23:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "22", title: "Sueño", startTime: "23:00", endTime: "04:55", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
       ];
       setBlocks(initialBlocks);
       localStorage.setItem('dailyRoutineBlocks', JSON.stringify(initialBlocks));

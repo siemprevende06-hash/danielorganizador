@@ -20,6 +20,7 @@ interface RoutineBlock {
   weeklyCompletion: boolean[];
   coverImage?: string;
   isHalfTime?: boolean;
+  effortLevel?: "minimum" | "normal" | "maximum";
 }
 
 interface RoutineBlockCardProps {
@@ -33,6 +34,7 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
   const [completedGenericTasks, setCompletedGenericTasks] = useState<Set<number>>(new Set());
   const [timeProgress, setTimeProgress] = useState(0);
   const [coverImage, setCoverImage] = useState(block.coverImage || "");
+  const [effortLevel, setEffortLevel] = useState<"minimum" | "normal" | "maximum">(block.effortLevel || "normal");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -87,14 +89,16 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const imageUrl = reader.result as string;
-        setCoverImage(imageUrl);
-        onUpdate({ ...block, coverImage: imageUrl });
-      };
-      reader.readAsDataURL(file);
+      // Use createObjectURL instead of base64 to avoid localStorage size issues
+      const imageUrl = URL.createObjectURL(file);
+      setCoverImage(imageUrl);
+      onUpdate({ ...block, coverImage: imageUrl });
     }
+  };
+
+  const setEffortLevelHandler = (level: "minimum" | "normal" | "maximum") => {
+    setEffortLevel(level);
+    onUpdate({ ...block, effortLevel: level });
   };
 
   const removeCoverImage = () => {
@@ -110,8 +114,19 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
     return hasSpecificTask && allGenericComplete;
   };
 
+  const getBorderColor = () => {
+    switch (effortLevel) {
+      case "minimum":
+        return "border-blue-500";
+      case "maximum":
+        return "border-yellow-500";
+      default:
+        return "border-green-500";
+    }
+  };
+
   return (
-    <Card className="hover:shadow-lg transition-all overflow-hidden">
+    <Card className={cn("hover:shadow-lg transition-all overflow-hidden border-2", getBorderColor())}>
       {coverImage && (
         <div className="relative w-full h-32 overflow-hidden">
           <img 
@@ -151,6 +166,46 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Effort Level Buttons */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Nivel de Esfuerzo</label>
+          <div className="flex gap-2">
+            <Button
+              variant={effortLevel === "minimum" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEffortLevelHandler("minimum")}
+              className={cn(
+                "flex-1",
+                effortLevel === "minimum" && "bg-blue-500 hover:bg-blue-600"
+              )}
+            >
+              Mínimo
+            </Button>
+            <Button
+              variant={effortLevel === "normal" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEffortLevelHandler("normal")}
+              className={cn(
+                "flex-1",
+                effortLevel === "normal" && "bg-green-500 hover:bg-green-600"
+              )}
+            >
+              Normal
+            </Button>
+            <Button
+              variant={effortLevel === "maximum" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEffortLevelHandler("maximum")}
+              className={cn(
+                "flex-1",
+                effortLevel === "maximum" && "bg-yellow-500 hover:bg-yellow-600"
+              )}
+            >
+              Máximo
+            </Button>
+          </div>
+        </div>
+
         {/* Cover Image Upload */}
         {!coverImage && (
           <div>
