@@ -253,10 +253,12 @@ export default function Index() {
     switch (effortLevel) {
       case "minimum":
         return "border-blue-500";
+      case "normal":
+        return "border-green-500";
       case "maximum":
         return "border-yellow-500";
       default:
-        return "border-green-500";
+        return "border-border"; // Default white/neutral border
     }
   };
 
