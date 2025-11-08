@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { isToday } from "date-fns";
 import { lifeAreas, centralAreas } from "@/lib/data";
 import type { Task } from "@/lib/definitions";
-import { Plus, Clock, X } from "lucide-react";
+import { Plus, Clock, X, ImagePlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ interface RoutineBlock {
   weeklyCompletion: boolean[];
   coverImage?: string;
   isHalfTime?: boolean;
+  effortLevel?: "minimum" | "normal" | "maximum";
 }
 
 interface TimeWindow {
@@ -78,7 +79,9 @@ export default function Index() {
         { id: "17", title: "Comida y Serie", startTime: "19:00", endTime: "19:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
         { id: "18", title: "PS4", startTime: "19:30", endTime: "20:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
         { id: "19", title: "Guitarra o Piano", startTime: "20:00", endTime: "20:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "20", title: "Rutina de Desactivación", startTime: "20:30", endTime: "21:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "20", title: "Bloque de Emergencia", startTime: "20:30", endTime: "21:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "21", title: "Emergencia Deep Work", startTime: "21:00", endTime: "23:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "22", title: "Sueño", startTime: "23:00", endTime: "04:55", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
       ];
       setRoutineBlocks(initialBlocks);
     }
@@ -152,7 +155,7 @@ export default function Index() {
     },
     {
       id: "night",
-      title: "Desactivación Nocturna",
+      title: "Bloques de Emergencia",
       startTime: "9:00 PM",
       endTime: "11:00 PM",
       blocks: routineBlocks.filter(block => {
@@ -230,6 +233,31 @@ export default function Index() {
       ...prev,
       [blockId]: (prev[blockId] || []).filter(id => id !== taskId),
     }));
+  };
+
+  const handleUpdateBlock = (blockId: string, updates: Partial<RoutineBlock>) => {
+    setRoutineBlocks(prev => prev.map(block => 
+      block.id === blockId ? { ...block, ...updates } : block
+    ));
+    localStorage.setItem('dailyRoutineBlocks', JSON.stringify(
+      routineBlocks.map(block => block.id === blockId ? { ...block, ...updates } : block)
+    ));
+  };
+
+  const handleImageUpload = (blockId: string, file: File) => {
+    const imageUrl = URL.createObjectURL(file);
+    handleUpdateBlock(blockId, { coverImage: imageUrl });
+  };
+
+  const getBorderColor = (effortLevel?: "minimum" | "normal" | "maximum") => {
+    switch (effortLevel) {
+      case "minimum":
+        return "border-blue-500";
+      case "maximum":
+        return "border-yellow-500";
+      default:
+        return "border-green-500";
+    }
   };
 
   const getTaskById = (taskId: string) => {
@@ -354,8 +382,28 @@ export default function Index() {
                 return (
                   <Card
                     key={block.id}
-                    className="transition-all hover:shadow-md"
+                    className={cn(
+                      "transition-all hover:shadow-md border-2 overflow-hidden",
+                      getBorderColor(block.effortLevel)
+                    )}
                   >
+                    {block.coverImage && (
+                      <div className="relative w-full h-24 overflow-hidden">
+                        <img 
+                          src={block.coverImage} 
+                          alt={`${block.title} cover`}
+                          className="w-full h-full object-cover"
+                        />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-5 w-5"
+                          onClick={() => handleUpdateBlock(block.id, { coverImage: "" })}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
                     <CardHeader className="pb-3">
                       <div className="space-y-1">
                         <CardTitle className="text-sm font-semibold leading-tight">
@@ -368,6 +416,68 @@ export default function Index() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
+                      {/* Effort Level Buttons */}
+                      <div className="flex gap-1">
+                        <Button
+                          variant={block.effortLevel === "minimum" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleUpdateBlock(block.id, { effortLevel: "minimum" })}
+                          className={cn(
+                            "flex-1 h-7 text-xs",
+                            block.effortLevel === "minimum" && "bg-blue-500 hover:bg-blue-600"
+                          )}
+                        >
+                          Mín
+                        </Button>
+                        <Button
+                          variant={block.effortLevel === "normal" || !block.effortLevel ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleUpdateBlock(block.id, { effortLevel: "normal" })}
+                          className={cn(
+                            "flex-1 h-7 text-xs",
+                            (block.effortLevel === "normal" || !block.effortLevel) && "bg-green-500 hover:bg-green-600"
+                          )}
+                        >
+                          Norm
+                        </Button>
+                        <Button
+                          variant={block.effortLevel === "maximum" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleUpdateBlock(block.id, { effortLevel: "maximum" })}
+                          className={cn(
+                            "flex-1 h-7 text-xs",
+                            block.effortLevel === "maximum" && "bg-yellow-500 hover:bg-yellow-600"
+                          )}
+                        >
+                          Máx
+                        </Button>
+                      </div>
+
+                      {/* Cover Image Upload */}
+                      {!block.coverImage && (
+                        <div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleImageUpload(block.id, file);
+                            }}
+                            className="hidden"
+                            id={`upload-${block.id}`}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById(`upload-${block.id}`)?.click()}
+                            className="w-full h-7 text-xs"
+                          >
+                            <ImagePlus className="h-3 w-3 mr-1" />
+                            Portada
+                          </Button>
+                        </div>
+                      )}
+
                       {/* Block default info */}
                       {block.specificTask && (
                         <div className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded">
