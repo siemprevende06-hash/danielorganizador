@@ -23,6 +23,7 @@ interface StudySession {
   duration: string;
   date: string;
   completed: boolean;
+  dueDate?: string;
 }
 
 interface Subject {
@@ -41,8 +42,10 @@ export default function UniversityPage() {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
   const [isStudyDialogOpen, setIsStudyDialogOpen] = useState(false);
+  const [isEditStudyDialogOpen, setIsEditStudyDialogOpen] = useState(false);
   const [currentSubject, setCurrentSubject] = useState<Subject | null>(null);
   const [currentTask, setCurrentTask] = useState<SubjectTask | null>(null);
+  const [currentStudySession, setCurrentStudySession] = useState<StudySession | null>(null);
   const [subjectName, setSubjectName] = useState('');
   const [subjectCode, setSubjectCode] = useState('');
   const [professor, setProfessor] = useState('');
@@ -53,6 +56,7 @@ export default function UniversityPage() {
   const [studyTopic, setStudyTopic] = useState('');
   const [studyDuration, setStudyDuration] = useState('');
   const [studyDate, setStudyDate] = useState('');
+  const [studyDueDate, setStudyDueDate] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -203,14 +207,45 @@ export default function UniversityPage() {
       duration: studyDuration,
       date: studyDate,
       completed: false,
+      dueDate: studyDueDate || undefined,
     };
 
     setStudySessions(prev => [...prev, newSession]);
     setStudyTopic('');
     setStudyDuration('');
     setStudyDate('');
+    setStudyDueDate('');
     setIsStudyDialogOpen(false);
     toast({ title: 'Tiempo de estudio creado' });
+  };
+
+  const handleEditStudySession = (session: StudySession) => {
+    setCurrentStudySession(session);
+    setStudyTopic(session.topic);
+    setStudyDuration(session.duration);
+    setStudyDate(session.date);
+    setStudyDueDate(session.dueDate || '');
+    setIsEditStudyDialogOpen(true);
+  };
+
+  const handleUpdateStudySession = () => {
+    if (!currentStudySession || !studyTopic.trim() || !studyDuration.trim()) return;
+
+    setStudySessions(prev =>
+      prev.map(s =>
+        s.id === currentStudySession.id
+          ? { ...s, topic: studyTopic, duration: studyDuration, date: studyDate, dueDate: studyDueDate || undefined }
+          : s
+      )
+    );
+
+    setStudyTopic('');
+    setStudyDuration('');
+    setStudyDate('');
+    setStudyDueDate('');
+    setCurrentStudySession(null);
+    setIsEditStudyDialogOpen(false);
+    toast({ title: 'Tiempo de estudio actualizado' });
   };
 
   const handleToggleStudySession = (sessionId: string) => {
@@ -420,14 +455,26 @@ export default function UniversityPage() {
                     {session.date && (
                       <p className="text-xs text-muted-foreground">Fecha: {session.date}</p>
                     )}
+                    {session.dueDate && (
+                      <p className="text-xs text-muted-foreground">Vencimiento: {session.dueDate}</p>
+                    )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteStudySession(session.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditStudySession(session)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteStudySession(session.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -510,12 +557,46 @@ export default function UniversityPage() {
               <Input value={studyDuration} onChange={(e) => setStudyDuration(e.target.value)} placeholder="Ej: 2 horas" />
             </div>
             <div>
-              <label className="text-sm font-medium">Fecha</label>
+              <label className="text-sm font-medium">Fecha de sesión</label>
               <Input type="date" value={studyDate} onChange={(e) => setStudyDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha de vencimiento (opcional)</label>
+              <Input type="date" value={studyDueDate} onChange={(e) => setStudyDueDate(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
             <Button onClick={handleCreateStudySession}>Crear Tiempo de Estudio</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditStudyDialogOpen} onOpenChange={setIsEditStudyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Tiempo de Estudio</DialogTitle>
+            <DialogDescription>Modifica tu tiempo de estudio</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Tema a estudiar</label>
+              <Input value={studyTopic} onChange={(e) => setStudyTopic(e.target.value)} placeholder="Ej: Repaso de ecuaciones diferenciales" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Duración</label>
+              <Input value={studyDuration} onChange={(e) => setStudyDuration(e.target.value)} placeholder="Ej: 2 horas" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha de sesión</label>
+              <Input type="date" value={studyDate} onChange={(e) => setStudyDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha de vencimiento (opcional)</label>
+              <Input type="date" value={studyDueDate} onChange={(e) => setStudyDueDate(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateStudySession}>Actualizar Tiempo de Estudio</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

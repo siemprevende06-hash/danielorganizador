@@ -135,7 +135,7 @@ export default function Index() {
           completed: session.completed,
           status: session.completed ? 'completada' : 'pendiente',
           areaId: 'universidad',
-          dueDate: session.date ? new Date(session.date) : undefined,
+          dueDate: session.dueDate ? new Date(session.dueDate) : (session.date ? new Date(session.date) : undefined),
         }));
         setTasks(prev => [...prev, ...sessionTasks]);
       } catch (e) {
