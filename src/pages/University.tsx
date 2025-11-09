@@ -17,6 +17,14 @@ interface SubjectTask {
   dueDate?: string;
 }
 
+interface StudySession {
+  id: string;
+  topic: string;
+  duration: string;
+  date: string;
+  completed: boolean;
+}
+
 interface Subject {
   id: string;
   name: string;
@@ -28,9 +36,13 @@ interface Subject {
 
 export default function UniversityPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [studySessions, setStudySessions] = useState<StudySession[]>([]);
   const [isSubjectDialogOpen, setIsSubjectDialogOpen] = useState(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
+  const [isStudyDialogOpen, setIsStudyDialogOpen] = useState(false);
   const [currentSubject, setCurrentSubject] = useState<Subject | null>(null);
+  const [currentTask, setCurrentTask] = useState<SubjectTask | null>(null);
   const [subjectName, setSubjectName] = useState('');
   const [subjectCode, setSubjectCode] = useState('');
   const [professor, setProfessor] = useState('');
@@ -38,12 +50,19 @@ export default function UniversityPage() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
+  const [studyTopic, setStudyTopic] = useState('');
+  const [studyDuration, setStudyDuration] = useState('');
+  const [studyDate, setStudyDate] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
     const stored = localStorage.getItem('universitySubjects');
     if (stored) {
       setSubjects(JSON.parse(stored));
+    }
+    const storedSessions = localStorage.getItem('studySessions');
+    if (storedSessions) {
+      setStudySessions(JSON.parse(storedSessions));
     }
   }, []);
 
@@ -52,6 +71,12 @@ export default function UniversityPage() {
       localStorage.setItem('universitySubjects', JSON.stringify(subjects));
     }
   }, [subjects]);
+
+  useEffect(() => {
+    if (studySessions.length > 0) {
+      localStorage.setItem('studySessions', JSON.stringify(studySessions));
+    }
+  }, [studySessions]);
 
   const handleCreateSubject = () => {
     if (!subjectName.trim()) return;
@@ -130,6 +155,77 @@ export default function UniversityPage() {
     );
   };
 
+  const handleEditTask = (subjectId: string, taskId: string) => {
+    const subject = subjects.find(s => s.id === subjectId);
+    const task = subject?.tasks.find(t => t.id === taskId);
+    if (task && subject) {
+      setCurrentSubject(subject);
+      setCurrentTask(task);
+      setTaskTitle(task.title);
+      setTaskDescription(task.description);
+      setTaskDueDate(task.dueDate || '');
+      setIsEditTaskDialogOpen(true);
+    }
+  };
+
+  const handleUpdateTask = () => {
+    if (!currentSubject || !currentTask || !taskTitle.trim()) return;
+
+    setSubjects(prev =>
+      prev.map(s =>
+        s.id === currentSubject.id
+          ? {
+              ...s,
+              tasks: s.tasks.map(t =>
+                t.id === currentTask.id
+                  ? { ...t, title: taskTitle, description: taskDescription, dueDate: taskDueDate || undefined }
+                  : t
+              ),
+            }
+          : s
+      )
+    );
+
+    setTaskTitle('');
+    setTaskDescription('');
+    setTaskDueDate('');
+    setCurrentTask(null);
+    setIsEditTaskDialogOpen(false);
+    toast({ title: 'Tarea actualizada' });
+  };
+
+  const handleCreateStudySession = () => {
+    if (!studyTopic.trim() || !studyDuration.trim()) return;
+
+    const newSession: StudySession = {
+      id: `study-${Date.now()}`,
+      topic: studyTopic,
+      duration: studyDuration,
+      date: studyDate,
+      completed: false,
+    };
+
+    setStudySessions(prev => [...prev, newSession]);
+    setStudyTopic('');
+    setStudyDuration('');
+    setStudyDate('');
+    setIsStudyDialogOpen(false);
+    toast({ title: 'Tiempo de estudio creado' });
+  };
+
+  const handleToggleStudySession = (sessionId: string) => {
+    setStudySessions(prev =>
+      prev.map(s =>
+        s.id === sessionId ? { ...s, completed: !s.completed } : s
+      )
+    );
+  };
+
+  const handleDeleteStudySession = (sessionId: string) => {
+    setStudySessions(prev => prev.filter(s => s.id !== sessionId));
+    toast({ title: 'Tiempo de estudio eliminado' });
+  };
+
   return (
     <div className="container mx-auto px-4 py-24 space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -181,6 +277,7 @@ export default function UniversityPage() {
         <TabsList>
           <TabsTrigger value="subjects">Asignaturas</TabsTrigger>
           <TabsTrigger value="tasks">Todas las Tareas</TabsTrigger>
+          <TabsTrigger value="study">Tiempos de Estudio</TabsTrigger>
         </TabsList>
 
         <TabsContent value="subjects" className="space-y-4 mt-6">
@@ -240,14 +337,24 @@ export default function UniversityPage() {
                             <p className="text-xs text-muted-foreground">Entrega: {task.dueDate}</p>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleDeleteTask(subject.id, task.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleEditTask(subject.id, task.id)}
+                          >
+                            <PlusCircle className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleDeleteTask(subject.id, task.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -289,6 +396,50 @@ export default function UniversityPage() {
             </Card>
           ))}
         </TabsContent>
+
+        <TabsContent value="study" className="space-y-4 mt-6">
+          <div className="flex justify-end mb-4">
+            <Button onClick={() => setIsStudyDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nuevo Tiempo de Estudio
+            </Button>
+          </div>
+          {studySessions.map((session) => (
+            <Card key={session.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    checked={session.completed}
+                    onCheckedChange={() => handleToggleStudySession(session.id)}
+                  />
+                  <div className="flex-1">
+                    <p className={`font-medium ${session.completed ? 'line-through text-muted-foreground' : ''}`}>
+                      {session.topic}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Duración: {session.duration}</p>
+                    {session.date && (
+                      <p className="text-xs text-muted-foreground">Fecha: {session.date}</p>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteStudySession(session.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {studySessions.length === 0 && (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">No tienes tiempos de estudio programados.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
 
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
@@ -313,6 +464,58 @@ export default function UniversityPage() {
           </div>
           <DialogFooter>
             <Button onClick={handleAddTask}>Añadir Tarea</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditTaskDialogOpen} onOpenChange={setIsEditTaskDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Tarea</DialogTitle>
+            <DialogDescription>Modifica la tarea de {currentSubject?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Título</label>
+              <Input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Ej: Entregar tarea 3" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Descripción</label>
+              <Textarea value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} placeholder="Detalles..." />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha de entrega</label>
+              <Input type="date" value={taskDueDate} onChange={(e) => setTaskDueDate(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateTask}>Actualizar Tarea</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isStudyDialogOpen} onOpenChange={setIsStudyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nuevo Tiempo de Estudio</DialogTitle>
+            <DialogDescription>Planifica tu tiempo de estudio</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Tema a estudiar</label>
+              <Input value={studyTopic} onChange={(e) => setStudyTopic(e.target.value)} placeholder="Ej: Repaso de ecuaciones diferenciales" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Duración</label>
+              <Input value={studyDuration} onChange={(e) => setStudyDuration(e.target.value)} placeholder="Ej: 2 horas" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha</label>
+              <Input type="date" value={studyDate} onChange={(e) => setStudyDate(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleCreateStudySession}>Crear Tiempo de Estudio</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
