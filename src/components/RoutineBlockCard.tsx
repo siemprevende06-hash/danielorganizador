@@ -21,6 +21,7 @@ interface RoutineBlock {
   coverImage?: string;
   isHalfTime?: boolean;
   effortLevel?: "minimum" | "normal" | "maximum";
+  notDone?: boolean[];
 }
 
 interface RoutineBlockCardProps {
@@ -115,6 +116,12 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
   };
 
   const getBorderColor = () => {
+    const today = new Date().getDay();
+    const dayIndex = today === 0 ? 6 : today - 1;
+    const isNotDone = block.notDone?.[dayIndex] || false;
+    
+    if (isNotDone) return "border-red-500";
+    
     switch (effortLevel) {
       case "minimum":
         return "border-blue-500";
@@ -125,6 +132,29 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
       default:
         return "border-border"; // Default white/neutral border
     }
+  };
+
+  const handleMarkNotDone = () => {
+    const today = new Date().getDay();
+    const dayIndex = today === 0 ? 6 : today - 1;
+    
+    const newNotDone = [...(block.notDone || [false, false, false, false, false, false, false])];
+    newNotDone[dayIndex] = true;
+    
+    const newWeekly = [...block.weeklyCompletion];
+    newWeekly[dayIndex] = false;
+    
+    onUpdate({ 
+      ...block, 
+      notDone: newNotDone,
+      weeklyCompletion: newWeekly,
+    });
+  };
+
+  const isMarkedNotDone = () => {
+    const today = new Date().getDay();
+    const dayIndex = today === 0 ? 6 : today - 1;
+    return block.notDone?.[dayIndex] || false;
   };
 
   return (
@@ -315,6 +345,17 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
             ))}
           </div>
         </div>
+
+        {/* Mark as Not Done Button */}
+        <Button
+          onClick={handleMarkNotDone}
+          disabled={isMarkedNotDone()}
+          className="w-full"
+          variant="destructive"
+        >
+          <X className="h-4 w-4 mr-2" />
+          {isMarkedNotDone() ? "Marcado: No lo hice" : "No lo hice"}
+        </Button>
 
         {/* Complete Button */}
         <Button

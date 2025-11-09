@@ -34,6 +34,7 @@ interface RoutineBlock {
   coverImage?: string;
   isHalfTime?: boolean;
   effortLevel?: "minimum" | "normal" | "maximum";
+  notDone?: boolean[];
 }
 
 interface TimeWindow {
@@ -60,28 +61,28 @@ export default function Index() {
       setRoutineBlocks(JSON.parse(storedBlocks));
     } else {
       const initialBlocks: RoutineBlock[] = [
-        { id: "1", title: "Rutina Activación", startTime: "05:00", endTime: "05:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "2", title: "Idiomas", startTime: "05:30", endTime: "06:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "3", title: "Gym", startTime: "06:00", endTime: "07:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "4", title: "Alistamiento y Desayuno", startTime: "07:00", endTime: "07:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "5", title: "Focus Emprendimiento", startTime: "07:30", endTime: "08:25", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "6", title: "Lectura", startTime: "08:25", endTime: "08:40", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "7", title: "Viaje a CUJAE (Podcast)", startTime: "08:40", endTime: "09:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "8", title: "1er Deep Work", startTime: "09:00", endTime: "10:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "9", title: "2do Deep Work", startTime: "10:30", endTime: "11:50", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "10", title: "3er Deep Work", startTime: "12:00", endTime: "13:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "11", title: "Almuerzo (Game y Ajedrez)", startTime: "13:20", endTime: "14:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "12", title: "4to Deep Work", startTime: "14:00", endTime: "15:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "13", title: "5to Deep Work", startTime: "15:30", endTime: "16:50", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "14", title: "Viaje a Casa (Podcast)", startTime: "16:50", endTime: "17:05", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "15", title: "Rutina de Llegada", startTime: "17:05", endTime: "17:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "16", title: "Focus Universidad", startTime: "17:30", endTime: "19:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "17", title: "Comida y Serie", startTime: "19:00", endTime: "19:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "18", title: "PS4", startTime: "19:30", endTime: "20:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "19", title: "Guitarra o Piano", startTime: "20:00", endTime: "20:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "20", title: "Bloque de Emergencia", startTime: "20:30", endTime: "21:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "21", title: "Emergencia Deep Work", startTime: "21:00", endTime: "23:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
-        { id: "22", title: "Sueño", startTime: "23:00", endTime: "04:55", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false] },
+        { id: "1", title: "Rutina Activación", startTime: "05:00", endTime: "05:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "2", title: "Idiomas", startTime: "05:30", endTime: "06:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "3", title: "Gym", startTime: "06:00", endTime: "07:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "4", title: "Alistamiento y Desayuno", startTime: "07:00", endTime: "07:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "5", title: "Focus Emprendimiento", startTime: "07:30", endTime: "08:25", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "6", title: "Lectura", startTime: "08:25", endTime: "08:40", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "7", title: "Viaje a CUJAE (Podcast)", startTime: "08:40", endTime: "09:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "8", title: "1er Deep Work", startTime: "09:00", endTime: "10:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "9", title: "2do Deep Work", startTime: "10:30", endTime: "11:50", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "10", title: "3er Deep Work", startTime: "12:00", endTime: "13:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "11", title: "Almuerzo (Game y Ajedrez)", startTime: "13:20", endTime: "14:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "12", title: "4to Deep Work", startTime: "14:00", endTime: "15:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "13", title: "5to Deep Work", startTime: "15:30", endTime: "16:50", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "14", title: "Viaje a Casa (Podcast)", startTime: "16:50", endTime: "17:05", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "15", title: "Rutina de Llegada", startTime: "17:05", endTime: "17:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "16", title: "Focus Universidad", startTime: "17:30", endTime: "19:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "17", title: "Comida y Serie", startTime: "19:00", endTime: "19:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "18", title: "PS4", startTime: "19:30", endTime: "20:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "19", title: "Guitarra o Piano", startTime: "20:00", endTime: "20:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "20", title: "Bloque de Emergencia", startTime: "20:30", endTime: "21:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "21", title: "Emergencia Deep Work", startTime: "21:00", endTime: "23:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
+        { id: "22", title: "Sueño", startTime: "23:00", endTime: "04:55", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
       ];
       setRoutineBlocks(initialBlocks);
     }
@@ -236,12 +237,40 @@ export default function Index() {
   };
 
   const handleUpdateBlock = (blockId: string, updates: Partial<RoutineBlock>) => {
-    setRoutineBlocks(prev => prev.map(block => 
-      block.id === blockId ? { ...block, ...updates } : block
-    ));
-    localStorage.setItem('dailyRoutineBlocks', JSON.stringify(
-      routineBlocks.map(block => block.id === blockId ? { ...block, ...updates } : block)
-    ));
+    setRoutineBlocks(prev => {
+      const updatedBlocks = prev.map(block => 
+        block.id === blockId ? { ...block, ...updates } : block
+      );
+      localStorage.setItem('dailyRoutineBlocks', JSON.stringify(updatedBlocks));
+      return updatedBlocks;
+    });
+  };
+
+  const handleMarkNotDone = (blockId: string) => {
+    const today = new Date().getDay();
+    const dayIndex = today === 0 ? 6 : today - 1;
+    
+    setRoutineBlocks(prev => {
+      const updatedBlocks = prev.map(block => {
+        if (block.id === blockId) {
+          const newNotDone = [...(block.notDone || [false, false, false, false, false, false, false])];
+          newNotDone[dayIndex] = true;
+          
+          // Remove from completed if marked as not done
+          const newWeekly = [...block.weeklyCompletion];
+          newWeekly[dayIndex] = false;
+          
+          return {
+            ...block,
+            notDone: newNotDone,
+            weeklyCompletion: newWeekly,
+          };
+        }
+        return block;
+      });
+      localStorage.setItem('dailyRoutineBlocks', JSON.stringify(updatedBlocks));
+      return updatedBlocks;
+    });
   };
 
   const handleImageUpload = (blockId: string, file: File) => {
@@ -257,8 +286,24 @@ export default function Index() {
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  const getBorderColor = (effortLevel?: "minimum" | "normal" | "maximum") => {
-    switch (effortLevel) {
+  const getBlockStatus = (block: RoutineBlock) => {
+    const today = new Date().getDay();
+    const dayIndex = today === 0 ? 6 : today - 1;
+    const isNotDone = block.notDone?.[dayIndex] || false;
+    const isCompleted = block.weeklyCompletion[dayIndex] || false;
+    
+    if (isNotDone) return "not-done";
+    if (isCompleted) return "completed";
+    return "neutral";
+  };
+
+  const getBorderColor = (block: RoutineBlock) => {
+    const status = getBlockStatus(block);
+    
+    if (status === "not-done") return "border-red-500";
+    
+    // If not marked as not done, use effort level
+    switch (block.effortLevel) {
       case "minimum":
         return "border-blue-500";
       case "normal":
@@ -389,12 +434,14 @@ export default function Index() {
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {window.blocks.map(block => {
                 const assignedTaskIds = blockTasks[block.id] || [];
+                const blockStatus = getBlockStatus(block);
                 return (
                   <Card
                     key={block.id}
                     className={cn(
                       "transition-all hover:shadow-md border-2 overflow-hidden",
-                      getBorderColor(block.effortLevel)
+                      getBorderColor(block),
+                      blockStatus === "not-done" && "bg-red-500/5"
                     )}
                   >
                     {block.coverImage && (
@@ -541,6 +588,18 @@ export default function Index() {
                           })}
                         </div>
                       )}
+
+                      {/* Mark as Not Done button */}
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="w-full h-8 text-xs"
+                        onClick={() => handleMarkNotDone(block.id)}
+                        disabled={blockStatus === "not-done"}
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        {blockStatus === "not-done" ? "Marcado: No lo hice" : "No lo hice"}
+                      </Button>
 
                       {/* Add task button */}
                       <Dialog
