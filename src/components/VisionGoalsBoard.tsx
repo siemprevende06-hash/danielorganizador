@@ -14,7 +14,9 @@ interface VisionGoalCard {
 
 interface VisionGoalsData {
   professional: VisionGoalCard[];
-  hobbies: VisionGoalCard[];
+  hobbiesArtisticos: VisionGoalCard[];
+  hobbiesIntelectuales: VisionGoalCard[];
+  hobbiesFisicos: VisionGoalCard[];
 }
 
 const VISION_GOALS_KEY = 'visionGoalsBoard';
@@ -27,10 +29,20 @@ export const VisionGoalsBoard = () => {
       { id: 'prof-2', completionLevel: 'none' },
       { id: 'prof-3', completionLevel: 'none' },
     ],
-    hobbies: [
-      { id: 'hobby-1', completionLevel: 'none' },
-      { id: 'hobby-2', completionLevel: 'none' },
-      { id: 'hobby-3', completionLevel: 'none' },
+    hobbiesArtisticos: [
+      { id: 'hobby-art-1', completionLevel: 'none' },
+      { id: 'hobby-art-2', completionLevel: 'none' },
+      { id: 'hobby-art-3', completionLevel: 'none' },
+    ],
+    hobbiesIntelectuales: [
+      { id: 'hobby-int-1', completionLevel: 'none' },
+      { id: 'hobby-int-2', completionLevel: 'none' },
+      { id: 'hobby-int-3', completionLevel: 'none' },
+    ],
+    hobbiesFisicos: [
+      { id: 'hobby-fis-1', completionLevel: 'none' },
+      { id: 'hobby-fis-2', completionLevel: 'none' },
+      { id: 'hobby-fis-3', completionLevel: 'none' },
     ],
   });
 
@@ -46,7 +58,7 @@ export const VisionGoalsBoard = () => {
   }, [goals]);
 
   const handleImageUpload = (
-    category: 'professional' | 'hobbies',
+    category: 'professional' | 'hobbiesArtisticos' | 'hobbiesIntelectuales' | 'hobbiesFisicos',
     id: string,
     file: File
   ) => {
@@ -63,7 +75,7 @@ export const VisionGoalsBoard = () => {
   };
 
   const updateCompletionLevel = (
-    category: 'professional' | 'hobbies',
+    category: 'professional' | 'hobbiesArtisticos' | 'hobbiesIntelectuales' | 'hobbiesFisicos',
     id: string,
     level: CompletionLevel
   ) => {
@@ -90,7 +102,7 @@ export const VisionGoalsBoard = () => {
     }
   };
 
-  const renderGoalCard = (goal: VisionGoalCard, category: 'professional' | 'hobbies') => (
+  const renderGoalCard = (goal: VisionGoalCard, category: 'professional' | 'hobbiesArtisticos' | 'hobbiesIntelectuales' | 'hobbiesFisicos') => (
     <Card key={goal.id} className={cn("transition-all overflow-hidden", getCardColor(goal.completionLevel))}>
       <CardContent className="p-0">
         {/* Image Upload Area */}
@@ -191,11 +203,27 @@ export const VisionGoalsBoard = () => {
       <div className="space-y-4">
         <h3 className="text-2xl font-bold">Desarrollo Personal</h3>
         
-        {/* Hobbies Subsection */}
+        {/* Hobbies Artísticos Subsection */}
         <div className="space-y-3">
-          <h4 className="text-lg font-semibold text-muted-foreground">Hobbies</h4>
+          <h4 className="text-base font-semibold text-muted-foreground">Hobbies Artísticos</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {goals.hobbies.map(goal => renderGoalCard(goal, 'hobbies'))}
+            {goals.hobbiesArtisticos.map(goal => renderGoalCard(goal, 'hobbiesArtisticos'))}
+          </div>
+        </div>
+
+        {/* Hobbies Intelectuales Subsection */}
+        <div className="space-y-3">
+          <h4 className="text-base font-semibold text-muted-foreground">Hobbies Intelectuales</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {goals.hobbiesIntelectuales.map(goal => renderGoalCard(goal, 'hobbiesIntelectuales'))}
+          </div>
+        </div>
+
+        {/* Hobbies Físicos Subsection */}
+        <div className="space-y-3">
+          <h4 className="text-base font-semibold text-muted-foreground">Hobbies Físicos</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {goals.hobbiesFisicos.map(goal => renderGoalCard(goal, 'hobbiesFisicos'))}
           </div>
         </div>
       </div>
