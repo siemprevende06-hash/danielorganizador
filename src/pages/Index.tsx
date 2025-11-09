@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 interface TaskWithBlock extends Task {
   blockId?: string;
@@ -51,6 +52,7 @@ export default function Index() {
   const [blockTasks, setBlockTasks] = useState<{ [blockId: string]: string[] }>({});
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const { uploadImage, uploading } = useImageUpload();
 
   useEffect(() => {
     setIsClient(true);
@@ -370,9 +372,11 @@ export default function Index() {
     });
   };
 
-  const handleImageUpload = (blockId: string, file: File) => {
-    const imageUrl = URL.createObjectURL(file);
-    handleUpdateBlock(blockId, { coverImage: imageUrl });
+  const handleImageUpload = async (blockId: string, file: File) => {
+    const imageUrl = await uploadImage(file, 'routine-blocks');
+    if (imageUrl) {
+      handleUpdateBlock(blockId, { coverImage: imageUrl });
+    }
   };
 
   // Convert 24h time to 12h AM/PM format

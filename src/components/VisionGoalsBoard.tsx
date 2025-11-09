@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ImagePlus } from 'lucide-react';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 type CompletionLevel = 'none' | 'minimum' | 'normal' | 'maximum';
 
@@ -23,6 +24,7 @@ const VISION_GOALS_KEY = 'visionGoalsBoard';
 
 export const VisionGoalsBoard = () => {
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const { uploadImage, uploading } = useImageUpload();
   const [goals, setGoals] = useState<VisionGoalsData>({
     professional: [
       { id: 'prof-1', completionLevel: 'none' },
@@ -57,21 +59,21 @@ export const VisionGoalsBoard = () => {
     localStorage.setItem(VISION_GOALS_KEY, JSON.stringify(goals));
   }, [goals]);
 
-  const handleImageUpload = (
+  const handleImageUpload = async (
     category: 'professional' | 'hobbiesArtisticos' | 'hobbiesIntelectuales' | 'hobbiesFisicos',
     id: string,
     file: File
   ) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    const imageUrl = await uploadImage(file, `vision-goals/${category}`);
+    
+    if (imageUrl) {
       setGoals(prev => ({
         ...prev,
         [category]: prev[category].map(goal =>
-          goal.id === id ? { ...goal, image: reader.result as string } : goal
+          goal.id === id ? { ...goal, image: imageUrl } : goal
         ),
       }));
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const updateCompletionLevel = (
@@ -108,13 +110,18 @@ export const VisionGoalsBoard = () => {
         {/* Image Upload Area */}
         <div 
           className="relative aspect-square cursor-pointer bg-muted hover:bg-muted/80 transition-colors"
-          onClick={() => fileInputRefs.current[goal.id]?.click()}
+          onClick={() => !uploading && fileInputRefs.current[goal.id]?.click()}
         >
-          {goal.image ? (
+          {uploading ? (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              <span className="text-xs mt-2">Subiendo...</span>
+            </div>
+          ) : goal.image ? (
             <img
               src={goal.image}
               alt="Vision goal"
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">

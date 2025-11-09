@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 interface SubTask {
   id: string;
@@ -47,6 +48,7 @@ export default function ProjectsPage() {
   const [taskDueDate, setTaskDueDate] = useState('');
   const [subTaskTitle, setSubTaskTitle] = useState('');
   const { toast } = useToast();
+  const { uploadImage, uploading } = useImageUpload();
 
   useEffect(() => {
     const stored = localStorage.getItem(PROJECTS_KEY);
@@ -61,22 +63,22 @@ export default function ProjectsPage() {
     }
   }, [projects]);
 
-  const handleImageUpload = (projectId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (projectId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    const imageUrl = await uploadImage(file, 'project-covers');
+    
+    if (imageUrl) {
       setProjects(prev =>
         prev.map(p =>
           p.id === projectId
-            ? { ...p, coverImage: reader.result as string }
+            ? { ...p, coverImage: imageUrl }
             : p
         )
       );
       toast({ title: 'Imagen actualizada', description: 'La portada del proyecto ha sido actualizada.' });
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleCreateProject = () => {

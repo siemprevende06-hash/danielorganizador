@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wrench, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 interface VisionCard {
   id: string;
@@ -10,6 +11,7 @@ interface VisionCard {
 
 export default function ToolsPage() {
   const [visionCards, setVisionCards] = useState<VisionCard[]>([]);
+  const { uploadImage, uploading } = useImageUpload();
 
   useEffect(() => {
     const stored = localStorage.getItem('idealPartnerVision');
@@ -30,21 +32,21 @@ export default function ToolsPage() {
     }
   }, [visionCards]);
 
-  const handleImageUpload = (cardId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (cardId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    const imageUrl = await uploadImage(file, 'ideal-partner');
+    
+    if (imageUrl) {
       setVisionCards(prev =>
         prev.map(card =>
           card.id === cardId
-            ? { ...card, image: reader.result as string }
+            ? { ...card, image: imageUrl }
             : card
         )
       );
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleToggleCheck = (cardId: string) => {
@@ -73,6 +75,12 @@ export default function ToolsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-6">
+            {uploading && (
+              <div className="col-span-3 text-center py-4 text-muted-foreground">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+                Subiendo imagen...
+              </div>
+            )}
             {visionCards.map((card) => (
               <div key={card.id} className="relative">
                 <label
@@ -87,7 +95,7 @@ export default function ToolsPage() {
                     <img
                       src={card.image}
                       alt={`Vision ${card.id}`}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

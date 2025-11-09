@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Flame, Trophy, Clock, ImagePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 interface RoutineBlock {
   id: string;
@@ -37,6 +38,7 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
   const [coverImage, setCoverImage] = useState(block.coverImage || "");
   const [effortLevel, setEffortLevel] = useState<"minimum" | "normal" | "maximum">(block.effortLevel || "normal");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadImage, uploading } = useImageUpload();
 
   useEffect(() => {
     const calculateProgress = () => {
@@ -87,13 +89,14 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
     onUpdate({ ...block, specificTask: value });
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Use createObjectURL instead of base64 to avoid localStorage size issues
-      const imageUrl = URL.createObjectURL(file);
-      setCoverImage(imageUrl);
-      onUpdate({ ...block, coverImage: imageUrl });
+      const imageUrl = await uploadImage(file, 'routine-blocks');
+      if (imageUrl) {
+        setCoverImage(imageUrl);
+        onUpdate({ ...block, coverImage: imageUrl });
+      }
     }
   };
 
