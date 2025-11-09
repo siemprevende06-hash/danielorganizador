@@ -139,15 +139,22 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
     const dayIndex = today === 0 ? 6 : today - 1;
     
     const newNotDone = [...(block.notDone || [false, false, false, false, false, false, false])];
-    newNotDone[dayIndex] = true;
+    const isCurrentlyNotDone = newNotDone[dayIndex];
+    
+    // Toggle the not done status
+    newNotDone[dayIndex] = !isCurrentlyNotDone;
     
     const newWeekly = [...block.weeklyCompletion];
-    newWeekly[dayIndex] = false;
+    if (!isCurrentlyNotDone) {
+      // Marking as not done, so remove completion
+      newWeekly[dayIndex] = false;
+    }
     
     onUpdate({ 
       ...block, 
       notDone: newNotDone,
       weeklyCompletion: newWeekly,
+      effortLevel: !isCurrentlyNotDone ? undefined : block.effortLevel, // Reset effort level when marking as not done
     });
   };
 
@@ -349,12 +356,11 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
         {/* Mark as Not Done Button */}
         <Button
           onClick={handleMarkNotDone}
-          disabled={isMarkedNotDone()}
           className="w-full"
-          variant="destructive"
+          variant={isMarkedNotDone() ? "outline" : "destructive"}
         >
           <X className="h-4 w-4 mr-2" />
-          {isMarkedNotDone() ? "Marcado: No lo hice" : "No lo hice"}
+          {isMarkedNotDone() ? "Desmarcar: No lo hice" : "No lo hice"}
         </Button>
 
         {/* Complete Button */}

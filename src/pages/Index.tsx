@@ -316,16 +316,22 @@ export default function Index() {
       const updatedBlocks = prev.map(block => {
         if (block.id === blockId) {
           const newNotDone = [...(block.notDone || [false, false, false, false, false, false, false])];
-          newNotDone[dayIndex] = true;
+          const isCurrentlyNotDone = newNotDone[dayIndex];
           
-          // Remove from completed if marked as not done
+          // Toggle the not done status
+          newNotDone[dayIndex] = !isCurrentlyNotDone;
+          
           const newWeekly = [...block.weeklyCompletion];
-          newWeekly[dayIndex] = false;
+          if (!isCurrentlyNotDone) {
+            // Marking as not done, so remove completion
+            newWeekly[dayIndex] = false;
+          }
           
           return {
             ...block,
             notDone: newNotDone,
             weeklyCompletion: newWeekly,
+            effortLevel: !isCurrentlyNotDone ? undefined : block.effortLevel, // Reset effort level when marking as not done
           };
         }
         return block;
@@ -653,14 +659,13 @@ export default function Index() {
 
                       {/* Mark as Not Done button */}
                       <Button 
-                        variant="destructive" 
+                        variant={blockStatus === "not-done" ? "outline" : "destructive"}
                         size="sm" 
                         className="w-full h-8 text-xs"
                         onClick={() => handleMarkNotDone(block.id)}
-                        disabled={blockStatus === "not-done"}
                       >
                         <X className="h-3 w-3 mr-1" />
-                        {blockStatus === "not-done" ? "Marcado: No lo hice" : "No lo hice"}
+                        {blockStatus === "not-done" ? "Desmarcar: No lo hice" : "No lo hice"}
                       </Button>
 
                       {/* Add task button */}

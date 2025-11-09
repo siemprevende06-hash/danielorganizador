@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Trash2, GraduationCap, BookOpen } from 'lucide-react';
+import { PlusCircle, Trash2, GraduationCap, BookOpen, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface SubjectTask {
@@ -344,7 +344,7 @@ export default function UniversityPage() {
                             className="h-6 w-6"
                             onClick={() => handleEditTask(subject.id, task.id)}
                           >
-                            <PlusCircle className="h-3 w-3" />
+                            <Pencil className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="ghost"
