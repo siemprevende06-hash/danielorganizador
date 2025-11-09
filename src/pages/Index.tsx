@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { isToday } from "date-fns";
 import { lifeAreas, centralAreas } from "@/lib/data";
 import type { Task } from "@/lib/definitions";
-import { Plus, Clock, X, ImagePlus, Briefcase } from "lucide-react";
+import { Plus, Clock, X, ImagePlus, Briefcase, GraduationCap, Code } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -155,12 +155,12 @@ export default function Index() {
     },
     {
       id: "night",
-      title: "Bloques de Emergencia",
+      title: "Emergencia Deep Work",
       startTime: "9:00 PM",
       endTime: "11:00 PM",
       blocks: routineBlocks.filter(block => {
         const hour = parseInt(block.startTime.split(':')[0]);
-        return hour >= 20 && hour < 23;
+        return hour >= 21 && hour < 23;
       }),
     },
   ];
@@ -247,6 +247,14 @@ export default function Index() {
   const handleImageUpload = (blockId: string, file: File) => {
     const imageUrl = URL.createObjectURL(file);
     handleUpdateBlock(blockId, { coverImage: imageUrl });
+  };
+
+  // Convert 24h time to 12h AM/PM format
+  const convertTo12Hour = (time24: string): string => {
+    const [hours, minutes] = time24.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
   const getBorderColor = (effortLevel?: "minimum" | "normal" | "maximum") => {
@@ -413,7 +421,7 @@ export default function Index() {
                         </CardTitle>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          {block.startTime} - {block.endTime}
+                          {convertTo12Hour(block.startTime)} - {convertTo12Hour(block.endTime)}
                         </div>
                       </div>
                     </CardHeader>
@@ -653,15 +661,18 @@ export default function Index() {
                     key={habit.id}
                     className={cn(
                       "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
-                      isCompleted ? "border-green-500 bg-green-500/10" : "border-border"
+                      isCompleted 
+                        ? "border-green-500 bg-green-500/10" 
+                        : "border-red-500 bg-red-500/10"
                     )}
                   >
                     <span className="font-medium">{habit.name}</span>
-                    {isCompleted && (
-                      <Badge variant="default" className="bg-green-500">
-                        Completado
-                      </Badge>
-                    )}
+                    <Badge 
+                      variant="default" 
+                      className={isCompleted ? "bg-green-500" : "bg-red-500"}
+                    >
+                      {isCompleted ? "Completado" : "Pendiente"}
+                    </Badge>
                   </div>
                 );
               });
@@ -682,19 +693,18 @@ export default function Index() {
           </CardHeader>
           <CardContent className="space-y-3">
             {(() => {
-              // Check if any entrepreneurship tasks are completed in any block
+              // Emprendimiento
               const entrepreneurshipBlocks = routineBlocks.filter(b => 
                 b.title.toLowerCase().includes("emprendimiento") ||
                 b.title.toLowerCase().includes("focus emprendimiento")
               );
 
-              const hasEntrepreneurshipTasks = entrepreneurshipBlocks.some(block => {
+              const hasEntrepreneurshipBlocks = entrepreneurshipBlocks.some(block => {
                 const today = new Date().getDay();
                 const dayIndex = today === 0 ? 6 : today - 1;
                 return block.weeklyCompletion[dayIndex];
               });
 
-              // Also check if there are assigned entrepreneurship tasks in blocks
               const hasAssignedEntrepreneurshipTasks = Object.values(blockTasks).some(taskIds => 
                 taskIds.some(taskId => {
                   const task = getTaskById(taskId);
@@ -702,25 +712,112 @@ export default function Index() {
                 })
               );
 
-              const isEntrepreneurshipCompleted = hasEntrepreneurshipTasks || hasAssignedEntrepreneurshipTasks;
+              const isEntrepreneurshipCompleted = hasEntrepreneurshipBlocks || hasAssignedEntrepreneurshipTasks;
+
+              // Universidad
+              const universityBlocks = routineBlocks.filter(b => 
+                b.title.toLowerCase().includes("universidad") ||
+                b.title.toLowerCase().includes("focus universidad")
+              );
+
+              const hasUniversityBlocks = universityBlocks.some(block => {
+                const today = new Date().getDay();
+                const dayIndex = today === 0 ? 6 : today - 1;
+                return block.weeklyCompletion[dayIndex];
+              });
+
+              const hasAssignedUniversityTasks = Object.values(blockTasks).some(taskIds => 
+                taskIds.some(taskId => {
+                  const task = getTaskById(taskId);
+                  return task?.areaId === "universidad" && task.completed;
+                })
+              );
+
+              const isUniversityCompleted = hasUniversityBlocks || hasAssignedUniversityTasks;
+
+              // Proyectos (Web/Code)
+              const projectBlocks = routineBlocks.filter(b => 
+                b.title.toLowerCase().includes("proyecto") ||
+                b.title.toLowerCase().includes("deep work")
+              );
+
+              const hasProjectBlocks = projectBlocks.some(block => {
+                const today = new Date().getDay();
+                const dayIndex = today === 0 ? 6 : today - 1;
+                return block.weeklyCompletion[dayIndex];
+              });
+
+              const hasAssignedProjectTasks = Object.values(blockTasks).some(taskIds => 
+                taskIds.some(taskId => {
+                  const task = getTaskById(taskId);
+                  return task?.areaId === "proyectos-personales" && task.completed;
+                })
+              );
+
+              const isProjectCompleted = hasProjectBlocks || hasAssignedProjectTasks;
 
               return (
-                <div
-                  className={cn(
-                    "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
-                    isEntrepreneurshipCompleted ? "border-green-500 bg-green-500/10" : "border-border"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5" />
-                    <span className="font-medium">Emprendimiento</span>
-                  </div>
-                  {isEntrepreneurshipCompleted && (
-                    <Badge variant="default" className="bg-green-500">
-                      Completado
+                <>
+                  <div
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
+                      isEntrepreneurshipCompleted 
+                        ? "border-green-500 bg-green-500/10" 
+                        : "border-red-500 bg-red-500/10"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5" />
+                      <span className="font-medium">Emprendimiento</span>
+                    </div>
+                    <Badge 
+                      variant="default" 
+                      className={isEntrepreneurshipCompleted ? "bg-green-500" : "bg-red-500"}
+                    >
+                      {isEntrepreneurshipCompleted ? "Completado" : "Pendiente"}
                     </Badge>
-                  )}
-                </div>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
+                      isUniversityCompleted 
+                        ? "border-green-500 bg-green-500/10" 
+                        : "border-red-500 bg-red-500/10"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="h-5 w-5" />
+                      <span className="font-medium">Universidad</span>
+                    </div>
+                    <Badge 
+                      variant="default" 
+                      className={isUniversityCompleted ? "bg-green-500" : "bg-red-500"}
+                    >
+                      {isUniversityCompleted ? "Completado" : "Pendiente"}
+                    </Badge>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
+                      isProjectCompleted 
+                        ? "border-green-500 bg-green-500/10" 
+                        : "border-red-500 bg-red-500/10"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Code className="h-5 w-5" />
+                      <span className="font-medium">Proyectos Web</span>
+                    </div>
+                    <Badge 
+                      variant="default" 
+                      className={isProjectCompleted ? "bg-green-500" : "bg-red-500"}
+                    >
+                      {isProjectCompleted ? "Completado" : "Pendiente"}
+                    </Badge>
+                  </div>
+                </>
               );
             })()}
           </CardContent>
