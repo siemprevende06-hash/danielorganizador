@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, Briefcase } from 'lucide-react';
+import { PlusCircle, Trash2, Briefcase, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EntrepreneurshipTask {
@@ -13,13 +13,17 @@ interface EntrepreneurshipTask {
   title: string;
   description: string;
   completed: boolean;
+  dueDate?: string;
 }
 
 export default function EntrepreneurshipPage() {
   const [tasks, setTasks] = useState<EntrepreneurshipTask[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [currentTask, setCurrentTask] = useState<EntrepreneurshipTask | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -43,13 +47,45 @@ export default function EntrepreneurshipPage() {
       title,
       description,
       completed: false,
+      dueDate: dueDate || undefined,
     };
 
     setTasks(prev => [...prev, newTask]);
     setTitle('');
     setDescription('');
+    setDueDate('');
     setIsDialogOpen(false);
     toast({ title: 'Tarea creada', description: `${title} ha sido añadida.` });
+  };
+
+  const handleEditTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      setCurrentTask(task);
+      setTitle(task.title);
+      setDescription(task.description);
+      setDueDate(task.dueDate || '');
+      setIsEditDialogOpen(true);
+    }
+  };
+
+  const handleUpdateTask = () => {
+    if (!currentTask || !title.trim()) return;
+
+    setTasks(prev =>
+      prev.map(t =>
+        t.id === currentTask.id
+          ? { ...t, title, description, dueDate: dueDate || undefined }
+          : t
+      )
+    );
+
+    setTitle('');
+    setDescription('');
+    setDueDate('');
+    setCurrentTask(null);
+    setIsEditDialogOpen(false);
+    toast({ title: 'Tarea actualizada' });
   };
 
   const handleToggleTask = (taskId: string) => {
@@ -96,6 +132,10 @@ export default function EntrepreneurshipPage() {
                 <label className="text-sm font-medium">Descripción</label>
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalles de la tarea..." />
               </div>
+              <div>
+                <label className="text-sm font-medium">Fecha de vencimiento</label>
+                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleCreateTask}>Crear Tarea</Button>
@@ -121,11 +161,21 @@ export default function EntrepreneurshipPage() {
                     {task.description && (
                       <CardDescription className="mt-1">{task.description}</CardDescription>
                     )}
+                    {task.dueDate && (
+                      <CardDescription className="mt-1 text-xs">
+                        Vence: {new Date(task.dueDate).toLocaleDateString()}
+                      </CardDescription>
+                    )}
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => handleDeleteTask(task.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => handleEditTask(task.id)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleDeleteTask(task.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
           </Card>
@@ -139,6 +189,32 @@ export default function EntrepreneurshipPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Tarea de Emprendimiento</DialogTitle>
+            <DialogDescription>Actualiza los detalles de tu tarea.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Título</label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej: Desarrollar MVP" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Descripción</label>
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalles de la tarea..." />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha de vencimiento</label>
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateTask}>Actualizar Tarea</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

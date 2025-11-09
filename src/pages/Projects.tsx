@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, Edit } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 
@@ -20,6 +20,7 @@ interface ProjectTask {
   title: string;
   completed: boolean;
   subTasks?: SubTask[];
+  dueDate?: string;
 }
 
 interface Project {
@@ -36,12 +37,14 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
   const [isSubTaskDialogOpen, setIsSubTaskDialogOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [currentTask, setCurrentTask] = useState<ProjectTask | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState('');
   const [subTaskTitle, setSubTaskTitle] = useState('');
   const { toast } = useToast();
 
@@ -105,6 +108,7 @@ export default function ProjectsPage() {
       id: `task-${Date.now()}`,
       title: taskTitle,
       completed: false,
+      dueDate: taskDueDate || undefined,
     };
 
     setProjects(prev =>
@@ -116,8 +120,46 @@ export default function ProjectsPage() {
     );
 
     setTaskTitle('');
+    setTaskDueDate('');
     setIsTaskDialogOpen(false);
     toast({ title: 'Tarea añadida', description: `Tarea añadida a ${currentProject.name}.` });
+  };
+
+  const handleEditTask = (projectId: string, taskId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    const task = project?.tasks.find(t => t.id === taskId);
+    if (task && project) {
+      setCurrentProject(project);
+      setCurrentTask(task);
+      setTaskTitle(task.title);
+      setTaskDueDate(task.dueDate || '');
+      setIsEditTaskDialogOpen(true);
+    }
+  };
+
+  const handleUpdateTask = () => {
+    if (!currentProject || !currentTask || !taskTitle.trim()) return;
+
+    setProjects(prev =>
+      prev.map(p =>
+        p.id === currentProject.id
+          ? {
+              ...p,
+              tasks: p.tasks.map(t =>
+                t.id === currentTask.id
+                  ? { ...t, title: taskTitle, dueDate: taskDueDate || undefined }
+                  : t
+              ),
+            }
+          : p
+      )
+    );
+
+    setTaskTitle('');
+    setTaskDueDate('');
+    setCurrentTask(null);
+    setIsEditTaskDialogOpen(false);
+    toast({ title: 'Tarea actualizada' });
   };
 
   const handleToggleTask = (projectId: string, taskId: string) => {
@@ -316,9 +358,24 @@ export default function ProjectsPage() {
                             checked={task.completed}
                             onCheckedChange={() => handleToggleTask(project.id, task.id)}
                           />
-                          <span className={`flex-1 text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                            {task.title}
-                          </span>
+                          <div className="flex-1">
+                            <span className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                              {task.title}
+                            </span>
+                            {task.dueDate && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                {new Date(task.dueDate).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleEditTask(project.id, task.id)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -389,16 +446,58 @@ export default function ProjectsPage() {
               Añade una tarea a {currentProject?.name}
             </DialogDescription>
           </DialogHeader>
-          <div>
-            <label className="text-sm font-medium">Título de la Tarea</label>
-            <Input
-              value={taskTitle}
-              onChange={(e) => setTaskTitle(e.target.value)}
-              placeholder="Ej: Diseñar interfaz principal"
-            />
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Título de la Tarea</label>
+              <Input
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="Ej: Diseñar interfaz principal"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha de vencimiento</label>
+              <Input
+                type="date"
+                value={taskDueDate}
+                onChange={(e) => setTaskDueDate(e.target.value)}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button onClick={handleAddTask}>Añadir Tarea</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditTaskDialogOpen} onOpenChange={setIsEditTaskDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Tarea</DialogTitle>
+            <DialogDescription>
+              Edita la tarea de {currentProject?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Título de la Tarea</label>
+              <Input
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="Ej: Diseñar interfaz principal"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha de vencimiento</label>
+              <Input
+                type="date"
+                value={taskDueDate}
+                onChange={(e) => setTaskDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateTask}>Actualizar Tarea</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

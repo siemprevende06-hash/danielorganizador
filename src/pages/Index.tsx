@@ -155,11 +155,32 @@ export default function Index() {
           completed: task.completed,
           status: task.completed ? 'completada' : 'pendiente',
           areaId: 'emprendimiento',
-          dueDate: undefined,
+          dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
         }));
         setTasks(prev => [...prev, ...mappedTasks]);
       } catch (e) {
         console.error("Error loading entrepreneurship tasks:", e);
+      }
+    }
+
+    // Load project tasks
+    const projectsData = localStorage.getItem('userProjects');
+    if (projectsData) {
+      try {
+        const projects = JSON.parse(projectsData);
+        const projectTasks = projects.flatMap((project: any) =>
+          (project.tasks || []).map((task: any) => ({
+            id: task.id,
+            title: `${project.name}: ${task.title}`,
+            completed: task.completed,
+            status: task.completed ? 'completada' : 'pendiente',
+            areaId: 'web',
+            dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+          }))
+        );
+        setTasks(prev => [...prev, ...projectTasks]);
+      } catch (e) {
+        console.error("Error loading project tasks:", e);
       }
     }
 
@@ -239,10 +260,10 @@ export default function Index() {
     return null;
   }
 
-  // Filter today's tasks
+  // Filter today's tasks (tasks with no date or tasks due today)
   const todayTasks = tasks.filter(task => {
-    if (!task.dueDate) return false;
-    return isToday(task.dueDate);
+    if (!task.dueDate) return true; // Include tasks without a date
+    return isToday(task.dueDate); // Include tasks due today
   });
 
   // Group tasks by area
