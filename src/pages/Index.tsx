@@ -102,22 +102,25 @@ export default function Index() {
     }
 
     // Load university tasks
-    const universitySubjects = localStorage.getItem('universitySubjects');
-    if (universitySubjects) {
+    const universityTasks = localStorage.getItem('universityTasks');
+    if (universityTasks) {
       try {
-        const subjects = JSON.parse(universitySubjects);
-        const universityTasks = subjects.flatMap((subject: any) =>
-          subject.tasks.map((task: any) => ({
-            id: task.id,
-            title: `${subject.name}: ${task.title}`,
-            description: task.description,
-            completed: task.completed,
-            status: task.completed ? 'completada' : 'pendiente',
-            areaId: 'universidad',
-            dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-          }))
-        );
-        setTasks(prev => [...prev, ...universityTasks]);
+        const tasksData = JSON.parse(universityTasks);
+        const mappedTasks = Object.entries(tasksData).flatMap(([subject, tasks]: [string, any]) => {
+          if (Array.isArray(tasks)) {
+            return tasks.map((task: any) => ({
+              id: task.id,
+              title: `${subject}: ${task.title}`,
+              description: task.description,
+              completed: task.completed,
+              status: (task.completed ? 'completada' : 'pendiente') as 'completada' | 'pendiente',
+              areaId: 'universidad',
+              dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+            }));
+          }
+          return [];
+        });
+        setTasks(prev => [...prev, ...mappedTasks]);
       } catch (e) {
         console.error("Error loading university tasks:", e);
       }
@@ -147,16 +150,21 @@ export default function Index() {
     const entrepreneurshipTasks = localStorage.getItem('entrepreneurshipTasks');
     if (entrepreneurshipTasks) {
       try {
-        const eTasks = JSON.parse(entrepreneurshipTasks);
-        const mappedTasks = eTasks.map((task: any) => ({
-          id: task.id,
-          title: task.title,
-          description: task.description,
-          completed: task.completed,
-          status: task.completed ? 'completada' : 'pendiente',
-          areaId: 'emprendimiento',
-          dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-        }));
+        const tasksData = JSON.parse(entrepreneurshipTasks);
+        const mappedTasks = Object.entries(tasksData).flatMap(([project, tasks]: [string, any]) => {
+          if (Array.isArray(tasks)) {
+            return tasks.map((task: any) => ({
+              id: task.id,
+              title: `${project}: ${task.title}`,
+              description: task.description,
+              completed: task.completed,
+              status: (task.completed ? 'completada' : 'pendiente') as 'completada' | 'pendiente',
+              areaId: 'emprendimiento',
+              dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+            }));
+          }
+          return [];
+        });
         setTasks(prev => [...prev, ...mappedTasks]);
       } catch (e) {
         console.error("Error loading entrepreneurship tasks:", e);
@@ -164,7 +172,7 @@ export default function Index() {
     }
 
     // Load project tasks
-    const projectsData = localStorage.getItem('userProjects');
+    const projectsData = localStorage.getItem('webProjects');
     if (projectsData) {
       try {
         const projects = JSON.parse(projectsData);
