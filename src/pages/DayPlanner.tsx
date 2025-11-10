@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { AuthGuard } from "@/components/AuthGuard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -79,13 +78,9 @@ export default function DayPlanner() {
 
   const loadTasks = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('user_id', user.id)
         .eq('completed', false)
         .order('created_at', { ascending: false });
 
@@ -98,14 +93,10 @@ export default function DayPlanner() {
 
   const loadExistingPlan = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const { data: plan, error: planError } = await supabase
         .from('daily_plans')
         .select('*')
-        .eq('user_id', user.id)
         .eq('plan_date', dateStr)
         .maybeSingle();
 
@@ -140,28 +131,15 @@ export default function DayPlanner() {
   const handleSavePlan = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "Debes iniciar sesión para guardar un plan",
-          variant: "destructive"
-        });
-        return;
-      }
-
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
       // Upsert daily plan
       const { data: plan, error: planError } = await supabase
         .from('daily_plans')
         .upsert({
-          user_id: user.id,
           plan_date: dateStr,
           mode,
           notes
-        }, {
-          onConflict: 'user_id,plan_date'
         })
         .select()
         .single();
@@ -244,8 +222,7 @@ export default function DayPlanner() {
   }, {} as Record<string, Task[]>);
 
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -420,6 +397,5 @@ export default function DayPlanner() {
         </div>
       </div>
     </div>
-    </AuthGuard>
   );
 }

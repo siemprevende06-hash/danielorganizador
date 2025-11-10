@@ -24,7 +24,6 @@ import University from "./pages/University";
 import Tools from "./pages/Tools";
 import Reminders from "./pages/Reminders";
 import DayPlanner from "./pages/DayPlanner";
-import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
 
@@ -56,7 +55,6 @@ const App = () => (
           <Route path="/tools" element={<Tools />} />
           <Route path="/reminders" element={<Reminders />} />
           <Route path="/day-planner" element={<DayPlanner />} />
-          <Route path="/auth" element={<Auth />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
