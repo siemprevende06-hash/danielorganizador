@@ -11,6 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 import type { Task } from '@/lib/definitions';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { z } from 'zod';
+
+const taskSchema = z.object({
+  title: z.string().trim().min(1, "El título es requerido").max(200, "El título es muy largo"),
+  description: z.string().max(1000, "La descripción es muy larga").optional(),
+  priority: z.enum(["low", "medium", "high"]),
+  dueDate: z.string().optional()
+});
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -53,20 +61,23 @@ export default function TasksPage() {
   };
 
   const handleCreateTask = async () => {
-    if (!title.trim()) return;
-
     try {
+      const validated = taskSchema.parse({ title, description, priority, dueDate });
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuario no autenticado");
+
       const { error } = await supabase
         .from('tasks')
         .insert({
-          title,
-          description,
+          title: validated.title,
+          description: validated.description || null,
           status: 'pendiente',
-          priority,
-          due_date: dueDate || null,
+          priority: validated.priority,
+          due_date: validated.dueDate || null,
           completed: false,
           source: 'general',
-          user_id: null
+          user_id: user.id
         });
 
       if (error) throw error;
@@ -77,10 +88,18 @@ export default function TasksPage() {
       setPriority('medium');
       setDueDate('');
       setIsDialogOpen(false);
-      toast({ title: 'Tarea creada', description: `${title} ha sido añadida.` });
+      toast({ title: 'Tarea creada', description: `${validated.title} ha sido añadida.` });
     } catch (error: any) {
-      console.error('Error creating task:', error);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      if (error instanceof z.ZodError) {
+        toast({
+          variant: "destructive",
+          title: "Error de validación",
+          description: error.errors[0].message
+        });
+      } else {
+        console.error('Error creating task:', error);
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      }
     }
   };
 

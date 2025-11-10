@@ -9,6 +9,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Trash2, GraduationCap, BookOpen, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { z } from 'zod';
+
+const subjectSchema = z.object({
+  name: z.string().trim().min(1, "El nombre es requerido").max(200, "El nombre es muy largo")
+});
+
+const taskSchema = z.object({
+  title: z.string().trim().min(1, "El título es requerido").max(200, "El título es muy largo"),
+  description: z.string().max(1000, "La descripción es muy larga").optional(),
+  dueDate: z.string().optional()
+});
+
+const studySessionSchema = z.object({
+  topic: z.string().trim().min(1, "El tema es requerido").max(200, "El tema es muy largo"),
+  duration: z.string().trim().min(1, "La duración es requerida").max(50, "La duración es muy larga")
+});
 
 interface SubjectTask {
   id: string;
@@ -130,15 +146,18 @@ export default function UniversityPage() {
   };
 
   const handleCreateSubject = async () => {
-    if (!subjectName.trim()) return;
-
     try {
+      const validated = subjectSchema.parse({ name: subjectName });
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuario no autenticado");
+
       const { error } = await supabase
         .from('university_subjects')
         .insert({
-          name: subjectName,
+          name: validated.name,
           color: subjectCode,
-          user_id: null
+          user_id: user.id
         });
 
       if (error) throw error;
@@ -149,10 +168,18 @@ export default function UniversityPage() {
       setProfessor('');
       setSchedule('');
       setIsSubjectDialogOpen(false);
-      toast({ title: 'Asignatura creada', description: `${subjectName} ha sido añadida.` });
+      toast({ title: 'Asignatura creada', description: `${validated.name} ha sido añadida.` });
     } catch (error: any) {
-      console.error('Error creating subject:', error);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      if (error instanceof z.ZodError) {
+        toast({
+          variant: "destructive",
+          title: "Error de validación",
+          description: error.errors[0].message
+        });
+      } else {
+        console.error('Error creating subject:', error);
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      }
     }
   };
 
@@ -173,20 +200,29 @@ export default function UniversityPage() {
   };
 
   const handleAddTask = async () => {
-    if (!currentSubject || !taskTitle.trim()) return;
+    if (!currentSubject) return;
 
     try {
+      const validated = taskSchema.parse({ 
+        title: taskTitle, 
+        description: taskDescription,
+        dueDate: taskDueDate
+      });
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuario no autenticado");
+
       const { error } = await supabase
         .from('tasks')
         .insert({
-          title: taskTitle,
-          description: taskDescription,
+          title: validated.title,
+          description: validated.description || null,
           completed: false,
-          due_date: taskDueDate || null,
+          due_date: validated.dueDate || null,
           source: 'university',
           source_id: currentSubject.id,
           status: 'pendiente',
-          user_id: null
+          user_id: user.id
         });
 
       if (error) throw error;
@@ -198,8 +234,16 @@ export default function UniversityPage() {
       setIsTaskDialogOpen(false);
       toast({ title: 'Tarea añadida' });
     } catch (error: any) {
-      console.error('Error adding task:', error);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      if (error instanceof z.ZodError) {
+        toast({
+          variant: "destructive",
+          title: "Error de validación",
+          description: error.errors[0].message
+        });
+      } else {
+        console.error('Error adding task:', error);
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      }
     }
   };
 

@@ -9,6 +9,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, PlusCircle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { z } from 'zod';
+
+const taskSchema = z.object({
+  title: z.string().trim().min(1, "El título es requerido").max(200, "El título es muy largo"),
+  description: z.string().max(1000, "La descripción es muy larga").optional()
+});
+
+const subtaskSchema = z.object({
+  title: z.string().trim().min(1, "El título es requerido").max(200, "El título es muy largo")
+});
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 
@@ -106,15 +116,15 @@ export default function EntrepreneurshipDetail() {
   };
 
   const handleCreateTask = async () => {
-    if (!title.trim()) return;
-
     try {
+      const validated = taskSchema.parse({ title, description });
+
       const { error } = await supabase
         .from('entrepreneurship_tasks')
         .insert({
           entrepreneurship_id: id,
-          title,
-          description,
+          title: validated.title,
+          description: validated.description || null,
           task_type: currentTaskType,
           completed: false,
           due_date: dueDate || null
@@ -129,8 +139,16 @@ export default function EntrepreneurshipDetail() {
       setIsDialogOpen(false);
       toast({ title: 'Tarea creada' });
     } catch (error: any) {
-      console.error('Error creating task:', error);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      if (error instanceof z.ZodError) {
+        toast({
+          variant: "destructive",
+          title: "Error de validación",
+          description: error.errors[0].message
+        });
+      } else {
+        console.error('Error creating task:', error);
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      }
     }
   };
 
@@ -169,14 +187,14 @@ export default function EntrepreneurshipDetail() {
   };
 
   const handleAddSubtask = async (taskId: string) => {
-    if (!subtaskInput.trim()) return;
-
     try {
+      const validated = subtaskSchema.parse({ title: subtaskInput });
+
       const { error } = await supabase
         .from('subtasks')
         .insert({
           task_id: taskId,
-          title: subtaskInput,
+          title: validated.title,
           completed: false
         });
 
@@ -186,8 +204,16 @@ export default function EntrepreneurshipDetail() {
       setSubtaskInput('');
       setCurrentTaskId(null);
     } catch (error: any) {
-      console.error('Error adding subtask:', error);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      if (error instanceof z.ZodError) {
+        toast({
+          variant: "destructive",
+          title: "Error de validación",
+          description: error.errors[0].message
+        });
+      } else {
+        console.error('Error adding subtask:', error);
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      }
     }
   };
 
