@@ -20,6 +20,7 @@ import MonthlyView from "./pages/MonthlyView";
 import Goals from "./pages/Goals";
 import Journaling from "./pages/Journaling";
 import Entrepreneurship from "./pages/Entrepreneurship";
+import EntrepreneurshipDetail from "./pages/EntrepreneurshipDetail";
 import University from "./pages/University";
 import Tools from "./pages/Tools";
 import Reminders from "./pages/Reminders";
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/goals" element={<Goals />} />
           <Route path="/journaling" element={<Journaling />} />
           <Route path="/entrepreneurship" element={<Entrepreneurship />} />
+          <Route path="/entrepreneurship/:id" element={<EntrepreneurshipDetail />} />
           <Route path="/university" element={<University />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/reminders" element={<Reminders />} />

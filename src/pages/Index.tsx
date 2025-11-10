@@ -78,7 +78,8 @@ export default function Index() {
         dueDate: task.due_date ? new Date(task.due_date) : undefined,
         completed: task.completed,
         areaId: task.source === 'university' ? 'universidad' : 
-                task.source === 'entrepreneurship' ? 'emprendimiento' : 
+                task.source === 'entrepreneurship' ? 'emprendimiento' :
+                task.source === 'project' ? 'proyectos' :
                 task.source === 'study_session' ? 'universidad' : undefined
       }));
 
