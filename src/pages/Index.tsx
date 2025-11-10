@@ -124,8 +124,6 @@ export default function Index() {
       setRoutineBlocks(initialBlocks);
     }
 
-    loadTasks();
-
     // Load block tasks
     const storedBlockTasks = localStorage.getItem("routineBlockTasks");
     if (storedBlockTasks) {
@@ -136,39 +134,6 @@ export default function Index() {
       }
     }
   }, []);
-
-  const loadTasks = async () => {
-    try {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .or(`source.eq.general,source.eq.entrepreneurship,source.eq.university,source.eq.study_session,source.eq.project`)
-        .lte('due_date', today)
-        .gte('due_date', today)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const mappedTasks: TaskWithBlock[] = (data || []).map(task => ({
-        id: task.id,
-        title: task.title,
-        description: task.description || '',
-        status: task.status as any,
-        priority: task.priority as any,
-        dueDate: task.due_date ? new Date(task.due_date) : undefined,
-        completed: task.completed,
-        areaId: task.source === 'university' ? 'universidad' : 
-                task.source === 'entrepreneurship' ? 'emprendimiento' : 
-                task.source === 'study_session' ? 'universidad' : undefined
-      }));
-
-      setTasks(mappedTasks);
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-    }
-  };
 
   // Define time windows with their blocks based on time ranges
   const timeWindows: TimeWindow[] = [
