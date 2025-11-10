@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, Trash2, Briefcase, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface EntrepreneurshipTask {
   id: string;
@@ -27,35 +28,61 @@ export default function EntrepreneurshipPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const stored = localStorage.getItem('entrepreneurshipTasks');
-    if (stored) {
-      setTasks(JSON.parse(stored));
-    }
+    loadTasks();
   }, []);
 
-  useEffect(() => {
-    if (tasks.length > 0) {
-      localStorage.setItem('entrepreneurshipTasks', JSON.stringify(tasks));
-    }
-  }, [tasks]);
+  const loadTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('source', 'entrepreneurship')
+        .order('created_at', { ascending: false });
 
-  const handleCreateTask = () => {
+      if (error) throw error;
+      
+      const mappedTasks: EntrepreneurshipTask[] = (data || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        completed: task.completed,
+        dueDate: task.due_date || undefined
+      }));
+      
+      setTasks(mappedTasks);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+    }
+  };
+
+  const handleCreateTask = async () => {
     if (!title.trim()) return;
 
-    const newTask: EntrepreneurshipTask = {
-      id: `task-${Date.now()}`,
-      title,
-      description,
-      completed: false,
-      dueDate: dueDate || undefined,
-    };
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          title,
+          description,
+          completed: false,
+          due_date: dueDate || null,
+          source: 'entrepreneurship',
+          status: 'pendiente',
+          user_id: null
+        });
 
-    setTasks(prev => [...prev, newTask]);
-    setTitle('');
-    setDescription('');
-    setDueDate('');
-    setIsDialogOpen(false);
-    toast({ title: 'Tarea creada', description: `${title} ha sido añadida.` });
+      if (error) throw error;
+
+      await loadTasks();
+      setTitle('');
+      setDescription('');
+      setDueDate('');
+      setIsDialogOpen(false);
+      toast({ title: 'Tarea creada', description: `${title} ha sido añadida.` });
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
   const handleEditTask = (taskId: string) => {
@@ -69,36 +96,66 @@ export default function EntrepreneurshipPage() {
     }
   };
 
-  const handleUpdateTask = () => {
+  const handleUpdateTask = async () => {
     if (!currentTask || !title.trim()) return;
 
-    setTasks(prev =>
-      prev.map(t =>
-        t.id === currentTask.id
-          ? { ...t, title, description, dueDate: dueDate || undefined }
-          : t
-      )
-    );
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title,
+          description,
+          due_date: dueDate || null
+        })
+        .eq('id', currentTask.id);
 
-    setTitle('');
-    setDescription('');
-    setDueDate('');
-    setCurrentTask(null);
-    setIsEditDialogOpen(false);
-    toast({ title: 'Tarea actualizada' });
+      if (error) throw error;
+
+      await loadTasks();
+      setTitle('');
+      setDescription('');
+      setDueDate('');
+      setCurrentTask(null);
+      setIsEditDialogOpen(false);
+      toast({ title: 'Tarea actualizada' });
+    } catch (error: any) {
+      console.error('Error updating task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleToggleTask = (taskId: string) => {
-    setTasks(prev =>
-      prev.map(t =>
-        t.id === taskId ? { ...t, completed: !t.completed } : t
-      )
-    );
+  const handleToggleTask = async (taskId: string) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed: !task.completed })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await loadTasks();
+    } catch (error: any) {
+      console.error('Error toggling task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    toast({ title: 'Tarea eliminada' });
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await loadTasks();
+      toast({ title: 'Tarea eliminada' });
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
   return (

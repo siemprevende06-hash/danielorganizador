@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Trash2, GraduationCap, BookOpen, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SubjectTask {
   id: string;
@@ -60,103 +61,182 @@ export default function UniversityPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const stored = localStorage.getItem('universitySubjects');
-    if (stored) {
-      setSubjects(JSON.parse(stored));
-    }
-    const storedSessions = localStorage.getItem('studySessions');
-    if (storedSessions) {
-      setStudySessions(JSON.parse(storedSessions));
-    }
+    loadSubjects();
+    loadStudySessions();
   }, []);
 
-  useEffect(() => {
-    if (subjects.length > 0) {
-      localStorage.setItem('universitySubjects', JSON.stringify(subjects));
-    }
-  }, [subjects]);
+  const loadSubjects = async () => {
+    try {
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('university_subjects')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  useEffect(() => {
-    if (studySessions.length > 0) {
-      localStorage.setItem('studySessions', JSON.stringify(studySessions));
-    }
-  }, [studySessions]);
+      if (subjectsError) throw subjectsError;
 
-  const handleCreateSubject = () => {
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('source', 'university');
+
+      if (tasksError) throw tasksError;
+
+      const subjectsWithTasks: Subject[] = (subjectsData || []).map(subject => ({
+        id: subject.id,
+        name: subject.name,
+        code: subject.color || '',
+        professor: '',
+        schedule: '',
+        tasks: (tasksData || [])
+          .filter(task => task.source_id === subject.id)
+          .map(task => ({
+            id: task.id,
+            title: task.title,
+            description: task.description || '',
+            completed: task.completed,
+            dueDate: task.due_date || undefined
+          }))
+      }));
+
+      setSubjects(subjectsWithTasks);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+    }
+  };
+
+  const loadStudySessions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('source', 'study_session')
+        .order('created_at', { ascending: false});
+
+      if (error) throw error;
+
+      const sessions: StudySession[] = (data || []).map(task => ({
+        id: task.id,
+        topic: task.title,
+        duration: task.description || '',
+        date: task.start_date || '',
+        completed: task.completed,
+        dueDate: task.due_date || undefined
+      }));
+
+      setStudySessions(sessions);
+    } catch (error) {
+      console.error('Error loading study sessions:', error);
+    }
+  };
+
+  const handleCreateSubject = async () => {
     if (!subjectName.trim()) return;
 
-    const newSubject: Subject = {
-      id: `subject-${Date.now()}`,
-      name: subjectName,
-      code: subjectCode,
-      professor,
-      schedule,
-      tasks: [],
-    };
+    try {
+      const { error } = await supabase
+        .from('university_subjects')
+        .insert({
+          name: subjectName,
+          color: subjectCode,
+          user_id: null
+        });
 
-    setSubjects(prev => [...prev, newSubject]);
-    setSubjectName('');
-    setSubjectCode('');
-    setProfessor('');
-    setSchedule('');
-    setIsSubjectDialogOpen(false);
-    toast({ title: 'Asignatura creada', description: `${subjectName} ha sido añadida.` });
+      if (error) throw error;
+
+      await loadSubjects();
+      setSubjectName('');
+      setSubjectCode('');
+      setProfessor('');
+      setSchedule('');
+      setIsSubjectDialogOpen(false);
+      toast({ title: 'Asignatura creada', description: `${subjectName} ha sido añadida.` });
+    } catch (error: any) {
+      console.error('Error creating subject:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleDeleteSubject = (subjectId: string) => {
-    setSubjects(prev => prev.filter(s => s.id !== subjectId));
-    toast({ title: 'Asignatura eliminada' });
+  const handleDeleteSubject = async (subjectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('university_subjects')
+        .delete()
+        .eq('id', subjectId);
+
+      if (error) throw error;
+      await loadSubjects();
+      toast({ title: 'Asignatura eliminada' });
+    } catch (error: any) {
+      console.error('Error deleting subject:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!currentSubject || !taskTitle.trim()) return;
 
-    const newTask: SubjectTask = {
-      id: `task-${Date.now()}`,
-      title: taskTitle,
-      description: taskDescription,
-      completed: false,
-      dueDate: taskDueDate || undefined,
-    };
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          title: taskTitle,
+          description: taskDescription,
+          completed: false,
+          due_date: taskDueDate || null,
+          source: 'university',
+          source_id: currentSubject.id,
+          status: 'pendiente',
+          user_id: null
+        });
 
-    setSubjects(prev =>
-      prev.map(s =>
-        s.id === currentSubject.id
-          ? { ...s, tasks: [...s.tasks, newTask] }
-          : s
-      )
-    );
+      if (error) throw error;
 
-    setTaskTitle('');
-    setTaskDescription('');
-    setTaskDueDate('');
-    setIsTaskDialogOpen(false);
-    toast({ title: 'Tarea añadida' });
+      await loadSubjects();
+      setTaskTitle('');
+      setTaskDescription('');
+      setTaskDueDate('');
+      setIsTaskDialogOpen(false);
+      toast({ title: 'Tarea añadida' });
+    } catch (error: any) {
+      console.error('Error adding task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleToggleTask = (subjectId: string, taskId: string) => {
-    setSubjects(prev =>
-      prev.map(s =>
-        s.id === subjectId
-          ? {
-              ...s,
-              tasks: s.tasks.map(t =>
-                t.id === taskId ? { ...t, completed: !t.completed } : t
-              ),
-            }
-          : s
-      )
-    );
+  const handleToggleTask = async (subjectId: string, taskId: string) => {
+    try {
+      const subject = subjects.find(s => s.id === subjectId);
+      if (!subject) return;
+      
+      const task = subject.tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed: !task.completed })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await loadSubjects();
+    } catch (error: any) {
+      console.error('Error toggling task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleDeleteTask = (subjectId: string, taskId: string) => {
-    setSubjects(prev =>
-      prev.map(s =>
-        s.id === subjectId
-          ? { ...s, tasks: s.tasks.filter(t => t.id !== taskId) }
-          : s
-      )
-    );
+  const handleDeleteTask = async (subjectId: string, taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await loadSubjects();
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
   const handleEditTask = (subjectId: string, taskId: string) => {
@@ -172,51 +252,64 @@ export default function UniversityPage() {
     }
   };
 
-  const handleUpdateTask = () => {
+  const handleUpdateTask = async () => {
     if (!currentSubject || !currentTask || !taskTitle.trim()) return;
 
-    setSubjects(prev =>
-      prev.map(s =>
-        s.id === currentSubject.id
-          ? {
-              ...s,
-              tasks: s.tasks.map(t =>
-                t.id === currentTask.id
-                  ? { ...t, title: taskTitle, description: taskDescription, dueDate: taskDueDate || undefined }
-                  : t
-              ),
-            }
-          : s
-      )
-    );
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: taskTitle,
+          description: taskDescription,
+          due_date: taskDueDate || null
+        })
+        .eq('id', currentTask.id);
 
-    setTaskTitle('');
-    setTaskDescription('');
-    setTaskDueDate('');
-    setCurrentTask(null);
-    setIsEditTaskDialogOpen(false);
-    toast({ title: 'Tarea actualizada' });
+      if (error) throw error;
+
+      await loadSubjects();
+      setTaskTitle('');
+      setTaskDescription('');
+      setTaskDueDate('');
+      setCurrentTask(null);
+      setIsEditTaskDialogOpen(false);
+      toast({ title: 'Tarea actualizada' });
+    } catch (error: any) {
+      console.error('Error updating task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleCreateStudySession = () => {
+  const handleCreateStudySession = async () => {
     if (!studyTopic.trim() || !studyDuration.trim()) return;
 
-    const newSession: StudySession = {
-      id: `study-${Date.now()}`,
-      topic: studyTopic,
-      duration: studyDuration,
-      date: studyDate,
-      completed: false,
-      dueDate: studyDueDate || undefined,
-    };
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          title: studyTopic,
+          description: studyDuration,
+          completed: false,
+          start_date: studyDate || null,
+          due_date: studyDueDate || null,
+          source: 'study_session',
+          status: 'pendiente',
+          user_id: null
+        });
 
-    setStudySessions(prev => [...prev, newSession]);
-    setStudyTopic('');
-    setStudyDuration('');
-    setStudyDate('');
-    setStudyDueDate('');
-    setIsStudyDialogOpen(false);
-    toast({ title: 'Tiempo de estudio creado' });
+      if (error) throw error;
+
+      await loadStudySessions();
+      setStudyTopic('');
+      setStudyDuration('');
+      setStudyDate('');
+      setStudyDueDate('');
+      setIsStudyDialogOpen(false);
+      toast({ title: 'Tiempo de estudio creado' });
+    } catch (error: any) {
+      console.error('Error creating study session:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
   const handleEditStudySession = (session: StudySession) => {
@@ -228,37 +321,68 @@ export default function UniversityPage() {
     setIsEditStudyDialogOpen(true);
   };
 
-  const handleUpdateStudySession = () => {
+  const handleUpdateStudySession = async () => {
     if (!currentStudySession || !studyTopic.trim() || !studyDuration.trim()) return;
 
-    setStudySessions(prev =>
-      prev.map(s =>
-        s.id === currentStudySession.id
-          ? { ...s, topic: studyTopic, duration: studyDuration, date: studyDate, dueDate: studyDueDate || undefined }
-          : s
-      )
-    );
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: studyTopic,
+          description: studyDuration,
+          start_date: studyDate || null,
+          due_date: studyDueDate || null
+        })
+        .eq('id', currentStudySession.id);
 
-    setStudyTopic('');
-    setStudyDuration('');
-    setStudyDate('');
-    setStudyDueDate('');
-    setCurrentStudySession(null);
-    setIsEditStudyDialogOpen(false);
-    toast({ title: 'Tiempo de estudio actualizado' });
+      if (error) throw error;
+
+      await loadStudySessions();
+      setStudyTopic('');
+      setStudyDuration('');
+      setStudyDate('');
+      setStudyDueDate('');
+      setCurrentStudySession(null);
+      setIsEditStudyDialogOpen(false);
+      toast({ title: 'Tiempo de estudio actualizado' });
+    } catch (error: any) {
+      console.error('Error updating study session:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleToggleStudySession = (sessionId: string) => {
-    setStudySessions(prev =>
-      prev.map(s =>
-        s.id === sessionId ? { ...s, completed: !s.completed } : s
-      )
-    );
+  const handleToggleStudySession = async (sessionId: string) => {
+    try {
+      const session = studySessions.find(s => s.id === sessionId);
+      if (!session) return;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed: !session.completed })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+      await loadStudySessions();
+    } catch (error: any) {
+      console.error('Error toggling study session:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleDeleteStudySession = (sessionId: string) => {
-    setStudySessions(prev => prev.filter(s => s.id !== sessionId));
-    toast({ title: 'Tiempo de estudio eliminado' });
+  const handleDeleteStudySession = async (sessionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', sessionId);
+
+      if (error) throw error;
+      await loadStudySessions();
+      toast({ title: 'Tiempo de estudio eliminado' });
+    } catch (error: any) {
+      console.error('Error deleting study session:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
   return (
@@ -292,14 +416,6 @@ export default function UniversityPage() {
                 <label className="text-sm font-medium">Código</label>
                 <Input value={subjectCode} onChange={(e) => setSubjectCode(e.target.value)} placeholder="Ej: MAT-101" />
               </div>
-              <div>
-                <label className="text-sm font-medium">Profesor</label>
-                <Input value={professor} onChange={(e) => setProfessor(e.target.value)} placeholder="Nombre del profesor" />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Horario</label>
-                <Input value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder="Ej: Lun/Mie 10:00-12:00" />
-              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleCreateSubject}>Crear Asignatura</Button>
@@ -326,9 +442,7 @@ export default function UniversityPage() {
                       {subject.name}
                     </CardTitle>
                     <CardDescription className="mt-1">
-                      {subject.code} • {subject.professor}
-                      <br />
-                      {subject.schedule}
+                      {subject.code}
                     </CardDescription>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => handleDeleteSubject(subject.id)}>
@@ -479,30 +593,24 @@ export default function UniversityPage() {
               </CardContent>
             </Card>
           ))}
-          {studySessions.length === 0 && (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">No tienes tiempos de estudio programados.</p>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
       </Tabs>
 
+      {/* Task Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nueva Tarea</DialogTitle>
-            <DialogDescription>Añade una tarea a {currentSubject?.name}</DialogDescription>
+            <DialogTitle>Añadir Tarea</DialogTitle>
+            <DialogDescription>Agrega una nueva tarea a {currentSubject?.name}.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Título</label>
-              <Input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Ej: Entregar tarea 3" />
+              <Input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Título de la tarea" />
             </div>
             <div>
               <label className="text-sm font-medium">Descripción</label>
-              <Textarea value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} placeholder="Detalles..." />
+              <Textarea value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} placeholder="Descripción" />
             </div>
             <div>
               <label className="text-sm font-medium">Fecha de entrega</label>
@@ -515,20 +623,21 @@ export default function UniversityPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Task Dialog */}
       <Dialog open={isEditTaskDialogOpen} onOpenChange={setIsEditTaskDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Tarea</DialogTitle>
-            <DialogDescription>Modifica la tarea de {currentSubject?.name}</DialogDescription>
+            <DialogDescription>Actualiza los detalles de la tarea.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Título</label>
-              <Input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Ej: Entregar tarea 3" />
+              <Input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Título de la tarea" />
             </div>
             <div>
               <label className="text-sm font-medium">Descripción</label>
-              <Textarea value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} placeholder="Detalles..." />
+              <Textarea value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} placeholder="Descripción" />
             </div>
             <div>
               <label className="text-sm font-medium">Fecha de entrega</label>
@@ -541,62 +650,64 @@ export default function UniversityPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Study Dialog */}
       <Dialog open={isStudyDialogOpen} onOpenChange={setIsStudyDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nuevo Tiempo de Estudio</DialogTitle>
-            <DialogDescription>Planifica tu tiempo de estudio</DialogDescription>
+            <DialogDescription>Programa un tiempo de estudio.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Tema a estudiar</label>
-              <Input value={studyTopic} onChange={(e) => setStudyTopic(e.target.value)} placeholder="Ej: Repaso de ecuaciones diferenciales" />
+              <label className="text-sm font-medium">Tema</label>
+              <Input value={studyTopic} onChange={(e) => setStudyTopic(e.target.value)} placeholder="Tema de estudio" />
             </div>
             <div>
               <label className="text-sm font-medium">Duración</label>
               <Input value={studyDuration} onChange={(e) => setStudyDuration(e.target.value)} placeholder="Ej: 2 horas" />
             </div>
             <div>
-              <label className="text-sm font-medium">Fecha de sesión</label>
+              <label className="text-sm font-medium">Fecha</label>
               <Input type="date" value={studyDate} onChange={(e) => setStudyDate(e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium">Fecha de vencimiento (opcional)</label>
+              <label className="text-sm font-medium">Vencimiento</label>
               <Input type="date" value={studyDueDate} onChange={(e) => setStudyDueDate(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleCreateStudySession}>Crear Tiempo de Estudio</Button>
+            <Button onClick={handleCreateStudySession}>Crear</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Edit Study Dialog */}
       <Dialog open={isEditStudyDialogOpen} onOpenChange={setIsEditStudyDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Tiempo de Estudio</DialogTitle>
-            <DialogDescription>Modifica tu tiempo de estudio</DialogDescription>
+            <DialogDescription>Actualiza el tiempo de estudio.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Tema a estudiar</label>
-              <Input value={studyTopic} onChange={(e) => setStudyTopic(e.target.value)} placeholder="Ej: Repaso de ecuaciones diferenciales" />
+              <label className="text-sm font-medium">Tema</label>
+              <Input value={studyTopic} onChange={(e) => setStudyTopic(e.target.value)} placeholder="Tema de estudio" />
             </div>
             <div>
               <label className="text-sm font-medium">Duración</label>
               <Input value={studyDuration} onChange={(e) => setStudyDuration(e.target.value)} placeholder="Ej: 2 horas" />
             </div>
             <div>
-              <label className="text-sm font-medium">Fecha de sesión</label>
+              <label className="text-sm font-medium">Fecha</label>
               <Input type="date" value={studyDate} onChange={(e) => setStudyDate(e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium">Fecha de vencimiento (opcional)</label>
+              <label className="text-sm font-medium">Vencimiento</label>
               <Input type="date" value={studyDueDate} onChange={(e) => setStudyDueDate(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleUpdateStudySession}>Actualizar Tiempo de Estudio</Button>
+            <Button onClick={handleUpdateStudySession}>Actualizar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

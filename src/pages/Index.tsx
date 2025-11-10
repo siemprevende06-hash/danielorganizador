@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { isToday } from "date-fns";
+import { isToday, format } from "date-fns";
 import { lifeAreas, centralAreas } from "@/lib/data";
 import type { Task } from "@/lib/definitions";
 import { Plus, Clock, X, ImagePlus, Briefcase, GraduationCap, Code } from "lucide-react";
@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TaskWithBlock extends Task {
   blockId?: string;
@@ -54,8 +55,42 @@ export default function Index() {
   const [isClient, setIsClient] = useState(false);
   const { uploadImage, uploading } = useImageUpload();
 
+  const loadTasks = async () => {
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .or(`source.eq.general,source.eq.entrepreneurship,source.eq.university,source.eq.study_session,source.eq.project`)
+        .lte('due_date', today)
+        .gte('due_date', today)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedTasks: TaskWithBlock[] = (data || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status as any,
+        priority: task.priority as any,
+        dueDate: task.due_date ? new Date(task.due_date) : undefined,
+        completed: task.completed,
+        areaId: task.source === 'university' ? 'universidad' : 
+                task.source === 'entrepreneurship' ? 'emprendimiento' : 
+                task.source === 'study_session' ? 'universidad' : undefined
+      }));
+
+      setTasks(mappedTasks);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+    }
+  };
+
   useEffect(() => {
     setIsClient(true);
+    loadTasks();
     
     // Load routine blocks from localStorage (same as DailyRoutine page)
     const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
@@ -89,110 +124,7 @@ export default function Index() {
       setRoutineBlocks(initialBlocks);
     }
 
-    // Load tasks from localStorage
-    const storedTasks = localStorage.getItem("tasks");
-    if (storedTasks) {
-      try {
-        const parsedTasks: Task[] = JSON.parse(storedTasks);
-        setTasks(parsedTasks.map(task => ({ 
-          ...task, 
-          dueDate: task.dueDate ? new Date(task.dueDate) : undefined 
-        })));
-      } catch (e) {
-        console.error("Error loading tasks:", e);
-      }
-    }
-
-    // Load university tasks from subjects
-    const universitySubjects = localStorage.getItem('universitySubjects');
-    if (universitySubjects) {
-      try {
-        const subjects = JSON.parse(universitySubjects);
-        const mappedTasks = subjects.flatMap((subject: any) => {
-          if (Array.isArray(subject.tasks)) {
-            return subject.tasks.map((task: any) => ({
-              id: task.id,
-              title: `${subject.name}: ${task.title}`,
-              description: task.description,
-              completed: task.completed,
-              status: (task.completed ? 'completada' : 'pendiente') as 'completada' | 'pendiente',
-              areaId: 'universidad',
-              dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-            }));
-          }
-          return [];
-        });
-        setTasks(prev => [...prev, ...mappedTasks]);
-      } catch (e) {
-        console.error("Error loading university tasks:", e);
-      }
-    }
-
-    // Load study sessions
-    const studySessions = localStorage.getItem('studySessions');
-    if (studySessions) {
-      try {
-        const sessions = JSON.parse(studySessions);
-        const sessionTasks = sessions.map((session: any) => ({
-          id: session.id,
-          title: `Estudio: ${session.topic}`,
-          description: `Duración: ${session.duration}`,
-          completed: session.completed,
-          status: session.completed ? 'completada' : 'pendiente',
-          areaId: 'universidad',
-          dueDate: session.dueDate ? new Date(session.dueDate) : (session.date ? new Date(session.date) : undefined),
-        }));
-        setTasks(prev => [...prev, ...sessionTasks]);
-      } catch (e) {
-        console.error("Error loading study sessions:", e);
-      }
-    }
-
-    // Load entrepreneurship tasks
-    const entrepreneurshipTasks = localStorage.getItem('entrepreneurshipTasks');
-    if (entrepreneurshipTasks) {
-      try {
-        const tasksData = JSON.parse(entrepreneurshipTasks);
-        const mappedTasks = Object.entries(tasksData).flatMap(([project, tasks]: [string, any]) => {
-          if (Array.isArray(tasks)) {
-            return tasks.map((task: any) => ({
-              id: task.id,
-              title: `${project}: ${task.title}`,
-              description: task.description,
-              completed: task.completed,
-              status: (task.completed ? 'completada' : 'pendiente') as 'completada' | 'pendiente',
-              areaId: 'emprendimiento',
-              dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-            }));
-          }
-          return [];
-        });
-        setTasks(prev => [...prev, ...mappedTasks]);
-      } catch (e) {
-        console.error("Error loading entrepreneurship tasks:", e);
-      }
-    }
-
-    // Load project tasks
-    const projectsData = localStorage.getItem('webProjects');
-    if (projectsData) {
-      try {
-        const projects = JSON.parse(projectsData);
-        const projectTasks = projects.flatMap((project: any) =>
-          (project.tasks || []).map((task: any) => ({
-            id: task.id,
-            title: `${project.name}: ${task.title}`,
-            completed: task.completed,
-            status: task.completed ? 'completada' : 'pendiente',
-            areaId: 'web',
-            dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-          }))
-        );
-        setTasks(prev => [...prev, ...projectTasks]);
-      } catch (e) {
-        console.error("Error loading project tasks:", e);
-      }
-    }
+    loadTasks();
 
     // Load block tasks
     const storedBlockTasks = localStorage.getItem("routineBlockTasks");
@@ -204,6 +136,39 @@ export default function Index() {
       }
     }
   }, []);
+
+  const loadTasks = async () => {
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .or(`source.eq.general,source.eq.entrepreneurship,source.eq.university,source.eq.study_session,source.eq.project`)
+        .lte('due_date', today)
+        .gte('due_date', today)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedTasks: TaskWithBlock[] = (data || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status as any,
+        priority: task.priority as any,
+        dueDate: task.due_date ? new Date(task.due_date) : undefined,
+        completed: task.completed,
+        areaId: task.source === 'university' ? 'universidad' : 
+                task.source === 'entrepreneurship' ? 'emprendimiento' : 
+                task.source === 'study_session' ? 'universidad' : undefined
+      }));
+
+      setTasks(mappedTasks);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+    }
+  };
 
   // Define time windows with their blocks based on time ranges
   const timeWindows: TimeWindow[] = [
@@ -286,28 +251,20 @@ export default function Index() {
     };
   }).filter(group => group.tasks.length > 0);
 
-  const handleToggleTask = (taskId: string) => {
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === taskId
-          ? { ...task, completed: !task.completed, status: !task.completed ? 'completada' : 'pendiente' }
-          : task
-      )
-    );
+  const handleToggleTask = async (taskId: string) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
 
-    const storedTasks = localStorage.getItem("tasks");
-    if (storedTasks) {
-      try {
-        const parsedTasks: Task[] = JSON.parse(storedTasks);
-        const updated = parsedTasks.map(task =>
-          task.id === taskId
-            ? { ...task, completed: !task.completed, status: !task.completed ? 'completada' : 'pendiente' }
-            : task
-        );
-        localStorage.setItem("tasks", JSON.stringify(updated));
-      } catch (e) {
-        console.error("Error updating task:", e);
-      }
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed: !task.completed })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await loadTasks();
+    } catch (error) {
+      console.error('Error toggling task:', error);
     }
   };
 

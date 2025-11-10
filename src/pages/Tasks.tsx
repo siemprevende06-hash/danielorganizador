@@ -10,6 +10,7 @@ import { PlusCircle, Trash2, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Task } from '@/lib/definitions';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -21,53 +22,103 @@ export default function TasksPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const stored = localStorage.getItem('tasks');
-    if (stored) {
-      setTasks(JSON.parse(stored, (key, value) => (key === 'dueDate' && value ? new Date(value) : value)));
-    }
+    loadTasks();
   }, []);
 
-  useEffect(() => {
-    if (tasks.length > 0) {
-      localStorage.setItem('tasks', JSON.stringify(tasks));
-    }
-  }, [tasks]);
+  const loadTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('source', 'general')
+        .order('created_at', { ascending: false });
 
-  const handleCreateTask = () => {
+      if (error) throw error;
+      
+      const mappedTasks: Task[] = (data || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status as any,
+        priority: task.priority as any,
+        dueDate: task.due_date ? new Date(task.due_date) : undefined,
+        completed: task.completed,
+        areaId: task.area_id || undefined
+      }));
+      
+      setTasks(mappedTasks);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+    }
+  };
+
+  const handleCreateTask = async () => {
     if (!title.trim()) return;
 
-    const newTask: Task = {
-      id: `task-${Date.now()}`,
-      title,
-      description,
-      status: 'pendiente',
-      priority,
-      dueDate: dueDate ? new Date(dueDate) : undefined,
-      completed: false,
-    };
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          title,
+          description,
+          status: 'pendiente',
+          priority,
+          due_date: dueDate || null,
+          completed: false,
+          source: 'general',
+          user_id: null
+        });
 
-    setTasks(prev => [...prev, newTask]);
-    setTitle('');
-    setDescription('');
-    setPriority('medium');
-    setDueDate('');
-    setIsDialogOpen(false);
-    toast({ title: 'Tarea creada', description: `${title} ha sido añadida.` });
+      if (error) throw error;
+
+      await loadTasks();
+      setTitle('');
+      setDescription('');
+      setPriority('medium');
+      setDueDate('');
+      setIsDialogOpen(false);
+      toast({ title: 'Tarea creada', description: `${title} ha sido añadida.` });
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleToggleTask = (taskId: string) => {
-    setTasks(prev =>
-      prev.map(t =>
-        t.id === taskId
-          ? { ...t, status: t.status === 'completada' ? 'pendiente' : 'completada', completed: !t.completed }
-          : t
-      )
-    );
+  const handleToggleTask = async (taskId: string) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          completed: !task.completed,
+          status: task.completed ? 'pendiente' : 'completada'
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await loadTasks();
+    } catch (error: any) {
+      console.error('Error toggling task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    toast({ title: 'Tarea eliminada' });
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await loadTasks();
+      toast({ title: 'Tarea eliminada' });
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
   const getPriorityColor = (priority?: string) => {
