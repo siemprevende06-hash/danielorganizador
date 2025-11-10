@@ -103,16 +103,16 @@ export default function Index() {
       }
     }
 
-    // Load university tasks
-    const universityTasks = localStorage.getItem('universityTasks');
-    if (universityTasks) {
+    // Load university tasks from subjects
+    const universitySubjects = localStorage.getItem('universitySubjects');
+    if (universitySubjects) {
       try {
-        const tasksData = JSON.parse(universityTasks);
-        const mappedTasks = Object.entries(tasksData).flatMap(([subject, tasks]: [string, any]) => {
-          if (Array.isArray(tasks)) {
-            return tasks.map((task: any) => ({
+        const subjects = JSON.parse(universitySubjects);
+        const mappedTasks = subjects.flatMap((subject: any) => {
+          if (Array.isArray(subject.tasks)) {
+            return subject.tasks.map((task: any) => ({
               id: task.id,
-              title: `${subject}: ${task.title}`,
+              title: `${subject.name}: ${task.title}`,
               description: task.description,
               completed: task.completed,
               status: (task.completed ? 'completada' : 'pendiente') as 'completada' | 'pendiente',
@@ -270,10 +270,10 @@ export default function Index() {
     return null;
   }
 
-  // Filter today's tasks (tasks with no date or tasks due today)
+  // Filter today's tasks (only tasks with today's date)
   const todayTasks = tasks.filter(task => {
-    if (!task.dueDate) return true; // Include tasks without a date
-    return isToday(task.dueDate); // Include tasks due today
+    if (!task.dueDate) return false; // Exclude tasks without a date
+    return isToday(task.dueDate); // Only include tasks due today
   });
 
   // Group tasks by area

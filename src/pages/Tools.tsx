@@ -106,7 +106,7 @@ export default function ToolsPage() {
                 <input
                   id={`upload-${card.id}`}
                   type="file"
-                  accept="image/*,image/gif"
+                  accept="image/*"
                   className="hidden"
                   onChange={(e) => handleImageUpload(card.id, e)}
                 />
