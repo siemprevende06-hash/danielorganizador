@@ -18,26 +18,16 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { supabase } from "@/integrations/supabase/client";
+import { WakeTimeSettings } from "@/components/routine/WakeTimeSettings";
+import { GoalProgressTracker } from "@/components/goals/GoalProgressTracker";
+import { useRoutineAdjustment } from "@/hooks/useRoutineAdjustment";
+import { RoutineBlock } from "@/components/RoutineBlockCard";
 
 interface TaskWithBlock extends Task {
   blockId?: string;
 }
 
-interface RoutineBlock {
-  id: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  specificTask?: string;
-  genericTasks?: string[];
-  currentStreak: number;
-  maxStreak: number;
-  weeklyCompletion: boolean[];
-  coverImage?: string;
-  isHalfTime?: boolean;
-  effortLevel?: "minimum" | "normal" | "maximum";
-  notDone?: boolean[];
-}
+// Removed duplicate RoutineBlock interface - now imported from RoutineBlockCard
 
 interface TimeWindow {
   id: string;
@@ -54,6 +44,9 @@ export default function Index() {
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { uploadImage, uploading } = useImageUpload();
+  
+  // Use routine adjustment hook for wake time settings
+  const { settings, adjustedBlocks, loading: settingsLoading, updateSettings } = useRoutineAdjustment(routineBlocks);
 
   const loadTasks = async () => {
     try {

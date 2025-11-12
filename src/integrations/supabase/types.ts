@@ -154,6 +154,124 @@ export type Database = {
         }
         Relationships: []
       }
+      goal_block_connections: {
+        Row: {
+          block_id: string
+          block_name: string
+          contribution_percentage: number | null
+          created_at: string
+          goal_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          block_id: string
+          block_name: string
+          contribution_percentage?: number | null
+          created_at?: string
+          goal_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          block_id?: string
+          block_name?: string
+          contribution_percentage?: number | null
+          created_at?: string
+          goal_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_block_connections_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_tasks: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          due_date: string | null
+          goal_id: string
+          id: string
+          linked_to_block_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          due_date?: string | null
+          goal_id: string
+          id?: string
+          linked_to_block_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          due_date?: string | null
+          goal_id?: string
+          id?: string
+          linked_to_block_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_tasks_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          area_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          progress_percentage: number | null
+          status: Database["public"]["Enums"]["goal_status"] | null
+          target_date: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          area_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          progress_percentage?: number | null
+          status?: Database["public"]["Enums"]["goal_status"] | null
+          target_date?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          area_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          progress_percentage?: number | null
+          status?: Database["public"]["Enums"]["goal_status"] | null
+          target_date?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           cover_image: string | null
@@ -297,6 +415,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          auto_adjust_enabled: boolean | null
+          created_at: string
+          id: string
+          morning_end_time: string | null
+          updated_at: string
+          user_id: string
+          wake_time: string | null
+        }
+        Insert: {
+          auto_adjust_enabled?: boolean | null
+          created_at?: string
+          id?: string
+          morning_end_time?: string | null
+          updated_at?: string
+          user_id: string
+          wake_time?: string | null
+        }
+        Update: {
+          auto_adjust_enabled?: boolean | null
+          created_at?: string
+          id?: string
+          morning_end_time?: string | null
+          updated_at?: string
+          user_id?: string
+          wake_time?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -305,7 +453,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      goal_status: "active" | "completed" | "paused" | "abandoned"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -432,6 +580,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      goal_status: ["active", "completed", "paused", "abandoned"],
+    },
   },
 } as const

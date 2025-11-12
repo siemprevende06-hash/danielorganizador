@@ -9,20 +9,26 @@ import { CheckCircle2, Flame, Trophy, Clock, ImagePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useImageUpload } from "@/hooks/useImageUpload";
 
-interface RoutineBlock {
+export interface RoutineBlock {
   id: string;
   title: string;
-  startTime: string;
-  endTime: string;
+  time?: string;
+  startTime?: string;
+  endTime?: string;
+  duration?: number;
   specificTask?: string;
+  tasks?: string[];
   genericTasks?: string[];
   currentStreak: number;
+  longestStreak?: number;
   maxStreak: number;
   weeklyCompletion: boolean[];
   coverImage?: string;
   isHalfTime?: boolean;
   effortLevel?: "minimum" | "normal" | "maximum";
   notDone?: boolean[];
+  isAdjusted?: boolean;
+  adjustmentFactor?: number;
 }
 
 interface RoutineBlockCardProps {
