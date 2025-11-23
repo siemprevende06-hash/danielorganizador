@@ -4,6 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { isToday, parseISO, formatISO } from 'date-fns';
 import type { Task, HabitHistory } from '@/lib/definitions';
 import { Flame } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Habit {
   id: string;
@@ -16,12 +17,36 @@ export default function DailyView() {
   const [habitHistory, setHabitHistory] = useState<HabitHistory>({});
   const [isClient, setIsClient] = useState(false);
 
+  const loadTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedTasks: Task[] = (data || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status as any,
+        priority: task.priority as any,
+        dueDate: task.due_date ? new Date(task.due_date) : undefined,
+        completed: task.completed,
+        areaId: task.area_id || undefined
+      }));
+
+      setTasks(mappedTasks);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+    }
+  };
+
   useEffect(() => {
     setIsClient(true);
-    const storedTasks = localStorage.getItem('tasks');
-    if (storedTasks) {
-      setTasks(JSON.parse(storedTasks, (key, value) => (key === 'dueDate' && value ? new Date(value) : value)));
-    }
+    loadTasks();
+    
     const storedHabits = localStorage.getItem('userHabits');
     if (storedHabits) {
       setHabits(JSON.parse(storedHabits));
@@ -33,12 +58,6 @@ export default function DailyView() {
   }, []);
 
   useEffect(() => {
-    if (isClient && tasks.length > 0) {
-      localStorage.setItem('tasks', JSON.stringify(tasks));
-    }
-  }, [tasks, isClient]);
-
-  useEffect(() => {
     if (isClient) {
       localStorage.setItem('habitHistory', JSON.stringify(habitHistory));
     }
@@ -46,14 +65,24 @@ export default function DailyView() {
 
   const todayTasks = useMemo(() => tasks.filter(task => task.dueDate && isToday(new Date(task.dueDate))), [tasks]);
 
-  const toggleTask = (taskId: string) => {
-    setTasks(prev =>
-      prev.map(t =>
-        t.id === taskId
-          ? { ...t, status: t.status === 'completada' ? 'pendiente' : 'completada', completed: !t.completed }
-          : t
-      )
-    );
+  const toggleTask = async (taskId: string) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          completed: !task.completed,
+          status: task.completed ? 'pendiente' : 'completada'
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await loadTasks();
+    } catch (error) {
+      console.error('Error toggling task:', error);
+    }
   };
 
   const toggleHabit = (habitId: string) => {

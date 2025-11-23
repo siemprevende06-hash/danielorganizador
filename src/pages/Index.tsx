@@ -56,8 +56,6 @@ export default function Index() {
         .from('tasks')
         .select('*')
         .or(`source.eq.general,source.eq.entrepreneurship,source.eq.university,source.eq.study_session,source.eq.project`)
-        .lte('due_date', today)
-        .gte('due_date', today)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
