@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { isToday, parseISO, formatISO } from 'date-fns';
+import { isToday, parseISO, formatISO, startOfDay } from 'date-fns';
 import type { Task, HabitHistory } from '@/lib/definitions';
 import { Flame } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,7 +88,17 @@ export default function DailyView() {
     }
   }, [habitHistory, isClient]);
 
-  const todayTasks = useMemo(() => tasks.filter(task => task.dueDate && isToday(new Date(task.dueDate))), [tasks]);
+  const todayTasks = useMemo(() => {
+    const today = startOfDay(new Date());
+    return tasks.filter(task => {
+      if (!task.dueDate) return false;
+      const taskDate = startOfDay(task.dueDate);
+      return taskDate.getTime() === today.getTime();
+    });
+  }, [tasks]);
+
+  console.log('DailyView - All tasks:', tasks);
+  console.log('DailyView - Today tasks:', todayTasks);
 
   const toggleTask = async (taskId: string) => {
     try {
