@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { isToday, format } from "date-fns";
+import { isToday, format, startOfDay } from "date-fns";
 import { lifeAreas, centralAreas } from "@/lib/data";
+import { flattenAreas } from "@/lib/utils";
 import type { Task } from "@/lib/definitions";
 import { Plus, Clock, X, ImagePlus, Briefcase, GraduationCap, Code } from "lucide-react";
 import {
@@ -214,14 +215,19 @@ export default function Index() {
   // Filter today's tasks (only tasks with today's date)
   const todayTasks = tasks.filter(task => {
     if (!task.dueDate) return false; // Exclude tasks without a date
-    return isToday(task.dueDate); // Only include tasks due today
+    const taskDate = startOfDay(task.dueDate);
+    const today = startOfDay(new Date());
+    return taskDate.getTime() === today.getTime();
   });
 
   // ALL available tasks (pending, with or without date) for assignment to blocks
   const availableTasks = tasks.filter(task => !task.completed);
 
   // Group today's tasks by area
-  const allAreas = [...lifeAreas, ...centralAreas];
+  const allAreas = [
+    ...flattenAreas(lifeAreas),
+    ...flattenAreas(centralAreas),
+  ];
   const tasksByArea = allAreas.map(area => {
     const areaTasks = todayTasks.filter(task => task.areaId === area.id);
     return {
