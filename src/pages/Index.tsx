@@ -50,17 +50,25 @@ export default function Index() {
 
   const loadTasks = async () => {
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      
-      const { data, error } = await supabase
+      // 1. Load regular tasks from 'tasks' table
+      const { data: regularTasks, error: regularError } = await supabase
         .from('tasks')
         .select('*')
-        .or(`source.eq.general,source.eq.entrepreneurship,source.eq.university,source.eq.study_session,source.eq.project`)
+        .or(`source.eq.general,source.eq.university,source.eq.study_session,source.eq.project`)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (regularError) throw regularError;
 
-      const mappedTasks: TaskWithBlock[] = (data || []).map(task => ({
+      // 2. Load entrepreneurship tasks from 'entrepreneurship_tasks' table
+      const { data: entrepreneurshipTasks, error: entrepreneurshipError } = await supabase
+        .from('entrepreneurship_tasks')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (entrepreneurshipError) throw entrepreneurshipError;
+
+      // 3. Map and combine both sources
+      const mappedRegularTasks: TaskWithBlock[] = (regularTasks || []).map(task => ({
         id: task.id,
         title: task.title,
         description: task.description || '',
@@ -69,12 +77,22 @@ export default function Index() {
         dueDate: task.due_date ? new Date(task.due_date) : undefined,
         completed: task.completed,
         areaId: task.source === 'university' ? 'universidad' : 
-                task.source === 'entrepreneurship' ? 'emprendimiento' :
                 task.source === 'project' ? 'proyectos' :
                 task.source === 'study_session' ? 'universidad' : undefined
       }));
 
-      setTasks(mappedTasks);
+      const mappedEntrepreneurshipTasks: TaskWithBlock[] = (entrepreneurshipTasks || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.completed ? 'completada' : 'pendiente',
+        priority: 'medium' as any,
+        dueDate: task.due_date ? new Date(task.due_date) : undefined,
+        completed: task.completed,
+        areaId: 'emprendimiento'
+      }));
+
+      setTasks([...mappedRegularTasks, ...mappedEntrepreneurshipTasks]);
     } catch (error) {
       console.error('Error loading tasks:', error);
     }
@@ -198,10 +216,22 @@ export default function Index() {
     return isToday(task.dueDate); // Only include tasks due today
   });
 
-  // Group tasks by area
+  // ALL available tasks (pending, with or without date) for assignment to blocks
+  const availableTasks = tasks.filter(task => !task.completed);
+
+  // Group today's tasks by area
   const allAreas = [...lifeAreas, ...centralAreas];
   const tasksByArea = allAreas.map(area => {
     const areaTasks = todayTasks.filter(task => task.areaId === area.id);
+    return {
+      area,
+      tasks: areaTasks,
+    };
+  }).filter(group => group.tasks.length > 0);
+
+  // Group ALL available tasks by area for assignment dialog
+  const availableTasksByArea = allAreas.map(area => {
+    const areaTasks = availableTasks.filter(task => task.areaId === area.id);
     return {
       area,
       tasks: areaTasks,
@@ -633,12 +663,12 @@ export default function Index() {
                             </DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4 max-h-[500px] overflow-y-auto">
-                            {tasksByArea.length === 0 ? (
+                            {availableTasksByArea.length === 0 ? (
                               <p className="text-center text-muted-foreground py-8">
-                                No hay tareas disponibles para hoy
+                                No hay tareas disponibles
                               </p>
                             ) : (
-                              tasksByArea.map(({ area, tasks }) => {
+                              availableTasksByArea.map(({ area, tasks }) => {
                                 const Icon = area.icon;
                                 return (
                                   <div key={area.id} className="space-y-2">
