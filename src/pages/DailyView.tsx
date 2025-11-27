@@ -19,14 +19,25 @@ export default function DailyView() {
 
   const loadTasks = async () => {
     try {
-      const { data, error } = await supabase
+      // 1. Load regular tasks
+      const { data: regularTasks, error: regularError } = await supabase
         .from('tasks')
+        .select('*')
+        .or(`source.eq.general,source.eq.university,source.eq.study_session,source.eq.project`)
+        .order('created_at', { ascending: false });
+
+      if (regularError) throw regularError;
+
+      // 2. Load entrepreneurship tasks
+      const { data: entrepreneurshipTasks, error: entrepreneurshipError } = await supabase
+        .from('entrepreneurship_tasks')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (entrepreneurshipError) throw entrepreneurshipError;
 
-      const mappedTasks: Task[] = (data || []).map(task => ({
+      // 3. Map and combine
+      const mappedRegularTasks: Task[] = (regularTasks || []).map(task => ({
         id: task.id,
         title: task.title,
         description: task.description || '',
@@ -34,10 +45,23 @@ export default function DailyView() {
         priority: task.priority as any,
         dueDate: task.due_date ? new Date(task.due_date) : undefined,
         completed: task.completed,
-        areaId: task.area_id || undefined
+        areaId: task.source === 'university' ? 'universidad' : 
+                task.source === 'project' ? 'proyectos' :
+                task.source === 'study_session' ? 'universidad' : undefined
       }));
 
-      setTasks(mappedTasks);
+      const mappedEntrepreneurshipTasks: Task[] = (entrepreneurshipTasks || []).map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.completed ? 'completada' : 'pendiente',
+        priority: 'medium' as any,
+        dueDate: task.due_date ? new Date(task.due_date) : undefined,
+        completed: task.completed,
+        areaId: 'emprendimiento'
+      }));
+
+      setTasks([...mappedRegularTasks, ...mappedEntrepreneurshipTasks]);
     } catch (error) {
       console.error('Error loading tasks:', error);
     }
@@ -70,15 +94,28 @@ export default function DailyView() {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
-      const { error } = await supabase
-        .from('tasks')
-        .update({ 
-          completed: !task.completed,
-          status: task.completed ? 'pendiente' : 'completada'
-        })
-        .eq('id', taskId);
+      // Check if it's an entrepreneurship task or regular task
+      const isEntrepreneurshipTask = task.areaId === 'emprendimiento';
+      
+      if (isEntrepreneurshipTask) {
+        const { error } = await supabase
+          .from('entrepreneurship_tasks')
+          .update({ completed: !task.completed })
+          .eq('id', taskId);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('tasks')
+          .update({ 
+            completed: !task.completed,
+            status: task.completed ? 'pendiente' : 'completada'
+          })
+          .eq('id', taskId);
+        
+        if (error) throw error;
+      }
 
-      if (error) throw error;
       await loadTasks();
     } catch (error) {
       console.error('Error toggling task:', error);
