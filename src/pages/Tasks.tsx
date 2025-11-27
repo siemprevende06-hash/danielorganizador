@@ -12,6 +12,8 @@ import type { Task } from '@/lib/definitions';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
+import { lifeAreas, centralAreas } from '@/lib/data';
+import { flattenAreas } from '@/lib/utils';
 
 const taskSchema = z.object({
   title: z.string().trim().min(1, "El título es requerido").max(200, "El título es muy largo"),
@@ -27,7 +29,14 @@ export default function TasksPage() {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueDate, setDueDate] = useState('');
+  const [selectedAreaId, setSelectedAreaId] = useState<string>('');
   const { toast } = useToast();
+
+  // Get all areas including subareas
+  const allAreas = [
+    ...flattenAreas(lifeAreas),
+    ...flattenAreas(centralAreas),
+  ];
 
   useEffect(() => {
     loadTasks();
@@ -77,6 +86,7 @@ export default function TasksPage() {
           due_date: validated.dueDate || null,
           completed: false,
           source: 'general',
+          area_id: selectedAreaId || null,
           user_id: user.id
         });
 
@@ -87,6 +97,7 @@ export default function TasksPage() {
       setDescription('');
       setPriority('medium');
       setDueDate('');
+      setSelectedAreaId('');
       setIsDialogOpen(false);
       toast({ title: 'Tarea creada', description: `${validated.title} ha sido añadida.` });
     } catch (error: any) {
@@ -176,6 +187,21 @@ export default function TasksPage() {
               <div>
                 <label className="text-sm font-medium">Descripción</label>
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción (opcional)" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Área</label>
+                <Select value={selectedAreaId} onValueChange={setSelectedAreaId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un área" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allAreas.map(area => (
+                      <SelectItem key={area.id} value={area.id}>
+                        {area.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-sm font-medium">Prioridad</label>
