@@ -76,9 +76,9 @@ export default function Index() {
         priority: task.priority as any,
         dueDate: task.due_date ? new Date(task.due_date) : undefined,
         completed: task.completed,
-        areaId: task.source === 'university' ? 'universidad' : 
-                task.source === 'project' ? 'proyectos' :
-                task.source === 'study_session' ? 'universidad' : undefined
+        areaId: task.source === 'university' || task.source === 'study_session'
+          ? 'universidad'
+          : 'proyectos-personales'
       }));
 
       const mappedEntrepreneurshipTasks: TaskWithBlock[] = (entrepreneurshipTasks || []).map(task => ({
