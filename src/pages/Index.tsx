@@ -89,7 +89,8 @@ export default function Index() {
         priority: 'medium' as any,
         dueDate: task.due_date ? new Date(task.due_date) : undefined,
         completed: task.completed,
-        areaId: 'emprendimiento'
+        // Map to existing life area id so they appear in Inicio and assignment dialog
+        areaId: 'proyectos-personales'
       }));
 
       setTasks([...mappedRegularTasks, ...mappedEntrepreneurshipTasks]);
