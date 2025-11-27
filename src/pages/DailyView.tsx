@@ -58,7 +58,8 @@ export default function DailyView() {
         priority: 'medium' as any,
         dueDate: task.due_date ? new Date(task.due_date) : undefined,
         completed: task.completed,
-        areaId: 'emprendimiento'
+        // Map to existing life area id for consistency with Inicio
+        areaId: 'proyectos-personales'
       }));
 
       setTasks([...mappedRegularTasks, ...mappedEntrepreneurshipTasks]);
