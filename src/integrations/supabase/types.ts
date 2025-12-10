@@ -346,6 +346,7 @@ export type Database = {
           due_date: string | null
           id: string
           priority: string | null
+          routine_block_id: string | null
           source: string
           source_id: string | null
           start_date: string | null
@@ -362,6 +363,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string | null
+          routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
@@ -378,6 +380,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string | null
+          routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null

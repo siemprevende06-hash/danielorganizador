@@ -3,8 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useRoutineBlocks, formatTimeDisplay, type RoutineBlock } from "@/hooks/useRoutineBlocks";
+import { supabase } from "@/integrations/supabase/client";
 import { Play, Pause, RotateCcw, Target, Clock, CheckCircle2 } from "lucide-react";
+
+interface BlockTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  source: string;
+}
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -19,7 +28,22 @@ export default function Focus() {
   const [isRunning, setIsRunning] = useState(false);
   const [pomodoroTime, setPomodoroTime] = useState(0);
   const [blockProgress, setBlockProgress] = useState(0);
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  const [blockTasks, setBlockTasks] = useState<BlockTask[]>([]);
+
+  const loadBlockTasks = useCallback(async (blockId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, title, completed, source')
+        .eq('routine_block_id', blockId);
+
+      if (error) throw error;
+      setBlockTasks(data || []);
+    } catch (error) {
+      console.error('Error loading block tasks:', error);
+      setBlockTasks([]);
+    }
+  }, []);
 
   const initializeTimer = useCallback(() => {
     const block = getCurrentBlock();
@@ -30,8 +54,11 @@ export default function Focus() {
       setPomodoroTime(durationMinutes * 60);
       setTimeRemaining(durationMinutes * 60);
       setBlockProgress(getBlockProgress(block));
+      loadBlockTasks(block.id);
+    } else {
+      setBlockTasks([]);
     }
-  }, [getCurrentBlock, getBlockDurationMinutes, getBlockProgress]);
+  }, [getCurrentBlock, getBlockDurationMinutes, getBlockProgress, loadBlockTasks]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -47,7 +74,6 @@ export default function Focus() {
       if (newBlock?.id !== currentBlock?.id) {
         initializeTimer();
         setIsRunning(false);
-        setCompletedTasks(new Set());
       } else if (newBlock) {
         setBlockProgress(getBlockProgress(newBlock));
       }
@@ -86,19 +112,42 @@ export default function Focus() {
     }
   };
 
-  const toggleTask = (task: string) => {
-    setCompletedTasks(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(task)) {
-        newSet.delete(task);
-      } else {
-        newSet.add(task);
-      }
-      return newSet;
-    });
+  const toggleTask = async (taskId: string) => {
+    try {
+      const task = blockTasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({ completed: !task.completed })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      setBlockTasks(prev => 
+        prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
+      );
+    } catch (error) {
+      console.error('Error toggling task:', error);
+    }
   };
 
   const progressPercent = pomodoroTime > 0 ? ((pomodoroTime - timeRemaining) / pomodoroTime) * 100 : 0;
+  const completedCount = blockTasks.filter(t => t.completed).length;
+
+  const getSourceBadge = (source: string) => {
+    const sourceColors: Record<string, string> = {
+      'university': 'bg-blue-500/20 text-blue-700',
+      'study_session': 'bg-purple-500/20 text-purple-700',
+      'general': 'bg-green-500/20 text-green-700',
+    };
+    const sourceNames: Record<string, string> = {
+      'university': 'Universidad',
+      'study_session': 'Estudio',
+      'general': 'General',
+    };
+    return { color: sourceColors[source] || 'bg-muted', name: sourceNames[source] || source };
+  };
 
   if (!isLoaded) {
     return (
@@ -123,8 +172,6 @@ export default function Focus() {
       </div>
     );
   }
-
-  const assignedTasks = currentBlock.tasks || [];
 
   return (
     <div className="min-h-screen bg-background p-6 pt-24">
@@ -240,48 +287,54 @@ export default function Focus() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {assignedTasks.length === 0 ? (
+                  {blockTasks.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">
                       No hay tareas asignadas a este bloque
                     </p>
                   ) : (
-                    assignedTasks.map((task, index) => (
-                      <div
-                        key={index}
-                        onClick={() => toggleTask(task)}
-                        className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                          completedTasks.has(task)
-                            ? 'bg-primary/10 border-primary/30 line-through text-muted-foreground'
-                            : 'bg-card hover:bg-muted/50 border-border'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            completedTasks.has(task)
-                              ? 'bg-primary border-primary'
-                              : 'border-muted-foreground'
-                          }`}>
-                            {completedTasks.has(task) && (
-                              <CheckCircle2 className="w-4 h-4 text-primary-foreground" />
-                            )}
+                    blockTasks.map((task) => {
+                      const sourceBadge = getSourceBadge(task.source);
+                      return (
+                        <div
+                          key={task.id}
+                          className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                            task.completed
+                              ? 'bg-primary/10 border-primary/30'
+                              : 'bg-card hover:bg-muted/50 border-border'
+                          }`}
+                          onClick={() => toggleTask(task.id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={task.completed}
+                              onCheckedChange={() => toggleTask(task.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex-1">
+                              <span className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                                {task.title}
+                              </span>
+                              <Badge className={`ml-2 text-xs ${sourceBadge.color}`}>
+                                {sourceBadge.name}
+                              </Badge>
+                            </div>
                           </div>
-                          <span className="font-medium">{task}</span>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
-                {assignedTasks.length > 0 && (
+                {blockTasks.length > 0 && (
                   <div className="mt-6 pt-4 border-t">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Completadas</span>
                       <span className="font-semibold">
-                        {completedTasks.size} / {assignedTasks.length}
+                        {completedCount} / {blockTasks.length}
                       </span>
                     </div>
                     <Progress 
-                      value={(completedTasks.size / assignedTasks.length) * 100} 
+                      value={(completedCount / blockTasks.length) * 100} 
                       className="mt-2 h-2"
                     />
                   </div>
