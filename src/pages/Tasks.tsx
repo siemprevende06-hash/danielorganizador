@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Calendar } from 'lucide-react';
+import { PlusCircle, Trash2, Calendar, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Task } from '@/lib/definitions';
 import { format } from 'date-fns';
@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { lifeAreas, centralAreas } from '@/lib/data';
 import { flattenAreas } from '@/lib/utils';
+import { BlockSelector } from '@/components/BlockSelector';
+import { useRoutineBlocks } from '@/hooks/useRoutineBlocks';
 
 const taskSchema = z.object({
   title: z.string().trim().min(1, "El título es requerido").max(200, "El título es muy largo"),
@@ -22,15 +24,21 @@ const taskSchema = z.object({
   dueDate: z.string().optional()
 });
 
+interface TaskWithBlock extends Task {
+  routineBlockId?: string;
+}
+
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskWithBlock[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueDate, setDueDate] = useState('');
   const [selectedAreaId, setSelectedAreaId] = useState<string>('');
+  const [selectedBlockId, setSelectedBlockId] = useState<string>('');
   const { toast } = useToast();
+  const { blocks } = useRoutineBlocks();
 
   // Get all areas including subareas
   const allAreas = [
@@ -52,7 +60,7 @@ export default function TasksPage() {
 
       if (error) throw error;
       
-      const mappedTasks: Task[] = (data || []).map(task => ({
+      const mappedTasks: TaskWithBlock[] = (data || []).map(task => ({
         id: task.id,
         title: task.title,
         description: task.description || '',
@@ -60,7 +68,8 @@ export default function TasksPage() {
         priority: task.priority as any,
         dueDate: task.due_date ? new Date(task.due_date) : undefined,
         completed: task.completed,
-        areaId: task.area_id || undefined
+        areaId: task.area_id || undefined,
+        routineBlockId: task.routine_block_id || undefined
       }));
       
       setTasks(mappedTasks);
@@ -87,6 +96,7 @@ export default function TasksPage() {
           completed: false,
           source: 'general',
           area_id: selectedAreaId || null,
+          routine_block_id: selectedBlockId && selectedBlockId !== 'none' ? selectedBlockId : null,
           user_id: user.id
         });
 
@@ -98,6 +108,7 @@ export default function TasksPage() {
       setPriority('medium');
       setDueDate('');
       setSelectedAreaId('');
+      setSelectedBlockId('');
       setIsDialogOpen(false);
       toast({ title: 'Tarea creada', description: `${validated.title} ha sido añadida.` });
     } catch (error: any) {
@@ -220,6 +231,10 @@ export default function TasksPage() {
                 <label className="text-sm font-medium">Fecha límite</label>
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </div>
+              <div>
+                <label className="text-sm font-medium">Bloque de Tiempo</label>
+                <BlockSelector value={selectedBlockId} onValueChange={setSelectedBlockId} />
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleCreateTask}>Crear Tarea</Button>
@@ -245,12 +260,18 @@ export default function TasksPage() {
                     {task.description && (
                       <CardDescription className="mt-1">{task.description}</CardDescription>
                     )}
-                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
                       <span className="capitalize">Prioridad: {task.priority}</span>
                       {task.dueDate && (
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {format(new Date(task.dueDate), 'dd/MM/yyyy')}
+                        </span>
+                      )}
+                      {task.routineBlockId && (
+                        <span className="flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded">
+                          <Clock className="h-3 w-3" />
+                          {blocks.find(b => b.id === task.routineBlockId)?.title || 'Bloque'}
                         </span>
                       )}
                     </div>
