@@ -26,6 +26,7 @@ import Tools from "./pages/Tools";
 import Reminders from "./pages/Reminders";
 import DayPlanner from "./pages/DayPlanner";
 import Focus from "./pages/Focus";
+import RoutineDay from "./pages/RoutineDay";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
           <Route path="/reminders" element={<Reminders />} />
           <Route path="/day-planner" element={<DayPlanner />} />
           <Route path="/focus" element={<Focus />} />
+          <Route path="/routine-day" element={<RoutineDay />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

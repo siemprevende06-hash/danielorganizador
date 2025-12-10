@@ -3,17 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { focusedDayRoutine } from "@/lib/data";
+import { useRoutineBlocks, formatTimeDisplay, type RoutineBlock } from "@/hooks/useRoutineBlocks";
 import { Play, Pause, RotateCcw, Target, Clock, CheckCircle2 } from "lucide-react";
-import type { RoutineTaskGroup } from "@/lib/definitions";
-
-const parseTime = (timeStr: string): number => {
-  const [time, period] = timeStr.split(' ');
-  let [hours, minutes] = time.split(':').map(Number);
-  if (period === 'PM' && hours !== 12) hours += 12;
-  if (period === 'AM' && hours === 12) hours = 0;
-  return hours * 60 + minutes;
-};
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -21,62 +12,14 @@ const formatTime = (seconds: number): string => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-const getCurrentBlock = (): RoutineTaskGroup | null => {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-  for (const block of focusedDayRoutine) {
-    const startMinutes = parseTime(block.startTime);
-    let endMinutes = parseTime(block.endTime);
-    
-    // Handle overnight blocks (like sleep)
-    if (endMinutes < startMinutes) {
-      if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
-        return block;
-      }
-    } else if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
-      return block;
-    }
-  }
-  return null;
-};
-
-const getBlockDurationMinutes = (block: RoutineTaskGroup): number => {
-  const startMinutes = parseTime(block.startTime);
-  let endMinutes = parseTime(block.endTime);
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60;
-  }
-  return endMinutes - startMinutes;
-};
-
-const getBlockProgress = (block: RoutineTaskGroup): number => {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const startMinutes = parseTime(block.startTime);
-  let endMinutes = parseTime(block.endTime);
-  
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60;
-  }
-  
-  const totalDuration = endMinutes - startMinutes;
-  let elapsed = currentMinutes - startMinutes;
-  if (elapsed < 0) elapsed += 24 * 60;
-  
-  return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-};
-
 export default function Focus() {
-  const [currentBlock, setCurrentBlock] = useState<RoutineTaskGroup | null>(null);
+  const { blocks, isLoaded, getCurrentBlock, getBlockDurationMinutes, getBlockProgress } = useRoutineBlocks();
+  const [currentBlock, setCurrentBlock] = useState<RoutineBlock | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [pomodoroTime, setPomodoroTime] = useState(0);
   const [blockProgress, setBlockProgress] = useState(0);
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
-
-  // Get assigned tasks for current block (simulated - in real app would come from DB)
-  const assignedTasks = currentBlock?.tasks || [];
 
   const initializeTimer = useCallback(() => {
     const block = getCurrentBlock();
@@ -84,28 +27,34 @@ export default function Focus() {
     
     if (block) {
       const durationMinutes = getBlockDurationMinutes(block);
-      setPomodoroTime(durationMinutes * 60); // Full block duration in seconds
+      setPomodoroTime(durationMinutes * 60);
       setTimeRemaining(durationMinutes * 60);
       setBlockProgress(getBlockProgress(block));
     }
-  }, []);
+  }, [getCurrentBlock, getBlockDurationMinutes, getBlockProgress]);
 
   useEffect(() => {
-    initializeTimer();
-    
-    // Update current block every minute
+    if (isLoaded) {
+      initializeTimer();
+    }
+  }, [isLoaded, initializeTimer]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
     const blockInterval = setInterval(() => {
       const newBlock = getCurrentBlock();
       if (newBlock?.id !== currentBlock?.id) {
         initializeTimer();
         setIsRunning(false);
         setCompletedTasks(new Set());
+      } else if (newBlock) {
+        setBlockProgress(getBlockProgress(newBlock));
       }
-      setBlockProgress(getBlockProgress(newBlock!));
     }, 60000);
 
     return () => clearInterval(blockInterval);
-  }, [initializeTimer, currentBlock?.id]);
+  }, [isLoaded, currentBlock?.id, initializeTimer, getCurrentBlock, getBlockProgress]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -151,6 +100,14 @@ export default function Focus() {
 
   const progressPercent = pomodoroTime > 0 ? ((pomodoroTime - timeRemaining) / pomodoroTime) * 100 : 0;
 
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
+
   if (!currentBlock) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -167,8 +124,10 @@ export default function Focus() {
     );
   }
 
+  const assignedTasks = currentBlock.tasks || [];
+
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-6 pt-24">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Focus Block - Takes 2 columns */}
@@ -183,7 +142,7 @@ export default function Focus() {
                     </Badge>
                   )}
                   <Badge variant="outline">
-                    {currentBlock.startTime} - {currentBlock.endTime}
+                    {formatTimeDisplay(currentBlock.startTime)} - {formatTimeDisplay(currentBlock.endTime)}
                   </Badge>
                 </div>
                 <CardTitle className="text-4xl md:text-5xl font-bold">
