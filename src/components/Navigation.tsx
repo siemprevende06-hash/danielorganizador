@@ -1,6 +1,6 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, LogOut } from 'lucide-react';
+import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,11 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from 'react';
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { path: '/', label: 'Inicio', icon: Home },
+  { path: '/focus', label: 'Focus', icon: Focus },
   { path: '/control-room', label: 'Control', icon: Gauge },
   { path: '/habits', label: 'Hábitos', icon: CheckSquare },
   { path: '/tasks', label: 'Tareas', icon: ListTodo },
@@ -43,22 +42,10 @@ const navItems = [
 
 export const Navigation = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { toast } = useToast();
   const isRoutineActive = location.pathname.includes('routine');
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/auth');
-      toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión exitosamente' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    }
-  };
-
-  const visibleItemsCount = 8; // Número de items visibles en desktop
+  const visibleItemsCount = 8;
   const visibleItems = navItems.slice(0, visibleItemsCount);
   const hiddenItems = navItems.slice(visibleItemsCount);
 
@@ -171,10 +158,6 @@ export const Navigation = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Cerrar sesión">
-              <LogOut className="h-4 w-4" />
-            </Button>
           </div>
 
           {/* Mobile Hamburger Menu */}
@@ -187,14 +170,6 @@ export const Navigation = () => {
             <SheetContent side="right" className="w-64 p-0">
               <div className="flex flex-col gap-1 p-4 pt-10">
                 {navItems.map((item) => renderNavItem(item, true))}
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start text-destructive hover:text-destructive" 
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Cerrar Sesión
-                </Button>
               </div>
             </SheetContent>
           </Sheet>
