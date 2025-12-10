@@ -1,16 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { ImagePlus } from 'lucide-react';
+import { ImagePlus, Plus, X, ListTodo } from 'lucide-react';
 import { useImageUpload } from '@/hooks/useImageUpload';
 
 type CompletionLevel = 'none' | 'minimum' | 'normal' | 'maximum';
+
+interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
 
 interface VisionGoalCard {
   id: string;
   image?: string;
   completionLevel: CompletionLevel;
+  currentTask?: string;
+  subTasks?: SubTask[];
 }
 
 interface VisionGoalsData {
@@ -25,26 +35,27 @@ const VISION_GOALS_KEY = 'visionGoalsBoard';
 export const VisionGoalsBoard = () => {
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   const { uploadImage, uploading } = useImageUpload();
+  const [newSubTaskInputs, setNewSubTaskInputs] = useState<{ [key: string]: string }>({});
   const [goals, setGoals] = useState<VisionGoalsData>({
     professional: [
-      { id: 'prof-1', completionLevel: 'none' },
-      { id: 'prof-2', completionLevel: 'none' },
-      { id: 'prof-3', completionLevel: 'none' },
+      { id: 'prof-1', completionLevel: 'none', currentTask: '', subTasks: [] },
+      { id: 'prof-2', completionLevel: 'none', currentTask: '', subTasks: [] },
+      { id: 'prof-3', completionLevel: 'none', currentTask: '', subTasks: [] },
     ],
     hobbiesArtisticos: [
-      { id: 'hobby-art-1', completionLevel: 'none' },
-      { id: 'hobby-art-2', completionLevel: 'none' },
-      { id: 'hobby-art-3', completionLevel: 'none' },
+      { id: 'hobby-art-1', completionLevel: 'none', currentTask: '', subTasks: [] },
+      { id: 'hobby-art-2', completionLevel: 'none', currentTask: '', subTasks: [] },
+      { id: 'hobby-art-3', completionLevel: 'none', currentTask: '', subTasks: [] },
     ],
     hobbiesIntelectuales: [
-      { id: 'hobby-int-1', completionLevel: 'none' },
-      { id: 'hobby-int-2', completionLevel: 'none' },
-      { id: 'hobby-int-3', completionLevel: 'none' },
+      { id: 'hobby-int-1', completionLevel: 'none', currentTask: '', subTasks: [] },
+      { id: 'hobby-int-2', completionLevel: 'none', currentTask: '', subTasks: [] },
+      { id: 'hobby-int-3', completionLevel: 'none', currentTask: '', subTasks: [] },
     ],
     hobbiesFisicos: [
-      { id: 'hobby-fis-1', completionLevel: 'none' },
-      { id: 'hobby-fis-2', completionLevel: 'none' },
-      { id: 'hobby-fis-3', completionLevel: 'none' },
+      { id: 'hobby-fis-1', completionLevel: 'none', currentTask: '', subTasks: [] },
+      { id: 'hobby-fis-2', completionLevel: 'none', currentTask: '', subTasks: [] },
+      { id: 'hobby-fis-3', completionLevel: 'none', currentTask: '', subTasks: [] },
     ],
   });
 
@@ -85,6 +96,75 @@ export const VisionGoalsBoard = () => {
       ...prev,
       [category]: prev[category].map(goal =>
         goal.id === id ? { ...goal, completionLevel: level } : goal
+      ),
+    }));
+  };
+
+  const updateCurrentTask = (
+    category: 'professional' | 'hobbiesArtisticos' | 'hobbiesIntelectuales' | 'hobbiesFisicos',
+    id: string,
+    task: string
+  ) => {
+    setGoals(prev => ({
+      ...prev,
+      [category]: prev[category].map(goal =>
+        goal.id === id ? { ...goal, currentTask: task } : goal
+      ),
+    }));
+  };
+
+  const addSubTask = (
+    category: 'professional' | 'hobbiesArtisticos' | 'hobbiesIntelectuales' | 'hobbiesFisicos',
+    goalId: string
+  ) => {
+    const title = newSubTaskInputs[goalId]?.trim();
+    if (!title) return;
+
+    setGoals(prev => ({
+      ...prev,
+      [category]: prev[category].map(goal =>
+        goal.id === goalId 
+          ? { 
+              ...goal, 
+              subTasks: [...(goal.subTasks || []), { id: `st-${Date.now()}`, title, completed: false }] 
+            } 
+          : goal
+      ),
+    }));
+    setNewSubTaskInputs(prev => ({ ...prev, [goalId]: '' }));
+  };
+
+  const toggleSubTask = (
+    category: 'professional' | 'hobbiesArtisticos' | 'hobbiesIntelectuales' | 'hobbiesFisicos',
+    goalId: string,
+    subTaskId: string
+  ) => {
+    setGoals(prev => ({
+      ...prev,
+      [category]: prev[category].map(goal =>
+        goal.id === goalId 
+          ? { 
+              ...goal, 
+              subTasks: goal.subTasks?.map(st => 
+                st.id === subTaskId ? { ...st, completed: !st.completed } : st
+              ) 
+            } 
+          : goal
+      ),
+    }));
+  };
+
+  const deleteSubTask = (
+    category: 'professional' | 'hobbiesArtisticos' | 'hobbiesIntelectuales' | 'hobbiesFisicos',
+    goalId: string,
+    subTaskId: string
+  ) => {
+    setGoals(prev => ({
+      ...prev,
+      [category]: prev[category].map(goal =>
+        goal.id === goalId 
+          ? { ...goal, subTasks: goal.subTasks?.filter(st => st.id !== subTaskId) } 
+          : goal
       ),
     }));
   };
@@ -189,6 +269,66 @@ export const VisionGoalsBoard = () => {
               )}
             >
               Máximo
+            </Button>
+          </div>
+        </div>
+
+        {/* Current Task Section */}
+        <div className="px-3 pb-3 space-y-2 border-t border-border/50 pt-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <ListTodo className="h-4 w-4" />
+            <span>Tarea Actual</span>
+          </div>
+          <Input
+            placeholder="¿En qué estás trabajando?"
+            value={goal.currentTask || ''}
+            onChange={(e) => updateCurrentTask(category, goal.id, e.target.value)}
+            className="text-sm h-8"
+          />
+          
+          {/* Subtasks */}
+          <div className="space-y-1">
+            {goal.subTasks?.map(subTask => (
+              <div key={subTask.id} className="flex items-center gap-2 group">
+                <Checkbox
+                  checked={subTask.completed}
+                  onCheckedChange={() => toggleSubTask(category, goal.id, subTask.id)}
+                  className="h-4 w-4"
+                />
+                <span className={cn(
+                  "text-xs flex-1",
+                  subTask.completed && "line-through text-muted-foreground"
+                )}>
+                  {subTask.title}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => deleteSubTask(category, goal.id, subTask.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {/* Add Subtask */}
+          <div className="flex gap-1">
+            <Input
+              placeholder="Nueva subtarea..."
+              value={newSubTaskInputs[goal.id] || ''}
+              onChange={(e) => setNewSubTaskInputs(prev => ({ ...prev, [goal.id]: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && addSubTask(category, goal.id)}
+              className="text-xs h-7"
+            />
+            <Button 
+              size="icon" 
+              variant="ghost" 
+              className="h-7 w-7"
+              onClick={() => addSubTask(category, goal.id)}
+            >
+              <Plus className="h-3 w-3" />
             </Button>
           </div>
         </div>
