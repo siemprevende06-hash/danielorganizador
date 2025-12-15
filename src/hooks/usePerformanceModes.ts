@@ -157,20 +157,37 @@ export const usePerformanceModes = () => {
   }, []);
 
   // Save modes to localStorage when they change
-  const saveModes = useCallback((newModes: PerformanceMode[]) => {
+  const saveModes = useCallback((newModes: PerformanceMode[], affectedModeId?: string) => {
     localStorage.setItem(MODES_STORAGE_KEY, JSON.stringify(newModes));
     setModes(newModes);
-  }, []);
+    
+    // If the affected mode is the currently selected one, also update active routine
+    if (affectedModeId && affectedModeId === selectedModeId) {
+      const updatedMode = newModes.find(m => m.id === affectedModeId);
+      if (updatedMode) {
+        const routineBlocks = updatedMode.blocks.map(block => ({
+          ...block,
+          currentStreak: 0,
+          maxStreak: 0,
+          weeklyCompletion: [false, false, false, false, false, false, false],
+          notDone: [false, false, false, false, false, false, false],
+        }));
+        localStorage.setItem(ACTIVE_ROUTINE_KEY, JSON.stringify(routineBlocks));
+        // Dispatch event to notify other components
+        window.dispatchEvent(new CustomEvent('routineBlocksUpdated'));
+      }
+    }
+  }, [selectedModeId]);
 
   // Update a specific mode
   const updateMode = useCallback((modeId: string, updates: Partial<PerformanceMode>) => {
     const newModes = modes.map(mode =>
       mode.id === modeId ? { ...mode, ...updates } : mode
     );
-    saveModes(newModes);
+    saveModes(newModes, modeId);
   }, [modes, saveModes]);
 
-  // Update a block within a mode
+  // Update a block within a mode (no validation for overlaps)
   const updateBlockInMode = useCallback((modeId: string, blockId: string, updates: Partial<RoutineBlock>) => {
     const newModes = modes.map(mode => {
       if (mode.id === modeId) {
@@ -183,7 +200,7 @@ export const usePerformanceModes = () => {
       }
       return mode;
     });
-    saveModes(newModes);
+    saveModes(newModes, modeId);
   }, [modes, saveModes]);
 
   // Add a new block to a mode
@@ -197,7 +214,7 @@ export const usePerformanceModes = () => {
       }
       return mode;
     });
-    saveModes(newModes);
+    saveModes(newModes, modeId);
   }, [modes, saveModes]);
 
   // Remove a block from a mode
@@ -211,7 +228,7 @@ export const usePerformanceModes = () => {
       }
       return mode;
     });
-    saveModes(newModes);
+    saveModes(newModes, modeId);
   }, [modes, saveModes]);
 
   // Select a mode and apply its blocks to the active routine
@@ -230,6 +247,9 @@ export const usePerformanceModes = () => {
         notDone: [false, false, false, false, false, false, false],
       }));
       localStorage.setItem(ACTIVE_ROUTINE_KEY, JSON.stringify(routineBlocks));
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('routineBlocksUpdated'));
     }
   }, [modes]);
 

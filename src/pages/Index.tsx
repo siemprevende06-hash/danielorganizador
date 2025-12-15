@@ -105,28 +105,46 @@ export default function Index() {
     }
   };
 
-  useEffect(() => {
-    setIsClient(true);
-    loadTasks();
-    
-    // Load routine blocks from localStorage (set by performance mode)
+  const loadRoutineBlocks = () => {
     const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
     if (storedBlocks) {
-      setRoutineBlocks(JSON.parse(storedBlocks));
+      try {
+        setRoutineBlocks(JSON.parse(storedBlocks));
+      } catch {
+        // Fallback to selected mode's blocks
+        const mode = getSelectedMode();
+        if (mode) {
+          const blocks = mode.blocks.map(block => ({
+            ...block,
+            currentStreak: 0,
+            maxStreak: 0,
+            weeklyCompletion: [false, false, false, false, false, false, false],
+            notDone: [false, false, false, false, false, false, false],
+          }));
+          setRoutineBlocks(blocks);
+        }
+      }
     } else {
       // Fallback to selected mode's blocks
       const mode = getSelectedMode();
       if (mode) {
-        const routineBlocks = mode.blocks.map(block => ({
+        const blocks = mode.blocks.map(block => ({
           ...block,
           currentStreak: 0,
           maxStreak: 0,
           weeklyCompletion: [false, false, false, false, false, false, false],
           notDone: [false, false, false, false, false, false, false],
         }));
-        setRoutineBlocks(routineBlocks);
+        setRoutineBlocks(blocks);
+        localStorage.setItem('dailyRoutineBlocks', JSON.stringify(blocks));
       }
     }
+  };
+
+  useEffect(() => {
+    setIsClient(true);
+    loadTasks();
+    loadRoutineBlocks();
 
     // Load block tasks
     const storedBlockTasks = localStorage.getItem("routineBlockTasks");
@@ -137,6 +155,16 @@ export default function Index() {
         console.error("Error loading block tasks:", e);
       }
     }
+
+    // Listen for routine updates from performance modes
+    const handleRoutineUpdate = () => {
+      loadRoutineBlocks();
+    };
+    window.addEventListener('routineBlocksUpdated', handleRoutineUpdate);
+    
+    return () => {
+      window.removeEventListener('routineBlocksUpdated', handleRoutineUpdate);
+    };
   }, [selectedModeId]);
 
   // Define time windows with their blocks based on time ranges
