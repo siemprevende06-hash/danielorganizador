@@ -7,12 +7,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, Zap, Activity, Battery, AlertTriangle } from "lucide-react";
+import { CalendarIcon, Save, Zap, Activity, BatteryLow, Heart, Settings2 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { PERFORMANCE_MODES, getBlocksForMode } from "@/lib/performanceModes";
+import { Link } from "react-router-dom";
 
 interface Task {
   id: string;
@@ -31,32 +33,12 @@ interface DailyPlan {
   selectedTaskIds: string[];
 }
 
-const MODES = [
-  { 
-    value: 'alto-rendimiento', 
-    label: 'Alto Rendimiento', 
-    icon: Zap,
-    description: 'Máxima productividad y energía'
-  },
-  { 
-    value: 'normal', 
-    label: 'Normal', 
-    icon: Activity,
-    description: 'Día equilibrado y productivo'
-  },
-  { 
-    value: 'minimo-energia', 
-    label: 'Mínimo - Baja Energía', 
-    icon: Battery,
-    description: 'Tareas esenciales con energía limitada'
-  },
-  { 
-    value: 'minimo-emergencia', 
-    label: 'Mínimo - Emergencia', 
-    icon: AlertTriangle,
-    description: 'Solo lo absolutamente necesario'
-  },
-];
+const MODE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  'alto-rendimiento': Zap,
+  'normal': Activity,
+  'bajo-rendimiento': BatteryLow,
+  'recuperacion': Heart,
+};
 
 export default function DayPlanner() {
   const [selectedDate, setSelectedDate] = useState<Date>(addDays(new Date(), 1));
@@ -268,29 +250,37 @@ export default function DayPlanner() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card className="p-6">
-              <h2 className="text-2xl font-semibold mb-4">Modo del Día</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-semibold">Modo del Día</h2>
+                <Link to="/performance-modes">
+                  <Button variant="ghost" size="sm">
+                    <Settings2 className="h-4 w-4 mr-2" />
+                    Configurar Modos
+                  </Button>
+                </Link>
+              </div>
               <RadioGroup value={mode} onValueChange={setMode} className="space-y-3">
-                {MODES.map((modeOption) => {
-                  const Icon = modeOption.icon;
+                {PERFORMANCE_MODES.map((modeOption) => {
+                  const Icon = MODE_ICONS[modeOption.id] || Activity;
                   return (
                     <div
-                      key={modeOption.value}
+                      key={modeOption.id}
                       className={cn(
                         "flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer",
-                        mode === modeOption.value
+                        mode === modeOption.id
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
                       )}
-                      onClick={() => setMode(modeOption.value)}
+                      onClick={() => setMode(modeOption.id)}
                     >
-                      <RadioGroupItem value={modeOption.value} id={modeOption.value} />
+                      <RadioGroupItem value={modeOption.id} id={modeOption.id} />
                       <div className="flex-1">
                         <Label
-                          htmlFor={modeOption.value}
+                          htmlFor={modeOption.id}
                           className="flex items-center gap-2 font-medium cursor-pointer"
                         >
                           <Icon className="h-5 w-5" />
-                          {modeOption.label}
+                          {modeOption.name}
                         </Label>
                         <p className="text-sm text-muted-foreground mt-1">
                           {modeOption.description}
@@ -377,7 +367,7 @@ export default function DayPlanner() {
                 <div>
                   <p className="text-sm text-muted-foreground">Modo</p>
                   <p className="font-medium">
-                    {MODES.find(m => m.value === mode)?.label}
+                    {PERFORMANCE_MODES.find(m => m.id === mode)?.name}
                   </p>
                 </div>
                 <div>

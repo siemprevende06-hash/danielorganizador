@@ -27,6 +27,7 @@ import Reminders from "./pages/Reminders";
 import DayPlanner from "./pages/DayPlanner";
 import Focus from "./pages/Focus";
 import RoutineDay from "./pages/RoutineDay";
+import PerformanceModes from "./pages/PerformanceModes";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
           <Route path="/day-planner" element={<DayPlanner />} />
           <Route path="/focus" element={<Focus />} />
           <Route path="/routine-day" element={<RoutineDay />} />
+          <Route path="/performance-modes" element={<PerformanceModes />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
