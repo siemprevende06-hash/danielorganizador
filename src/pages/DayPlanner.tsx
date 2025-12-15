@@ -122,8 +122,7 @@ export default function DayPlanner() {
         .upsert({
           plan_date: dateStr,
           mode,
-          notes,
-          user_id: null
+          notes
         }, {
           onConflict: 'plan_date'
         })
