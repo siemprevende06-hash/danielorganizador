@@ -30,25 +30,45 @@ const DailyRoutine = () => {
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
   const { getSelectedMode, selectedModeId } = usePerformanceModes();
 
-  useEffect(() => {
-    // Load blocks from localStorage (which is set by performance mode)
+  const loadBlocks = () => {
     const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
     if (storedBlocks) {
-      setBlocks(JSON.parse(storedBlocks));
-    } else {
-      // Fallback to selected mode's blocks
-      const mode = getSelectedMode();
-      if (mode) {
-        const routineBlocks = mode.blocks.map(block => ({
-          ...block,
-          currentStreak: 0,
-          maxStreak: 0,
-          weeklyCompletion: [false, false, false, false, false, false, false],
-        }));
-        setBlocks(routineBlocks);
-        localStorage.setItem('dailyRoutineBlocks', JSON.stringify(routineBlocks));
+      try {
+        setBlocks(JSON.parse(storedBlocks));
+      } catch {
+        applyModeBlocks();
       }
+    } else {
+      applyModeBlocks();
     }
+  };
+
+  const applyModeBlocks = () => {
+    const mode = getSelectedMode();
+    if (mode) {
+      const routineBlocks = mode.blocks.map(block => ({
+        ...block,
+        currentStreak: 0,
+        maxStreak: 0,
+        weeklyCompletion: [false, false, false, false, false, false, false],
+      }));
+      setBlocks(routineBlocks);
+      localStorage.setItem('dailyRoutineBlocks', JSON.stringify(routineBlocks));
+    }
+  };
+
+  useEffect(() => {
+    loadBlocks();
+
+    // Listen for routine updates from performance modes
+    const handleRoutineUpdate = () => {
+      loadBlocks();
+    };
+    window.addEventListener('routineBlocksUpdated', handleRoutineUpdate);
+    
+    return () => {
+      window.removeEventListener('routineBlocksUpdated', handleRoutineUpdate);
+    };
   }, [selectedModeId]);
 
   useEffect(() => {
