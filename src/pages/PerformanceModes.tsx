@@ -3,6 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { 
   Rocket, 
   Activity, 
@@ -13,9 +21,15 @@ import {
   Zap,
   Moon,
   Sun,
-  Coffee
+  Coffee,
+  Edit2,
+  Save,
+  RotateCcw,
+  Plus,
+  Trash2
 } from "lucide-react";
-import { PERFORMANCE_MODES, PerformanceMode } from "@/lib/performanceModes";
+import { usePerformanceModes, PerformanceMode } from "@/hooks/usePerformanceModes";
+import { RoutineBlock } from "@/hooks/useRoutineBlocks";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,26 +40,30 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   heart: Heart,
 };
 
-const STORAGE_KEY = "selectedPerformanceMode";
-
 export default function PerformanceModes() {
-  const [selectedMode, setSelectedMode] = useState<string>("normal");
+  const { 
+    modes, 
+    selectedModeId, 
+    isLoaded,
+    selectMode, 
+    updateBlockInMode,
+    addBlockToMode,
+    removeBlockFromMode,
+    resetModeToDefault 
+  } = usePerformanceModes();
+  
   const [previewMode, setPreviewMode] = useState<PerformanceMode | null>(null);
+  const [editingBlock, setEditingBlock] = useState<{ modeId: string; blockId: string } | null>(null);
+  const [editForm, setEditForm] = useState<Partial<RoutineBlock>>({});
+  const [showAddBlock, setShowAddBlock] = useState<string | null>(null);
+  const [newBlock, setNewBlock] = useState({ title: '', startTime: '', endTime: '' });
   const { toast } = useToast();
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setSelectedMode(stored);
-    }
-  }, []);
-
   const handleSelectMode = (modeId: string) => {
-    setSelectedMode(modeId);
-    localStorage.setItem(STORAGE_KEY, modeId);
+    selectMode(modeId);
     toast({
-      title: "Modo seleccionado",
-      description: `El modo "${PERFORMANCE_MODES.find(m => m.id === modeId)?.name}" será tu configuración predeterminada.`,
+      title: "Modo aplicado",
+      description: `Los bloques de "${modes.find(m => m.id === modeId)?.name}" ahora son tu rutina del día.`,
     });
   };
 
@@ -73,8 +91,58 @@ export default function PerformanceModes() {
     return (totalMinutes / 60).toFixed(1);
   };
 
+  const startEditBlock = (modeId: string, block: RoutineBlock) => {
+    setEditingBlock({ modeId, blockId: block.id });
+    setEditForm({
+      title: block.title,
+      startTime: block.startTime,
+      endTime: block.endTime,
+    });
+  };
+
+  const saveBlockEdit = () => {
+    if (editingBlock && editForm.title && editForm.startTime && editForm.endTime) {
+      updateBlockInMode(editingBlock.modeId, editingBlock.blockId, editForm);
+      setEditingBlock(null);
+      setEditForm({});
+      toast({ title: "Bloque actualizado" });
+    }
+  };
+
+  const handleAddBlock = (modeId: string) => {
+    if (newBlock.title && newBlock.startTime && newBlock.endTime) {
+      const mode = modes.find(m => m.id === modeId);
+      const newId = `${modeId}-${Date.now()}`;
+      addBlockToMode(modeId, {
+        id: newId,
+        title: newBlock.title,
+        startTime: newBlock.startTime,
+        endTime: newBlock.endTime,
+        tasks: [],
+        order: mode?.blocks.length || 0,
+      });
+      setNewBlock({ title: '', startTime: '', endTime: '' });
+      setShowAddBlock(null);
+      toast({ title: "Bloque agregado" });
+    }
+  };
+
+  const handleDeleteBlock = (modeId: string, blockId: string) => {
+    removeBlockFromMode(modeId, blockId);
+    toast({ title: "Bloque eliminado" });
+  };
+
+  const handleResetMode = (modeId: string) => {
+    resetModeToDefault(modeId);
+    toast({ title: "Modo restaurado a valores predeterminados" });
+  };
+
+  if (!isLoaded) {
+    return <div className="flex items-center justify-center min-h-screen">Cargando...</div>;
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-4 md:p-8 pt-24">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
@@ -82,15 +150,15 @@ export default function PerformanceModes() {
             Modos de Rendimiento
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Selecciona el modo que define la distribución de tus bloques de tiempo según tu energía y objetivos del día
+            Selecciona y personaliza el modo que define la distribución de tus bloques de tiempo
           </p>
         </div>
 
         {/* Mode Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {PERFORMANCE_MODES.map((mode) => {
+          {modes.map((mode) => {
             const IconComponent = ICON_MAP[mode.icon] || Activity;
-            const isSelected = selectedMode === mode.id;
+            const isSelected = selectedModeId === mode.id;
             const deepWorkBlocks = countDeepWorkBlocks(mode);
             const deepWorkHours = getTotalDeepWorkHours(mode);
 
@@ -176,10 +244,10 @@ export default function PerformanceModes() {
                       {isSelected ? (
                         <>
                           <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Seleccionado
+                          Activo
                         </>
                       ) : (
-                        "Seleccionar"
+                        "Aplicar Modo"
                       )}
                     </Button>
                     <Button
@@ -189,7 +257,8 @@ export default function PerformanceModes() {
                         setPreviewMode(mode);
                       }}
                     >
-                      Ver Bloques
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Editar
                     </Button>
                   </div>
                 </div>
@@ -198,7 +267,7 @@ export default function PerformanceModes() {
           })}
         </div>
 
-        {/* Preview Panel */}
+        {/* Edit Panel */}
         {previewMode && (
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
@@ -215,17 +284,67 @@ export default function PerformanceModes() {
                   })()}
                 </div>
                 <h2 className="text-2xl font-bold">
-                  Bloques de {previewMode.name}
+                  Editar: {previewMode.name}
                 </h2>
               </div>
-              <Button variant="ghost" onClick={() => setPreviewMode(null)}>
-                Cerrar
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleResetMode(previewMode.id)}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Restaurar
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowAddBlock(previewMode.id)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Bloque
+                </Button>
+                <Button variant="ghost" onClick={() => setPreviewMode(null)}>
+                  Cerrar
+                </Button>
+              </div>
             </div>
+
+            {/* Add Block Form */}
+            {showAddBlock === previewMode.id && (
+              <div className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-3">
+                <h4 className="font-medium">Nuevo Bloque</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <Input
+                    placeholder="Título"
+                    value={newBlock.title}
+                    onChange={(e) => setNewBlock({ ...newBlock, title: e.target.value })}
+                  />
+                  <Input
+                    type="time"
+                    value={newBlock.startTime}
+                    onChange={(e) => setNewBlock({ ...newBlock, startTime: e.target.value })}
+                  />
+                  <Input
+                    type="time"
+                    value={newBlock.endTime}
+                    onChange={(e) => setNewBlock({ ...newBlock, endTime: e.target.value })}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => handleAddBlock(previewMode.id)}>
+                    Agregar
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowAddBlock(null)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <ScrollArea className="h-[400px]">
               <div className="space-y-3">
-                {previewMode.blocks.map((block, index) => (
+                {previewMode.blocks.map((block) => (
                   <div
                     key={block.id}
                     className={cn(
@@ -235,38 +354,79 @@ export default function PerformanceModes() {
                         : "bg-muted/30 border-border"
                     )}
                   >
-                    <div className="text-center min-w-[100px]">
-                      <p className="text-sm font-medium">
-                        {formatTime(block.startTime)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatTime(block.endTime)}
-                      </p>
-                    </div>
-
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{block.title}</span>
-                        {block.isFocusBlock && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Zap className="h-3 w-3 mr-1" />
-                            Deep Work
-                          </Badge>
-                        )}
+                    {editingBlock?.blockId === block.id ? (
+                      // Edit Mode
+                      <div className="flex-1 flex items-center gap-3">
+                        <Input
+                          value={editForm.title || ''}
+                          onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="time"
+                          value={editForm.startTime || ''}
+                          onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
+                          className="w-32"
+                        />
+                        <Input
+                          type="time"
+                          value={editForm.endTime || ''}
+                          onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })}
+                          className="w-32"
+                        />
+                        <Button size="sm" onClick={saveBlockEdit}>
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingBlock(null)}>
+                          Cancelar
+                        </Button>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {block.tasks.join(", ")}
-                      </p>
-                    </div>
+                    ) : (
+                      // View Mode
+                      <>
+                        <div className="text-center min-w-[100px]">
+                          <p className="text-sm font-medium">
+                            {formatTime(block.startTime)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatTime(block.endTime)}
+                          </p>
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      {index === 0 && (
-                        <Coffee className="h-4 w-4 text-amber-500" />
-                      )}
-                      {block.title.toLowerCase().includes("sueño") && (
-                        <Moon className="h-4 w-4 text-indigo-500" />
-                      )}
-                    </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{block.title}</span>
+                            {block.isFocusBlock && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Zap className="h-3 w-3 mr-1" />
+                                Deep Work
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {block.tasks?.join(", ")}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEditBlock(previewMode.id, block)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => handleDeleteBlock(previewMode.id, block.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -285,9 +445,9 @@ export default function PerformanceModes() {
                 ¿Cómo funcionan los modos?
               </h3>
               <p className="text-muted-foreground">
-                Cuando planifiques tu día, el modo seleccionado determinará automáticamente 
-                la distribución de tus bloques de tiempo. Puedes cambiar el modo en cualquier 
-                momento desde el planificador diario para adaptarte a tus necesidades del día.
+                Al hacer clic en "Aplicar Modo", los bloques de ese modo se convertirán en tu rutina del día. 
+                Los verás reflejados en la página de Inicio y Rutina del Día. Puedes editar los horarios 
+                de cada modo haciendo clic en "Editar".
               </p>
             </div>
           </div>

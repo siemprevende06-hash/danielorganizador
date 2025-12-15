@@ -13,7 +13,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { PERFORMANCE_MODES, getBlocksForMode } from "@/lib/performanceModes";
+import { usePerformanceModes } from "@/hooks/usePerformanceModes";
 import { Link } from "react-router-dom";
 
 interface Task {
@@ -48,6 +48,7 @@ export default function DayPlanner() {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [existingPlan, setExistingPlan] = useState<DailyPlan | null>(null);
+  const { modes, selectMode } = usePerformanceModes();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -152,9 +153,12 @@ export default function DayPlanner() {
         if (tasksError) throw tasksError;
       }
 
+      // Apply the selected mode to the routine
+      selectMode(mode);
+
       toast({
         title: "Plan guardado",
-        description: `Plan para ${format(selectedDate, "d 'de' MMMM", { locale: es })} guardado exitosamente`
+        description: `Plan para ${format(selectedDate, "d 'de' MMMM", { locale: es })} guardado. El modo "${modes.find(m => m.id === mode)?.name}" se ha aplicado.`
       });
 
       loadExistingPlan();
@@ -260,7 +264,7 @@ export default function DayPlanner() {
                 </Link>
               </div>
               <RadioGroup value={mode} onValueChange={setMode} className="space-y-3">
-                {PERFORMANCE_MODES.map((modeOption) => {
+                {modes.map((modeOption) => {
                   const Icon = MODE_ICONS[modeOption.id] || Activity;
                   return (
                     <div
@@ -367,7 +371,7 @@ export default function DayPlanner() {
                 <div>
                   <p className="text-sm text-muted-foreground">Modo</p>
                   <p className="font-medium">
-                    {PERFORMANCE_MODES.find(m => m.id === mode)?.name}
+                    {modes.find(m => m.id === mode)?.name}
                   </p>
                 </div>
                 <div>
