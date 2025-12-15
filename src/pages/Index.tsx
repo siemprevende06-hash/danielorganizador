@@ -47,7 +47,7 @@ export default function Index() {
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { uploadImage, uploading } = useImageUpload();
-  const { getSelectedMode, selectedModeId } = usePerformanceModes();
+  const { getSelectedMode, selectedModeId, isLoaded: modesLoaded, modes } = usePerformanceModes();
   
   // Use routine adjustment hook for wake time settings
   const { settings, adjustedBlocks, loading: settingsLoading, updateSettings } = useRoutineAdjustment(routineBlocks);
@@ -109,24 +109,19 @@ export default function Index() {
     const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
     if (storedBlocks) {
       try {
-        setRoutineBlocks(JSON.parse(storedBlocks));
-      } catch {
-        // Fallback to selected mode's blocks
-        const mode = getSelectedMode();
-        if (mode) {
-          const blocks = mode.blocks.map(block => ({
-            ...block,
-            currentStreak: 0,
-            maxStreak: 0,
-            weeklyCompletion: [false, false, false, false, false, false, false],
-            notDone: [false, false, false, false, false, false, false],
-          }));
-          setRoutineBlocks(blocks);
+        const parsed = JSON.parse(storedBlocks);
+        if (parsed && parsed.length > 0) {
+          setRoutineBlocks(parsed);
+          return;
         }
+      } catch {
+        // Continue to fallback
       }
-    } else {
-      // Fallback to selected mode's blocks
-      const mode = getSelectedMode();
+    }
+    
+    // Fallback to selected mode's blocks
+    if (modesLoaded && modes.length > 0) {
+      const mode = modes.find(m => m.id === selectedModeId) || modes[0];
       if (mode) {
         const blocks = mode.blocks.map(block => ({
           ...block,
@@ -144,7 +139,6 @@ export default function Index() {
   useEffect(() => {
     setIsClient(true);
     loadTasks();
-    loadRoutineBlocks();
 
     // Load block tasks
     const storedBlockTasks = localStorage.getItem("routineBlockTasks");
@@ -165,7 +159,14 @@ export default function Index() {
     return () => {
       window.removeEventListener('routineBlocksUpdated', handleRoutineUpdate);
     };
-  }, [selectedModeId]);
+  }, []);
+
+  // Load routine blocks when modes are loaded or mode changes
+  useEffect(() => {
+    if (modesLoaded) {
+      loadRoutineBlocks();
+    }
+  }, [modesLoaded, selectedModeId, modes]);
 
   // Define time windows with their blocks based on time ranges
   const timeWindows: TimeWindow[] = [

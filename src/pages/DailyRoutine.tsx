@@ -28,38 +28,39 @@ type EnergyMode = "normal" | "lowEnergy" | "gymHalf" | "entrepreneurshipHalf";
 const DailyRoutine = () => {
   const [blocks, setBlocks] = useState<RoutineBlock[]>([]);
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
-  const { getSelectedMode, selectedModeId } = usePerformanceModes();
+  const { getSelectedMode, selectedModeId, isLoaded: modesLoaded, modes } = usePerformanceModes();
 
   const loadBlocks = () => {
     const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
     if (storedBlocks) {
       try {
-        setBlocks(JSON.parse(storedBlocks));
+        const parsed = JSON.parse(storedBlocks);
+        if (parsed && parsed.length > 0) {
+          setBlocks(parsed);
+          return;
+        }
       } catch {
-        applyModeBlocks();
+        // Continue to fallback
       }
-    } else {
-      applyModeBlocks();
     }
-  };
-
-  const applyModeBlocks = () => {
-    const mode = getSelectedMode();
-    if (mode) {
-      const routineBlocks = mode.blocks.map(block => ({
-        ...block,
-        currentStreak: 0,
-        maxStreak: 0,
-        weeklyCompletion: [false, false, false, false, false, false, false],
-      }));
-      setBlocks(routineBlocks);
-      localStorage.setItem('dailyRoutineBlocks', JSON.stringify(routineBlocks));
+    
+    // Fallback to selected mode's blocks
+    if (modesLoaded && modes.length > 0) {
+      const mode = modes.find(m => m.id === selectedModeId) || modes[0];
+      if (mode) {
+        const routineBlocks = mode.blocks.map(block => ({
+          ...block,
+          currentStreak: 0,
+          maxStreak: 0,
+          weeklyCompletion: [false, false, false, false, false, false, false],
+        }));
+        setBlocks(routineBlocks);
+        localStorage.setItem('dailyRoutineBlocks', JSON.stringify(routineBlocks));
+      }
     }
   };
 
   useEffect(() => {
-    loadBlocks();
-
     // Listen for routine updates from performance modes
     const handleRoutineUpdate = () => {
       loadBlocks();
@@ -69,7 +70,14 @@ const DailyRoutine = () => {
     return () => {
       window.removeEventListener('routineBlocksUpdated', handleRoutineUpdate);
     };
-  }, [selectedModeId]);
+  }, []);
+
+  // Load blocks when modes are loaded or mode changes
+  useEffect(() => {
+    if (modesLoaded) {
+      loadBlocks();
+    }
+  }, [modesLoaded, selectedModeId, modes]);
 
   useEffect(() => {
     if (blocks.length > 0) {
