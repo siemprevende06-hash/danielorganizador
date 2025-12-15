@@ -7,7 +7,7 @@ import { isToday, format, startOfDay } from "date-fns";
 import { lifeAreas, centralAreas } from "@/lib/data";
 import { flattenAreas } from "@/lib/utils";
 import type { Task } from "@/lib/definitions";
-import { Plus, Clock, X, ImagePlus, Briefcase, GraduationCap, Code } from "lucide-react";
+import { Plus, Clock, X, ImagePlus, Briefcase, GraduationCap, Code, Settings2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,8 @@ import { WakeTimeSettings } from "@/components/routine/WakeTimeSettings";
 import { GoalProgressTracker } from "@/components/goals/GoalProgressTracker";
 import { useRoutineAdjustment } from "@/hooks/useRoutineAdjustment";
 import { RoutineBlock } from "@/components/RoutineBlockCard";
+import { usePerformanceModes } from "@/hooks/usePerformanceModes";
+import { Link } from "react-router-dom";
 
 interface TaskWithBlock extends Task {
   blockId?: string;
@@ -45,6 +47,7 @@ export default function Index() {
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { uploadImage, uploading } = useImageUpload();
+  const { getSelectedMode, selectedModeId } = usePerformanceModes();
   
   // Use routine adjustment hook for wake time settings
   const { settings, adjustedBlocks, loading: settingsLoading, updateSettings } = useRoutineAdjustment(routineBlocks);
@@ -106,36 +109,23 @@ export default function Index() {
     setIsClient(true);
     loadTasks();
     
-    // Load routine blocks from localStorage (same as DailyRoutine page)
+    // Load routine blocks from localStorage (set by performance mode)
     const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
     if (storedBlocks) {
       setRoutineBlocks(JSON.parse(storedBlocks));
     } else {
-      const initialBlocks: RoutineBlock[] = [
-        { id: "1", title: "Rutina Activación", startTime: "05:00", endTime: "05:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "2", title: "Idiomas", startTime: "05:30", endTime: "06:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "3", title: "Gym", startTime: "06:00", endTime: "07:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "4", title: "Alistamiento y Desayuno", startTime: "07:00", endTime: "07:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "5", title: "Focus Emprendimiento", startTime: "07:30", endTime: "08:25", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "6", title: "Lectura", startTime: "08:25", endTime: "08:40", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "7", title: "Viaje a CUJAE (Podcast)", startTime: "08:40", endTime: "09:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "8", title: "1er Deep Work", startTime: "09:00", endTime: "10:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "9", title: "2do Deep Work", startTime: "10:30", endTime: "11:50", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "10", title: "3er Deep Work", startTime: "12:00", endTime: "13:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "11", title: "Almuerzo (Game y Ajedrez)", startTime: "13:20", endTime: "14:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "12", title: "4to Deep Work", startTime: "14:00", endTime: "15:20", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "13", title: "5to Deep Work", startTime: "15:30", endTime: "16:50", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "14", title: "Viaje a Casa (Podcast)", startTime: "16:50", endTime: "17:05", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "15", title: "Rutina de Llegada", startTime: "17:05", endTime: "17:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "16", title: "Focus Universidad", startTime: "17:30", endTime: "19:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "17", title: "Comida y Serie", startTime: "19:00", endTime: "19:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "18", title: "PS4", startTime: "19:30", endTime: "20:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "19", title: "Guitarra o Piano", startTime: "20:00", endTime: "20:30", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "20", title: "Bloque de Emergencia", startTime: "20:30", endTime: "21:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "21", title: "Emergencia Deep Work", startTime: "21:00", endTime: "23:00", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-        { id: "22", title: "Sueño", startTime: "23:00", endTime: "04:55", currentStreak: 0, maxStreak: 0, weeklyCompletion: [false, false, false, false, false, false, false], notDone: [false, false, false, false, false, false, false] },
-      ];
-      setRoutineBlocks(initialBlocks);
+      // Fallback to selected mode's blocks
+      const mode = getSelectedMode();
+      if (mode) {
+        const routineBlocks = mode.blocks.map(block => ({
+          ...block,
+          currentStreak: 0,
+          maxStreak: 0,
+          weeklyCompletion: [false, false, false, false, false, false, false],
+          notDone: [false, false, false, false, false, false, false],
+        }));
+        setRoutineBlocks(routineBlocks);
+      }
     }
 
     // Load block tasks
@@ -147,7 +137,7 @@ export default function Index() {
         console.error("Error loading block tasks:", e);
       }
     }
-  }, []);
+  }, [selectedModeId]);
 
   // Define time windows with their blocks based on time ranges
   const timeWindows: TimeWindow[] = [
