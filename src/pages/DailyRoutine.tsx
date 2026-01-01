@@ -298,13 +298,13 @@ const DailyRoutine = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-24 space-y-8">
+    <div className="container mx-auto px-4 pt-20 pb-8 space-y-6" style={{ paddingTop: 'max(5rem, calc(env(safe-area-inset-top) + 4rem))' }}>
       <header>
-        <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">
-          Rutina Diaria - Día de Enfoque
+        <h1 className="text-3xl font-bold text-foreground">
+          Rutina Diaria
         </h1>
-        <p className="text-lg text-muted-foreground mt-2">
-          5:00 AM - 9:00 PM | Bloques estructurados para máxima productividad
+        <p className="text-muted-foreground mt-1">
+          Bloques estructurados para máxima productividad
         </p>
       </header>
 
