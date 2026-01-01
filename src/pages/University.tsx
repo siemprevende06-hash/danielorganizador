@@ -6,10 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Trash2, GraduationCap, BookOpen, Pencil } from 'lucide-react';
+import { PlusCircle, Trash2, GraduationCap, BookOpen, Pencil, PenTool, AlertTriangle, Clock, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
+import { useExams, Exam } from '@/hooks/useExams';
+import { ExamCard } from '@/components/university/ExamCard';
+import { AddExamDialog } from '@/components/university/AddExamDialog';
+import { UpdateExamProgressDialog } from '@/components/university/UpdateExamProgressDialog';
+import { differenceInDays, parseISO } from 'date-fns';
 
 const subjectSchema = z.object({
   name: z.string().trim().min(1, "El nombre es requerido").max(200, "El nombre es muy largo")
@@ -75,6 +80,14 @@ export default function UniversityPage() {
   const [studyDate, setStudyDate] = useState('');
   const [studyDueDate, setStudyDueDate] = useState('');
   const { toast } = useToast();
+
+  // Exam state
+  const { exams, createExam, updateExamProgress, deleteExam, getExamsBySubject } = useExams();
+  const [isExamDialogOpen, setIsExamDialogOpen] = useState(false);
+  const [isUpdateExamProgressOpen, setIsUpdateExamProgressOpen] = useState(false);
+  const [currentExam, setCurrentExam] = useState<Exam | null>(null);
+  const [examSubjectId, setExamSubjectId] = useState<string>('');
+  const [examSubjectName, setExamSubjectName] = useState<string>('');
 
   useEffect(() => {
     loadSubjects();
@@ -471,6 +484,7 @@ export default function UniversityPage() {
       <Tabs defaultValue="subjects" className="w-full">
         <TabsList>
           <TabsTrigger value="subjects">Asignaturas</TabsTrigger>
+          <TabsTrigger value="exams">Exámenes</TabsTrigger>
           <TabsTrigger value="tasks">Todas las Tareas</TabsTrigger>
           <TabsTrigger value="study">Tiempos de Estudio</TabsTrigger>
         </TabsList>
@@ -495,61 +509,104 @@ export default function UniversityPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold">
-                      Tareas ({subject.tasks.filter(t => t.completed).length}/{subject.tasks.length})
-                    </h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setCurrentSubject(subject);
-                        setIsTaskDialogOpen(true);
-                      }}
-                    >
-                      <PlusCircle className="h-3 w-3 mr-1" />
-                      Añadir
-                    </Button>
+                <div className="space-y-4">
+                  {/* Tasks Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold">
+                        Tareas ({subject.tasks.filter(t => t.completed).length}/{subject.tasks.length})
+                      </h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setCurrentSubject(subject);
+                          setIsTaskDialogOpen(true);
+                        }}
+                      >
+                        <PlusCircle className="h-3 w-3 mr-1" />
+                        Añadir
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {subject.tasks.map((task) => (
+                        <div key={task.id} className="flex items-start gap-2 p-2 rounded-md bg-accent/50">
+                          <Checkbox
+                            checked={task.completed}
+                            onCheckedChange={() => handleToggleTask(subject.id, task.id)}
+                          />
+                          <div className="flex-1">
+                            <p className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                              {task.title}
+                            </p>
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground">{task.description}</p>
+                            )}
+                            {task.dueDate && (
+                              <p className="text-xs text-muted-foreground">Entrega: {task.dueDate}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleEditTask(subject.id, task.id)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleDeleteTask(subject.id, task.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    {subject.tasks.map((task) => (
-                      <div key={task.id} className="flex items-start gap-2 p-2 rounded-md bg-accent/50">
-                        <Checkbox
-                          checked={task.completed}
-                          onCheckedChange={() => handleToggleTask(subject.id, task.id)}
+
+                  {/* Exams Section */}
+                  <div className="space-y-3 pt-3 border-t">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold flex items-center gap-1">
+                        <PenTool className="h-4 w-4" />
+                        Exámenes ({getExamsBySubject(subject.id).length})
+                      </h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setExamSubjectId(subject.id);
+                          setExamSubjectName(subject.name);
+                          setIsExamDialogOpen(true);
+                        }}
+                      >
+                        <PlusCircle className="h-3 w-3 mr-1" />
+                        Examen
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {getExamsBySubject(subject.id).map((exam) => (
+                        <ExamCard
+                          key={exam.id}
+                          exam={exam}
+                          onUpdateProgress={(exam) => {
+                            setCurrentExam(exam);
+                            setIsUpdateExamProgressOpen(true);
+                          }}
+                          onDelete={deleteExam}
                         />
-                        <div className="flex-1">
-                          <p className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                            {task.title}
-                          </p>
-                          {task.description && (
-                            <p className="text-xs text-muted-foreground">{task.description}</p>
-                          )}
-                          {task.dueDate && (
-                            <p className="text-xs text-muted-foreground">Entrega: {task.dueDate}</p>
-                          )}
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => handleEditTask(subject.id, task.id)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => handleDeleteTask(subject.id, task.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                      {getExamsBySubject(subject.id).length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">
+                          No hay exámenes programados
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -562,6 +619,113 @@ export default function UniversityPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Exams Tab */}
+        <TabsContent value="exams" className="space-y-4 mt-6">
+          {(() => {
+            const sortedExams = [...exams]
+              .filter(e => e.status === 'pending')
+              .sort((a, b) => {
+                const daysA = differenceInDays(parseISO(a.exam_date), new Date());
+                const daysB = differenceInDays(parseISO(b.exam_date), new Date());
+                return daysA - daysB;
+              });
+
+            const urgentExams = sortedExams.filter(e => differenceInDays(parseISO(e.exam_date), new Date()) <= 3);
+            const soonExams = sortedExams.filter(e => {
+              const days = differenceInDays(parseISO(e.exam_date), new Date());
+              return days > 3 && days <= 7;
+            });
+            const laterExams = sortedExams.filter(e => differenceInDays(parseISO(e.exam_date), new Date()) > 7);
+
+            return (
+              <>
+                {urgentExams.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2 text-destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      Urgentes (3 días o menos)
+                    </h3>
+                    {urgentExams.map(exam => {
+                      const subject = subjects.find(s => s.id === exam.subject_id);
+                      return (
+                        <div key={exam.id} className="space-y-1">
+                          <p className="text-xs text-muted-foreground font-medium">{subject?.name}</p>
+                          <ExamCard
+                            exam={exam}
+                            onUpdateProgress={(exam) => {
+                              setCurrentExam(exam);
+                              setIsUpdateExamProgressOpen(true);
+                            }}
+                            onDelete={deleteExam}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {soonExams.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2 text-yellow-600">
+                      <Clock className="h-4 w-4" />
+                      Esta semana (4-7 días)
+                    </h3>
+                    {soonExams.map(exam => {
+                      const subject = subjects.find(s => s.id === exam.subject_id);
+                      return (
+                        <div key={exam.id} className="space-y-1">
+                          <p className="text-xs text-muted-foreground font-medium">{subject?.name}</p>
+                          <ExamCard
+                            exam={exam}
+                            onUpdateProgress={(exam) => {
+                              setCurrentExam(exam);
+                              setIsUpdateExamProgressOpen(true);
+                            }}
+                            onDelete={deleteExam}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {laterExams.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2 text-green-600">
+                      <Calendar className="h-4 w-4" />
+                      Próximamente (+7 días)
+                    </h3>
+                    {laterExams.map(exam => {
+                      const subject = subjects.find(s => s.id === exam.subject_id);
+                      return (
+                        <div key={exam.id} className="space-y-1">
+                          <p className="text-xs text-muted-foreground font-medium">{subject?.name}</p>
+                          <ExamCard
+                            exam={exam}
+                            onUpdateProgress={(exam) => {
+                              setCurrentExam(exam);
+                              setIsUpdateExamProgressOpen(true);
+                            }}
+                            onDelete={deleteExam}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {exams.filter(e => e.status === 'pending').length === 0 && (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <p className="text-muted-foreground">No tienes exámenes pendientes.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-2 mt-6">
@@ -755,6 +919,22 @@ export default function UniversityPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Exam Dialogs */}
+      <AddExamDialog
+        open={isExamDialogOpen}
+        onOpenChange={setIsExamDialogOpen}
+        subjectId={examSubjectId}
+        subjectName={examSubjectName}
+        onSubmit={createExam}
+      />
+
+      <UpdateExamProgressDialog
+        open={isUpdateExamProgressOpen}
+        onOpenChange={setIsUpdateExamProgressOpen}
+        exam={currentExam}
+        onSubmit={updateExamProgress}
+      />
     </div>
   );
 }
