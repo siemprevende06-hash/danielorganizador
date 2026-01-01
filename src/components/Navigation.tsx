@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList } from 'lucide-react';
+import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +47,7 @@ const navItems = [
     ]
   },
   { path: '/finance', label: 'Finanzas', icon: DollarSign },
+  { path: '/vida-daniel', label: 'Vida Daniel', icon: BarChart3 },
 ];
 
 export const Navigation = () => {

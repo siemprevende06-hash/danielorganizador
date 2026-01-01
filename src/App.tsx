@@ -31,6 +31,7 @@ import PerformanceModes from "./pages/PerformanceModes";
 import Systems from "./pages/Systems";
 import TwelveWeekYear from "./pages/TwelveWeekYear";
 import Weeks from "./pages/Weeks";
+import VidaDanielEstadisticas from "./pages/VidaDanielEstadisticas";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const App = () => (
           <Route path="/systems" element={<Systems />} />
           <Route path="/12-week-year" element={<TwelveWeekYear />} />
           <Route path="/weeks" element={<Weeks />} />
+          <Route path="/vida-daniel" element={<VidaDanielEstadisticas />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
