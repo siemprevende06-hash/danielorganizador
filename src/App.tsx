@@ -29,6 +29,8 @@ import Focus from "./pages/Focus";
 import RoutineDay from "./pages/RoutineDay";
 import PerformanceModes from "./pages/PerformanceModes";
 import Systems from "./pages/Systems";
+import TwelveWeekYear from "./pages/TwelveWeekYear";
+import Weeks from "./pages/Weeks";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +67,8 @@ const App = () => (
           <Route path="/routine-day" element={<RoutineDay />} />
           <Route path="/performance-modes" element={<PerformanceModes />} />
           <Route path="/systems" element={<Systems />} />
+          <Route path="/12-week-year" element={<TwelveWeekYear />} />
+          <Route path="/weeks" element={<Weeks />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -391,6 +391,60 @@ export type Database = {
         }
         Relationships: []
       }
+      twelve_week_goals: {
+        Row: {
+          category: string
+          connected_blocks: string[] | null
+          created_at: string
+          current_value: string | null
+          description: string | null
+          id: string
+          progress_percentage: number | null
+          quarter: number
+          status: string
+          target_value: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+          weekly_actions: Json | null
+          year: number
+        }
+        Insert: {
+          category: string
+          connected_blocks?: string[] | null
+          created_at?: string
+          current_value?: string | null
+          description?: string | null
+          id?: string
+          progress_percentage?: number | null
+          quarter: number
+          status?: string
+          target_value?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+          weekly_actions?: Json | null
+          year?: number
+        }
+        Update: {
+          category?: string
+          connected_blocks?: string[] | null
+          created_at?: string
+          current_value?: string | null
+          description?: string | null
+          id?: string
+          progress_percentage?: number | null
+          quarter?: number
+          status?: string
+          target_value?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+          weekly_actions?: Json | null
+          year?: number
+        }
+        Relationships: []
+      }
       university_subjects: {
         Row: {
           color: string | null
@@ -447,6 +501,56 @@ export type Database = {
           wake_time?: string | null
         }
         Relationships: []
+      }
+      weekly_plans: {
+        Row: {
+          completion_status: Json | null
+          created_at: string
+          daily_tasks: Json | null
+          goal_id: string | null
+          id: string
+          notes: string | null
+          quarter: number
+          updated_at: string
+          user_id: string | null
+          week_number: number
+          year: number
+        }
+        Insert: {
+          completion_status?: Json | null
+          created_at?: string
+          daily_tasks?: Json | null
+          goal_id?: string | null
+          id?: string
+          notes?: string | null
+          quarter: number
+          updated_at?: string
+          user_id?: string | null
+          week_number: number
+          year?: number
+        }
+        Update: {
+          completion_status?: Json | null
+          created_at?: string
+          daily_tasks?: Json | null
+          goal_id?: string | null
+          id?: string
+          notes?: string | null
+          quarter?: number
+          updated_at?: string
+          user_id?: string | null
+          week_number?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_plans_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "twelve_week_goals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

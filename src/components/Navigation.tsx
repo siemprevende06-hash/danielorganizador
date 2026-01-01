@@ -19,6 +19,14 @@ const navItems = [
   { path: '/habits', label: 'Hábitos', icon: CheckSquare },
   { path: '/tasks', label: 'Tareas', icon: ListTodo },
   { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
+  { 
+    label: 'Planificación Anual', 
+    icon: Target,
+    submenu: [
+      { path: '/12-week-year', label: 'Año de 12 Semanas' },
+      { path: '/weeks', label: 'Semanas' },
+    ]
+  },
   { path: '/daily', label: 'Hoy', icon: Eye },
   { path: '/weekly', label: 'Semana', icon: CalendarDays },
   { path: '/monthly', label: 'Mes', icon: CalendarRange },
