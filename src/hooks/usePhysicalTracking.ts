@@ -253,8 +253,8 @@ export const usePhysicalTracking = () => {
       calculateStreak()
     ]);
 
-    const startWeight = goal?.start_weight || 65;
-    const targetWeight = goal?.target_weight || 73;
+    const startWeight = goal?.start_weight || 50;
+    const targetWeight = goal?.target_weight || 70;
     const currentWeight = measurements[0]?.weight || startWeight;
     const muscleGainTarget = targetWeight - startWeight;
     const currentMuscleGain = currentWeight - startWeight;

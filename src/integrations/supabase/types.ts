@@ -219,6 +219,50 @@ export type Database = {
           },
         ]
       }
+      exercise_logs: {
+        Row: {
+          created_at: string | null
+          exercise_id: string | null
+          id: string
+          log_date: string
+          notes: string | null
+          reps_per_set: Json | null
+          sets_completed: number | null
+          user_id: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          exercise_id?: string | null
+          id?: string
+          log_date?: string
+          notes?: string | null
+          reps_per_set?: Json | null
+          sets_completed?: number | null
+          user_id?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          exercise_id?: string | null
+          id?: string
+          log_date?: string
+          notes?: string | null
+          reps_per_set?: Json | null
+          sets_completed?: number | null
+          user_id?: string | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_logs_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "workout_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goal_block_connections: {
         Row: {
           block_id: string
@@ -1025,6 +1069,83 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      workout_exercises: {
+        Row: {
+          created_at: string | null
+          day_of_week: string
+          id: string
+          muscle_group: string | null
+          name: string
+          order_index: number | null
+          routine_id: string | null
+          target_reps: string | null
+          target_sets: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: string
+          id?: string
+          muscle_group?: string | null
+          name: string
+          order_index?: number | null
+          routine_id?: string | null
+          target_reps?: string | null
+          target_sets?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: string
+          id?: string
+          muscle_group?: string | null
+          name?: string
+          order_index?: number | null
+          routine_id?: string | null
+          target_reps?: string | null
+          target_sets?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_exercises_routine_id_fkey"
+            columns: ["routine_id"]
+            isOneToOne: false
+            referencedRelation: "workout_routines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_routines: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+          user_id: string | null
+          workout_days: Json
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+          user_id?: string | null
+          workout_days?: Json
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+          user_id?: string | null
+          workout_days?: Json
+        }
+        Relationships: []
       }
     }
     Views: {
