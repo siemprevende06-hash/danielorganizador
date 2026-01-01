@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ArrowRight, Dumbbell, TrendingUp, Flame } from 'lucide-react';
+import { Dumbbell, TrendingUp, Flame, ChevronRight } from 'lucide-react';
+import danielFlaco from '@/assets/daniel-flaco.jpg';
+import danielFuerte from '@/assets/daniel-fuerte.jpg';
 
 export const PhysicalTransformation = () => {
   // This would ideally come from a goals table or dedicated physical tracking
@@ -27,54 +29,72 @@ export const PhysicalTransformation = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-          {/* Thin silhouette */}
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
+          {/* Daniel Flaco */}
           <div className="flex flex-col items-center gap-2">
-            <div className="relative w-24 h-48 flex items-center justify-center">
-              <svg viewBox="0 0 60 120" className="w-full h-full text-muted-foreground/30">
-                <ellipse cx="30" cy="12" rx="8" ry="10" fill="currentColor" />
-                <rect x="27" y="22" width="6" height="8" fill="currentColor" />
-                <rect x="22" y="30" width="16" height="25" rx="3" fill="currentColor" />
-                <rect x="16" y="32" width="6" height="18" rx="2" fill="currentColor" />
-                <rect x="38" y="32" width="6" height="18" rx="2" fill="currentColor" />
-                <rect x="23" y="55" width="6" height="30" rx="2" fill="currentColor" />
-                <rect x="31" y="55" width="6" height="30" rx="2" fill="currentColor" />
-              </svg>
+            <div className="relative w-32 h-48 md:w-40 md:h-56 rounded-lg overflow-hidden border-2 border-muted shadow-lg">
+              <img 
+                src={danielFlaco} 
+                alt="Daniel - Inicio" 
+                className="w-full h-full object-cover object-top"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                <span className="text-white text-xs font-medium">Inicio</span>
+              </div>
             </div>
-            <span className="text-sm text-muted-foreground">Inicio</span>
-            <span className="font-medium">{physicalStats.startWeight} kg</span>
+            <span className="font-medium text-muted-foreground">{physicalStats.startWeight} kg</span>
           </div>
 
-          {/* Progress Arrow */}
-          <div className="flex flex-col items-center gap-4 px-8">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-primary">{progress}%</span>
+          {/* Dynamic Progress Arrow */}
+          <div className="flex flex-col items-center gap-3 py-4 md:py-0">
+            <div className="text-3xl font-bold text-primary">{progress}%</div>
+            
+            {/* Animated Arrow with Progress */}
+            <div className="relative flex items-center">
+              {/* Progress bar background */}
+              <div className="w-24 md:w-32 h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-orange-500 to-green-500 rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              
+              {/* Animated chevrons */}
+              <div className="flex items-center ml-1">
+                <ChevronRight 
+                  className="h-6 w-6 text-orange-500 animate-pulse" 
+                  style={{ animationDelay: '0ms' }}
+                />
+                <ChevronRight 
+                  className="h-6 w-6 -ml-3 text-yellow-500 animate-pulse" 
+                  style={{ animationDelay: '200ms' }}
+                />
+                <ChevronRight 
+                  className="h-6 w-6 -ml-3 text-green-500 animate-pulse" 
+                  style={{ animationDelay: '400ms' }}
+                />
+              </div>
             </div>
-            <div className="relative w-40">
-              <Progress value={progress} className="h-3" />
-              <ArrowRight className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full text-primary h-6 w-6" />
-            </div>
-            <div className="text-center text-sm text-muted-foreground">
-              <p>Meta: +{physicalStats.muscleGainTarget}kg músculo</p>
-              <p className="text-primary font-medium">Actual: +{physicalStats.currentMuscleGain}kg</p>
+            
+            <div className="text-center text-sm">
+              <p className="text-muted-foreground">Meta: +{physicalStats.muscleGainTarget}kg músculo</p>
+              <p className="text-primary font-semibold">Actual: +{physicalStats.currentMuscleGain}kg</p>
             </div>
           </div>
 
-          {/* Strong silhouette */}
+          {/* Daniel Fuerte */}
           <div className="flex flex-col items-center gap-2">
-            <div className="relative w-24 h-48 flex items-center justify-center">
-              <svg viewBox="0 0 80 120" className="w-full h-full text-primary">
-                <ellipse cx="40" cy="12" rx="9" ry="11" fill="currentColor" />
-                <rect x="36" y="23" width="8" height="8" fill="currentColor" />
-                <path d="M20 32 Q40 28 60 32 L58 60 Q40 62 22 60 Z" fill="currentColor" />
-                <ellipse cx="15" cy="38" rx="7" ry="12" fill="currentColor" />
-                <ellipse cx="65" cy="38" rx="7" ry="12" fill="currentColor" />
-                <rect x="24" y="58" width="10" height="35" rx="3" fill="currentColor" />
-                <rect x="46" y="58" width="10" height="35" rx="3" fill="currentColor" />
-              </svg>
+            <div className="relative w-32 h-48 md:w-40 md:h-56 rounded-lg overflow-hidden border-2 border-primary shadow-lg shadow-primary/20">
+              <img 
+                src={danielFuerte} 
+                alt="Daniel - Meta" 
+                className="w-full h-full object-cover object-top"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                <span className="text-white text-xs font-medium">Meta 🎯</span>
+              </div>
             </div>
-            <span className="text-sm text-muted-foreground">Meta</span>
-            <span className="font-medium">{physicalStats.targetWeight} kg</span>
+            <span className="font-medium text-primary">{physicalStats.targetWeight} kg</span>
           </div>
         </div>
 
