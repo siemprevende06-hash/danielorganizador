@@ -1,959 +1,233 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { isToday, format, startOfDay } from "date-fns";
-import { lifeAreas, centralAreas } from "@/lib/data";
-import { flattenAreas } from "@/lib/utils";
-import type { Task } from "@/lib/definitions";
-import { Plus, Clock, X, ImagePlus, Briefcase, GraduationCap, Code, Settings2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import { useImageUpload } from "@/hooks/useImageUpload";
 import { supabase } from "@/integrations/supabase/client";
-import { WakeTimeSettings } from "@/components/routine/WakeTimeSettings";
-import { GoalProgressTracker } from "@/components/goals/GoalProgressTracker";
-import { useRoutineAdjustment } from "@/hooks/useRoutineAdjustment";
-import { RoutineBlock } from "@/components/RoutineBlockCard";
-import { usePerformanceModes } from "@/hooks/usePerformanceModes";
 import { Link } from "react-router-dom";
+import { ArrowRight, Target, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tables } from "@/integrations/supabase/types";
 
-interface TaskWithBlock extends Task {
-  blockId?: string;
+// Dashboard components
+import { YearProgressOverview } from "@/components/dashboard/YearProgressOverview";
+import { GoalsTrendChart } from "@/components/dashboard/GoalsTrendChart";
+import { CategoryProgressGrid } from "@/components/dashboard/CategoryProgressGrid";
+import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
+import { StreaksDashboard } from "@/components/dashboard/StreaksDashboard";
+import { GoalsCategoryPieChart } from "@/components/dashboard/GoalsCategoryPieChart";
+import { ProductivityMetrics } from "@/components/dashboard/ProductivityMetrics";
+import { GoalDistanceIndicator } from "@/components/dashboard/GoalDistanceIndicator";
+
+type TwelveWeekGoal = Tables<"twelve_week_goals">;
+
+interface RoutineBlock {
+  id: string;
+  weeklyCompletion: boolean[];
+  currentStreak?: number;
+  maxStreak?: number;
+  effortLevel?: 'minimum' | 'normal' | 'maximum';
 }
 
-// Removed duplicate RoutineBlock interface - now imported from RoutineBlockCard
-
-interface TimeWindow {
+interface Task {
   id: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  blocks: RoutineBlock[];
+  completed?: boolean;
 }
 
 export default function Index() {
-  const [tasks, setTasks] = useState<TaskWithBlock[]>([]);
+  const [goals, setGoals] = useState<TwelveWeekGoal[]>([]);
   const [routineBlocks, setRoutineBlocks] = useState<RoutineBlock[]>([]);
-  const [blockTasks, setBlockTasks] = useState<{ [blockId: string]: string[] }>({});
-  const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false);
-  const { uploadImage, uploading } = useImageUpload();
-  const { getSelectedMode, selectedModeId, isLoaded: modesLoaded, modes } = usePerformanceModes();
-  
-  // Use routine adjustment hook for wake time settings
-  const { settings, adjustedBlocks, loading: settingsLoading, updateSettings } = useRoutineAdjustment(routineBlocks);
-
-  const loadTasks = async () => {
-    try {
-      // 1. Load regular tasks from 'tasks' table
-      const { data: regularTasks, error: regularError } = await supabase
-        .from('tasks')
-        .select('*')
-        .or(`source.eq.general,source.eq.university,source.eq.study_session,source.eq.project`)
-        .order('created_at', { ascending: false });
-
-      if (regularError) throw regularError;
-
-      // 2. Load entrepreneurship tasks from 'entrepreneurship_tasks' table
-      const { data: entrepreneurshipTasks, error: entrepreneurshipError } = await supabase
-        .from('entrepreneurship_tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (entrepreneurshipError) throw entrepreneurshipError;
-
-      // 3. Map and combine both sources
-      const mappedRegularTasks: TaskWithBlock[] = (regularTasks || []).map(task => ({
-        id: task.id,
-        title: task.title,
-        description: task.description || '',
-        status: task.status as any,
-        priority: task.priority as any,
-        dueDate: task.due_date ? new Date(task.due_date) : undefined,
-        completed: task.completed,
-        areaId: task.area_id || (
-          task.source === 'university' || task.source === 'study_session'
-            ? 'universidad'
-            : 'proyectos-personales'
-        )
-      }));
-
-      const mappedEntrepreneurshipTasks: TaskWithBlock[] = (entrepreneurshipTasks || []).map(task => ({
-        id: task.id,
-        title: task.title,
-        description: task.description || '',
-        status: task.completed ? 'completada' : 'pendiente',
-        priority: 'medium' as any,
-        dueDate: task.due_date ? new Date(task.due_date) : undefined,
-        completed: task.completed,
-        // Map to existing life area id so they appear in Inicio and assignment dialog
-        areaId: 'proyectos-personales'
-      }));
-
-      setTasks([...mappedRegularTasks, ...mappedEntrepreneurshipTasks]);
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-    }
-  };
-
-  const loadRoutineBlocks = () => {
-    const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
-    if (storedBlocks) {
-      try {
-        const parsed = JSON.parse(storedBlocks);
-        if (parsed && parsed.length > 0) {
-          setRoutineBlocks(parsed);
-          return;
-        }
-      } catch {
-        // Continue to fallback
-      }
-    }
-    
-    // Fallback to selected mode's blocks
-    if (modesLoaded && modes.length > 0) {
-      const mode = modes.find(m => m.id === selectedModeId) || modes[0];
-      if (mode) {
-        const blocks = mode.blocks.map(block => ({
-          ...block,
-          currentStreak: 0,
-          maxStreak: 0,
-          weeklyCompletion: [false, false, false, false, false, false, false],
-          notDone: [false, false, false, false, false, false, false],
-        }));
-        setRoutineBlocks(blocks);
-        localStorage.setItem('dailyRoutineBlocks', JSON.stringify(blocks));
-      }
-    }
-  };
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setIsClient(true);
-    loadTasks();
-
-    // Load block tasks
-    const storedBlockTasks = localStorage.getItem("routineBlockTasks");
-    if (storedBlockTasks) {
-      try {
-        setBlockTasks(JSON.parse(storedBlockTasks));
-      } catch (e) {
-        console.error("Error loading block tasks:", e);
-      }
-    }
-
-    // Listen for routine updates from performance modes
-    const handleRoutineUpdate = () => {
-      loadRoutineBlocks();
-    };
-    window.addEventListener('routineBlocksUpdated', handleRoutineUpdate);
-    
-    return () => {
-      window.removeEventListener('routineBlocksUpdated', handleRoutineUpdate);
-    };
+    loadData();
   }, []);
 
-  // Load routine blocks when modes are loaded or mode changes
-  useEffect(() => {
-    if (modesLoaded) {
-      loadRoutineBlocks();
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Load 12-week goals
+      const { data: goalsData } = await supabase
+        .from('twelve_week_goals')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (goalsData) setGoals(goalsData);
+
+      // Load tasks for today
+      const today = new Date().toISOString().split('T')[0];
+      const { data: tasksData } = await supabase
+        .from('tasks')
+        .select('id, completed')
+        .gte('due_date', today)
+        .lte('due_date', today + 'T23:59:59');
+      
+      if (tasksData) setTasks(tasksData);
+
+      // Load routine blocks from localStorage
+      const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
+      if (storedBlocks) {
+        try {
+          const parsed = JSON.parse(storedBlocks);
+          setRoutineBlocks(parsed);
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [modesLoaded, selectedModeId, modes]);
+  };
 
-  // Define time windows with their blocks based on time ranges
-  const timeWindows: TimeWindow[] = [
-    {
-      id: "morning",
-      title: "Activación Matinal",
-      startTime: "5:00 AM",
-      endTime: "9:00 AM",
-      blocks: routineBlocks.filter(block => {
-        const hour = parseInt(block.startTime.split(':')[0]);
-        return hour >= 5 && hour < 9;
-      }),
-    },
-    {
-      id: "deep-work-morning",
-      title: "Trabajo Profundo - Mañana",
-      startTime: "9:00 AM",
-      endTime: "1:20 PM",
-      blocks: routineBlocks.filter(block => {
-        const hour = parseInt(block.startTime.split(':')[0]);
-        return hour >= 9 && hour < 14;
-      }),
-    },
-    {
-      id: "afternoon",
-      title: "Tarde",
-      startTime: "2:00 PM",
-      endTime: "7:00 PM",
-      blocks: routineBlocks.filter(block => {
-        const hour = parseInt(block.startTime.split(':')[0]);
-        return hour >= 14 && hour < 19;
-      }),
-    },
-    {
-      id: "evening",
-      title: "Rutina Vespertina",
-      startTime: "7:00 PM",
-      endTime: "9:00 PM",
-      blocks: routineBlocks.filter(block => {
-        const hour = parseInt(block.startTime.split(':')[0]);
-        return hour >= 19 && hour < 21;
-      }),
-    },
-    {
-      id: "night",
-      title: "Emergencia Deep Work",
-      startTime: "9:00 PM",
-      endTime: "11:00 PM",
-      blocks: routineBlocks.filter(block => {
-        const hour = parseInt(block.startTime.split(':')[0]);
-        return hour >= 21 && hour < 23;
-      }),
-    },
-  ];
+  // Calculate current quarter goals
+  const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+  const quarterGoals = useMemo(() => 
+    goals.filter(g => g.quarter === currentQuarter),
+    [goals, currentQuarter]
+  );
 
+  // Overall progress
+  const overallProgress = useMemo(() => {
+    if (quarterGoals.length === 0) return 0;
+    return Math.round(
+      quarterGoals.reduce((sum, g) => sum + (g.progress_percentage || 0), 0) / quarterGoals.length
+    );
+  }, [quarterGoals]);
 
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem("routineBlockTasks", JSON.stringify(blockTasks));
-    }
-  }, [blockTasks, isClient]);
-
-  if (!isClient) {
-    return null;
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-24 flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Cargando dashboard...</div>
+      </div>
+    );
   }
 
-  // Filter today's tasks (only tasks with today's date)
-  const todayTasks = tasks.filter(task => {
-    if (!task.dueDate) return false; // Exclude tasks without a date
-    const taskDate = startOfDay(task.dueDate);
-    const today = startOfDay(new Date());
-    return taskDate.getTime() === today.getTime();
-  });
-
-  // ALL available tasks (pending, with or without date) for assignment to blocks
-  const availableTasks = tasks.filter(task => !task.completed);
-
-  // Group today's tasks by area
-  const allAreas = [
-    ...flattenAreas(lifeAreas),
-    ...flattenAreas(centralAreas),
-  ];
-  const tasksByArea = allAreas.map(area => {
-    const areaTasks = todayTasks.filter(task => task.areaId === area.id);
-    return {
-      area,
-      tasks: areaTasks,
-    };
-  }).filter(group => group.tasks.length > 0);
-
-  // Group ALL available tasks by area for assignment dialog
-  const availableTasksByArea = allAreas.map(area => {
-    const areaTasks = availableTasks.filter(task => task.areaId === area.id);
-    return {
-      area,
-      tasks: areaTasks,
-    };
-  }).filter(group => group.tasks.length > 0);
-
-  const handleToggleTask = async (taskId: string) => {
-    try {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) return;
-
-      const { error } = await supabase
-        .from('tasks')
-        .update({ completed: !task.completed })
-        .eq('id', taskId);
-
-      if (error) throw error;
-      await loadTasks();
-    } catch (error) {
-      console.error('Error toggling task:', error);
-    }
-  };
-
-  const handleAddTaskToBlock = (taskId: string, blockId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    setBlockTasks(prev => ({
-      ...prev,
-      [blockId]: [...(prev[blockId] || []), task.id],
-    }));
-    setSelectedBlock(null);
-  };
-
-  const handleRemoveTaskFromBlock = (blockId: string, taskId: string) => {
-    setBlockTasks(prev => ({
-      ...prev,
-      [blockId]: (prev[blockId] || []).filter(id => id !== taskId),
-    }));
-  };
-
-  const handleUpdateBlock = (blockId: string, updates: Partial<RoutineBlock>) => {
-    setRoutineBlocks(prev => {
-      const updatedBlocks = prev.map(block => 
-        block.id === blockId ? { ...block, ...updates } : block
-      );
-      localStorage.setItem('dailyRoutineBlocks', JSON.stringify(updatedBlocks));
-      return updatedBlocks;
-    });
-  };
-
-  const handleMarkNotDone = (blockId: string) => {
-    const today = new Date().getDay();
-    const dayIndex = today === 0 ? 6 : today - 1;
-    
-    setRoutineBlocks(prev => {
-      const updatedBlocks = prev.map(block => {
-        if (block.id === blockId) {
-          const newNotDone = [...(block.notDone || [false, false, false, false, false, false, false])];
-          const isCurrentlyNotDone = newNotDone[dayIndex];
-          
-          // Toggle the not done status
-          newNotDone[dayIndex] = !isCurrentlyNotDone;
-          
-          const newWeekly = [...block.weeklyCompletion];
-          if (!isCurrentlyNotDone) {
-            // Marking as not done, so remove completion
-            newWeekly[dayIndex] = false;
-          }
-          
-          return {
-            ...block,
-            notDone: newNotDone,
-            weeklyCompletion: newWeekly,
-            effortLevel: !isCurrentlyNotDone ? undefined : block.effortLevel, // Reset effort level when marking as not done
-          };
-        }
-        return block;
-      });
-      localStorage.setItem('dailyRoutineBlocks', JSON.stringify(updatedBlocks));
-      return updatedBlocks;
-    });
-  };
-
-  const handleImageUpload = async (blockId: string, file: File) => {
-    const imageUrl = await uploadImage(file, 'routine-blocks');
-    if (imageUrl) {
-      handleUpdateBlock(blockId, { coverImage: imageUrl });
-    }
-  };
-
-  // Convert 24h time to 12h AM/PM format
-  const convertTo12Hour = (time24: string): string => {
-    const [hours, minutes] = time24.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hours12 = hours % 12 || 12;
-    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  };
-
-  const getBlockStatus = (block: RoutineBlock) => {
-    const today = new Date().getDay();
-    const dayIndex = today === 0 ? 6 : today - 1;
-    const isNotDone = block.notDone?.[dayIndex] || false;
-    const isCompleted = block.weeklyCompletion[dayIndex] || false;
-    
-    if (isNotDone) return "not-done";
-    if (isCompleted) return "completed";
-    return "neutral";
-  };
-
-  const getBorderColor = (block: RoutineBlock) => {
-    const status = getBlockStatus(block);
-    
-    if (status === "not-done") return "border-red-500";
-    
-    // If not marked as not done, use effort level
-    switch (block.effortLevel) {
-      case "minimum":
-        return "border-blue-500";
-      case "normal":
-        return "border-green-500";
-      case "maximum":
-        return "border-yellow-500";
-      default:
-        return "border-border"; // Default white/neutral border
-    }
-  };
-
-  const getTaskById = (taskId: string) => {
-    return tasks.find(t => t.id === taskId);
-  };
-
-  const getPriorityColor = (priority?: 'low' | 'medium' | 'high') => {
-    switch (priority) {
-      case 'high':
-        return 'destructive';
-      case 'medium':
-        return 'default';
-      case 'low':
-        return 'secondary';
-      default:
-        return 'secondary';
-    }
-  };
-
   return (
-    <div className="container mx-auto px-4 py-24 space-y-8">
+    <div className="container mx-auto px-4 py-24 space-y-6">
+      {/* Header */}
       <header className="text-center space-y-2">
         <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">
-          Hoy
+          Dashboard 2026
         </h1>
         <p className="text-muted-foreground">
-          {new Date().toLocaleDateString('es-ES', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
+          Tu año de 12 semanas en un vistazo
         </p>
       </header>
 
-      {/* Today's Tasks by Area */}
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">Tareas del Día por Área</h2>
-        {tasksByArea.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">
-                No tienes tareas programadas para hoy
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {tasksByArea.map(({ area, tasks }) => {
-              const Icon = area.icon;
-              return (
-                <Card key={area.id}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Icon className="h-4 w-4" />
-                      {area.name}
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {tasks.length}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {tasks.map(task => (
-                      <div
-                        key={task.id}
-                        className="flex items-start gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <Checkbox
-                          checked={task.completed}
-                          onCheckedChange={() => handleToggleTask(task.id)}
-                          className="mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={cn(
-                              "text-sm font-medium truncate",
-                              task.completed && "line-through text-muted-foreground"
-                            )}
-                          >
-                            {task.title}
-                          </p>
-                          {task.description && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {task.description}
-                            </p>
-                          )}
-                        </div>
-                        {task.priority && (
-                          <Badge variant={getPriorityColor(task.priority)} className="text-xs">
-                            {task.priority === 'high' ? 'A' : task.priority === 'medium' ? 'M' : 'B'}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      {/* Year Progress */}
+      <YearProgressOverview />
 
-      <Separator className="my-8" />
-
-      {/* Time Windows with Routine Blocks */}
-      <section className="space-y-8">
-        <h2 className="text-2xl font-semibold">Rutina del Día</h2>
-        {timeWindows.map(window => (
-          <div key={window.id} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Clock className="h-5 w-5 text-primary" />
-              <div>
-                <h3 className="text-xl font-semibold">{window.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {window.startTime} - {window.endTime}
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {window.blocks.map(block => {
-                const assignedTaskIds = blockTasks[block.id] || [];
-                const blockStatus = getBlockStatus(block);
-                return (
-                  <Card
-                    key={block.id}
-                    className={cn(
-                      "transition-all hover:shadow-md border-2 overflow-hidden",
-                      getBorderColor(block),
-                      blockStatus === "not-done" && "bg-red-500/5"
-                    )}
-                  >
-                    {block.coverImage && (
-                      <div className="relative w-full h-24 overflow-hidden">
-                        <img 
-                          src={block.coverImage} 
-                          alt={`${block.title} cover`}
-                          className="w-full h-full object-cover"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-5 w-5"
-                          onClick={() => handleUpdateBlock(block.id, { coverImage: "" })}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                    <CardHeader className="pb-3">
-                      <div className="space-y-1">
-                        <CardTitle className="text-sm font-semibold leading-tight">
-                          {block.title}
-                        </CardTitle>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {convertTo12Hour(block.startTime)} - {convertTo12Hour(block.endTime)}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {/* Effort Level Buttons */}
-                      <div className="flex gap-1">
-                        <Button
-                          variant={block.effortLevel === "minimum" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleUpdateBlock(block.id, { 
-                            effortLevel: block.effortLevel === "minimum" ? undefined : "minimum" 
-                          })}
-                          className={cn(
-                            "flex-1 h-7 text-xs",
-                            block.effortLevel === "minimum" && "bg-blue-500 hover:bg-blue-600"
-                          )}
-                        >
-                          Mín
-                        </Button>
-                        <Button
-                          variant={block.effortLevel === "normal" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleUpdateBlock(block.id, { 
-                            effortLevel: block.effortLevel === "normal" ? undefined : "normal" 
-                          })}
-                          className={cn(
-                            "flex-1 h-7 text-xs",
-                            block.effortLevel === "normal" && "bg-green-500 hover:bg-green-600"
-                          )}
-                        >
-                          Norm
-                        </Button>
-                        <Button
-                          variant={block.effortLevel === "maximum" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleUpdateBlock(block.id, { 
-                            effortLevel: block.effortLevel === "maximum" ? undefined : "maximum" 
-                          })}
-                          className={cn(
-                            "flex-1 h-7 text-xs",
-                            block.effortLevel === "maximum" && "bg-yellow-500 hover:bg-yellow-600"
-                          )}
-                        >
-                          Máx
-                        </Button>
-                      </div>
-
-                      {/* Cover Image Upload */}
-                      {!block.coverImage && (
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleImageUpload(block.id, file);
-                            }}
-                            className="hidden"
-                            id={`upload-${block.id}`}
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => document.getElementById(`upload-${block.id}`)?.click()}
-                            className="w-full h-7 text-xs"
-                          >
-                            <ImagePlus className="h-3 w-3 mr-1" />
-                            Portada
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Block default info */}
-                      {block.specificTask && (
-                        <div className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded">
-                          • {block.specificTask}
-                        </div>
-                      )}
-                      {block.genericTasks && block.genericTasks.length > 0 && (
-                        <div className="space-y-1">
-                          {block.genericTasks.map((task, idx) => (
-                            <div
-                              key={idx}
-                              className="text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded"
-                            >
-                              • {task}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Assigned tasks from today */}
-                      {assignedTaskIds.length > 0 && (
-                        <div className="space-y-2 pt-2 border-t">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Tareas asignadas:
-                          </p>
-                          {assignedTaskIds.map(taskId => {
-                            const task = getTaskById(taskId);
-                            if (!task) return null;
-                            return (
-                              <div
-                                key={taskId}
-                                className="flex items-start gap-2 p-2 bg-primary/10 rounded text-xs"
-                              >
-                                <span className="flex-1 font-medium">{task.title}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveTaskFromBlock(block.id, taskId)}
-                                  className="h-5 w-5 p-0 hover:bg-destructive/20"
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Mark as Not Done button */}
-                      <Button 
-                        variant={blockStatus === "not-done" ? "outline" : "destructive"}
-                        size="sm" 
-                        className="w-full h-8 text-xs"
-                        onClick={() => handleMarkNotDone(block.id)}
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        {blockStatus === "not-done" ? "Desmarcar: No lo hice" : "No lo hice"}
-                      </Button>
-
-                      {/* Add task button */}
-                      <Dialog
-                        open={selectedBlock === block.id}
-                        onOpenChange={(open) => setSelectedBlock(open ? block.id : null)}
-                      >
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full h-8 text-xs">
-                            <Plus className="h-3 w-3 mr-1" />
-                            Asignar Tarea
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>
-                              Asignar tarea a: {block.title}
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4 max-h-[500px] overflow-y-auto">
-                            {availableTasksByArea.length === 0 ? (
-                              <p className="text-center text-muted-foreground py-8">
-                                No hay tareas disponibles
-                              </p>
-                            ) : (
-                              availableTasksByArea.map(({ area, tasks }) => {
-                                const Icon = area.icon;
-                                return (
-                                  <div key={area.id} className="space-y-2">
-                                    <div className="flex items-center gap-2 text-sm font-semibold sticky top-0 bg-background py-2">
-                                      <Icon className="h-4 w-4" />
-                                      {area.name}
-                                    </div>
-                                    <div className="space-y-1">
-                                      {tasks.map(task => {
-                                        const isAssigned = assignedTaskIds.includes(task.id);
-                                        return (
-                                          <button
-                                            key={task.id}
-                                            onClick={() => !isAssigned && handleAddTaskToBlock(task.id, block.id)}
-                                            disabled={isAssigned}
-                                            className={cn(
-                                              "w-full text-left p-3 rounded-lg transition-colors",
-                                              isAssigned 
-                                                ? "bg-muted/50 cursor-not-allowed opacity-50" 
-                                                : "hover:bg-muted cursor-pointer"
-                                            )}
-                                          >
-                                            <div className="flex items-start justify-between gap-2">
-                                              <div className="flex-1">
-                                                <p className="font-medium text-sm">{task.title}</p>
-                                                {task.description && (
-                                                  <p className="text-xs text-muted-foreground mt-1">
-                                                    {task.description}
-                                                  </p>
-                                                )}
-                                              </div>
-                                              <div className="flex gap-1">
-                                                {task.priority && (
-                                                  <Badge variant={getPriorityColor(task.priority)} className="text-xs">
-                                                    {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
-                                                  </Badge>
-                                                )}
-                                                {isAssigned && (
-                                                  <Badge variant="secondary" className="text-xs">
-                                                    Asignada
-                                                  </Badge>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </section>
-
-      <Separator className="my-8" />
-
-      {/* Panel de Vida */}
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">Panel de Vida</h2>
-        
-        {/* Hábitos */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Hábitos del Día</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {(() => {
-              const habitBlocks = [
-                { id: "1", name: "Rutina de Activación", blockTitle: "Rutina Activación" },
-                { id: "4", name: "Alistamiento y Desayuno", blockTitle: "Alistamiento y Desayuno" },
-                { id: "15", name: "Rutina de Llegada", blockTitle: "Rutina de Llegada" },
-                { id: "20", name: "Rutina de Desactivación", blockTitle: "Bloque de Emergencia" },
-              ];
-
-              return habitBlocks.map(habit => {
-                const block = routineBlocks.find(b => b.id === habit.id);
-                const today = new Date().getDay();
-                const dayIndex = today === 0 ? 6 : today - 1;
-                const isCompleted = block?.weeklyCompletion[dayIndex] || false;
-
-                return (
-                  <div
-                    key={habit.id}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
-                      isCompleted 
-                        ? "border-green-500 bg-green-500/10" 
-                        : "border-red-500 bg-red-500/10"
-                    )}
-                  >
-                    <span className="font-medium">{habit.name}</span>
-                    <Badge 
-                      variant="default" 
-                      className={isCompleted ? "bg-green-500" : "bg-red-500"}
-                    >
-                      {isCompleted ? "Completado" : "Pendiente"}
-                    </Badge>
-                  </div>
-                );
-              });
-            })()}
+      {/* Quick Stats Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardContent className="pt-4 text-center">
+            <div className="text-3xl font-bold text-primary">{quarterGoals.length}</div>
+            <div className="text-xs text-muted-foreground">Metas Q{currentQuarter}</div>
           </CardContent>
         </Card>
-      </section>
-
-      <Separator className="my-8" />
-
-      {/* Panel de Control */}
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">Panel de Control</h2>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Profesional Académico</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {(() => {
-              // Emprendimiento
-              const entrepreneurshipBlocks = routineBlocks.filter(b => 
-                b.title.toLowerCase().includes("emprendimiento") ||
-                b.title.toLowerCase().includes("focus emprendimiento")
-              );
-
-              const hasEntrepreneurshipBlocks = entrepreneurshipBlocks.some(block => {
-                const today = new Date().getDay();
-                const dayIndex = today === 0 ? 6 : today - 1;
-                return block.weeklyCompletion[dayIndex];
-              });
-
-              const hasAssignedEntrepreneurshipTasks = Object.values(blockTasks).some(taskIds => 
-                taskIds.some(taskId => {
-                  const task = getTaskById(taskId);
-                  return task?.areaId === "proyectos-personales" && task.completed;
-                })
-              );
-
-              const isEntrepreneurshipCompleted = hasEntrepreneurshipBlocks || hasAssignedEntrepreneurshipTasks;
-
-              // Universidad
-              const universityBlocks = routineBlocks.filter(b => 
-                b.title.toLowerCase().includes("universidad") ||
-                b.title.toLowerCase().includes("focus universidad")
-              );
-
-              const hasUniversityBlocks = universityBlocks.some(block => {
-                const today = new Date().getDay();
-                const dayIndex = today === 0 ? 6 : today - 1;
-                return block.weeklyCompletion[dayIndex];
-              });
-
-              const hasAssignedUniversityTasks = Object.values(blockTasks).some(taskIds => 
-                taskIds.some(taskId => {
-                  const task = getTaskById(taskId);
-                  return task?.areaId === "universidad" && task.completed;
-                })
-              );
-
-              const isUniversityCompleted = hasUniversityBlocks || hasAssignedUniversityTasks;
-
-              // Proyectos (Web/Code)
-              const projectBlocks = routineBlocks.filter(b => 
-                b.title.toLowerCase().includes("proyecto") ||
-                b.title.toLowerCase().includes("deep work")
-              );
-
-              const hasProjectBlocks = projectBlocks.some(block => {
-                const today = new Date().getDay();
-                const dayIndex = today === 0 ? 6 : today - 1;
-                return block.weeklyCompletion[dayIndex];
-              });
-
-              const hasAssignedProjectTasks = Object.values(blockTasks).some(taskIds => 
-                taskIds.some(taskId => {
-                  const task = getTaskById(taskId);
-                  return task?.areaId === "proyectos-personales" && task.completed;
-                })
-              );
-
-              const isProjectCompleted = hasProjectBlocks || hasAssignedProjectTasks;
-
-              return (
-                <>
-                  <div
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
-                      isEntrepreneurshipCompleted 
-                        ? "border-green-500 bg-green-500/10" 
-                        : "border-red-500 bg-red-500/10"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-5 w-5" />
-                      <span className="font-medium">Emprendimiento</span>
-                    </div>
-                    <Badge 
-                      variant="default" 
-                      className={isEntrepreneurshipCompleted ? "bg-green-500" : "bg-red-500"}
-                    >
-                      {isEntrepreneurshipCompleted ? "Completado" : "Pendiente"}
-                    </Badge>
-                  </div>
-
-                  <div
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
-                      isUniversityCompleted 
-                        ? "border-green-500 bg-green-500/10" 
-                        : "border-red-500 bg-red-500/10"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <GraduationCap className="h-5 w-5" />
-                      <span className="font-medium">Universidad</span>
-                    </div>
-                    <Badge 
-                      variant="default" 
-                      className={isUniversityCompleted ? "bg-green-500" : "bg-red-500"}
-                    >
-                      {isUniversityCompleted ? "Completado" : "Pendiente"}
-                    </Badge>
-                  </div>
-
-                  <div
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
-                      isProjectCompleted 
-                        ? "border-green-500 bg-green-500/10" 
-                        : "border-red-500 bg-red-500/10"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Code className="h-5 w-5" />
-                      <span className="font-medium">Proyectos Web</span>
-                    </div>
-                    <Badge 
-                      variant="default" 
-                      className={isProjectCompleted ? "bg-green-500" : "bg-red-500"}
-                    >
-                      {isProjectCompleted ? "Completado" : "Pendiente"}
-                    </Badge>
-                  </div>
-                </>
-              );
-            })()}
+        <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5">
+          <CardContent className="pt-4 text-center">
+            <div className="text-3xl font-bold text-green-500">{overallProgress}%</div>
+            <div className="text-xs text-muted-foreground">Progreso Global</div>
           </CardContent>
         </Card>
+        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5">
+          <CardContent className="pt-4 text-center">
+            <div className="text-3xl font-bold text-orange-500">
+              {quarterGoals.filter(g => g.status === 'active').length}
+            </div>
+            <div className="text-xs text-muted-foreground">Metas Activas</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5">
+          <CardContent className="pt-4 text-center">
+            <div className="text-3xl font-bold text-purple-500">
+              {quarterGoals.filter(g => g.status === 'completed').length}
+            </div>
+            <div className="text-xs text-muted-foreground">Completadas</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Category Progress */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            Progreso por Categoría
+          </h2>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/12-week-year" className="flex items-center gap-1">
+              Ver todas <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+        <CategoryProgressGrid goals={quarterGoals} />
       </section>
+
+      <Separator />
+
+      {/* Charts Row */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <GoalsTrendChart goals={quarterGoals} />
+        <GoalsCategoryPieChart goals={quarterGoals} />
+      </div>
+
+      {/* Goal Distance + Weekly Comparison */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <GoalDistanceIndicator goals={quarterGoals} />
+        <WeeklyComparisonChart goals={quarterGoals} />
+      </div>
+
+      <Separator />
+
+      {/* Productivity Section */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-primary" />
+          Productividad y Rachas
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2">
+          <ProductivityMetrics routineBlocks={routineBlocks} tasks={tasks} />
+          <StreaksDashboard routineBlocks={routineBlocks} />
+        </div>
+      </section>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+              <Link to="/12-week-year">
+                <Target className="h-5 w-5" />
+                <span className="text-xs">Metas 12 Semanas</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+              <Link to="/weeks">
+                <TrendingUp className="h-5 w-5" />
+                <span className="text-xs">Plan Semanal</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+              <Link to="/routine-day">
+                <Target className="h-5 w-5" />
+                <span className="text-xs">Rutina del Día</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+              <Link to="/focus">
+                <Target className="h-5 w-5" />
+                <span className="text-xs">Focus Mode</span>
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
