@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -6,49 +5,42 @@ import { BookOpen, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-
-interface JournalEntry {
-  id: string;
-  date: string;
-  content: string;
-}
+import { useJournalEntries } from '@/hooks/useJournalEntries';
+import { useState } from 'react';
 
 export default function JournalingPage() {
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const { entries, isLoading, addEntry, deleteEntry } = useJournalEntries();
   const [currentEntry, setCurrentEntry] = useState('');
   const { toast } = useToast();
 
-  useEffect(() => {
-    const stored = localStorage.getItem('journalEntries');
-    if (stored) {
-      setEntries(JSON.parse(stored));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (entries.length > 0) {
-      localStorage.setItem('journalEntries', JSON.stringify(entries));
-    }
-  }, [entries]);
-
-  const handleSaveEntry = () => {
+  const handleSaveEntry = async () => {
     if (!currentEntry.trim()) return;
 
-    const newEntry: JournalEntry = {
-      id: `entry-${Date.now()}`,
-      date: new Date().toISOString(),
-      content: currentEntry,
-    };
-
-    setEntries(prev => [newEntry, ...prev]);
-    setCurrentEntry('');
-    toast({ title: 'Entrada guardada', description: 'Tu reflexión ha sido guardada.' });
+    const result = await addEntry(currentEntry);
+    if (result) {
+      setCurrentEntry('');
+      toast({ title: 'Entrada guardada', description: 'Tu reflexión ha sido guardada.' });
+    }
   };
 
-  const handleDeleteEntry = (entryId: string) => {
-    setEntries(prev => prev.filter(e => e.id !== entryId));
+  const handleDeleteEntry = async (entryId: string) => {
+    await deleteEntry(entryId);
     toast({ title: 'Entrada eliminada' });
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-24 space-y-6">
+        <header>
+          <h1 className="text-3xl font-headline font-bold flex items-center gap-2">
+            <BookOpen className="h-8 w-8" />
+            Diario Personal
+          </h1>
+          <p className="text-muted-foreground">Cargando...</p>
+        </header>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-24 space-y-6">

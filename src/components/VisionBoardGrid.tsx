@@ -1,64 +1,36 @@
-import { useState, useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Upload } from 'lucide-react';
-
-interface VisionCard {
-  id: string;
-  image: string | null;
-  checked: boolean;
-}
-
-const VISION_BOARD_KEY = 'visionBoardCards';
+import { useVisionBoard } from '@/hooks/useVisionBoard';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 export const VisionBoardGrid = () => {
-  const [cards, setCards] = useState<VisionCard[]>([]);
+  const { cards, isLoading, updateCard } = useVisionBoard('main');
+  const { uploadImage, uploading } = useImageUpload();
+  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
-  useEffect(() => {
-    const stored = localStorage.getItem(VISION_BOARD_KEY);
-    if (stored) {
-      setCards(JSON.parse(stored));
-    } else {
-      // Initialize 18 cards (3 rows x 6 columns)
-      const initialCards = Array.from({ length: 18 }, (_, i) => ({
-        id: `vision-card-${i}`,
-        image: null,
-        checked: false,
-      }));
-      setCards(initialCards);
-      localStorage.setItem(VISION_BOARD_KEY, JSON.stringify(initialCards));
+  const handleImageUpload = async (cardId: string, file: File) => {
+    const imageUrl = await uploadImage(file);
+    if (imageUrl) {
+      updateCard(cardId, { image: imageUrl });
     }
-  }, []);
-
-  useEffect(() => {
-    if (cards.length > 0) {
-      localStorage.setItem(VISION_BOARD_KEY, JSON.stringify(cards));
-    }
-  }, [cards]);
-
-  const handleImageUpload = (cardId: string, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageData = e.target?.result as string;
-      setCards(prev =>
-        prev.map(card =>
-          card.id === cardId ? { ...card, image: imageData } : card
-        )
-      );
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleCheckChange = (cardId: string, checked: boolean) => {
-    setCards(prev =>
-      prev.map(card =>
-        card.id === cardId ? { ...card, checked } : card
-      )
-    );
+    updateCard(cardId, { checked });
   };
 
-  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-6 gap-4">
+        {Array.from({ length: 18 }).map((_, i) => (
+          <Card key={i} className="aspect-square animate-pulse bg-muted" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-6 gap-4">
@@ -108,7 +80,7 @@ export const VisionBoardGrid = () => {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
               <Upload className="h-8 w-8 mb-2" />
-              <span className="text-xs">Subir imagen</span>
+              <span className="text-xs">{uploading ? 'Subiendo...' : 'Subir imagen'}</span>
             </div>
           )}
         </Card>

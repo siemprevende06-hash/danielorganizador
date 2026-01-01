@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -7,69 +7,51 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, Trash2, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-interface Reminder {
-  id: string;
-  title: string;
-  description: string;
-  dateTime: string;
-  completed: boolean;
-}
+import { useReminders } from '@/hooks/useReminders';
 
 export default function RemindersPage() {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const { reminders, isLoading, addReminder, toggleReminder, deleteReminder } = useReminders();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dateTime, setDateTime] = useState('');
   const { toast } = useToast();
 
-  useEffect(() => {
-    const stored = localStorage.getItem('reminders');
-    if (stored) {
-      setReminders(JSON.parse(stored));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (reminders.length > 0) {
-      localStorage.setItem('reminders', JSON.stringify(reminders));
-    }
-  }, [reminders]);
-
-  const handleCreateReminder = () => {
+  const handleCreateReminder = async () => {
     if (!title.trim()) return;
 
-    const newReminder: Reminder = {
-      id: `reminder-${Date.now()}`,
-      title,
-      description,
-      dateTime,
-      completed: false,
-    };
-
-    setReminders(prev => [...prev, newReminder].sort((a, b) => 
-      new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
-    ));
-    setTitle('');
-    setDescription('');
-    setDateTime('');
-    setIsDialogOpen(false);
-    toast({ title: 'Recordatorio creado', description: `${title} ha sido añadido.` });
+    const result = await addReminder({ title, description, dateTime });
+    if (result) {
+      setTitle('');
+      setDescription('');
+      setDateTime('');
+      setIsDialogOpen(false);
+      toast({ title: 'Recordatorio creado', description: `${title} ha sido añadido.` });
+    }
   };
 
-  const handleToggleReminder = (reminderId: string) => {
-    setReminders(prev =>
-      prev.map(r =>
-        r.id === reminderId ? { ...r, completed: !r.completed } : r
-      )
-    );
+  const handleToggleReminder = async (reminderId: string) => {
+    await toggleReminder(reminderId);
   };
 
-  const handleDeleteReminder = (reminderId: string) => {
-    setReminders(prev => prev.filter(r => r.id !== reminderId));
+  const handleDeleteReminder = async (reminderId: string) => {
+    await deleteReminder(reminderId);
     toast({ title: 'Recordatorio eliminado' });
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-24 space-y-6">
+        <header>
+          <h1 className="text-3xl font-headline font-bold flex items-center gap-2">
+            <Bell className="h-8 w-8" />
+            Recordatorios
+          </h1>
+          <p className="text-muted-foreground">Cargando...</p>
+        </header>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-24 space-y-6">

@@ -272,6 +272,116 @@ export type Database = {
         }
         Relationships: []
       }
+      habit_history: {
+        Row: {
+          completed_dates: Json | null
+          created_at: string
+          current_streak: number | null
+          habit_id: string
+          id: string
+          longest_streak: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          completed_dates?: Json | null
+          created_at?: string
+          current_streak?: number | null
+          habit_id: string
+          id?: string
+          longest_streak?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed_dates?: Json | null
+          created_at?: string
+          current_streak?: number | null
+          habit_id?: string
+          id?: string
+          longest_streak?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      journal_entries: {
+        Row: {
+          content: string
+          created_at: string
+          entry_date: string
+          id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          entry_date?: string
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          entry_date?: string
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      loans: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          loan_date: string
+          paid_amount: number | null
+          person: string
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string | null
+          wallet_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          loan_date?: string
+          paid_amount?: number | null
+          person: string
+          status?: string
+          total_amount: number
+          updated_at?: string
+          user_id?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          loan_date?: string
+          paid_amount?: number | null
+          person?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string | null
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loans_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           cover_image: string | null
@@ -302,6 +412,105 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      reminders: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          description: string | null
+          id: string
+          reminder_datetime: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          reminder_datetime: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          reminder_datetime?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      routine_blocks: {
+        Row: {
+          block_id: string
+          created_at: string
+          end_time: string
+          id: string
+          order_index: number | null
+          start_time: string
+          tasks: Json | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          block_id: string
+          created_at?: string
+          end_time: string
+          id?: string
+          order_index?: number | null
+          start_time: string
+          tasks?: Json | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          block_id?: string
+          created_at?: string
+          end_time?: string
+          id?: string
+          order_index?: number | null
+          start_time?: string
+          tasks?: Json | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      routine_completions: {
+        Row: {
+          completed_tasks: Json | null
+          completion_date: string
+          created_at: string
+          id: string
+          routine_type: string
+          user_id: string | null
+        }
+        Insert: {
+          completed_tasks?: Json | null
+          completion_date?: string
+          created_at?: string
+          id?: string
+          routine_type: string
+          user_id?: string | null
+        }
+        Update: {
+          completed_tasks?: Json | null
+          completion_date?: string
+          created_at?: string
+          id?: string
+          routine_type?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -391,6 +600,56 @@ export type Database = {
         }
         Relationships: []
       }
+      transactions: {
+        Row: {
+          amount: number
+          category_id: string | null
+          created_at: string
+          description: string
+          id: string
+          loan_id: string | null
+          transaction_date: string
+          transaction_type: string
+          transfer_id: string | null
+          user_id: string | null
+          wallet_id: string | null
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          loan_id?: string | null
+          transaction_date?: string
+          transaction_type: string
+          transfer_id?: string | null
+          user_id?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          loan_id?: string | null
+          transaction_date?: string
+          transaction_type?: string
+          transfer_id?: string | null
+          user_id?: string | null
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       twelve_week_goals: {
         Row: {
           category: string
@@ -476,6 +735,7 @@ export type Database = {
         Row: {
           auto_adjust_enabled: boolean | null
           created_at: string
+          exchange_rate: number | null
           id: string
           morning_end_time: string | null
           updated_at: string
@@ -485,6 +745,7 @@ export type Database = {
         Insert: {
           auto_adjust_enabled?: boolean | null
           created_at?: string
+          exchange_rate?: number | null
           id?: string
           morning_end_time?: string | null
           updated_at?: string
@@ -494,11 +755,69 @@ export type Database = {
         Update: {
           auto_adjust_enabled?: boolean | null
           created_at?: string
+          exchange_rate?: number | null
           id?: string
           morning_end_time?: string | null
           updated_at?: string
           user_id?: string
           wake_time?: string | null
+        }
+        Relationships: []
+      }
+      vision_boards: {
+        Row: {
+          board_type: string
+          cards: Json | null
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          board_type?: string
+          cards?: Json | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          board_type?: string
+          cards?: Json | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      wallets: {
+        Row: {
+          balance: number | null
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
