@@ -5,9 +5,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Trophy, Clock, ImagePlus, X } from "lucide-react";
+import { CheckCircle2, Flame, Trophy, Clock, ImagePlus, X, ListPlus, BookOpen, Briefcase, FolderKanban, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { BlockTaskAssigner, TaskItem } from "@/components/routine/BlockTaskAssigner";
 
 export interface RoutineBlock {
   id: string;
@@ -35,16 +36,36 @@ interface RoutineBlockCardProps {
   block: RoutineBlock;
   onUpdate: (block: RoutineBlock) => void;
   onComplete: () => void;
+  dailyTasks?: TaskItem[];
+  onAssignTasks?: (blockId: string, taskIds: string[]) => void;
+  onToggleTaskComplete?: (taskId: string) => void;
 }
 
-export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCardProps) => {
+const getSourceIcon = (source: string) => {
+  switch (source) {
+    case "university":
+      return <BookOpen className="h-3 w-3" />;
+    case "entrepreneurship":
+      return <Briefcase className="h-3 w-3" />;
+    case "project":
+      return <FolderKanban className="h-3 w-3" />;
+    default:
+      return <ListTodo className="h-3 w-3" />;
+  }
+};
+
+export const RoutineBlockCard = ({ block, onUpdate, onComplete, dailyTasks = [], onAssignTasks, onToggleTaskComplete }: RoutineBlockCardProps) => {
   const [specificTask, setSpecificTask] = useState(block.specificTask || "");
   const [completedGenericTasks, setCompletedGenericTasks] = useState<Set<number>>(new Set());
   const [timeProgress, setTimeProgress] = useState(0);
   const [coverImage, setCoverImage] = useState(block.coverImage || "");
   const [effortLevel, setEffortLevel] = useState<"minimum" | "normal" | "maximum">(block.effortLevel || "normal");
+  const [showTaskAssigner, setShowTaskAssigner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, uploading } = useImageUpload();
+
+  // Get tasks assigned to this block
+  const assignedTasks = dailyTasks.filter(t => t.routine_block_id === block.id);
 
   useEffect(() => {
     const calculateProgress = () => {
@@ -315,6 +336,55 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
           />
         </div>
 
+        {/* Assigned Daily Tasks */}
+        {dailyTasks.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Tareas Asignadas</label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowTaskAssigner(true)}
+              >
+                <ListPlus className="h-4 w-4 mr-1" />
+                Asignar
+              </Button>
+            </div>
+            {assignedTasks.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">
+                Sin tareas asignadas a este bloque
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {assignedTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer border border-border"
+                    onClick={() => onToggleTaskComplete?.(task.id)}
+                  >
+                    <Checkbox
+                      checked={task.completed}
+                      onCheckedChange={() => onToggleTaskComplete?.(task.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className={cn(
+                        "text-sm block truncate",
+                        task.completed && "line-through text-muted-foreground"
+                      )}>
+                        {task.title}
+                      </span>
+                      <Badge variant="outline" className="text-xs mt-1">
+                        {getSourceIcon(task.source)}
+                        <span className="ml-1">{task.sourceName || task.source}</span>
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Generic Tasks Checklist */}
         {block.genericTasks && block.genericTasks.length > 0 && (
           <div className="space-y-2">
@@ -341,6 +411,16 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete }: RoutineBlockCa
             </div>
           </div>
         )}
+
+        {/* Task Assigner Dialog */}
+        <BlockTaskAssigner
+          open={showTaskAssigner}
+          onOpenChange={setShowTaskAssigner}
+          blockId={block.id}
+          blockTitle={block.title}
+          dailyTasks={dailyTasks}
+          onAssignTasks={(taskIds) => onAssignTasks?.(block.id, taskIds)}
+        />
 
         {/* Weekly View */}
         <div className="space-y-2">
