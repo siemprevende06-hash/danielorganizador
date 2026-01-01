@@ -34,6 +34,7 @@ interface TaskItem {
   sourceName?: string;
   dueDate?: string;
   completed?: boolean;
+  routine_block_id?: string;
 }
 
 type EnergyMode = "normal" | "lowEnergy" | "gymHalf" | "entrepreneurshipHalf";
@@ -268,6 +269,24 @@ const DailyRoutine = () => {
     });
   };
 
+  const handleAssignTasksToBlock = (blockId: string, taskIds: string[]) => {
+    setDailyTasks(prev => prev.map(task => {
+      if (taskIds.includes(task.id)) {
+        return { ...task, routine_block_id: blockId };
+      } else if (task.routine_block_id === blockId) {
+        // Remove from this block if not in the new selection
+        return { ...task, routine_block_id: undefined };
+      }
+      return task;
+    }));
+  };
+
+  // Create a merged task list with completion status
+  const tasksWithCompletion = dailyTasks.map(task => ({
+    ...task,
+    completed: completedTaskIds.has(task.id),
+  }));
+
   const completedBlocks = blocks.filter(b => {
     const today = new Date().getDay();
     const dayIndex = today === 0 ? 6 : today - 1;
@@ -387,6 +406,9 @@ const DailyRoutine = () => {
             block={block}
             onUpdate={updateBlock}
             onComplete={() => completeBlock(block.id)}
+            dailyTasks={tasksWithCompletion}
+            onAssignTasks={handleAssignTasksToBlock}
+            onToggleTaskComplete={handleToggleComplete}
           />
         ))}
       </div>
