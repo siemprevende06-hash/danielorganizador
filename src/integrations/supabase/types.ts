@@ -154,6 +154,71 @@ export type Database = {
         }
         Relationships: []
       }
+      exams: {
+        Row: {
+          created_at: string | null
+          current_exercises: number | null
+          current_study_hours: number | null
+          exam_date: string
+          grade: number | null
+          id: string
+          notes: string | null
+          preparation_days: number | null
+          status: string | null
+          subject_id: string | null
+          target_exercises: number | null
+          target_study_hours: number | null
+          title: string
+          topics: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_exercises?: number | null
+          current_study_hours?: number | null
+          exam_date: string
+          grade?: number | null
+          id?: string
+          notes?: string | null
+          preparation_days?: number | null
+          status?: string | null
+          subject_id?: string | null
+          target_exercises?: number | null
+          target_study_hours?: number | null
+          title: string
+          topics?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_exercises?: number | null
+          current_study_hours?: number | null
+          exam_date?: string
+          grade?: number | null
+          id?: string
+          notes?: string | null
+          preparation_days?: number | null
+          status?: string | null
+          subject_id?: string | null
+          target_exercises?: number | null
+          target_study_hours?: number | null
+          title?: string
+          topics?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exams_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "university_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goal_block_connections: {
         Row: {
           block_id: string
