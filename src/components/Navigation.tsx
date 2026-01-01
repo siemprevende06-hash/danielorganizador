@@ -110,10 +110,10 @@ export const Navigation = () => {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="container mx-auto px-4">
         <div className="flex items-center h-16 justify-between">
-          <h1 className="text-xl font-headline font-bold mr-4 flex-shrink-0">Sistema de Vida</h1>
+          <h1 className="text-xl font-headline font-bold mr-4 flex-shrink-0">Organizador</h1>
           
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center gap-1 flex-nowrap">
