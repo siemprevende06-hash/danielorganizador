@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Calendar, BookOpen, Sparkles, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRoutineCompletions } from "@/hooks/useRoutineCompletions";
 
 interface TaskGroup {
   id: string;
@@ -16,7 +16,7 @@ interface TaskGroup {
 }
 
 const DeactivationRoutine = () => {
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  const { completedTasks, isLoading, toggleTask } = useRoutineCompletions('deactivation');
 
   const taskGroups: TaskGroup[] = [
     {
@@ -81,30 +81,22 @@ const DeactivationRoutine = () => {
     }
   ];
 
-  useEffect(() => {
-    const stored = localStorage.getItem('deactivationRoutine');
-    if (stored) {
-      setCompletedTasks(new Set(JSON.parse(stored)));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('deactivationRoutine', JSON.stringify(Array.from(completedTasks)));
-  }, [completedTasks]);
-
-  const toggleTask = (taskId: string) => {
-    const newCompleted = new Set(completedTasks);
-    if (newCompleted.has(taskId)) {
-      newCompleted.delete(taskId);
-    } else {
-      newCompleted.add(taskId);
-    }
-    setCompletedTasks(newCompleted);
-  };
-
   const totalTasks = taskGroups.reduce((sum, group) => sum + group.tasks.length, 0);
   const completedCount = completedTasks.size;
   const progress = (completedCount / totalTasks) * 100;
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-24 space-y-8">
+        <header>
+          <h1 className="text-4xl font-bold gradient-primary bg-clip-text text-transparent">
+            Rutina de Desactivación
+          </h1>
+          <p className="text-lg text-muted-foreground mt-2">Cargando...</p>
+        </header>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-24 space-y-8">
