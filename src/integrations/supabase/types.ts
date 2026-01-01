@@ -447,6 +447,96 @@ export type Database = {
           },
         ]
       }
+      physical_goals: {
+        Row: {
+          created_at: string | null
+          gym_days_target: number | null
+          id: string
+          is_active: boolean | null
+          start_date: string
+          start_photo_url: string | null
+          start_weight: number
+          target_date: string | null
+          target_photo_url: string | null
+          target_weight: number
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          gym_days_target?: number | null
+          id?: string
+          is_active?: boolean | null
+          start_date?: string
+          start_photo_url?: string | null
+          start_weight: number
+          target_date?: string | null
+          target_photo_url?: string | null
+          target_weight: number
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          gym_days_target?: number | null
+          id?: string
+          is_active?: boolean | null
+          start_date?: string
+          start_photo_url?: string | null
+          start_weight?: number
+          target_date?: string | null
+          target_photo_url?: string | null
+          target_weight?: number
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      physical_tracking: {
+        Row: {
+          arm_cm: number | null
+          body_fat_percentage: number | null
+          chest_cm: number | null
+          created_at: string | null
+          front_photo_url: string | null
+          id: string
+          measurement_date: string
+          notes: string | null
+          side_photo_url: string | null
+          user_id: string | null
+          waist_cm: number | null
+          weight: number
+        }
+        Insert: {
+          arm_cm?: number | null
+          body_fat_percentage?: number | null
+          chest_cm?: number | null
+          created_at?: string | null
+          front_photo_url?: string | null
+          id?: string
+          measurement_date?: string
+          notes?: string | null
+          side_photo_url?: string | null
+          user_id?: string | null
+          waist_cm?: number | null
+          weight: number
+        }
+        Update: {
+          arm_cm?: number | null
+          body_fat_percentage?: number | null
+          chest_cm?: number | null
+          created_at?: string | null
+          front_photo_url?: string | null
+          id?: string
+          measurement_date?: string
+          notes?: string | null
+          side_photo_url?: string | null
+          user_id?: string | null
+          waist_cm?: number | null
+          weight?: number
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           cover_image: string | null
