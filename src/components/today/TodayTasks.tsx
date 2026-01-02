@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Circle, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Circle, AlertTriangle, Clock, Target } from "lucide-react";
 import { toast } from "sonner";
+import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Task {
   id: string;
@@ -10,11 +18,13 @@ interface Task {
   priority?: string;
   source: string;
   area_id?: string;
+  routine_block_id?: string;
 }
 
 export function TodayTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const { blocks, isLoaded: blocksLoaded } = useRoutineBlocksDB();
 
   useEffect(() => {
     loadTasks();
@@ -26,7 +36,7 @@ export function TodayTasks() {
     // Load regular tasks
     const { data: regularTasks } = await supabase
       .from('tasks')
-      .select('id, title, completed, priority, source, area_id')
+      .select('id, title, completed, priority, source, area_id, routine_block_id')
       .gte('due_date', `${today}T00:00:00`)
       .lte('due_date', `${today}T23:59:59`)
       .order('priority', { ascending: false });
@@ -40,12 +50,14 @@ export function TodayTasks() {
     const mapped: Task[] = [
       ...(regularTasks || []).map(t => ({
         ...t,
-        source: t.source || 'general'
+        source: t.source || 'general',
+        routine_block_id: t.routine_block_id || undefined
       })),
       ...(entrepreneurshipTasks || []).map(t => ({
         ...t,
         source: 'entrepreneurship',
-        priority: 'medium'
+        priority: 'medium',
+        routine_block_id: undefined
       }))
     ];
 
@@ -78,15 +90,30 @@ export function TodayTasks() {
     );
   };
 
-  const getPriorityStyle = (priority?: string) => {
-    switch (priority) {
-      case 'high':
-        return 'border-l-4 border-l-destructive';
-      case 'medium':
-        return 'border-l-4 border-l-foreground';
-      default:
-        return 'border-l-4 border-l-muted';
+  const assignToBlock = async (taskId: string, blockId: string | null) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || task.source === 'entrepreneurship') return;
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ routine_block_id: blockId })
+      .eq('id', taskId);
+
+    if (error) {
+      toast.error('Error al asignar tarea');
+      return;
     }
+
+    setTasks(prev => 
+      prev.map(t => t.id === taskId ? { ...t, routine_block_id: blockId || undefined } : t)
+    );
+    toast.success(blockId ? 'Tarea asignada al bloque' : 'Tarea desasignada');
+  };
+
+  const getBlockTitle = (blockId?: string) => {
+    if (!blockId) return null;
+    const block = blocks.find(b => b.id === blockId);
+    return block?.title || null;
   };
 
   const getSourceLabel = (source: string) => {
@@ -99,7 +126,18 @@ export function TodayTasks() {
     return labels[source] || source;
   };
 
-  if (loading) {
+  const getPriorityStyle = (priority?: string) => {
+    switch (priority) {
+      case 'high':
+        return 'border-l-4 border-l-destructive';
+      case 'medium':
+        return 'border-l-4 border-l-primary';
+      default:
+        return 'border-l-4 border-l-muted';
+    }
+  };
+
+  if (loading || !blocksLoaded) {
     return (
       <div className="space-y-2">
         {[1, 2, 3].map(i => (
@@ -125,20 +163,56 @@ export function TodayTasks() {
     <div className="space-y-2">
       {/* Pending tasks */}
       {pendingTasks.map((task) => (
-        <button
+        <div
           key={task.id}
-          onClick={() => toggleTask(task)}
-          className={`w-full flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-muted transition-all text-left ${getPriorityStyle(task.priority)}`}
+          className={`flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-muted transition-all ${getPriorityStyle(task.priority)}`}
         >
-          <Circle className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-          <span className="flex-1 text-foreground">{task.title}</span>
-          <span className="text-xs px-2 py-0.5 bg-muted rounded text-muted-foreground">
-            {getSourceLabel(task.source)}
-          </span>
-          {task.priority === 'high' && (
-            <AlertTriangle className="w-4 h-4 text-destructive" />
-          )}
-        </button>
+          <button 
+            onClick={() => toggleTask(task)}
+            className="flex-shrink-0"
+          >
+            <Circle className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+          </button>
+          
+          <div className="flex-1 min-w-0">
+            <span className="text-foreground block">{task.title}</span>
+            {task.routine_block_id && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                <Clock className="w-3 h-3" />
+                {getBlockTitle(task.routine_block_id)}
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {task.source !== 'entrepreneurship' && (
+              <Select
+                value={task.routine_block_id || "none"}
+                onValueChange={(value) => assignToBlock(task.id, value === "none" ? null : value)}
+              >
+                <SelectTrigger className="h-7 w-[100px] text-xs">
+                  <SelectValue placeholder="Bloque" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin bloque</SelectItem>
+                  {blocks.map((block) => (
+                    <SelectItem key={block.id} value={block.id}>
+                      {block.title.substring(0, 15)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            <span className="text-xs px-2 py-0.5 bg-muted rounded text-muted-foreground">
+              {getSourceLabel(task.source)}
+            </span>
+            
+            {task.priority === 'high' && (
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+            )}
+          </div>
+        </div>
       ))}
 
       {/* Completed tasks */}
