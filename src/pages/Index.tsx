@@ -1,15 +1,21 @@
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Focus, CalendarPlus, ClipboardCheck, ArrowRight } from "lucide-react";
+import { Focus, CalendarPlus, ClipboardCheck, ArrowRight, BarChart3 } from "lucide-react";
 import { CurrentBlockHighlight } from "@/components/today/CurrentBlockHighlight";
 import { DayTimeline } from "@/components/today/DayTimeline";
 import { TodayStats } from "@/components/today/TodayStats";
 import { TodayTasks } from "@/components/today/TodayTasks";
 import { TodayHabits } from "@/components/today/TodayHabits";
 import { QuickProgress } from "@/components/today/QuickProgress";
+import { WeekContext } from "@/components/today/WeekContext";
+import { TodayWorkout } from "@/components/today/TodayWorkout";
+import { UpcomingDeadlines } from "@/components/today/UpcomingDeadlines";
+import { GoalContributions } from "@/components/today/GoalContributions";
+import { DailyMotivation } from "@/components/today/DailyMotivation";
 
 export default function Index() {
   const today = new Date();
@@ -19,7 +25,7 @@ export default function Index() {
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-4">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground uppercase tracking-tight">
             HOY
           </h1>
@@ -28,8 +34,20 @@ export default function Index() {
           </p>
         </div>
 
+        {/* Week Context - Shows where you are in the 12-week year */}
+        <WeekContext />
+
+        {/* Daily Motivation */}
+        <DailyMotivation />
+
         {/* Current Block - Full Width */}
         <CurrentBlockHighlight />
+
+        {/* Urgent Items Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <UpcomingDeadlines />
+          <TodayWorkout />
+        </div>
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -83,50 +101,53 @@ export default function Index() {
           </div>
         </div>
 
+        <Separator />
+
+        {/* Goal Contributions - Why your tasks matter */}
+        <GoalContributions />
+
         {/* Quick Progress Cards */}
         <QuickProgress />
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Link to="/focus" className="block">
             <Button 
               variant="outline" 
-              className="w-full h-14 gap-3 justify-start text-left hover:bg-foreground hover:text-background transition-colors"
+              className="w-full h-auto py-4 flex-col gap-2 hover:bg-foreground hover:text-background transition-colors"
             >
               <Focus className="w-5 h-5" />
-              <div>
-                <p className="font-medium">Focus Mode</p>
-                <p className="text-xs text-muted-foreground">Eliminar distracciones</p>
-              </div>
-              <ArrowRight className="w-4 h-4 ml-auto" />
+              <span className="text-xs">Focus Mode</span>
             </Button>
           </Link>
 
           <Link to="/day-planner" className="block">
             <Button 
               variant="outline" 
-              className="w-full h-14 gap-3 justify-start text-left hover:bg-foreground hover:text-background transition-colors"
+              className="w-full h-auto py-4 flex-col gap-2 hover:bg-foreground hover:text-background transition-colors"
             >
               <CalendarPlus className="w-5 h-5" />
-              <div>
-                <p className="font-medium">Planificar Mañana</p>
-                <p className="text-xs text-muted-foreground">Preparar el día siguiente</p>
-              </div>
-              <ArrowRight className="w-4 h-4 ml-auto" />
+              <span className="text-xs">Planificar</span>
             </Button>
           </Link>
 
           <Link to="/self-review" className="block">
             <Button 
               variant="outline" 
-              className="w-full h-14 gap-3 justify-start text-left hover:bg-foreground hover:text-background transition-colors"
+              className="w-full h-auto py-4 flex-col gap-2 hover:bg-foreground hover:text-background transition-colors"
             >
               <ClipboardCheck className="w-5 h-5" />
-              <div>
-                <p className="font-medium">Autocrítica</p>
-                <p className="text-xs text-muted-foreground">Calificar el día</p>
-              </div>
-              <ArrowRight className="w-4 h-4 ml-auto" />
+              <span className="text-xs">Autocrítica</span>
+            </Button>
+          </Link>
+
+          <Link to="/vida-daniel" className="block">
+            <Button 
+              variant="outline" 
+              className="w-full h-auto py-4 flex-col gap-2 hover:bg-foreground hover:text-background transition-colors"
+            >
+              <BarChart3 className="w-5 h-5" />
+              <span className="text-xs">Estadísticas</span>
             </Button>
           </Link>
         </div>
