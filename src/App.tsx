@@ -32,6 +32,7 @@ import Systems from "./pages/Systems";
 import TwelveWeekYear from "./pages/TwelveWeekYear";
 import Weeks from "./pages/Weeks";
 import VidaDanielEstadisticas from "./pages/VidaDanielEstadisticas";
+import DailySelfReview from "./pages/DailySelfReview";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ const App = () => (
           <Route path="/12-week-year" element={<TwelveWeekYear />} />
           <Route path="/weeks" element={<Weeks />} />
           <Route path="/vida-daniel" element={<VidaDanielEstadisticas />} />
+          <Route path="/self-review" element={<DailySelfReview />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
