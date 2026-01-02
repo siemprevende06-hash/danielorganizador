@@ -4,6 +4,8 @@ import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Circle, Clock, ChevronRight, Target, AlertTriangle } from "lucide-react";
 import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
 import { supabase } from "@/integrations/supabase/client";
+import { BlockAIAssistant } from "./BlockAIAssistant";
+import { format, differenceInDays } from "date-fns";
 
 interface BlockTask {
   id: string;
@@ -11,6 +13,8 @@ interface BlockTask {
   completed: boolean;
   priority?: string;
   goalConnection?: string;
+  goalTitle?: string;
+  goalProgress?: number;
 }
 
 export function CurrentBlockHighlight() {
@@ -237,6 +241,37 @@ export function CurrentBlockHighlight() {
             ))}
           </div>
         )}
+
+        {/* AI Assistant */}
+        <div className="mb-4">
+          <BlockAIAssistant 
+            dayContext={{
+              currentTime: format(currentTime, "HH:mm"),
+              currentBlock: {
+                title: currentBlock.title,
+                startTime: currentBlock.startTime,
+                endTime: currentBlock.endTime,
+                remainingMinutes,
+              },
+              tasks: blockTasks.map(t => ({
+                id: t.id,
+                title: t.title,
+                completed: t.completed || completedTasks.has(t.id),
+                priority: t.priority,
+                goalTitle: t.goalTitle,
+                goalProgress: t.goalProgress,
+              })),
+              completedTasksCount: completedCount,
+              totalTasksCount: blockTasks.length,
+              goals: [],
+              blocksCompleted: currentIndex,
+              blocksTotal: blocks.length,
+              nextBlock: nextBlock ? { title: nextBlock.title, startTime: nextBlock.startTime } : undefined,
+              weekNumber: Math.ceil((differenceInDays(new Date(), new Date(new Date().getFullYear(), 0, 1)) + 1) / 7) % 12 || 12,
+              daysRemainingInQuarter: 84 - (differenceInDays(new Date(), new Date(new Date().getFullYear(), Math.floor(new Date().getMonth() / 3) * 3, 1)) % 84),
+            }}
+          />
+        </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-border">

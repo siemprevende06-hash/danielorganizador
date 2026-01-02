@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Focus, CalendarPlus, ClipboardCheck, ArrowRight, BarChart3 } from "lucide-react";
+import { Focus, CalendarPlus, ClipboardCheck, BarChart3 } from "lucide-react";
 import { CurrentBlockHighlight } from "@/components/today/CurrentBlockHighlight";
 import { DayTimeline } from "@/components/today/DayTimeline";
 import { TodayStats } from "@/components/today/TodayStats";
@@ -16,6 +16,9 @@ import { TodayWorkout } from "@/components/today/TodayWorkout";
 import { UpcomingDeadlines } from "@/components/today/UpcomingDeadlines";
 import { GoalContributions } from "@/components/today/GoalContributions";
 import { DailyMotivation } from "@/components/today/DailyMotivation";
+import { ProductivityMeter } from "@/components/today/ProductivityMeter";
+import { DayProgressCharts } from "@/components/today/DayProgressCharts";
+import { DetailedDayStats } from "@/components/today/DetailedDayStats";
 
 export default function Index() {
   const today = new Date();
@@ -101,7 +104,16 @@ export default function Index() {
           </div>
         </div>
 
+        {/* Productivity Meter */}
+        <ProductivityMeter />
+
+        {/* Charts and Statistics */}
+        <DayProgressCharts />
+
         <Separator />
+
+        {/* Detailed Stats */}
+        <DetailedDayStats />
 
         {/* Goal Contributions - Why your tasks matter */}
         <GoalContributions />
