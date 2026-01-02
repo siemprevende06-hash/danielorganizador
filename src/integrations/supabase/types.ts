@@ -83,6 +83,66 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_reviews: {
+        Row: {
+          block_ratings: Json | null
+          blocks_completed: number | null
+          blocks_total: number | null
+          created_at: string | null
+          focus_minutes: number | null
+          habits_completed: number | null
+          habits_total: number | null
+          id: string
+          overall_rating: number | null
+          review_date: string
+          tasks_completed: number | null
+          tasks_total: number | null
+          tomorrow_plan: string | null
+          updated_at: string | null
+          user_id: string | null
+          what_could_be_better: string | null
+          what_went_well: string | null
+        }
+        Insert: {
+          block_ratings?: Json | null
+          blocks_completed?: number | null
+          blocks_total?: number | null
+          created_at?: string | null
+          focus_minutes?: number | null
+          habits_completed?: number | null
+          habits_total?: number | null
+          id?: string
+          overall_rating?: number | null
+          review_date?: string
+          tasks_completed?: number | null
+          tasks_total?: number | null
+          tomorrow_plan?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          what_could_be_better?: string | null
+          what_went_well?: string | null
+        }
+        Update: {
+          block_ratings?: Json | null
+          blocks_completed?: number | null
+          blocks_total?: number | null
+          created_at?: string | null
+          focus_minutes?: number | null
+          habits_completed?: number | null
+          habits_total?: number | null
+          id?: string
+          overall_rating?: number | null
+          review_date?: string
+          tasks_completed?: number | null
+          tasks_total?: number | null
+          tomorrow_plan?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          what_could_be_better?: string | null
+          what_went_well?: string | null
+        }
+        Relationships: []
+      }
       entrepreneurship_tasks: {
         Row: {
           completed: boolean
