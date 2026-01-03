@@ -56,32 +56,52 @@ export type Database = {
       daily_plans: {
         Row: {
           created_at: string
+          excluded_blocks: string[] | null
           id: string
           mode: string
           notes: string | null
           plan_date: string
+          preset_id: string | null
+          sleep_time: string | null
           updated_at: string
           user_id: string | null
+          wake_time: string | null
         }
         Insert: {
           created_at?: string
+          excluded_blocks?: string[] | null
           id?: string
           mode: string
           notes?: string | null
           plan_date: string
+          preset_id?: string | null
+          sleep_time?: string | null
           updated_at?: string
           user_id?: string | null
+          wake_time?: string | null
         }
         Update: {
           created_at?: string
+          excluded_blocks?: string[] | null
           id?: string
           mode?: string
           notes?: string | null
           plan_date?: string
+          preset_id?: string | null
+          sleep_time?: string | null
           updated_at?: string
           user_id?: string | null
+          wake_time?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "daily_plans_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "routine_presets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_reviews: {
         Row: {
@@ -791,6 +811,57 @@ export type Database = {
           id?: string
           routine_type?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      routine_presets: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          excluded_block_ids: string[] | null
+          icon: string | null
+          id: string
+          is_default: boolean | null
+          modified_blocks: Json | null
+          name: string
+          sleep_hours: number | null
+          sleep_time: string
+          updated_at: string | null
+          user_id: string | null
+          wake_time: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          excluded_block_ids?: string[] | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean | null
+          modified_blocks?: Json | null
+          name: string
+          sleep_hours?: number | null
+          sleep_time: string
+          updated_at?: string | null
+          user_id?: string | null
+          wake_time: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          excluded_block_ids?: string[] | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean | null
+          modified_blocks?: Json | null
+          name?: string
+          sleep_hours?: number | null
+          sleep_time?: string
+          updated_at?: string | null
+          user_id?: string | null
+          wake_time?: string
         }
         Relationships: []
       }
