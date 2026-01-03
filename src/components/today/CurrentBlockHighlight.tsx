@@ -7,6 +7,7 @@ import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
 import { supabase } from "@/integrations/supabase/client";
 import { BlockAIAssistant } from "./BlockAIAssistant";
 import { BlockTaskAssigner, TaskItem } from "@/components/routine/BlockTaskAssigner";
+import { PomodoroTracker } from "./PomodoroTracker";
 import { format, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 
@@ -326,6 +327,26 @@ export function CurrentBlockHighlight() {
         <p className="text-sm text-muted-foreground mb-4">
           Este bloque contribuye a tu progreso diario y metas trimestrales.
         </p>
+
+        {/* Pomodoro Tracker - for blocks >= 60 minutes */}
+        {remainingMinutes > 0 && (() => {
+          const [startH, startM] = currentBlock.startTime.split(':').map(Number);
+          const [endH, endM] = currentBlock.endTime.split(':').map(Number);
+          const blockDuration = (endH * 60 + endM) - (startH * 60 + startM);
+          
+          if (blockDuration >= 60) {
+            return (
+              <div className="mb-4">
+                <PomodoroTracker
+                  blockStartTime={currentBlock.startTime}
+                  blockEndTime={currentBlock.endTime}
+                  cycleDuration={30}
+                />
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {/* Progress Bar */}
         <div className="mb-4">

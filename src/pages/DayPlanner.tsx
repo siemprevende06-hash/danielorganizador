@@ -1,21 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarIcon, Save, Zap, Activity, BatteryLow, Heart, Settings2 } from "lucide-react";
+import { Save, Zap, Activity, BatteryLow, Heart, Settings2, Target } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePerformanceModes } from "@/hooks/usePerformanceModes";
-import { useRoutinePresets, RoutinePreset } from "@/hooks/useRoutinePresets";
+import { useRoutinePresets } from "@/hooks/useRoutinePresets";
 import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
 import { Link } from "react-router-dom";
 
@@ -23,6 +21,8 @@ import { RoutinePresetSelector } from "@/components/routine/RoutinePresetSelecto
 import { SleepTimeSelector } from "@/components/routine/SleepTimeSelector";
 import { DaySchedulePreview } from "@/components/routine/DaySchedulePreview";
 import { LanguageDaySelector } from "@/components/language/LanguageBlockManager";
+import { QuickDateSelector } from "@/components/routine/QuickDateSelector";
+import { BlockTaskPlanner } from "@/components/routine/BlockTaskPlanner";
 
 interface Task {
   id: string;
@@ -53,7 +53,7 @@ const MODE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 };
 
 export default function DayPlanner() {
-  const [selectedDate, setSelectedDate] = useState<Date>(addDays(new Date(), 1));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [mode, setMode] = useState<string>('normal');
   const [notes, setNotes] = useState<string>('');
   const [allTasks, setAllTasks] = useState<Task[]>([]);
@@ -68,8 +68,11 @@ export default function DayPlanner() {
   const [excludeIdiomas, setExcludeIdiomas] = useState(false);
   const [excludeBloqueExtra, setExcludeBloqueExtra] = useState(false);
   
+  // Block task assignments: blockId -> taskIds[]
+  const [taskAssignments, setTaskAssignments] = useState<Record<string, string[]>>({});
+  
   const { modes, selectMode } = usePerformanceModes();
-  const { presets, isLoading: presetsLoading, applyPresetToDate } = useRoutinePresets();
+  const { presets, isLoading: presetsLoading } = useRoutinePresets();
   const { blocks, isLoaded: blocksLoaded } = useRoutineBlocksDB();
   const { toast } = useToast();
 
@@ -155,6 +158,24 @@ export default function DayPlanner() {
 
         if (tasksError) throw tasksError;
 
+        // Load task block assignments
+        const { data: tasksWithBlocks } = await supabase
+          .from('tasks')
+          .select('id, routine_block_id')
+          .not('routine_block_id', 'is', null);
+
+        // Build assignments map
+        const assignments: Record<string, string[]> = {};
+        (tasksWithBlocks || []).forEach(t => {
+          if (t.routine_block_id) {
+            if (!assignments[t.routine_block_id]) {
+              assignments[t.routine_block_id] = [];
+            }
+            assignments[t.routine_block_id].push(t.id);
+          }
+        });
+        setTaskAssignments(assignments);
+
         setExistingPlan({
           ...plan,
           selectedTaskIds: planTasks?.map(pt => pt.task_id) || [],
@@ -183,6 +204,7 @@ export default function DayPlanner() {
         setMode('normal');
         setNotes('');
         setSelectedTaskIds([]);
+        setTaskAssignments({});
         // Reset to default preset
         const defaultPreset = presets.find(p => p.is_default);
         if (defaultPreset) {
@@ -192,6 +214,13 @@ export default function DayPlanner() {
     } catch (error) {
       console.error('Error loading existing plan:', error);
     }
+  };
+
+  const handleAssignmentChange = (blockId: string, taskIds: string[]) => {
+    setTaskAssignments(prev => ({
+      ...prev,
+      [blockId]: taskIds
+    }));
   };
 
   const handleSavePlan = async () => {
@@ -237,6 +266,27 @@ export default function DayPlanner() {
           .insert(taskAssociations);
 
         if (tasksError) throw tasksError;
+      }
+
+      // Save block task assignments
+      for (const [blockId, taskIds] of Object.entries(taskAssignments)) {
+        // Update tasks with routine_block_id
+        for (const taskId of taskIds) {
+          await supabase
+            .from('tasks')
+            .update({ routine_block_id: blockId })
+            .eq('id', taskId);
+        }
+      }
+
+      // Clear assignments for tasks not in any block
+      const allAssignedTaskIds = Object.values(taskAssignments).flat();
+      const tasksToUnassign = selectedTaskIds.filter(id => !allAssignedTaskIds.includes(id));
+      for (const taskId of tasksToUnassign) {
+        await supabase
+          .from('tasks')
+          .update({ routine_block_id: null })
+          .eq('id', taskId);
       }
 
       // Apply the selected mode to the routine
@@ -300,7 +350,7 @@ export default function DayPlanner() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-col gap-4">
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Planificación del Día
@@ -310,39 +360,27 @@ export default function DayPlanner() {
             </p>
           </div>
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full md:w-[280px] justify-start text-left font-normal",
-                  !selectedDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? (
-                  format(selectedDate, "PPP", { locale: es })
-                ) : (
-                  <span>Selecciona una fecha</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                locale={es}
-              />
-            </PopoverContent>
-          </Popover>
+          {/* Quick Date Selector */}
+          <Card className="p-4">
+            <Label className="text-sm font-medium text-muted-foreground mb-3 block">
+              📅 Planificar para:
+            </Label>
+            <QuickDateSelector 
+              selectedDate={selectedDate} 
+              onDateChange={setSelectedDate} 
+            />
+          </Card>
         </div>
 
         <Tabs defaultValue="routine" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="routine">Configuración de Rutina</TabsTrigger>
-            <TabsTrigger value="tasks">Tareas del Día</TabsTrigger>
-            <TabsTrigger value="mode">Modo y Notas</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="routine">Rutina</TabsTrigger>
+            <TabsTrigger value="tasks">Tareas</TabsTrigger>
+            <TabsTrigger value="blocks" className="gap-1">
+              <Target className="w-3 h-3" />
+              Bloques
+            </TabsTrigger>
+            <TabsTrigger value="mode">Modo</TabsTrigger>
           </TabsList>
 
           <TabsContent value="routine" className="space-y-6">
@@ -438,6 +476,28 @@ export default function DayPlanner() {
                     </div>
                   ))}
                 </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* New Tab: Block Task Assignment */}
+          <TabsContent value="blocks" className="space-y-6">
+            <Card className="p-6">
+              {blocksLoaded ? (
+                <BlockTaskPlanner
+                  blocks={blocks.map(b => ({
+                    id: b.id,
+                    title: b.title,
+                    startTime: b.startTime,
+                    endTime: b.endTime,
+                    blockType: b.blockType
+                  }))}
+                  selectedDate={selectedDate}
+                  taskAssignments={taskAssignments}
+                  onAssignmentChange={handleAssignmentChange}
+                />
+              ) : (
+                <div className="h-40 bg-muted/30 rounded-lg animate-pulse" />
               )}
             </Card>
           </TabsContent>
