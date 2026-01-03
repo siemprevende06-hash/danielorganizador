@@ -5,17 +5,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Flame, Trophy, Clock, ImagePlus, X, ListPlus, BookOpen, Briefcase, FolderKanban, ListTodo } from "lucide-react";
+import { CheckCircle2, Flame, Trophy, Clock, ImagePlus, X, ListPlus, BookOpen, Briefcase, FolderKanban, ListTodo, AlertTriangle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { BlockTaskAssigner, TaskItem } from "@/components/routine/BlockTaskAssigner";
+import { BlockFocusSelector, BlockTypeIndicator, getFocusColor, type BlockFocus, type BlockType } from "@/components/routine/BlockFocusSelector";
+import { SubBlockDivider, type SubBlock } from "@/components/routine/SubBlockDivider";
 
 export interface RoutineBlock {
   id: string;
   title: string;
   time?: string;
-  startTime?: string;
-  endTime?: string;
+  startTime: string;
+  endTime: string;
   duration?: number;
   specificTask?: string;
   tasks?: string[];
@@ -30,6 +32,14 @@ export interface RoutineBlock {
   notDone?: boolean[];
   isAdjusted?: boolean;
   adjustmentFactor?: number;
+  // New fields for advanced routine management
+  blockType?: string;
+  defaultFocus?: string;
+  currentFocus?: string;
+  canSubdivide?: boolean;
+  emergencyOnly?: boolean;
+  subBlocks?: SubBlock[];
+  notes?: string;
 }
 
 interface RoutineBlockCardProps {
@@ -152,6 +162,12 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete, dailyTasks = [],
     
     if (isNotDone) return "border-red-500";
     
+    // Use focus color for configurable/dynamic blocks
+    const focus = block.currentFocus || block.defaultFocus;
+    if (focus && focus !== 'none' && (block.blockType === 'configurable' || block.blockType === 'dinamico')) {
+      return getFocusColor(focus as BlockFocus);
+    }
+    
     switch (effortLevel) {
       case "minimum":
         return "border-blue-500";
@@ -160,7 +176,7 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete, dailyTasks = [],
       case "maximum":
         return "border-yellow-500";
       default:
-        return "border-border"; // Default white/neutral border
+        return "border-border";
     }
   };
 
@@ -215,12 +231,31 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete, dailyTasks = [],
       )}
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl">{block.title}</CardTitle>
-            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-xl">{block.title}</CardTitle>
+              {block.blockType && (
+                <BlockTypeIndicator 
+                  blockType={block.blockType as BlockType} 
+                  emergencyOnly={block.emergencyOnly} 
+                />
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span>{block.startTime} - {block.endTime}</span>
+              {block.notes && (
+                <span className="text-xs text-amber-500 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Nota
+                </span>
+              )}
             </div>
+            {block.notes && (
+              <p className="text-xs text-muted-foreground italic bg-muted/50 p-2 rounded-md mt-2">
+                {block.notes}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Badge variant="outline" className="flex items-center gap-1">
@@ -235,6 +270,37 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete, dailyTasks = [],
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Block Focus Selector for configurable/dynamic blocks */}
+        {(block.blockType === 'configurable' || block.blockType === 'dinamico' || block.blockType === 'evitar') && (
+          <BlockFocusSelector
+            currentFocus={(block.currentFocus || block.defaultFocus || 'none') as BlockFocus}
+            defaultFocus={(block.defaultFocus || 'none') as BlockFocus}
+            blockType={(block.blockType || 'fijo') as BlockType}
+            emergencyOnly={block.emergencyOnly}
+            onFocusChange={(focus) => onUpdate({ ...block, currentFocus: focus })}
+          />
+        )}
+
+        {/* Sub-block divider for blocks that can be subdivided */}
+        {block.canSubdivide && (
+          <SubBlockDivider
+            canSubdivide={block.canSubdivide}
+            subBlocks={block.subBlocks || []}
+            totalDuration={(() => {
+              const [startH, startM] = block.startTime.split(':').map(Number);
+              const [endH, endM] = block.endTime.split(':').map(Number);
+              return (endH * 60 + endM) - (startH * 60 + startM);
+            })()}
+            onSubBlocksChange={(subBlocks) => onUpdate({ ...block, subBlocks })}
+            onToggleSubBlockComplete={(subBlockId) => {
+              const updated = (block.subBlocks || []).map(sb => 
+                sb.id === subBlockId ? { ...sb, completed: !sb.completed } : sb
+              );
+              onUpdate({ ...block, subBlocks: updated });
+            }}
+          />
+        )}
+
         {/* Effort Level Buttons */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Nivel de Esfuerzo</label>

@@ -11,13 +11,11 @@ const MORNING_BLOCK_IDS = ["1", "2", "3", "4", "5", "6", "7"];
 
 // Default morning blocks with original times
 const DEFAULT_MORNING_BLOCKS: RoutineBlock[] = [
-  { id: "1", title: "Rutina Activación", time: "5:00 - 5:30", duration: 30, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
-  { id: "2", title: "Idiomas", time: "5:30 - 6:00", duration: 30, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
-  { id: "3", title: "Gym", time: "6:00 - 7:00", duration: 60, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
-  { id: "4", title: "Alistamiento", time: "7:00 - 7:30", duration: 30, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
-  { id: "5", title: "Focus Emprendimiento", time: "7:30 - 8:25", duration: 55, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
-  { id: "6", title: "Lectura", time: "8:25 - 8:40", duration: 15, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
-  { id: "7", title: "Viaje CUJAE", time: "8:40 - 9:00", duration: 20, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
+  { id: "1", title: "Rutina Activación", time: "5:00 - 5:30", startTime: "05:00", endTime: "05:30", duration: 30, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
+  { id: "2", title: "Idiomas + Lectura", time: "5:30 - 7:00", startTime: "05:30", endTime: "07:00", duration: 90, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
+  { id: "3", title: "Gym", time: "7:00 - 8:00", startTime: "07:00", endTime: "08:00", duration: 60, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
+  { id: "4", title: "Alistamiento + Desayuno", time: "8:00 - 8:30", startTime: "08:00", endTime: "08:30", duration: 30, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
+  { id: "5", title: "Viaje CUJAE + Podcast", time: "8:30 - 9:00", startTime: "08:30", endTime: "09:00", duration: 30, tasks: [], currentStreak: 0, maxStreak: 0, weeklyCompletion: [] },
 ];
 
 const ORIGINAL_TOTAL_MINUTES = 240; // 5:00 AM - 9:00 AM
