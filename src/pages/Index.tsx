@@ -19,10 +19,14 @@ import { DailyMotivation } from "@/components/today/DailyMotivation";
 import { ProductivityMeter } from "@/components/today/ProductivityMeter";
 import { DayProgressCharts } from "@/components/today/DayProgressCharts";
 import { DetailedDayStats } from "@/components/today/DetailedDayStats";
+import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
+import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
+import { usePillarProgress } from "@/hooks/usePillarProgress";
 
 export default function Index() {
   const today = new Date();
   const formattedDate = format(today, "EEEE, d 'de' MMMM", { locale: es });
+  const { pillars, secondaryGoals, overallScore, loading: pillarsLoading } = usePillarProgress();
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
@@ -39,6 +43,27 @@ export default function Index() {
 
         {/* Week Context - Shows where you are in the 12-week year */}
         <WeekContext />
+
+        {/* Pillar Progress Grid - 5 Main Pillars */}
+        <Card>
+          <CardContent className="pt-6">
+            <PillarProgressGrid 
+              pillars={pillars} 
+              overallScore={overallScore} 
+              loading={pillarsLoading} 
+            />
+          </CardContent>
+        </Card>
+
+        {/* Secondary Goals */}
+        <Card>
+          <CardContent className="pt-6">
+            <SecondaryGoalsProgress 
+              goals={secondaryGoals} 
+              loading={pillarsLoading} 
+            />
+          </CardContent>
+        </Card>
 
         {/* Daily Motivation */}
         <DailyMotivation />

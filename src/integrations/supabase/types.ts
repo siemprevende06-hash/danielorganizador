@@ -114,7 +114,9 @@ export type Database = {
           habits_total: number | null
           id: string
           overall_rating: number | null
+          pillar_progress: Json | null
           review_date: string
+          secondary_goals_progress: Json | null
           tasks_completed: number | null
           tasks_total: number | null
           tomorrow_plan: string | null
@@ -133,7 +135,9 @@ export type Database = {
           habits_total?: number | null
           id?: string
           overall_rating?: number | null
+          pillar_progress?: Json | null
           review_date?: string
+          secondary_goals_progress?: Json | null
           tasks_completed?: number | null
           tasks_total?: number | null
           tomorrow_plan?: string | null
@@ -152,7 +156,9 @@ export type Database = {
           habits_total?: number | null
           id?: string
           overall_rating?: number | null
+          pillar_progress?: Json | null
           review_date?: string
+          secondary_goals_progress?: Json | null
           tasks_completed?: number | null
           tasks_total?: number | null
           tomorrow_plan?: string | null

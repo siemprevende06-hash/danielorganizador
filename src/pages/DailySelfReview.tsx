@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -11,10 +11,17 @@ import { ObjectiveSummary } from "@/components/self-review/ObjectiveSummary";
 import { BlockRatingList } from "@/components/self-review/BlockRatingList";
 import { ReflectionForm } from "@/components/self-review/ReflectionForm";
 import { OverallRating } from "@/components/self-review/OverallRating";
+import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
+import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
+import { DailyPillarSummary } from "@/components/pillars/DailyPillarSummary";
+import { usePillarProgress } from "@/hooks/usePillarProgress";
 
 export default function DailySelfReview() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [pillarRatings, setPillarRatings] = useState<{ pillarId: string; rating: number; notes: string }[]>([]);
   const dateStr = selectedDate.toISOString().split('T')[0];
+  
+  const { pillars, secondaryGoals, overallScore, loading: pillarsLoading } = usePillarProgress(selectedDate);
   
   const { review, loading, saving, saveReview, updateBlockRating } = useDailyReview(dateStr);
 
@@ -131,6 +138,55 @@ export default function DailySelfReview() {
           habitsTotal={review.habitsTotal}
           focusMinutes={review.focusMinutes}
         />
+
+        {/* Pillar Progress */}
+        <Card>
+          <CardContent className="pt-6">
+            <PillarProgressGrid 
+              pillars={pillars} 
+              overallScore={overallScore} 
+              loading={pillarsLoading}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Secondary Goals */}
+        <Card>
+          <CardContent className="pt-6">
+            <SecondaryGoalsProgress 
+              goals={secondaryGoals} 
+              loading={pillarsLoading}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Pillar Ratings with Notes */}
+        <Card>
+          <CardContent className="pt-6">
+            <DailyPillarSummary
+              pillars={pillars}
+              ratings={pillarRatings}
+              onRatingChange={(pillarId, rating) => {
+                setPillarRatings(prev => {
+                  const existing = prev.find(r => r.pillarId === pillarId);
+                  if (existing) {
+                    return prev.map(r => r.pillarId === pillarId ? { ...r, rating } : r);
+                  }
+                  return [...prev, { pillarId, rating, notes: '' }];
+                });
+              }}
+              onNotesChange={(pillarId, notes) => {
+                setPillarRatings(prev => {
+                  const existing = prev.find(r => r.pillarId === pillarId);
+                  if (existing) {
+                    return prev.map(r => r.pillarId === pillarId ? { ...r, notes } : r);
+                  }
+                  return [...prev, { pillarId, rating: 0, notes }];
+                });
+              }}
+            />
+          </CardContent>
+        </Card>
 
         {/* Block Ratings */}
         <BlockRatingList
