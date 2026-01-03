@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Circle, Clock, ChevronRight, Target, AlertTriangle, Plus, Zap } from "lucide-react";
+import { CheckCircle2, Circle, Clock, ChevronRight, Target, AlertTriangle, Plus, Zap, BookOpen, Briefcase, FolderKanban } from "lucide-react";
 import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
 import { supabase } from "@/integrations/supabase/client";
 import { BlockAIAssistant } from "./BlockAIAssistant";
@@ -17,17 +17,20 @@ interface BlockTask {
   completed: boolean;
   priority?: string;
   source: string;
+  sourceTable: 'tasks' | 'entrepreneurship_tasks';
   goalTitle?: string;
   goalProgress?: number;
   goalCategory?: string;
   contributionPercent?: number;
+  subjectName?: string;
+  entrepreneurshipName?: string;
+  areaId?: string;
 }
 
 export function CurrentBlockHighlight() {
   const { blocks, getCurrentBlock, getBlockProgress, isLoaded } = useRoutineBlocksDB();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [blockTasks, setBlockTasks] = useState<BlockTask[]>([]);
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [assignerOpen, setAssignerOpen] = useState(false);
   const [availableTasks, setAvailableTasks] = useState<TaskItem[]>([]);
   const [quarterlyGoals, setQuarterlyGoals] = useState<Array<{ id: string; title: string; category: string; progress_percentage: number }>>([]);
@@ -102,22 +105,56 @@ export function CurrentBlockHighlight() {
   const loadBlockTasks = async (blockId: string) => {
     const today = new Date().toISOString().split('T')[0];
     
-    // Load tasks assigned to this block
+    // Load regular tasks assigned to this block
     const { data: tasks } = await supabase
       .from('tasks')
-      .select('id, title, completed, priority, area_id, source')
-      .eq('routine_block_id', blockId)
-      .gte('due_date', `${today}T00:00:00`)
-      .lte('due_date', `${today}T23:59:59`);
+      .select('id, title, completed, priority, area_id, source, source_id')
+      .eq('routine_block_id', blockId);
 
+    // Load entrepreneurship tasks assigned to this block  
+    const { data: entrepreneurshipTasks } = await supabase
+      .from('entrepreneurship_tasks')
+      .select('id, title, completed, entrepreneurship_id');
+
+    // Filter entrepreneurship tasks that have this block assigned (we need to check via tasks table or a field)
+    // For now, we'll load all entrepreneurship tasks for today and filter by due_date
+    const { data: todayEntrepreneurshipTasks } = await supabase
+      .from('entrepreneurship_tasks')
+      .select('id, title, completed, entrepreneurship_id, due_date')
+      .eq('due_date', today);
+
+    // Load entrepreneurship names for context
+    const { data: entrepreneurships } = await supabase
+      .from('entrepreneurships')
+      .select('id, name');
+    
+    const entrepreneurshipMap = new Map(
+      (entrepreneurships || []).map(e => [e.id, e.name])
+    );
+
+    // Load university subjects for context
+    const { data: subjects } = await supabase
+      .from('university_subjects')
+      .select('id, name');
+    
+    const subjectMap = new Map(
+      (subjects || []).map(s => [s.id, s.name])
+    );
+
+    // Map regular tasks - only those assigned to this block
     const mappedTasks: BlockTask[] = (tasks || []).map(t => {
       const linkedGoal = findLinkedGoal(t.area_id, t.source);
+      const isUniversity = t.area_id === 'universidad' || t.source === 'university';
+      
       return {
         id: t.id,
         title: t.title,
         completed: t.completed || false,
         priority: t.priority || undefined,
         source: t.source || 'general',
+        sourceTable: 'tasks' as const,
+        areaId: t.area_id || undefined,
+        subjectName: isUniversity && t.source_id ? subjectMap.get(t.source_id) : undefined,
         goalTitle: linkedGoal?.title,
         goalProgress: linkedGoal?.progress_percentage,
         goalCategory: linkedGoal?.category,
@@ -125,16 +162,10 @@ export function CurrentBlockHighlight() {
       };
     });
 
-    // Also add the block's default tasks
-    const blockDefaultTasks = (currentBlock?.tasks || []).map((task: string, idx: number) => ({
-      id: `default-${idx}`,
-      title: task,
-      completed: completedTasks.has(`default-${idx}`),
-      priority: undefined,
-      source: 'block'
-    }));
+    // Note: Entrepreneurship tasks don't have routine_block_id field yet
+    // We only show tasks that are explicitly assigned via tasks table
 
-    setBlockTasks([...mappedTasks, ...blockDefaultTasks]);
+    setBlockTasks(mappedTasks);
   };
 
   const findLinkedGoal = (areaId?: string | null, source?: string) => {
@@ -263,25 +294,16 @@ export function CurrentBlockHighlight() {
     : null;
 
   const toggleTask = async (taskId: string) => {
-    if (taskId.startsWith('default-')) {
-      setCompletedTasks(prev => {
-        const next = new Set(prev);
-        if (next.has(taskId)) next.delete(taskId);
-        else next.add(taskId);
-        return next;
-      });
-    } else {
-      const task = blockTasks.find(t => t.id === taskId);
-      if (task) {
-        await supabase
-          .from('tasks')
-          .update({ completed: !task.completed })
-          .eq('id', taskId);
-        
-        setBlockTasks(prev => 
-          prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
-        );
-      }
+    const task = blockTasks.find(t => t.id === taskId);
+    if (task) {
+      await supabase
+        .from('tasks')
+        .update({ completed: !task.completed })
+        .eq('id', taskId);
+      
+      setBlockTasks(prev => 
+        prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
+      );
     }
   };
 
@@ -292,9 +314,31 @@ export function CurrentBlockHighlight() {
     return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
   }
 
-  const completedCount = blockTasks.filter(t => t.completed || completedTasks.has(t.id)).length;
+  const completedCount = blockTasks.filter(t => t.completed).length;
   const taskProgress = blockTasks.length > 0 ? (completedCount / blockTasks.length) * 100 : progress;
   const hasHighPriority = blockTasks.some(t => t.priority === 'high' && !t.completed);
+
+  const getSourceLabel = (task: BlockTask) => {
+    if (task.subjectName) return task.subjectName;
+    if (task.entrepreneurshipName) return task.entrepreneurshipName;
+    
+    const labels: Record<string, string> = {
+      university: 'Universidad',
+      entrepreneurship: 'Emprendimiento',
+      project: 'Proyecto',
+      general: 'General'
+    };
+    return labels[task.source] || task.source;
+  };
+
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case 'university': return <BookOpen className="w-3 h-3" />;
+      case 'entrepreneurship': return <Briefcase className="w-3 h-3" />;
+      case 'project': return <FolderKanban className="w-3 h-3" />;
+      default: return null;
+    }
+  };
 
   return (
     <Card className={`border-2 ${hasHighPriority ? 'border-destructive' : 'border-foreground'} bg-card shadow-lg`}>
@@ -420,25 +464,33 @@ export function CurrentBlockHighlight() {
                 <button
                   onClick={() => toggleTask(task.id)}
                   className={`w-full flex items-start gap-3 p-3 transition-colors text-left ${
-                    task.completed || completedTasks.has(task.id) ? 'bg-muted/50' : 'bg-card hover:bg-muted/30'
+                    task.completed ? 'bg-muted/50' : 'bg-card hover:bg-muted/30'
                   }`}
                 >
-                  {task.completed || completedTasks.has(task.id) ? (
+                  {task.completed ? (
                     <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
                   ) : (
                     <Circle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <span className={task.completed || completedTasks.has(task.id) ? "line-through text-muted-foreground" : "text-foreground font-medium"}>
+                    <span className={task.completed ? "line-through text-muted-foreground" : "text-foreground font-medium"}>
                       {task.title}
                     </span>
                     
+                    {/* Source indicator (subject/entrepreneurship name) */}
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {getSourceIcon(task.source)}
+                      <span className="text-xs text-muted-foreground">
+                        {getSourceLabel(task)}
+                      </span>
+                    </div>
+                    
                     {/* Contribution indicator */}
                     {task.contributionPercent && !task.completed && (
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2 mt-1">
                         <Zap className="w-3 h-3 text-amber-500" />
                         <span className="text-xs text-muted-foreground">
-                          Completar esto aporta ~{task.contributionPercent}% a tu meta
+                          Aporta ~{task.contributionPercent}% a tu meta
                         </span>
                       </div>
                     )}
@@ -482,7 +534,7 @@ export function CurrentBlockHighlight() {
               tasks: blockTasks.map(t => ({
                 id: t.id,
                 title: t.title,
-                completed: t.completed || completedTasks.has(t.id),
+                completed: t.completed,
                 priority: t.priority,
                 goalTitle: t.goalTitle,
                 goalProgress: t.goalProgress,
