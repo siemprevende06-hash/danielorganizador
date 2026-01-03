@@ -11,6 +11,7 @@ import { useImageUpload } from "@/hooks/useImageUpload";
 import { BlockTaskAssigner, TaskItem } from "@/components/routine/BlockTaskAssigner";
 import { BlockFocusSelector, BlockTypeIndicator, getFocusColor, type BlockFocus, type BlockType } from "@/components/routine/BlockFocusSelector";
 import { SubBlockDivider, type SubBlock } from "@/components/routine/SubBlockDivider";
+import { LanguageBlockManager } from "@/components/language/LanguageBlockManager";
 
 export interface RoutineBlock {
   id: string;
@@ -281,8 +282,21 @@ export const RoutineBlockCard = ({ block, onUpdate, onComplete, dailyTasks = [],
           />
         )}
 
-        {/* Sub-block divider for blocks that can be subdivided */}
-        {block.canSubdivide && (
+        {/* Language Block Manager for Idiomas block */}
+        {(block.id === '2' || block.title.toLowerCase().includes('idiomas')) && (
+          <LanguageBlockManager
+            blockDurationMinutes={(() => {
+              const [startH, startM] = block.startTime.split(':').map(Number);
+              const [endH, endM] = block.endTime.split(':').map(Number);
+              return (endH * 60 + endM) - (startH * 60 + startM);
+            })()}
+            startTime={block.startTime}
+            endTime={block.endTime}
+          />
+        )}
+
+        {/* Sub-block divider for blocks that can be subdivided (except language blocks) */}
+        {block.canSubdivide && !(block.id === '2' || block.title.toLowerCase().includes('idiomas')) && (
           <SubBlockDivider
             canSubdivide={block.canSubdivide}
             subBlocks={block.subBlocks || []}

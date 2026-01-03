@@ -22,6 +22,7 @@ import { Link } from "react-router-dom";
 import { RoutinePresetSelector } from "@/components/routine/RoutinePresetSelector";
 import { SleepTimeSelector } from "@/components/routine/SleepTimeSelector";
 import { DaySchedulePreview } from "@/components/routine/DaySchedulePreview";
+import { LanguageDaySelector } from "@/components/language/LanguageBlockManager";
 
 interface Task {
   id: string;
@@ -354,6 +355,11 @@ export default function DayPlanner() {
                     selectedPresetId={selectedPresetId}
                     onSelectPreset={setSelectedPresetId}
                   />
+                )}
+
+                {/* Language Day Selector */}
+                {!excludeIdiomas && (
+                  <LanguageDaySelector />
                 )}
 
                 {/* Sleep Time Selector */}

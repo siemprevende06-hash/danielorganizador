@@ -521,6 +521,105 @@ export type Database = {
         }
         Relationships: []
       }
+      language_sessions: {
+        Row: {
+          block_type: string
+          created_at: string | null
+          grammar_completed: boolean | null
+          grammar_duration: number | null
+          id: string
+          language: string
+          listening_completed: boolean | null
+          listening_duration: number | null
+          notes: string | null
+          reading_completed: boolean | null
+          reading_duration: number | null
+          session_date: string
+          speaking_completed: boolean | null
+          speaking_duration: number | null
+          total_duration: number | null
+          user_id: string | null
+          vocabulary_completed: boolean | null
+          vocabulary_duration: number | null
+        }
+        Insert: {
+          block_type: string
+          created_at?: string | null
+          grammar_completed?: boolean | null
+          grammar_duration?: number | null
+          id?: string
+          language: string
+          listening_completed?: boolean | null
+          listening_duration?: number | null
+          notes?: string | null
+          reading_completed?: boolean | null
+          reading_duration?: number | null
+          session_date?: string
+          speaking_completed?: boolean | null
+          speaking_duration?: number | null
+          total_duration?: number | null
+          user_id?: string | null
+          vocabulary_completed?: boolean | null
+          vocabulary_duration?: number | null
+        }
+        Update: {
+          block_type?: string
+          created_at?: string | null
+          grammar_completed?: boolean | null
+          grammar_duration?: number | null
+          id?: string
+          language?: string
+          listening_completed?: boolean | null
+          listening_duration?: number | null
+          notes?: string | null
+          reading_completed?: boolean | null
+          reading_duration?: number | null
+          session_date?: string
+          speaking_completed?: boolean | null
+          speaking_duration?: number | null
+          total_duration?: number | null
+          user_id?: string | null
+          vocabulary_completed?: boolean | null
+          vocabulary_duration?: number | null
+        }
+        Relationships: []
+      }
+      language_settings: {
+        Row: {
+          ai_conversation_enabled: boolean | null
+          created_at: string | null
+          current_language: string
+          english_level: string | null
+          id: string
+          italian_level: string | null
+          preferred_resources: Json | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          ai_conversation_enabled?: boolean | null
+          created_at?: string | null
+          current_language?: string
+          english_level?: string | null
+          id?: string
+          italian_level?: string | null
+          preferred_resources?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          ai_conversation_enabled?: boolean | null
+          created_at?: string | null
+          current_language?: string
+          english_level?: string | null
+          id?: string
+          italian_level?: string | null
+          preferred_resources?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       loans: {
         Row: {
           created_at: string
