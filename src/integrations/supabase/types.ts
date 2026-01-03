@@ -710,11 +710,18 @@ export type Database = {
       routine_blocks: {
         Row: {
           block_id: string
+          block_type: string | null
+          can_subdivide: boolean | null
           created_at: string
+          current_focus: string | null
+          default_focus: string | null
+          emergency_only: boolean | null
           end_time: string
           id: string
+          notes: string | null
           order_index: number | null
           start_time: string
+          sub_blocks: Json | null
           tasks: Json | null
           title: string
           updated_at: string
@@ -722,11 +729,18 @@ export type Database = {
         }
         Insert: {
           block_id: string
+          block_type?: string | null
+          can_subdivide?: boolean | null
           created_at?: string
+          current_focus?: string | null
+          default_focus?: string | null
+          emergency_only?: boolean | null
           end_time: string
           id?: string
+          notes?: string | null
           order_index?: number | null
           start_time: string
+          sub_blocks?: Json | null
           tasks?: Json | null
           title: string
           updated_at?: string
@@ -734,11 +748,18 @@ export type Database = {
         }
         Update: {
           block_id?: string
+          block_type?: string | null
+          can_subdivide?: boolean | null
           created_at?: string
+          current_focus?: string | null
+          default_focus?: string | null
+          emergency_only?: boolean | null
           end_time?: string
           id?: string
+          notes?: string | null
           order_index?: number | null
           start_time?: string
+          sub_blocks?: Json | null
           tasks?: Json | null
           title?: string
           updated_at?: string

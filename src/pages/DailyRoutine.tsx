@@ -2,14 +2,15 @@ import { useState, useEffect } from "react";
 import { RoutineBlockCard } from "@/components/RoutineBlockCard";
 import { RoutineStreakCard } from "@/components/routine/RoutineStreakCard";
 import { DailyPlanChecklist } from "@/components/routine/DailyPlanChecklist";
+import { EmergencyModeToggle } from "@/components/routine/EmergencyModeToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Battery, Dumbbell, Briefcase, Settings2 } from "lucide-react";
+import { CheckCircle2, Battery, Dumbbell, Briefcase, Settings2, GraduationCap, FolderKanban, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { usePerformanceModes } from "@/hooks/usePerformanceModes";
+import { useRoutineBlocksDB, type RoutineBlock as DBRoutineBlock } from "@/hooks/useRoutineBlocksDB";
 
 interface RoutineBlock {
   id: string;
@@ -23,6 +24,12 @@ interface RoutineBlock {
   weeklyCompletion: boolean[];
   coverImage?: string;
   isHalfTime?: boolean;
+  blockType?: string;
+  defaultFocus?: string;
+  currentFocus?: string;
+  canSubdivide?: boolean;
+  emergencyOnly?: boolean;
+  notes?: string;
 }
 
 interface TaskItem {
@@ -43,9 +50,17 @@ const ROUTINE_STREAK_KEY = "routineStreakData";
 const DAILY_PLAN_KEY = "dailyPlanTasks";
 
 const DailyRoutine = () => {
+  const { 
+    blocks: dbBlocks, 
+    isLoaded, 
+    emergencyMode, 
+    toggleEmergencyMode, 
+    getHoursByFocus,
+    updateBlock: updateDBBlock 
+  } = useRoutineBlocksDB();
+  
   const [blocks, setBlocks] = useState<RoutineBlock[]>([]);
   const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
-  const { getSelectedMode, selectedModeId, isLoaded: modesLoaded, modes } = usePerformanceModes();
   
   // Streak state
   const [routineStreak, setRoutineStreak] = useState({
@@ -61,17 +76,64 @@ const DailyRoutine = () => {
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
   const [planDate, setPlanDate] = useState<"today" | "tomorrow">("today");
 
+  // Convert DB blocks to UI blocks when loaded
+  useEffect(() => {
+    if (isLoaded && dbBlocks.length > 0) {
+      const uiBlocks = dbBlocks.map(block => ({
+        id: block.id,
+        title: block.title,
+        startTime: block.startTime,
+        endTime: block.endTime,
+        genericTasks: block.tasks,
+        currentStreak: 0,
+        maxStreak: 0,
+        weeklyCompletion: [false, false, false, false, false, false, false],
+        blockType: block.blockType,
+        defaultFocus: block.defaultFocus,
+        currentFocus: block.currentFocus,
+        canSubdivide: block.canSubdivide,
+        emergencyOnly: block.emergencyOnly,
+        notes: block.notes,
+      }));
+      
+      // Load saved streak data for each block
+      const stored = localStorage.getItem('dailyRoutineBlocks');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          const merged = uiBlocks.map(block => {
+            const savedBlock = parsed.find((b: RoutineBlock) => b.id === block.id);
+            if (savedBlock) {
+              return {
+                ...block,
+                currentStreak: savedBlock.currentStreak || 0,
+                maxStreak: savedBlock.maxStreak || 0,
+                weeklyCompletion: savedBlock.weeklyCompletion || [false, false, false, false, false, false, false],
+                coverImage: savedBlock.coverImage,
+                specificTask: savedBlock.specificTask,
+              };
+            }
+            return block;
+          });
+          setBlocks(merged);
+        } catch {
+          setBlocks(uiBlocks);
+        }
+      } else {
+        setBlocks(uiBlocks);
+      }
+    }
+  }, [isLoaded, dbBlocks]);
+
   // Load streak data
   useEffect(() => {
     const stored = localStorage.getItem(ROUTINE_STREAK_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // Check if it's a new day and reset weekly if needed
         const today = new Date().toDateString();
         const lastDate = parsed.lastCompletedDate ? new Date(parsed.lastCompletedDate).toDateString() : "";
         
-        // Reset streak if more than 1 day has passed
         if (lastDate && lastDate !== today) {
           const lastDateObj = new Date(parsed.lastCompletedDate);
           const todayObj = new Date();
@@ -82,7 +144,6 @@ const DailyRoutine = () => {
           }
         }
         
-        // Reset weekly completion on Monday
         const dayOfWeek = new Date().getDay();
         if (dayOfWeek === 1 && lastDate !== today) {
           parsed.weeklyCompletion = [false, false, false, false, false, false, false];
@@ -136,52 +197,7 @@ const DailyRoutine = () => {
     localStorage.setItem(ROUTINE_STREAK_KEY, JSON.stringify(routineStreak));
   }, [routineStreak]);
 
-  const loadBlocks = () => {
-    const storedBlocks = localStorage.getItem('dailyRoutineBlocks');
-    if (storedBlocks) {
-      try {
-        const parsed = JSON.parse(storedBlocks);
-        if (parsed && parsed.length > 0) {
-          setBlocks(parsed);
-          return;
-        }
-      } catch {
-        // Continue to fallback
-      }
-    }
-    
-    if (modesLoaded && modes.length > 0) {
-      const mode = modes.find(m => m.id === selectedModeId) || modes[0];
-      if (mode) {
-        const routineBlocks = mode.blocks.map(block => ({
-          ...block,
-          currentStreak: 0,
-          maxStreak: 0,
-          weeklyCompletion: [false, false, false, false, false, false, false],
-        }));
-        setBlocks(routineBlocks);
-        localStorage.setItem('dailyRoutineBlocks', JSON.stringify(routineBlocks));
-      }
-    }
-  };
-
-  useEffect(() => {
-    const handleRoutineUpdate = () => {
-      loadBlocks();
-    };
-    window.addEventListener('routineBlocksUpdated', handleRoutineUpdate);
-    
-    return () => {
-      window.removeEventListener('routineBlocksUpdated', handleRoutineUpdate);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (modesLoaded) {
-      loadBlocks();
-    }
-  }, [modesLoaded, selectedModeId, modes]);
-
+  // Save blocks to localStorage
   useEffect(() => {
     if (blocks.length > 0) {
       localStorage.setItem('dailyRoutineBlocks', JSON.stringify(blocks));
@@ -214,7 +230,6 @@ const DailyRoutine = () => {
     }));
   };
 
-  // Check if routine is complete for the day and update streak
   const checkAndUpdateRoutineStreak = () => {
     const today = new Date().getDay();
     const dayIndex = today === 0 ? 6 : today - 1;
@@ -224,7 +239,6 @@ const DailyRoutine = () => {
     if (allBlocksComplete && blocks.length > 0) {
       const todayStr = new Date().toISOString();
       
-      // Only update if not already updated today
       if (routineStreak.lastCompletedDate !== new Date().toDateString()) {
         const newWeeklyCompletion = [...routineStreak.weeklyCompletion];
         newWeeklyCompletion[dayIndex] = true;
@@ -274,14 +288,12 @@ const DailyRoutine = () => {
       if (taskIds.includes(task.id)) {
         return { ...task, routine_block_id: blockId };
       } else if (task.routine_block_id === blockId) {
-        // Remove from this block if not in the new selection
         return { ...task, routine_block_id: undefined };
       }
       return task;
     }));
   };
 
-  // Create a merged task list with completion status
   const tasksWithCompletion = dailyTasks.map(task => ({
     ...task,
     completed: completedTaskIds.has(task.id),
@@ -303,11 +315,11 @@ const DailyRoutine = () => {
       setBlocks(blocks.map(block => {
         let shouldHalf = false;
         
-        if (mode === "lowEnergy" && block.title === "Idiomas") {
+        if (mode === "lowEnergy" && block.title.includes("Idiomas")) {
           shouldHalf = true;
         } else if (mode === "gymHalf" && block.title === "Gym") {
           shouldHalf = true;
-        } else if (mode === "entrepreneurshipHalf" && block.title === "Focus Emprendimiento") {
+        } else if (mode === "entrepreneurshipHalf" && block.title === "Focus") {
           shouldHalf = true;
         }
         
@@ -316,6 +328,11 @@ const DailyRoutine = () => {
     }
   };
 
+  // Calculate hours for emergency mode
+  const hours = isLoaded ? getHoursByFocus() : { universidad: 0, emprendimiento: 0, proyectos: 0, otros: 0 };
+  const normalHours = 9; // 5 deep work blocks (7.5h) + 1 focus block (1.5h)
+  const emergencyHours = 12.5; // With all dynamic blocks converted
+
   return (
     <div className="container mx-auto px-4 pt-20 pb-8 space-y-6" style={{ paddingTop: 'max(5rem, calc(env(safe-area-inset-top) + 4rem))' }}>
       <header>
@@ -323,9 +340,59 @@ const DailyRoutine = () => {
           Rutina Diaria
         </h1>
         <p className="text-muted-foreground mt-1">
-          Bloques estructurados para máxima productividad
+          18 bloques estructurados • Despertar 5:00 AM
         </p>
       </header>
+
+      {/* Hours Summary Card */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Distribución del Día
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+              <div className="flex items-center gap-2 text-blue-500 mb-1">
+                <GraduationCap className="h-4 w-4" />
+                <span className="text-xs font-medium">Universidad</span>
+              </div>
+              <p className="text-xl font-bold">{hours.universidad.toFixed(1)}h</p>
+            </div>
+            <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
+              <div className="flex items-center gap-2 text-purple-500 mb-1">
+                <Briefcase className="h-4 w-4" />
+                <span className="text-xs font-medium">Emprendimiento</span>
+              </div>
+              <p className="text-xl font-bold">{hours.emprendimiento.toFixed(1)}h</p>
+            </div>
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+              <div className="flex items-center gap-2 text-green-500 mb-1">
+                <FolderKanban className="h-4 w-4" />
+                <span className="text-xs font-medium">Proyectos</span>
+              </div>
+              <p className="text-xl font-bold">{hours.proyectos.toFixed(1)}h</p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted border border-border">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Clock className="h-4 w-4" />
+                <span className="text-xs font-medium">Otros</span>
+              </div>
+              <p className="text-xl font-bold">{hours.otros.toFixed(1)}h</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Emergency Mode Toggle */}
+      <EmergencyModeToggle
+        isActive={emergencyMode}
+        onToggle={toggleEmergencyMode}
+        normalHours={normalHours}
+        emergencyHours={emergencyHours}
+      />
 
       {/* Streak Card */}
       <RoutineStreakCard
@@ -372,10 +439,10 @@ const DailyRoutine = () => {
             Emprendimiento Reducido
           </Button>
         </div>
-        <Link to="/performance-modes">
+        <Link to="/routine-day">
           <Button variant="outline">
             <Settings2 className="h-4 w-4 mr-2" />
-            Cambiar Modo de Rendimiento
+            Configurar Bloques
           </Button>
         </Link>
       </div>
