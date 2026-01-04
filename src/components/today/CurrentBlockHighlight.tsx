@@ -2,14 +2,16 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Circle, Clock, ChevronRight, Target, AlertTriangle, Plus, Zap, BookOpen, Briefcase, FolderKanban } from "lucide-react";
+import { CheckCircle2, Circle, Clock, ChevronRight, Target, AlertTriangle, Plus, Zap, BookOpen, Briefcase, FolderKanban, Globe } from "lucide-react";
 import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
 import { supabase } from "@/integrations/supabase/client";
 import { BlockAIAssistant } from "./BlockAIAssistant";
 import { BlockTaskAssigner, TaskItem } from "@/components/routine/BlockTaskAssigner";
 import { PomodoroTracker } from "./PomodoroTracker";
+import { LanguageBlockTasks } from "./LanguageBlockTasks";
 import { format, differenceInDays } from "date-fns";
 import { toast } from "sonner";
+import { BlockType } from "@/hooks/useLanguageLearning";
 
 interface BlockTask {
   id: string;
@@ -318,6 +320,29 @@ export function CurrentBlockHighlight() {
   const taskProgress = blockTasks.length > 0 ? (completedCount / blockTasks.length) * 100 : progress;
   const hasHighPriority = blockTasks.some(t => t.priority === 'high' && !t.completed);
 
+  // Check if this is a language block
+  const isLanguageBlock = currentBlock.title.toLowerCase().includes('idioma') || 
+                          currentBlock.title.toLowerCase().includes('language') ||
+                          currentBlock.title.toLowerCase().includes('inglés') ||
+                          currentBlock.title.toLowerCase().includes('italiano');
+
+  // Determine block type and duration for language blocks
+  const getLanguageBlockInfo = (): { blockType: BlockType; durationMinutes: number } | null => {
+    if (!isLanguageBlock) return null;
+    
+    const [startH, startM] = currentBlock.startTime.split(':').map(Number);
+    const [endH, endM] = currentBlock.endTime.split(':').map(Number);
+    const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    
+    // Morning block (before 12:00) = full version (90 min)
+    // Afternoon/Evening block (7:00 PM - 7:30 PM) = reduced version (30 min)
+    const blockType: BlockType = startH < 12 ? 'morning' : 'afternoon';
+    
+    return { blockType, durationMinutes };
+  };
+
+  const languageBlockInfo = getLanguageBlockInfo();
+
   const getSourceLabel = (task: BlockTask) => {
     if (task.subjectName) return task.subjectName;
     if (task.entrepreneurshipName) return task.entrepreneurshipName;
@@ -392,46 +417,63 @@ export function CurrentBlockHighlight() {
           return null;
         })()}
 
-        {/* Progress Bar */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-muted-foreground">Progreso del bloque</span>
-            <span className="font-mono font-medium">{Math.round(taskProgress)}%</span>
+        {/* Language Block Tasks - shown for language blocks */}
+        {isLanguageBlock && languageBlockInfo && (
+          <div className="mb-4 p-4 rounded-lg border border-primary/30 bg-primary/5">
+            <div className="flex items-center gap-2 mb-3">
+              <Globe className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Actividades de Idiomas</h3>
+            </div>
+            <LanguageBlockTasks
+              blockDurationMinutes={languageBlockInfo.durationMinutes}
+              blockType={languageBlockInfo.blockType}
+            />
           </div>
-          <Progress value={taskProgress} className="h-2" />
-        </div>
+        )}
 
-        {/* Tasks */}
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">
-              Qué hacer ahora:
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setAssignerOpen(true)}
-              className="h-7 text-xs gap-1"
-            >
-              <Plus className="w-3 h-3" />
-              Asignar tareas
-            </Button>
+        {/* Progress Bar - only for non-language blocks or in addition */}
+        {!isLanguageBlock && (
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-muted-foreground">Progreso del bloque</span>
+              <span className="font-mono font-medium">{Math.round(taskProgress)}%</span>
+            </div>
+            <Progress value={taskProgress} className="h-2" />
           </div>
+        )}
 
-          {blockTasks.length === 0 ? (
-            <div className="text-center py-6 bg-muted/30 rounded-lg border border-dashed border-border">
-              <p className="text-sm text-muted-foreground mb-2">No hay tareas asignadas a este bloque</p>
+        {/* Tasks - only for non-language blocks */}
+        {!isLanguageBlock && (
+          <div className="space-y-3 mb-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Qué hacer ahora:
+              </p>
               <Button 
-                variant="secondary" 
+                variant="outline" 
                 size="sm" 
                 onClick={() => setAssignerOpen(true)}
-                className="gap-1"
+                className="h-7 text-xs gap-1"
               >
-                <Plus className="w-4 h-4" />
-                Asignar tareas del día
+                <Plus className="w-3 h-3" />
+                Asignar tareas
               </Button>
             </div>
-          ) : (
+
+            {blockTasks.length === 0 ? (
+              <div className="text-center py-6 bg-muted/30 rounded-lg border border-dashed border-border">
+                <p className="text-sm text-muted-foreground mb-2">No hay tareas asignadas a este bloque</p>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={() => setAssignerOpen(true)}
+                  className="gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Asignar tareas del día
+                </Button>
+              </div>
+            ) : (
             blockTasks.map((task) => (
               <div
                 key={task.id}
@@ -506,8 +548,8 @@ export function CurrentBlockHighlight() {
               </div>
             ))
           )}
-        </div>
-
+          </div>
+        )}
         {/* Task Assigner Dialog */}
         {currentBlock && (
           <BlockTaskAssigner
