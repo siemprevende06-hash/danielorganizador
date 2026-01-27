@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from 'react';
 
 const navItems = [
@@ -184,10 +185,12 @@ export const Navigation = () => {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-64 p-0">
-              <div className="flex flex-col gap-1 p-4 pt-10">
-                {navItems.map((item) => renderNavItem(item, true))}
-              </div>
+            <SheetContent side="right" className="w-64 p-0 flex flex-col h-full overflow-hidden">
+              <ScrollArea className="flex-1 h-full">
+                <div className="flex flex-col gap-1 p-4 pt-10 pb-24">
+                  {navItems.map((item) => renderNavItem(item, true))}
+                </div>
+              </ScrollArea>
             </SheetContent>
           </Sheet>
         </div>

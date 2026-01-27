@@ -166,9 +166,20 @@ export function BlockTaskPlanner({
     );
   };
 
-  const saveAssignments = () => {
+  const saveAssignments = async () => {
     if (activeBlockId) {
       onAssignmentChange(activeBlockId, tempSelectedIds);
+      
+      // Also update entrepreneurship_tasks with routine_block_id
+      for (const taskId of tempSelectedIds) {
+        const task = allTasks.find(t => t.id === taskId);
+        if (task?.source === 'entrepreneurship') {
+          await supabase
+            .from('entrepreneurship_tasks')
+            .update({ routine_block_id: activeBlockId })
+            .eq('id', taskId);
+        }
+      }
     }
     setActiveBlockId(null);
     setTempSelectedIds([]);

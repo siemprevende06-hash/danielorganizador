@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Focus, CalendarPlus, ClipboardCheck, BarChart3 } from "lucide-react";
 import { CurrentBlockHighlight } from "@/components/today/CurrentBlockHighlight";
+import { MealTracker } from "@/components/today/MealTracker";
+import { ConsistencyTracker } from "@/components/today/ConsistencyTracker";
 import { DayTimeline } from "@/components/today/DayTimeline";
 import { TodayStats } from "@/components/today/TodayStats";
 import { TodayTasks } from "@/components/today/TodayTasks";
@@ -68,8 +70,14 @@ export default function Index() {
         {/* Daily Motivation */}
         <DailyMotivation />
 
+        {/* Consistency Tracker - Clear view of daily activities */}
+        <ConsistencyTracker />
+
         {/* Current Block - Full Width */}
         <CurrentBlockHighlight />
+
+        {/* Meal Tracker - Nutrition tracking */}
+        <MealTracker />
 
         {/* Urgent Items Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
