@@ -1,409 +1,348 @@
 
 
-## Plan: Mejoras Integrales del Sistema - Alimentación, Rutina, Navegación y Sincronización
+# Plan: Timeline Mejorado y Tracker de Constancia Interactivo
 
-### RESUMEN DE CAMBIOS SOLICITADOS
+## RESUMEN DE CAMBIOS
 
-1. **Nuevo bloque de Alimentación** debajo del bloque actual en la página de inicio
-2. **Cambios en la rutina**: Idiomas a 5:30-7:00 PM, Focus a 5:30-7:00 AM
-3. **Nueva opción de despertar 6:30 AM** con rutina reducida
-4. **Menú hamburguesa deslizable** para móvil/tablet
-5. **Arreglar planificación diaria** (crear tareas, asignar a bloques)
-6. **Sección de constancia clara** en inicio (universidad, emprendimiento, gym, etc.)
-7. **Migrar localStorage a base de datos** para sincronización entre dispositivos
+### 1. Timeline del Día por Hora y Bloques
+- Vista por hora con bloques de tiempo visuales
+- Tareas visibles dentro de cada bloque
+- Línea horizontal marcando la hora actual
+- Marcar bloques como completados/no completados
+- Marcar tareas como hechas/pendientes
+- Mover tareas entre bloques (drag & drop o selector)
+- Configuración de inicio de rutina (5 AM o 6:30 AM)
+
+### 2. Tracker de Constancia Interactivo
+- Métricas basadas en datos reales:
+  - Universidad: tareas completadas + tiempo dedicado
+  - Emprendimiento: tareas completadas
+  - Proyecto: tareas completadas
+  - Gym: tiempo dedicado (1 hora)
+  - Idiomas: min 30 min, max 1.5h
+  - Piano/Guitarra: juntos, 30 min (uno u otro)
+  - Ajedrez: 1 partida
+  - Lectura: 30 min
+- Tap para completar (se pone verde)
+- Tap de nuevo para agregar más tiempo (bonus)
+- Opción para desmarcar
 
 ---
 
-### 1. NUEVO SISTEMA DE ALIMENTACIÓN
+## DETALLES TÉCNICOS
 
-#### Nueva tabla en la base de datos: `meal_tracking`
+### Nuevo Componente: `EnhancedDayTimeline.tsx`
+
+Reemplaza `DayTimeline.tsx` con funcionalidad mejorada:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  ⏰ TIMELINE DEL DÍA            [5:00 AM ▼] [6:30 AM]          │
+├────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  05:00 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
+│  │                                                              │
+│  │  RUTINA ACTIVACIÓN (30 min)               ✅ Completado     │
+│  │  └─ [✓] Meditación                                          │
+│  │  └─ [✓] Estiramientos                                       │
+│  │                                                              │
+│  05:30 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
+│  │                                                              │
+│  │  FOCUS - EMPRENDIMIENTO (90 min)          ⬜ Pendiente      │
+│  │  └─ [✓] Revisar métricas del día anterior                   │
+│  │  └─ [ ] Escribir post de LinkedIn              [→ Mover]    │
+│  │  └─ [ ] Configurar automatización              [→ Mover]    │
+│  │                                                              │
+│  07:00 ━━━━━━━━ AHORA 07:23 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
+│  │      ▲                                                       │
+│  │  GYM (60 min)                             ⬜ En progreso    │
+│  │  └─ [Ejercicios de hoy]                                     │
+│  │                                                              │
+│  08:00 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
+│  ...                                                            │
+│                                                                 │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Características:**
+1. Selector de hora de inicio (5:00 AM / 6:30 AM) en el header
+2. Vista por horas con marcadores cada hora
+3. Bloques visuales con duración proporcional
+4. Línea "AHORA" que atraviesa el timeline en la hora actual
+5. Checkbox para completar bloques
+6. Tareas listadas dentro de cada bloque con toggle
+7. Botón "Mover" en cada tarea para reasignar a otro bloque
+
+**Estado del Bloque:**
+- `⬜ Pendiente` - Bloque no iniciado
+- `🔄 En progreso` - Bloque actual
+- `✅ Completado` - Bloque terminado
+- `⚠️ Parcial` - Algunas tareas sin completar
+
+---
+
+### Nuevo Componente: `InteractiveConsistencyTracker.tsx`
+
+Reemplaza `ConsistencyTracker.tsx` con interactividad:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  📊 MI CONSTANCIA HOY                           78/100 pts    │
+├────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  PILARES PRINCIPALES                                           │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 🎓 Universidad    │ 3 tareas │ 2.5h    │🔥5 │ [VERDE]   │  │
+│  │ 💼 Emprendimiento │ 2 tareas │         │🔥3 │ [VERDE]   │  │
+│  │ 🚀 Proyecto       │ 1 tarea  │         │🔥7 │ [VERDE]   │  │
+│  │ 💪 Gym            │ 45min/1h │         │🔥12│ [AMARILLO]│  │
+│  │ 🌍 Idiomas        │ 68min    │ min:30  │🔥8 │ [VERDE]   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  METAS SECUNDARIAS                                             │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐  │
+│  │ 🎹🎸 Música     │ │ ♟️ Ajedrez      │ │ 📖 Lectura     │  │
+│  │   30 min        │ │  1 partida      │ │  30 min         │  │
+│  │   [TAP VERDE]   │ │  [TAP VERDE]    │ │  [TAP GRIS]     │  │
+│  │   +15min bonus  │ │                 │ │                 │  │
+│  │   [DESMARCAR]   │ │  [DESMARCAR]    │ │                 │  │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘  │
+│                                                                 │
+│  🎬 Game of Thrones [TAP GRIS]                                 │
+│                                                                 │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Interactividad por Actividad:**
+
+| Actividad | Métrica Base | Tap 1 | Tap 2+ | Color | Desmarcar |
+|-----------|--------------|-------|--------|-------|-----------|
+| Universidad | Tareas + Tiempo | Auto | +tiempo | Verde si tareas > 0 AND tiempo > 1h | ✓ |
+| Emprendimiento | Tareas | Auto | - | Verde si tareas > 0 | ✓ |
+| Proyecto | Tareas | Auto | - | Verde si tareas > 0 | ✓ |
+| Gym | 1h objetivo | Completar | +tiempo | Verde = 1h+, Amarillo = 30-60min | ✓ |
+| Idiomas | 30-90 min | Completar | +tiempo | Verde = 30min+, Amarillo = <30 | ✓ |
+| Piano/Guitarra | 30 min (uno) | Completar | +tiempo | Verde | ✓ |
+| Ajedrez | 1 partida | Completar | - | Verde | ✓ |
+| Lectura | 30 min | Completar | +tiempo | Verde | ✓ |
+| GoT | 1 capítulo | Completar | - | Verde | ✓ |
+
+**Estados visuales:**
+- Gris: No completado
+- Verde: Completado/Cumplido
+- Amarillo: Parcial (ej. gym 30 min)
+- Verde con borde dorado: Bonus (tiempo extra)
+
+---
+
+## MODIFICACIONES A LA BASE DE DATOS
+
+### Nueva tabla: `activity_tracking`
 
 ```sql
-CREATE TABLE meal_tracking (
+CREATE TABLE activity_tracking (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID,
-  meal_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  meal_type TEXT NOT NULL, -- 'pre_entreno', 'desayuno', 'merienda_1', 'almuerzo', 'merienda_2', 'comida', 'merienda_nocturna'
-  scheduled_time TIME NOT NULL,
+  activity_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  activity_type TEXT NOT NULL, -- 'gym', 'idiomas', 'piano', 'guitarra', 'ajedrez', 'lectura', 'got'
+  duration_minutes INTEGER DEFAULT 0,
+  completed BOOLEAN DEFAULT false,
+  bonus_minutes INTEGER DEFAULT 0, -- Tiempo extra añadido
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(activity_date, activity_type)
+);
+
+ALTER TABLE activity_tracking ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to activity_tracking" 
+  ON activity_tracking FOR ALL 
+  USING (true) WITH CHECK (true);
+```
+
+### Nueva tabla: `block_completions`
+
+```sql
+CREATE TABLE block_completions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  completion_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  block_id TEXT NOT NULL,
   completed BOOLEAN DEFAULT false,
   completed_at TIMESTAMP WITH TIME ZONE,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  tasks_completed INTEGER DEFAULT 0,
+  tasks_total INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(completion_date, block_id)
 );
+
+ALTER TABLE block_completions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to block_completions" 
+  ON block_completions FOR ALL 
+  USING (true) WITH CHECK (true);
 ```
-
-#### Nuevo componente: `MealTracker.tsx`
-
-Horario de comidas definido:
-| Comida | Hora | Descripción |
-|--------|------|-------------|
-| pre_entreno | 05:30 | Merienda pre-entreno |
-| desayuno | 08:00 | Desayuno fuerte post-entreno |
-| merienda_1 | 10:30 | Merienda |
-| almuerzo | 13:20 | Almuerzo |
-| merienda_2 | 16:00 | Merienda |
-| comida | 19:00 | Comida |
-| merienda_nocturna | 20:40 | Merienda antes de dormir |
-
-Visualización:
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🍽️ ALIMENTACIÓN                           Meta: 50kg → 70kg    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  PRÓXIMA COMIDA: 🍳 Almuerzo en 45 min (1:20 PM)               │
-│                                                                 │
-│  ✅ 05:30  Merienda pre-entreno                                │
-│  ✅ 08:00  Desayuno fuerte                                     │
-│  ✅ 10:30  Merienda                                            │
-│  🔔 13:20  Almuerzo                    ← PRÓXIMA               │
-│  ⏳ 16:00  Merienda                                            │
-│  ⏳ 19:00  Comida                                              │
-│  ⏳ 20:40  Merienda nocturna                                   │
-│                                                                 │
-│  Progreso hoy: ███████░░░░░░░░ 3/7 comidas (43%)               │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Archivos a crear:**
-- `src/components/today/MealTracker.tsx`
-- `src/hooks/useMealTracking.ts`
-
-**Archivos a modificar:**
-- `src/pages/Index.tsx` - Agregar `MealTracker` después de `CurrentBlockHighlight`
 
 ---
 
-### 2. CAMBIOS EN LA RUTINA: INTERCAMBIO DE BLOQUES
+## ARCHIVOS A CREAR
 
-#### Modificaciones en `routine_blocks`:
+1. **`src/components/today/EnhancedDayTimeline.tsx`**
+   - Selector de hora de inicio (5 AM / 6:30 AM)
+   - Vista por horas con bloques proporcionales
+   - Línea "AHORA" que cruza el timeline
+   - Toggle de completar bloques
+   - Toggle de completar tareas
+   - Selector para mover tareas entre bloques
 
-**Cambio 1: Bloque de Idiomas (block_id: 2)**
-- ANTES: 05:30 - 07:00 AM
-- DESPUÉS: 17:30 - 19:00 PM (5:30 - 7:00 PM)
+2. **`src/components/today/InteractiveConsistencyTracker.tsx`**
+   - Cards clickeables para cada actividad
+   - Toggle tap para completar
+   - Long press o segundo tap para agregar bonus
+   - Botón de desmarcar
+   - Colores dinámicos según estado
 
-**Cambio 2: Bloque Focus (block_id: 14)**
-- ANTES: 17:30 - 19:00 PM
-- DESPUÉS: 05:30 - 07:00 AM
+3. **`src/hooks/useActivityTracking.ts`**
+   - CRUD para `activity_tracking` table
+   - Métodos: `markComplete()`, `addBonusTime()`, `unmark()`, `getStatus()`
 
-**Cambio 3: Bloque Ocio (block_id: 15)**
-- ANTES: 19:00 - 20:00
-- DESPUÉS: 19:00 - 19:30 (ajuste para hacer espacio)
-
-**Cambio 4: Nuevo orden de bloques mañana:**
-1. 05:00 - 05:30: Rutina Activación
-2. 05:30 - 07:00: Focus (antes era Idiomas)
-3. 07:00 - 08:00: Gym
-4. ...continúa igual
-
-**Cambio 5: Nuevo orden tarde:**
-14. 17:30 - 19:00: Idiomas + Lectura (movido desde la mañana)
-15. 19:00 - 19:30: Ocio (reducido)
-16. 19:30 - 20:00: Piano o Guitarra (ajustado)
-17. 20:00 - 20:30: Rutina Desactivación (ajustado)
-
-**Migración SQL requerida**
+4. **`src/hooks/useBlockCompletions.ts`**
+   - CRUD para `block_completions` table
+   - Métodos: `markBlockComplete()`, `getBlockStatus()`, `toggleBlock()`
 
 ---
 
-### 3. OPCIÓN DE DESPERTAR A LAS 6:30 AM
+## ARCHIVOS A MODIFICAR
 
-#### Nuevo preset en `routine_presets`:
+1. **`src/pages/Index.tsx`**
+   - Reemplazar `DayTimeline` con `EnhancedDayTimeline`
+   - Reemplazar `ConsistencyTracker` con `InteractiveConsistencyTracker`
 
-```
-Nombre: "Sueño Extendido 6:30"
-Descripción: "Despertar a las 6:30, rutina reducida"
-wake_time: 06:30
-sleep_time: 21:00
-excluded_block_ids: ['2'] -- Excluye Focus matutino
-modified_blocks: {
-  '1': { start_time: '06:30', end_time: '07:00' },  // Activación 30 min
-  '3': { start_time: '07:00', end_time: '08:00' }   // Gym igual
-}
-```
-
-**Estructura de la mañana con 6:30:**
-| Hora | Bloque |
-|------|--------|
-| 06:30 - 07:00 | Rutina Activación |
-| 07:00 - 08:00 | Gym |
-| 08:00 - 08:30 | Alistamiento + Desayuno |
-| 08:30 - 09:00 | Viaje CUJAE |
-| 09:00 → | Continúa igual |
-
-**Archivos a modificar:**
-- `src/hooks/useRoutinePresets.ts` - Agregar lógica para preset 6:30
-- `src/components/routine/SleepTimeSelector.tsx` - Agregar botón rápido "6:30 AM"
-- `src/pages/DayPlanner.tsx` - Soportar el nuevo preset
+2. **`src/components/today/TodayTasks.tsx`**
+   - Agregar función para mover tarea a otro bloque
+   - Callback para sincronizar con timeline
 
 ---
 
-### 4. MENÚ HAMBURGUESA DESLIZABLE (MOBILE/TABLET)
+## LÓGICA DE CÁLCULO DE MÉTRICAS
 
-#### Problema actual:
-El Sheet content no tiene scroll, los items inferiores no son accesibles.
-
-#### Solución en `Navigation.tsx`:
-
-```tsx
-<SheetContent side="right" className="w-64 p-0 flex flex-col h-full">
-  <ScrollArea className="flex-1 h-full">
-    <div className="flex flex-col gap-1 p-4 pt-10 pb-20">
-      {navItems.map((item) => renderNavItem(item, true))}
-    </div>
-  </ScrollArea>
-</SheetContent>
-```
-
-**Cambios:**
-1. Importar `ScrollArea` de `@/components/ui/scroll-area`
-2. Envolver contenido en `ScrollArea` con `h-full`
-3. Agregar `pb-20` para safe area inferior
-4. Agregar `overflow-hidden` al SheetContent
-
----
-
-### 5. ARREGLAR PLANIFICACIÓN DIARIA
-
-#### Problemas identificados en `BlockTaskPlanner.tsx`:
-
-1. **Las tareas de emprendimiento no tienen `routine_block_id`** - No se pueden asignar a bloques
-2. **No se cargan todas las tareas** - Solo carga tasks, no entrepreneurship_tasks con el campo correcto
-
-#### Soluciones:
-
-**A. Agregar columna a `entrepreneurship_tasks`:**
-```sql
-ALTER TABLE entrepreneurship_tasks 
-ADD COLUMN routine_block_id TEXT;
-```
-
-**B. Modificar `BlockTaskPlanner.tsx`:**
-- Mejorar `loadAllTasks()` para incluir university subjects
-- Modificar `saveAssignments()` para guardar también en entrepreneurship_tasks
-- Agregar botón para crear nueva tarea rápida desde el planificador
-
-**C. Modificar `DayPlanner.tsx`:**
-- Agregar diálogo para crear tarea rápida
-- Cargar tareas de todas las fuentes correctamente
-- Mostrar asignaturas/temas en las tareas de universidad
-
----
-
-### 6. SECCIÓN DE CONSTANCIA EN INICIO
-
-#### Nuevo componente: `ConsistencyTracker.tsx`
-
-Visualización clara de actividades diarias:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 📊 MI CONSTANCIA HOY                                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  PILARES PRINCIPALES:                                          │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ 🎓 Universidad    │ 4.5h estudio │ 3 tareas ✅ │ Racha: 5 │   │
-│  │ 💼 Emprendimiento │ 1 tarea ✅    │ +2h focus   │ Racha: 3 │   │
-│  │ 🚀 Proyecto       │ 2 tareas ✅   │ En progreso │ Racha: 7 │   │
-│  │ 💪 Gym            │ ✅ Completado │ 45 min      │ Racha: 12│   │
-│  │ 🌍 Idiomas        │ 4/5 sub ✅    │ 68 min      │ Racha: 8 │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  METAS SECUNDARIAS:                                            │
-│  🎹 Piano: ✅ 30 min  │  🎸 Guitarra: ⏳        │               │
-│  📖 Lectura: ✅ 20 min│  ♟️ Ajedrez: ✅ 1 partida│               │
-│                                                                 │
-│  EXTRAS:                                                       │
-│  🎬 Game of Thrones: ⏳ Pendiente                               │
-│                                                                 │
-│  PUNTUACIÓN DEL DÍA: 78/100 ████████████████░░░░               │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Métricas por área (datos reales de la BD):**
-
-| Área | Fuente de Datos | Métrica |
-|------|-----------------|---------|
-| Universidad | `tasks` (area_id='universidad'), `exams` | Horas, tareas completadas |
-| Emprendimiento | `entrepreneurship_tasks` | Tareas completadas |
-| Proyecto | `tasks` (area_id='proyectos-personales') | Tareas completadas |
-| Gym | `habit_history` (habit-entrenamiento), `exercise_logs` | Completado, duración |
-| Idiomas | `language_sessions` | Sub-tareas, minutos |
-| Piano | `habit_history` (habit-piano) | Completado, duración |
-| Guitarra | `habit_history` (habit-guitarra) | Completado, duración |
-| Lectura | `language_sessions.reading_completed` | Completado, duración |
-| Ajedrez | `habit_history` (habit-ajedrez) | Completado |
-| GoT | Nueva entrada en `habit_history` | Completado |
-
-**Archivos a crear:**
-- `src/components/today/ConsistencyTracker.tsx`
-
-**Archivos a modificar:**
-- `src/pages/Index.tsx` - Agregar después de PillarProgressGrid
-- `src/hooks/usePillarProgress.ts` - Agregar tracking de GoT
-
----
-
-### 7. MIGRACIÓN DE LOCALSTORAGE A BASE DE DATOS
-
-#### Archivos que usan localStorage (a migrar):
-
-| Archivo | Datos | Nueva tabla/campo |
-|---------|-------|-------------------|
-| `usePerformanceModes.ts` | Modos de rendimiento | `routine_presets` (ya existe) |
-| `useRoutineBlocks.ts` | Bloques activos | `routine_blocks` (ya existe) |
-| `DailyRoutine.tsx` | Streaks, planes diarios | `routine_completions`, `daily_plans` |
-| `HabitTrackerMain.tsx` | Rewards/punishments balance | Nueva columna en `user_settings` |
-| `Projects.tsx` | Proyectos locales | `projects` (ya existe, migrar datos) |
-| `ControlRoom.tsx` | Monthly/quarterly goals | `twelve_week_goals` (ya existe) |
-| `VisionGoalsBoard.tsx` | Vision cards | `vision_boards` (ya existe) |
-| `Tools.tsx` | Ideal partner vision | `vision_boards` (usar board_type) |
-
-#### Cambios requeridos:
-
-**A. Nueva migración de datos:**
-```sql
--- Agregar campos para gamificación en user_settings
-ALTER TABLE user_settings
-ADD COLUMN rewards_balance INTEGER DEFAULT 0,
-ADD COLUMN punishments_balance INTEGER DEFAULT 0;
-```
-
-**B. Modificar hooks para usar Supabase:**
-
-1. **`usePerformanceModes.ts`**
-   - Cambiar de localStorage a `routine_presets`
-   - Agregar migración automática de datos locales
-
-2. **`useRoutineBlocks.ts`**
-   - Ya existe `useRoutineBlocksDB.ts` - usar este en su lugar
-   - Actualizar imports en archivos que usan el hook antiguo
-
-3. **`DailyRoutine.tsx`**
-   - Usar `useRoutineCompletions` para streaks
-   - Usar `daily_plans` para planes diarios
-
-4. **`Projects.tsx`**
-   - Migrar a usar tabla `projects` de Supabase
-   - Crear hook `useProjects.ts`
-
-5. **`HabitTrackerMain.tsx`**
-   - Guardar rewards/punishments en `user_settings`
-
-**C. Agregar lógica de migración one-time:**
+### Universidad
 ```typescript
-// En cada hook afectado
-const migrateFromLocalStorage = async () => {
-  const localData = localStorage.getItem(KEY);
-  if (localData) {
-    // Migrar a Supabase
-    await supabase.from('table').insert(JSON.parse(localData));
-    // Limpiar localStorage
-    localStorage.removeItem(KEY);
-  }
-};
+// Tareas: tasks.filter(t => t.area_id === 'universidad' && t.completed).length
+// Tiempo: Suma de duración de bloques Deep Work con focus='universidad' completados
+const universityTasks = todayTasks.filter(t => 
+  t.area_id === 'universidad' && t.completed
+).length;
+const universityHours = completedBlocks
+  .filter(b => b.currentFocus === 'universidad')
+  .reduce((sum, b) => sum + getBlockDurationMinutes(b) / 60, 0);
+const isComplete = universityTasks > 0 && universityHours >= 1;
+```
+
+### Emprendimiento
+```typescript
+const entrepreneurshipTasks = await supabase
+  .from('entrepreneurship_tasks')
+  .select('*')
+  .eq('completed', true)
+  .eq('due_date', today);
+const isComplete = entrepreneurshipTasks.length > 0;
+```
+
+### Proyecto
+```typescript
+const projectTasks = todayTasks.filter(t => 
+  t.area_id === 'proyectos-personales' && t.completed
+).length;
+const isComplete = projectTasks > 0;
+```
+
+### Gym (desde activity_tracking)
+```typescript
+const gymActivity = await getActivity('gym', today);
+// Verde: duration >= 60 min
+// Amarillo: 30 <= duration < 60
+// Gris: < 30 o no completado
+```
+
+### Idiomas (desde language_sessions + activity_tracking)
+```typescript
+const languageSession = await supabase
+  .from('language_sessions')
+  .select('total_duration')
+  .eq('session_date', today);
+const duration = languageSession?.total_duration || 0;
+// Verde: duration >= 30
+// Amarillo: 15 <= duration < 30
+// Bonus: duration > 90
+```
+
+### Piano/Guitarra (uno u otro)
+```typescript
+const musicActivity = await getActivity(['piano', 'guitarra'], today);
+// Solo uno puede estar completado por día
+// Verde si cualquiera tiene completed = true && duration >= 30
 ```
 
 ---
 
-### ARCHIVOS A CREAR
+## FLUJO DE INTERACCIÓN
 
-1. `src/components/today/MealTracker.tsx` - Tracker de alimentación
-2. `src/hooks/useMealTracking.ts` - Hook para gestión de comidas
-3. `src/components/today/ConsistencyTracker.tsx` - Vista de constancia
+### Completar Actividad (Tap Simple)
+1. Usuario toca card de actividad
+2. Si no completada → marcar como completada con duración base
+3. Card cambia a verde
+4. Actualizar puntuación
 
-### ARCHIVOS A MODIFICAR
+### Agregar Bonus (Tap Adicional)
+1. Usuario toca card ya completada
+2. Mostrar dialog "¿Agregar tiempo extra?"
+3. Input numérico para minutos adicionales
+4. Guardar bonus_minutes en activity_tracking
+5. Mostrar borde dorado en card
 
-1. `src/pages/Index.tsx` - Agregar MealTracker y ConsistencyTracker
-2. `src/components/Navigation.tsx` - Agregar ScrollArea al Sheet
-3. `src/pages/DayPlanner.tsx` - Mejorar asignación de tareas
-4. `src/components/routine/BlockTaskPlanner.tsx` - Soportar todas las fuentes de tareas
-5. `src/hooks/usePerformanceModes.ts` - Migrar a Supabase
-6. `src/hooks/useRoutineBlocks.ts` - Migrar a Supabase (o deprecar)
-7. `src/pages/DailyRoutine.tsx` - Migrar localStorage
-8. `src/components/habits/HabitTrackerMain.tsx` - Guardar en BD
-9. `src/pages/Projects.tsx` - Migrar a Supabase
-10. `src/hooks/usePillarProgress.ts` - Agregar GoT y mejorar cálculos
+### Desmarcar Actividad
+1. Usuario mantiene presionado o tap en ícono ✗
+2. Confirmar acción
+3. Resetear completed = false, bonus_minutes = 0
+4. Card vuelve a gris
 
-### MIGRACIONES SQL
+### Mover Tarea en Timeline
+1. Usuario tap en botón [→] de tarea
+2. Mostrar selector de bloques disponibles
+3. Actualizar routine_block_id en tasks/entrepreneurship_tasks
+4. Refrescar timeline
 
-```sql
--- 1. Tabla de seguimiento de alimentación
-CREATE TABLE meal_tracking (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID,
-  meal_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  meal_type TEXT NOT NULL,
-  scheduled_time TIME NOT NULL,
-  completed BOOLEAN DEFAULT false,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- 2. RLS permisiva para meal_tracking
-ALTER TABLE meal_tracking ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to meal_tracking" ON meal_tracking FOR ALL USING (true) WITH CHECK (true);
-
--- 3. Agregar routine_block_id a entrepreneurship_tasks
-ALTER TABLE entrepreneurship_tasks ADD COLUMN routine_block_id TEXT;
-
--- 4. Agregar campos de gamificación a user_settings
-ALTER TABLE user_settings 
-ADD COLUMN rewards_balance INTEGER DEFAULT 0,
-ADD COLUMN punishments_balance INTEGER DEFAULT 0;
-
--- 5. Actualizar horarios de bloques (Idiomas y Focus intercambiados)
-UPDATE routine_blocks SET start_time = '17:30', end_time = '19:00', order_index = 14 WHERE block_id = '2';
-UPDATE routine_blocks SET start_time = '05:30', end_time = '07:00', order_index = 2 WHERE block_id = '14';
-
--- 6. Actualizar nombre del bloque de Idiomas para claridad
-UPDATE routine_blocks SET title = 'Idiomas (Tarde)' WHERE block_id = '2';
-
--- 7. Actualizar nombre del bloque Focus para claridad  
-UPDATE routine_blocks SET title = 'Focus (Mañana)' WHERE block_id = '14';
-
--- 8. Agregar preset de 6:30 AM
-INSERT INTO routine_presets (name, description, wake_time, sleep_time, excluded_block_ids, is_default, icon)
-VALUES (
-  'Sueño Extendido 6:30',
-  'Despertar a las 6:30, sin bloque Focus matutino',
-  '06:30',
-  '21:00',
-  ARRAY['14'],
-  false,
-  'moon'
-);
-```
+### Toggle Bloque Completado
+1. Usuario tap en checkbox de bloque
+2. Guardar en block_completions
+3. Actualizar visual del bloque (tachado o destacado)
 
 ---
 
-### ORDEN DE IMPLEMENTACIÓN
+## ORDEN DE IMPLEMENTACIÓN
 
 1. **Fase 1: Base de datos**
-   - Ejecutar migraciones SQL
-
-2. **Fase 2: Alimentación**
-   - Crear `useMealTracking.ts`
-   - Crear `MealTracker.tsx`
-   - Integrar en Index.tsx
-
-3. **Fase 3: Navegación**
-   - Modificar Navigation.tsx con ScrollArea
-
-4. **Fase 4: Planificación**
-   - Arreglar BlockTaskPlanner.tsx
-   - Mejorar DayPlanner.tsx
-
-5. **Fase 5: Constancia**
-   - Crear ConsistencyTracker.tsx
-   - Mejorar usePillarProgress.ts
-
-6. **Fase 6: Migración de datos**
-   - Actualizar cada hook para usar Supabase
-   - Agregar lógica de migración one-time
-   - Probar sincronización entre dispositivos
+   - Crear tablas `activity_tracking` y `block_completions`
+   
+2. **Fase 2: Hooks**
+   - Crear `useActivityTracking.ts`
+   - Crear `useBlockCompletions.ts`
+   
+3. **Fase 3: Timeline Mejorado**
+   - Crear `EnhancedDayTimeline.tsx`
+   - Implementar selector de hora inicio
+   - Línea de hora actual
+   - Toggle de tareas y bloques
+   - Mover tareas
+   
+4. **Fase 4: Constancia Interactiva**
+   - Crear `InteractiveConsistencyTracker.tsx`
+   - Lógica de tap/completar
+   - Agregar bonus
+   - Desmarcar
+   - Colores dinámicos
+   
+5. **Fase 5: Integración**
+   - Actualizar Index.tsx
+   - Sincronizar componentes
+   - Probar flujos completos
 
