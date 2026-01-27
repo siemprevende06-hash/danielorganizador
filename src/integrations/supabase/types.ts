@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_tracking: {
+        Row: {
+          activity_date: string
+          activity_type: string
+          bonus_minutes: number | null
+          completed: boolean | null
+          created_at: string | null
+          duration_minutes: number | null
+          id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          activity_date?: string
+          activity_type: string
+          bonus_minutes?: number | null
+          completed?: boolean | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          activity_date?: string
+          activity_type?: string
+          bonus_minutes?: number | null
+          completed?: boolean | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      block_completions: {
+        Row: {
+          block_id: string
+          completed: boolean | null
+          completed_at: string | null
+          completion_date: string
+          created_at: string | null
+          id: string
+          tasks_completed: number | null
+          tasks_total: number | null
+          user_id: string | null
+        }
+        Insert: {
+          block_id: string
+          completed?: boolean | null
+          completed_at?: string | null
+          completion_date?: string
+          created_at?: string | null
+          id?: string
+          tasks_completed?: number | null
+          tasks_total?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          block_id?: string
+          completed?: boolean | null
+          completed_at?: string | null
+          completion_date?: string
+          created_at?: string | null
+          id?: string
+          tasks_completed?: number | null
+          tasks_total?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       daily_plan_tasks: {
         Row: {
           created_at: string
