@@ -177,6 +177,7 @@ export type Database = {
           due_date: string | null
           entrepreneurship_id: string
           id: string
+          routine_block_id: string | null
           task_type: string
           title: string
           updated_at: string
@@ -188,6 +189,7 @@ export type Database = {
           due_date?: string | null
           entrepreneurship_id: string
           id?: string
+          routine_block_id?: string | null
           task_type: string
           title: string
           updated_at?: string
@@ -199,6 +201,7 @@ export type Database = {
           due_date?: string | null
           entrepreneurship_id?: string
           id?: string
+          routine_block_id?: string | null
           task_type?: string
           title?: string
           updated_at?: string
@@ -675,6 +678,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meal_tracking: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          meal_date: string
+          meal_type: string
+          notes: string | null
+          scheduled_time: string
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          meal_date?: string
+          meal_type: string
+          notes?: string | null
+          scheduled_time: string
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          meal_date?: string
+          meal_type?: string
+          notes?: string | null
+          scheduled_time?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       physical_goals: {
         Row: {
@@ -1194,6 +1233,8 @@ export type Database = {
           exchange_rate: number | null
           id: string
           morning_end_time: string | null
+          punishments_balance: number | null
+          rewards_balance: number | null
           updated_at: string
           user_id: string
           wake_time: string | null
@@ -1204,6 +1245,8 @@ export type Database = {
           exchange_rate?: number | null
           id?: string
           morning_end_time?: string | null
+          punishments_balance?: number | null
+          rewards_balance?: number | null
           updated_at?: string
           user_id: string
           wake_time?: string | null
@@ -1214,6 +1257,8 @@ export type Database = {
           exchange_rate?: number | null
           id?: string
           morning_end_time?: string | null
+          punishments_balance?: number | null
+          rewards_balance?: number | null
           updated_at?: string
           user_id?: string
           wake_time?: string | null
