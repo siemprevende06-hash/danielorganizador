@@ -15,6 +15,7 @@ import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
 import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
 import { DailyPillarSummary } from "@/components/pillars/DailyPillarSummary";
 import { usePillarProgress } from "@/hooks/usePillarProgress";
+import { PurposeVisualization } from "@/components/self-review/PurposeVisualization";
 
 export default function DailySelfReview() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -127,6 +128,9 @@ export default function DailySelfReview() {
             {format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
           </p>
         </div>
+
+        {/* Purpose Visualization - Best Version of Yourself */}
+        <PurposeVisualization />
 
         {/* Objective Summary */}
         <ObjectiveSummary
