@@ -7,8 +7,8 @@ import { es } from "date-fns/locale";
 import { Focus, CalendarPlus, ClipboardCheck, BarChart3 } from "lucide-react";
 import { CurrentBlockHighlight } from "@/components/today/CurrentBlockHighlight";
 import { MealTracker } from "@/components/today/MealTracker";
-import { ConsistencyTracker } from "@/components/today/ConsistencyTracker";
-import { DayTimeline } from "@/components/today/DayTimeline";
+import { InteractiveConsistencyTracker } from "@/components/today/InteractiveConsistencyTracker";
+import { EnhancedDayTimeline } from "@/components/today/EnhancedDayTimeline";
 import { TodayStats } from "@/components/today/TodayStats";
 import { TodayTasks } from "@/components/today/TodayTasks";
 import { TodayHabits } from "@/components/today/TodayHabits";
@@ -70,8 +70,12 @@ export default function Index() {
         {/* Daily Motivation */}
         <DailyMotivation />
 
-        {/* Consistency Tracker - Clear view of daily activities */}
-        <ConsistencyTracker />
+        {/* Interactive Consistency Tracker - Clear view of daily activities */}
+        <Card>
+          <CardContent className="pt-6">
+            <InteractiveConsistencyTracker />
+          </CardContent>
+        </Card>
 
         {/* Current Block - Full Width */}
         <CurrentBlockHighlight />
@@ -87,15 +91,10 @@ export default function Index() {
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Timeline */}
+          {/* Left Column - Enhanced Timeline */}
           <Card className="lg:col-span-1">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                Timeline del Día
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DayTimeline />
+            <CardContent className="pt-6">
+              <EnhancedDayTimeline />
             </CardContent>
           </Card>
 
