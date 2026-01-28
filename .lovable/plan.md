@@ -1,250 +1,432 @@
 
-# Plan: Rediseño Completo de la Página de Planificación
 
-## PROBLEMAS IDENTIFICADOS
+# Plan Integral: Sincronización, Planificación y Alineación de Vida
 
-### 1. Datos Incorrectos en la Base de Datos
-- Los bloques "Idiomas + Lectura" (block_id: 2) y "Focus" (block_id: 14) tienen el **mismo horario** (17:30-19:00)
-- Esto causa confusión porque la migración anterior creó duplicados
-- El bloque "Focus Emprendimiento" (block_id: 5) de las 5:30-7:00 AM es el correcto
+## DIAGNÓSTICO DE PROBLEMAS
 
-### 2. Textos Desactualizados
-- `SleepTimeSelector.tsx` línea 125-126 dice "5:30-7:00 AM" para idiomas, pero ahora está en la tarde
-- El preset "Sueño Extendido" excluye block_id 2 pero debería excluir el bloque de Focus matutino (block_id 5)
+### 1. Las tareas no aparecen en todos los dispositivos
+**Causa raíz:** 
+- La tabla `tasks` tiene políticas RLS que requieren `auth.uid() = user_id`
+- El código en `Tasks.tsx` (línea 85-86) requiere usuario autenticado para crear tareas
+- Sin embargo, según la memoria del proyecto, la app opera SIN autenticación
 
-### 3. Planificador de Bloques Muy Restrictivo
-- `BlockTaskPlanner.tsx` solo muestra bloques que contienen "deep work", "focus", "estudio" o son de tipo `dinamico`
-- No muestra bloques como "Gym", "Almuerzo + Ajedrez", "Piano o Guitarra", etc.
-- Necesitamos mostrar **TODOS** los bloques del día
+**Tablas afectadas con RLS restrictivo:**
+- `tasks` - requiere auth.uid()
+- `projects` - requiere auth.uid()
+- `goals` - requiere auth.uid()
+- `goal_tasks` - requiere auth.uid()
+- `goal_block_connections` - requiere auth.uid()
+- `exams` - requiere auth.uid()
+- `university_subjects` - requiere auth.uid()
+- `user_settings` - requiere auth.uid()
 
-### 4. No Se Pueden Crear Tareas
-- No hay opción para crear una tarea nueva desde el planificador
-- El usuario debe ir a otra página para crear tareas
+### 2. Datos guardados en localStorage (no sincroniza)
+**Archivos que usan localStorage:**
+| Archivo | Datos |
+|---------|-------|
+| `useRoutineBlocks.ts` | Bloques de rutina personalizados |
+| `Projects.tsx` | Lista de proyectos |
+| `ControlRoom.tsx` | Tareas, hábitos, metas mensuales/trimestrales |
+| `Tools.tsx` | Visión de pareja ideal |
+| `Finance.tsx` | Wallets, transacciones, préstamos, tasa de cambio |
 
-### 5. Vista del Horario Incompleta
-- El timeline no muestra el rango completo de 5 AM a 9 PM
-- Falta claridad visual
+### 3. Planificador de día mal implementado
+**Problemas en `BlockTaskPlanner.tsx` (línea 138-144):**
+```tsx
+const workBlocks = blocks.filter(block => 
+  block.title.toLowerCase().includes('deep work') ||
+  // ...solo muestra bloques de trabajo
+);
+```
+- Solo muestra 5-6 bloques de los 22 totales
+- No muestra: Gym, Almuerzo, Idiomas (ahora en tarde), etc.
+- No permite crear tareas desde la sección
+
+### 4. Falta editar tareas y ocultar completadas
+- No existe botón de editar en `Tasks.tsx`
+- No hay filtro para ocultar tareas completadas
 
 ---
 
 ## SOLUCIONES PROPUESTAS
 
-### 1. Corrección de Datos en la Base de Datos
+### FASE 1: ARREGLAR RLS Y AUTENTICACIÓN
 
+**Cambio de políticas RLS a "Allow all":**
 ```sql
--- Eliminar el bloque duplicado (Focus en la tarde que tiene el mismo horario que Idiomas)
-DELETE FROM routine_blocks WHERE block_id = '14' AND start_time = '17:30:00';
+-- Para cada tabla afectada (tasks, projects, goals, etc.)
+DROP POLICY IF EXISTS "Users can view their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can create their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can update their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can delete their own tasks" ON tasks;
 
--- Actualizar el preset "Sueño Extendido" para excluir el bloque correcto
-UPDATE routine_presets 
-SET excluded_block_ids = ARRAY['5', '18'], 
-    description = 'Para días de mucho cansancio. Elimina Focus matutino (5:30-7:00 AM) para despertar a las 6:30 AM'
-WHERE name = 'Sueño Extendido';
-
--- Actualizar el preset "Sueño Extendido 6:30" para usar mismo array
-UPDATE routine_presets 
-SET excluded_block_ids = ARRAY['5']
-WHERE name = 'Sueño Extendido 6:30';
+CREATE POLICY "Allow all access to tasks" ON tasks FOR ALL USING (true) WITH CHECK (true);
 ```
 
-### 2. Corrección de Textos en SleepTimeSelector.tsx
+Tablas a migrar:
+1. `tasks`
+2. `projects`
+3. `goals`
+4. `goal_tasks`
+5. `goal_block_connections`
+6. `exams`
+7. `university_subjects`
+8. `user_settings`
 
-**Antes:**
-```tsx
-<p className="text-xs text-muted-foreground">
-  5:30-7:00 AM → Permite despertar a las 6:30 AM
-</p>
+**Modificar código para no requerir auth:**
+- `Tasks.tsx`: Remover líneas 85-86 que verifican usuario autenticado
+- Usar un user_id fijo o null para todas las operaciones
+
+### FASE 2: MIGRAR LOCALSTORAGE A SUPABASE
+
+**Cambios por archivo:**
+
+1. **`useRoutineBlocks.ts` → usar `useRoutineBlocksDB.ts`**
+   - Ya existe `useRoutineBlocksDB.ts` que usa Supabase
+   - Actualizar imports en archivos que usan `useRoutineBlocks`
+
+2. **`Projects.tsx`**
+   - Migrar a usar tabla `projects` de Supabase
+   - Agregar lógica de migración one-time desde localStorage
+
+3. **`ControlRoom.tsx`**
+   - Migrar metas mensuales/trimestrales a `twelve_week_goals` o nueva tabla
+   - Usar hooks existentes para hábitos (`useHabitHistory`)
+
+4. **`Finance.tsx`**
+   - Ya existen tablas `wallets`, `transactions`, `loans`
+   - Crear hook `useFinanceDB.ts` para usar Supabase
+
+### FASE 3: MEJORAR PÁGINA DE TAREAS
+
+**Nuevas funcionalidades en `Tasks.tsx`:**
+
+1. **Filtro para ocultar completadas:**
+```
+┌────────────────────────────────────────────────────┐
+│ Tareas                         [✓ Ocultar hechas]  │
+│                                [+ Nueva Tarea]     │
+└────────────────────────────────────────────────────┘
 ```
 
-**Después:**
-```tsx
-<p className="text-xs text-muted-foreground">
-  Excluye Focus Emprendimiento (5:30-7:00 AM)
-</p>
+2. **Botón de editar en cada tarea:**
+```
+┌───────────────────────────────────────────────────────┐
+│ ☐ Estudiar Física           Alta  📅 30/01  [✏️] [🗑️] │
+│   Repasar capítulo 5                                   │
+└───────────────────────────────────────────────────────┘
 ```
 
-### 3. Rediseño Completo del DayPlanner
+3. **Dialog de edición con todos los campos:**
+- Título, Descripción, Prioridad, Fecha, Área, Bloque asignado
 
-#### Nueva estructura de la página:
+### FASE 4: REDISEÑAR PLANIFICADOR DEL DÍA
+
+**Nuevo diseño de `DayPlanner.tsx`:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 📅 PLANIFICACIÓN                                                │
+│ [Hoy] [Mañana]                    Despertar: [5 AM] [6:30 AM]   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│ ➕ CREAR TAREA RÁPIDA                                            │
+│ [___Título___] [Universidad ▼] [Media ▼] [+ Crear]              │
+│                                                                  │
+│ ═══════════════════════════════════════════════════════════════ │
+│                                                                  │
+│ HORARIO COMPLETO (5 AM - 9 PM)                                  │
+│                                                                  │
+│ 05:00 ─────────────────────────────────────────────────────────  │
+│ │ RUTINA ACTIVACIÓN (30 min)                      [+]          │  │
+│                                                                  │
+│ 05:30 ─────────────────────────────────────────────────────────  │
+│ │ FOCUS EMPRENDIMIENTO (90 min)                   [+]          │  │
+│ │  └─ ☑ Revisar métricas                                        │
+│ │  └─ ☐ Escribir post LinkedIn                    [×]          │  │
+│                                                                  │
+│ 07:00 ─────────────────────────────────────────────────────────  │
+│ │ GYM (60 min)                                    [+]          │  │
+│                                                                  │
+│ ... (TODOS los bloques hasta las 21:00) ...                     │
+│                                                                  │
+│ ═══════════════════════════════════════════════════════════════ │
+│                                                                  │
+│ TAREAS SIN ASIGNAR (3)                                          │
+│ • Estudiar Física        [Universidad] [Asignar a bloque ▼]     │
+│ • Landing page           [Emprendimiento] [Asignar a bloque ▼]  │
+│                                                                  │
+│                                         [💾 GUARDAR PLAN]        │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Cambios clave:**
+1. Mostrar TODOS los bloques (no solo deep work)
+2. Agregar creador de tareas rápido
+3. Sección de tareas sin asignar al final
+4. Simplificar tabs (unificar en vista única)
+
+### FASE 5: NUEVA PÁGINA "ALINEACIÓN DE VIDA"
+
+**Ruta:** `/life-alignment`
+
+**Concepto visual:** Una pirámide/árbol que muestra cómo las acciones diarias alimentan la visión
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  📅 PLANIFICACIÓN DEL DÍA                                                   │
-│  [Hoy] [Mañana]                        Despertar: [5:00 AM ▼] [6:30 AM]    │
+│                                                                             │
+│                         🎯 ALINEACIÓN DE VIDA                               │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                              ╔══════════════════╗                           │
+│                              ║   MI PROPÓSITO   ║                           │
+│                              ║                  ║                           │
+│                              ║  CONVERTIRME EN  ║                           │
+│                              ║  MI MEJOR VERSIÓN║                           │
+│                              ║                  ║                           │
+│                              ╚════════╤═════════╝                           │
+│                                       │                                     │
+│                    ┌──────────────────┴──────────────────┐                  │
+│                    │                                     │                  │
+│             ╔══════╧══════╗                     ╔════════╧════════╗         │
+│             ║  VISIÓN 1   ║                     ║    VISIÓN 2     ║         │
+│             ║             ║                     ║                 ║         │
+│             ║  IMPERIO &  ║                     ║  FAMILIA CON    ║         │
+│             ║  LIBERTAD   ║                     ║  MUJER HERMOSA  ║         │
+│             ║  FINANCIERA ║                     ║                 ║         │
+│             ╚══════╤══════╝                     ╚════════╤════════╝         │
+│                    │                                     │                  │
+│      ┌─────────────┼─────────────┐         ┌─────────────┼─────────────┐    │
+│      │             │             │         │             │             │    │
+│  ┌───┴───┐     ┌───┴───┐    ┌───┴───┐ ┌───┴───┐    ┌───┴───┐    ┌───┴───┐ │
+│  │ Univ  │     │ Empr  │    │ Proy  │ │  Gym  │    │Idiomas│    │Música │ │
+│  │  80%  │     │  45%  │    │  60%  │ │  90%  │    │  70%  │    │  50%  │ │
+│  └───────┘     └───────┘    └───────┘ └───────┘    └───────┘    └───────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📊 MI PROGRESO HACIA LA MEJOR VERSIÓN                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ANUAL 2026            [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 8%        │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  TRIMESTRE 1           [█████████████████░░░░░░░░░░░░░░░░░░░░░░░] 27%       │
+│  Semana 4 de 12                                                             │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  ENERO 2026            [███████████████████████████████░░░░░░░░░] 90%       │
+│  Día 28 de 31                                                               │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  ESTA SEMANA           [████████████████████████████░░░░░░░░░░░░] 72%       │
+│  5 de 7 días productivos                                                    │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  HOY                   [████████████████████████████████████░░░░] 85%       │
+│  7 de 9 actividades completadas                                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🔗 CONEXIÓN DIARIA → DESTINO                                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ + CREAR TAREA RÁPIDA                                                 │   │
-│  │ [_________________Título________________] [Universidad ▼] [Crear]   │   │
+│  │                                                                     │   │
+│  │   HOY          SEMANA         MES          TRIMESTRE       AÑO     │   │
+│  │                                                                     │   │
+│  │   ●──────────────●──────────────●──────────────●──────────────●    │   │
+│  │   │              │              │              │              │    │   │
+│  │   │ 3 tareas     │ 15 tareas    │ 60 tareas    │ Q1: Lanzar   │ 2026│   │
+│  │   │ completadas  │ previstas    │ objetivo     │ SiempreVende │ Best│   │
+│  │   │              │              │              │              │Version│
+│  │   │ 1h gym       │ 5 sesiones   │ 20 sesiones  │ +8kg músculo │     │   │
+│  │   │              │              │              │              │     │   │
+│  │   │ 68min idiomas│ 10h idiomas  │ 45h idiomas  │ B2 English   │     │   │
+│  │   │              │              │              │              │     │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│  ═══════════════════════════════════════════════════════════════════════   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 📈 PRUEBAS DE QUE ESTOY MEJORANDO                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  HORARIO COMPLETO DEL DÍA                                                  │
+│  ESTA SEMANA vs SEMANA PASADA                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                     │   │
+│  │  Tareas completadas:     28  vs  22     ↑ +27%                     │   │
+│  │  Horas de focus:         32h vs  28h    ↑ +14%                     │   │
+│  │  Días de gym:             5  vs   4     ↑ +25%                     │   │
+│  │  Minutos de idiomas:    420  vs  350    ↑ +20%                     │   │
+│  │  Hábitos completados:    85% vs  78%    ↑ +9%                      │   │
+│  │                                                                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│  05:00 ─────────────────────────────────────────────────────────────────   │
-│  │ RUTINA ACTIVACIÓN (30 min)                              [+ Agregar] │   │
-│  │                                                                      │   │
-│  05:30 ─────────────────────────────────────────────────────────────────   │
-│  │ FOCUS EMPRENDIMIENTO (90 min)                           [+ Agregar] │   │
-│  │  └─ ☑️ Revisar métricas                                              │   │
-│  │  └─ ☐ Escribir post LinkedIn                            [×] [↔]    │   │
-│  │                                                                      │   │
-│  07:00 ─────────────────────────────────────────────────────────────────   │
-│  │ GYM (60 min)                                            [+ Agregar] │   │
-│  │                                                                      │   │
-│  08:00 ─────────────────────────────────────────────────────────────────   │
-│  │ ALISTAMIENTO + DESAYUNO (30 min)                        [+ Agregar] │   │
-│  │                                                                      │   │
-│  ...                                                                       │
-│  │                                                                      │   │
-│  17:30 ─────────────────────────────────────────────────────────────────   │
-│  │ IDIOMAS + LECTURA (90 min)                              [+ Agregar] │   │
-│  │                                                                      │   │
-│  19:00 ─────────────────────────────────────────────────────────────────   │
-│  │ OCIO (60 min)                                           [+ Agregar] │   │
-│  │                                                                      │   │
-│  20:00 ─────────────────────────────────────────────────────────────────   │
-│  │ PIANO O GUITARRA (30 min)                               [+ Agregar] │   │
-│  │                                                                      │   │
-│  20:30 ─────────────────────────────────────────────────────────────────   │
-│  │ RUTINA DESACTIVACIÓN (30 min)                           [+ Agregar] │   │
-│  │                                                                      │   │
-│  21:00 ═══════ FIN DEL DÍA ════════════════════════════════════════════   │
-│                                                                             │
-│  ┌────────────────────────────────────────────────────────────────────┐    │
-│  │ TAREAS SIN ASIGNAR (3)                                              │    │
-│  │  • Estudiar Física                      [Universidad] [Asignar ▼]   │    │
-│  │  • Completar landing page               [Emprendimiento] [Asignar ▼]│    │
-│  │  • Revisar proyecto de Rust             [Proyecto] [Asignar ▼]      │    │
-│  └────────────────────────────────────────────────────────────────────┘    │
-│                                                                             │
-│                                               [💾 GUARDAR PLANIFICACIÓN]   │
+│  ESTE MES vs MES PASADO                                                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                                                                     │   │
+│  │  Puntuación promedio diaria:  78/100  vs  72/100   ↑ +8%           │   │
+│  │  Días productivos:             23/28  vs  19/31    ↑ +32%          │   │
+│  │  Metas del 12-Week Year:       4/11   vs   2/11    ↑ +100%         │   │
+│  │                                                                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### Características del nuevo diseño:
+**Estructura de datos para la página:**
 
-1. **Selector de hora de inicio visible** en el header (5:00 AM / 6:30 AM)
-2. **Creador de tareas rápido** integrado en la parte superior
-3. **Vista completa del horario** desde despertar hasta dormir
-4. **TODOS los bloques visibles** (no solo los de trabajo)
-5. **Botón "Agregar" en cada bloque** para asignar tareas
-6. **Sección de tareas sin asignar** al final con selector de bloque
-7. **Acciones por tarea**: eliminar de bloque, mover a otro bloque
+```typescript
+interface LifeAlignment {
+  purpose: {
+    statement: string; // "Convertirme en mi mejor versión"
+    visions: {
+      id: string;
+      title: string;
+      description: string;
+      pillars: string[]; // IDs de categorías que contribuyen
+      overallProgress: number;
+    }[];
+  };
+  
+  progress: {
+    daily: { completed: number; total: number; score: number };
+    weekly: { completed: number; total: number; score: number; daysProductive: number };
+    monthly: { score: number; daysProductive: number; goalsAchieved: number };
+    quarterly: { weekNumber: number; goalsProgress: GoalProgress[] };
+    annual: { percentComplete: number; milestones: Milestone[] };
+  };
+  
+  comparisons: {
+    thisWeekVsLast: MetricComparison[];
+    thisMonthVsLast: MetricComparison[];
+  };
+  
+  dailyAlignment: {
+    todayTasks: AlignedTask[];
+    contributionToVision: number; // 0-100
+  };
+}
+```
 
 ---
+
+## ARCHIVOS A CREAR
+
+1. **`src/pages/LifeAlignment.tsx`** - Nueva página de alineación de vida
+2. **`src/components/life-alignment/VisionPyramid.tsx`** - Visualización de pirámide propósito-visiones-pilares
+3. **`src/components/life-alignment/ProgressTimeline.tsx`** - Línea de tiempo diario→anual
+4. **`src/components/life-alignment/ImprovementProofs.tsx`** - Comparaciones semana/mes
+5. **`src/components/life-alignment/DailyContribution.tsx`** - Cómo hoy contribuye al destino
+6. **`src/hooks/useLifeAlignment.ts`** - Hook para calcular todas las métricas
 
 ## ARCHIVOS A MODIFICAR
 
-### 1. Migración SQL para corregir datos
-- Eliminar bloque duplicado Focus (block_id 14 con horario 17:30)
-- Actualizar presets para excluir bloque correcto
+1. **`src/App.tsx`** - Agregar ruta `/life-alignment`
+2. **`src/components/Navigation.tsx`** - Agregar enlace a nueva página
+3. **`src/pages/Tasks.tsx`** - Agregar filtro, edición, quitar auth
+4. **`src/pages/DayPlanner.tsx`** - Rediseño completo con todos los bloques
+5. **`src/components/routine/BlockTaskPlanner.tsx`** - Mostrar todos los bloques
+6. **`src/pages/Projects.tsx`** - Migrar de localStorage a Supabase
+7. **`src/pages/Finance.tsx`** - Migrar de localStorage a Supabase
+8. **`src/pages/ControlRoom.tsx`** - Migrar de localStorage a Supabase
+9. **`src/hooks/useRoutineBlocks.ts`** - Deprecar, usar useRoutineBlocksDB
 
-### 2. `src/components/routine/SleepTimeSelector.tsx`
-- Corregir texto que dice "5:30-7:00 AM" 
-- Cambiar referencia de "Idiomas" a "Focus Emprendimiento"
+## MIGRACIONES SQL
 
-### 3. `src/pages/DayPlanner.tsx` (Rediseño completo)
-- Remover estructura de tabs complicada
-- Implementar vista de timeline simplificada
-- Agregar formulario de creación rápida de tareas
-- Mostrar todos los bloques del día
-- Agregar sección de tareas sin asignar
+```sql
+-- 1. Cambiar RLS de tasks a "Allow all"
+DROP POLICY IF EXISTS "Users can view their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can create their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can update their own tasks" ON tasks;
+DROP POLICY IF EXISTS "Users can delete their own tasks" ON tasks;
+CREATE POLICY "Allow all access to tasks" ON tasks FOR ALL USING (true) WITH CHECK (true);
 
-### 4. `src/components/routine/BlockTaskPlanner.tsx`
-- Remover filtro que solo muestra bloques de trabajo
-- Mostrar TODOS los bloques del día
-- Mejorar UI para ser más limpia
+-- 2. Hacer lo mismo para projects
+DROP POLICY IF EXISTS "Users can view their own projects" ON projects;
+DROP POLICY IF EXISTS "Users can create their own projects" ON projects;
+DROP POLICY IF EXISTS "Users can update their own projects" ON projects;
+DROP POLICY IF EXISTS "Users can delete their own projects" ON projects;
+CREATE POLICY "Allow all access to projects" ON projects FOR ALL USING (true) WITH CHECK (true);
 
-### 5. Nuevo componente: `src/components/routine/QuickTaskCreator.tsx`
-- Formulario compacto para crear tareas
-- Selector de área (Universidad, Emprendimiento, Proyecto, General)
-- Selector opcional de bloque al crear
+-- 3. goals, goal_tasks, goal_block_connections
+DROP POLICY IF EXISTS "Users can view their own goals" ON goals;
+DROP POLICY IF EXISTS "Users can create their own goals" ON goals;
+DROP POLICY IF EXISTS "Users can update their own goals" ON goals;
+DROP POLICY IF EXISTS "Users can delete their own goals" ON goals;
+CREATE POLICY "Allow all access to goals" ON goals FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can view their own goal tasks" ON goal_tasks;
+DROP POLICY IF EXISTS "Users can create their own goal tasks" ON goal_tasks;
+DROP POLICY IF EXISTS "Users can update their own goal tasks" ON goal_tasks;
+DROP POLICY IF EXISTS "Users can delete their own goal tasks" ON goal_tasks;
+CREATE POLICY "Allow all access to goal_tasks" ON goal_tasks FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can view their own goal block connections" ON goal_block_connections;
+DROP POLICY IF EXISTS "Users can create their own goal block connections" ON goal_block_connections;
+DROP POLICY IF EXISTS "Users can update their own goal block connections" ON goal_block_connections;
+DROP POLICY IF EXISTS "Users can delete their own goal block connections" ON goal_block_connections;
+CREATE POLICY "Allow all access to goal_block_connections" ON goal_block_connections FOR ALL USING (true) WITH CHECK (true);
+
+-- 4. exams y university_subjects
+DROP POLICY IF EXISTS "Users can view their own exams" ON exams;
+DROP POLICY IF EXISTS "Users can create their own exams" ON exams;
+DROP POLICY IF EXISTS "Users can update their own exams" ON exams;
+DROP POLICY IF EXISTS "Users can delete their own exams" ON exams;
+CREATE POLICY "Allow all access to exams" ON exams FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can view their own subjects" ON university_subjects;
+DROP POLICY IF EXISTS "Users can create their own subjects" ON university_subjects;
+DROP POLICY IF EXISTS "Users can update their own subjects" ON university_subjects;
+DROP POLICY IF EXISTS "Users can delete their own subjects" ON university_subjects;
+CREATE POLICY "Allow all access to university_subjects" ON university_subjects FOR ALL USING (true) WITH CHECK (true);
+
+-- 5. user_settings
+DROP POLICY IF EXISTS "Users can view their own settings" ON user_settings;
+DROP POLICY IF EXISTS "Users can create their own settings" ON user_settings;
+DROP POLICY IF EXISTS "Users can update their own settings" ON user_settings;
+DROP POLICY IF EXISTS "Users can delete their own settings" ON user_settings;
+CREATE POLICY "Allow all access to user_settings" ON user_settings FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. Hacer user_id nullable en tablas que lo requieran
+ALTER TABLE tasks ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE projects ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE goals ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE goal_tasks ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE goal_block_connections ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE exams ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE university_subjects ALTER COLUMN user_id DROP NOT NULL;
+```
 
 ---
 
-## RESUMEN DE CAMBIOS
+## ORDEN DE IMPLEMENTACIÓN
 
-| Componente | Cambio |
-|------------|--------|
-| Base de datos | Eliminar bloque duplicado, corregir presets |
-| SleepTimeSelector.tsx | Corregir texto de idiomas |
-| DayPlanner.tsx | Rediseño completo con timeline y quick task creator |
-| BlockTaskPlanner.tsx | Mostrar TODOS los bloques, no solo los de trabajo |
-| QuickTaskCreator.tsx | Nuevo componente para crear tareas rápidas |
+1. **Fase 1: Arreglar RLS** (crítico para sincronización)
+   - Ejecutar migración SQL
+   - Modificar código para no requerir auth
 
----
+2. **Fase 2: Mejorar Tareas**
+   - Agregar filtro ocultar completadas
+   - Agregar botón editar
+   - Dialog de edición
 
-## DETALLES TÉCNICOS
+3. **Fase 3: Rediseñar Planificador**
+   - Mostrar todos los bloques
+   - Agregar creador de tareas
+   - Sección tareas sin asignar
 
-### Nuevo componente: QuickTaskCreator.tsx
+4. **Fase 4: Migrar localStorage**
+   - useRoutineBlocks → useRoutineBlocksDB
+   - Projects, Finance, ControlRoom a Supabase
 
-```tsx
-interface QuickTaskCreatorProps {
-  selectedDate: Date;
-  onTaskCreated: () => void;
-}
+5. **Fase 5: Página Alineación de Vida**
+   - Crear componentes visuales
+   - Crear hook de métricas
+   - Integrar en navegación
 
-// Permite crear una tarea con:
-// - Título (requerido)
-// - Área: Universidad, Emprendimiento, Proyecto, General
-// - Prioridad: Alta, Media, Baja
-// - Bloque (opcional): selector de todos los bloques del día
-```
-
-### Cambio en BlockTaskPlanner.tsx
-
-**Antes (filtro restrictivo):**
-```tsx
-const workBlocks = blocks.filter(block => 
-  block.title.toLowerCase().includes('deep work') ||
-  block.title.toLowerCase().includes('focus') ||
-  block.title.toLowerCase().includes('estudio') ||
-  block.title.toLowerCase().includes('trabajo') ||
-  block.blockType === 'dinamico'
-);
-```
-
-**Después (mostrar todos):**
-```tsx
-// Mostrar TODOS los bloques ordenados por hora
-const allBlocks = blocks.sort((a, b) => {
-  const [aH, aM] = a.startTime.split(':').map(Number);
-  const [bH, bM] = b.startTime.split(':').map(Number);
-  return (aH * 60 + aM) - (bH * 60 + bM);
-});
-```
-
-### Nueva estructura de DayPlanner.tsx
-
-```tsx
-<div className="max-w-4xl mx-auto space-y-6">
-  {/* Header con fecha y selector de hora */}
-  <Header />
-  
-  {/* Creador de tareas rápido */}
-  <QuickTaskCreator selectedDate={selectedDate} onTaskCreated={loadTasks} />
-  
-  {/* Timeline completo con bloques */}
-  <FullDayTimeline 
-    blocks={blocks}
-    tasks={tasks}
-    wakeTime={wakeTime}
-    onAssign={handleAssign}
-    onRemove={handleRemove}
-    onMove={handleMove}
-  />
-  
-  {/* Tareas sin asignar */}
-  <UnassignedTasks 
-    tasks={unassignedTasks}
-    blocks={blocks}
-    onAssign={handleAssign}
-  />
-  
-  {/* Botón guardar */}
-  <SaveButton onClick={handleSave} loading={loading} />
-</div>
-```
