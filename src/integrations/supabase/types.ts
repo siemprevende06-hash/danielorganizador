@@ -332,7 +332,7 @@ export type Database = {
           title: string
           topics: string | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -350,7 +350,7 @@ export type Database = {
           title: string
           topics?: string | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -368,7 +368,7 @@ export type Database = {
           title?: string
           topics?: string | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -432,7 +432,7 @@ export type Database = {
           created_at: string
           goal_id: string
           id: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           block_id: string
@@ -441,7 +441,7 @@ export type Database = {
           created_at?: string
           goal_id: string
           id?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           block_id?: string
@@ -450,7 +450,7 @@ export type Database = {
           created_at?: string
           goal_id?: string
           id?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -471,7 +471,7 @@ export type Database = {
           id: string
           linked_to_block_id: string | null
           title: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           completed?: boolean | null
@@ -481,7 +481,7 @@ export type Database = {
           id?: string
           linked_to_block_id?: string | null
           title: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           completed?: boolean | null
@@ -491,7 +491,7 @@ export type Database = {
           id?: string
           linked_to_block_id?: string | null
           title?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -514,7 +514,7 @@ export type Database = {
           target_date: string | null
           title: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           area_id?: string | null
@@ -526,7 +526,7 @@ export type Database = {
           target_date?: string | null
           title: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           area_id?: string | null
@@ -538,7 +538,7 @@ export type Database = {
           target_date?: string | null
           title?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -886,7 +886,7 @@ export type Database = {
           status: string
           title: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           cover_image?: string | null
@@ -896,7 +896,7 @@ export type Database = {
           status?: string
           title: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           cover_image?: string | null
@@ -906,7 +906,7 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1129,7 +1129,7 @@ export type Database = {
           status: string
           title: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           area_id?: string | null
@@ -1146,7 +1146,7 @@ export type Database = {
           status?: string
           title: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           area_id?: string | null
@@ -1163,7 +1163,7 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1278,7 +1278,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           color?: string | null
@@ -1286,7 +1286,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           color?: string | null
@@ -1294,7 +1294,7 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

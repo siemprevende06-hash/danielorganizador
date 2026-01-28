@@ -23,6 +23,7 @@ import { DaySchedulePreview } from "@/components/routine/DaySchedulePreview";
 import { LanguageDaySelector } from "@/components/language/LanguageBlockManager";
 import { QuickDateSelector } from "@/components/routine/QuickDateSelector";
 import { BlockTaskPlanner } from "@/components/routine/BlockTaskPlanner";
+import { QuickTaskCreator } from "@/components/routine/QuickTaskCreator";
 
 interface Task {
   id: string;

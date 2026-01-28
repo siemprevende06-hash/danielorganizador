@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck } from 'lucide-react';
+import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,7 @@ import { useState } from 'react';
 
 const navItems = [
   { path: '/', label: 'Inicio', icon: Home },
+  { path: '/life-alignment', label: 'Alineación', icon: Compass },
   { path: '/focus', label: 'Focus', icon: Focus },
   { path: '/routine-day', label: 'Rutina del Día', icon: LayoutList },
   { path: '/control-room', label: 'Control', icon: Gauge },
