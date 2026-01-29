@@ -34,6 +34,10 @@ import Weeks from "./pages/Weeks";
 import VidaDanielEstadisticas from "./pages/VidaDanielEstadisticas";
 import DailySelfReview from "./pages/DailySelfReview";
 import LifeAlignment from "./pages/LifeAlignment";
+import ConfidenceSteps from "./pages/ConfidenceSteps";
+import ReadingLibrary from "./pages/ReadingLibrary";
+import MusicDashboard from "./pages/MusicDashboard";
+import LanguagesDashboard from "./pages/LanguagesDashboard";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +79,10 @@ const App = () => (
           <Route path="/vida-daniel" element={<VidaDanielEstadisticas />} />
           <Route path="/self-review" element={<DailySelfReview />} />
           <Route path="/life-alignment" element={<LifeAlignment />} />
+          <Route path="/confidence-steps" element={<ConfidenceSteps />} />
+          <Route path="/reading-library" element={<ReadingLibrary />} />
+          <Route path="/music-dashboard" element={<MusicDashboard />} />
+          <Route path="/languages-dashboard" element={<LanguagesDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

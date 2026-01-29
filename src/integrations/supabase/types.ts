@@ -86,6 +86,68 @@ export type Database = {
         }
         Relationships: []
       }
+      confidence_steps: {
+        Row: {
+          area: string
+          completed: boolean | null
+          created_at: string | null
+          description: string | null
+          id: string
+          level: number | null
+          order_index: number | null
+          parent_id: string | null
+          progress_percentage: number | null
+          target_date: string | null
+          target_level: number | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+          view_type: string | null
+        }
+        Insert: {
+          area: string
+          completed?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          level?: number | null
+          order_index?: number | null
+          parent_id?: string | null
+          progress_percentage?: number | null
+          target_date?: string | null
+          target_level?: number | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+          view_type?: string | null
+        }
+        Update: {
+          area?: string
+          completed?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          level?: number | null
+          order_index?: number | null
+          parent_id?: string | null
+          progress_percentage?: number | null
+          target_date?: string | null
+          target_level?: number | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+          view_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confidence_steps_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "confidence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_plan_tasks: {
         Row: {
           created_at: string
@@ -424,6 +486,51 @@ export type Database = {
           },
         ]
       }
+      focus_sessions: {
+        Row: {
+          block_id: string | null
+          completed: boolean | null
+          created_at: string | null
+          duration_minutes: number | null
+          end_time: string | null
+          id: string
+          notes: string | null
+          start_time: string
+          task_area: string | null
+          task_id: string | null
+          task_title: string
+          user_id: string | null
+        }
+        Insert: {
+          block_id?: string | null
+          completed?: boolean | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          start_time: string
+          task_area?: string | null
+          task_id?: string | null
+          task_title: string
+          user_id?: string | null
+        }
+        Update: {
+          block_id?: string | null
+          completed?: boolean | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          start_time?: string
+          task_area?: string | null
+          task_id?: string | null
+          task_title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       goal_block_connections: {
         Row: {
           block_id: string
@@ -751,6 +858,53 @@ export type Database = {
           },
         ]
       }
+      meal_details: {
+        Row: {
+          ai_response: Json | null
+          carbs_grams: number | null
+          created_at: string | null
+          description: string
+          estimated_calories: number | null
+          fat_grams: number | null
+          id: string
+          meal_tracking_id: string | null
+          protein_grams: number | null
+          user_id: string | null
+        }
+        Insert: {
+          ai_response?: Json | null
+          carbs_grams?: number | null
+          created_at?: string | null
+          description: string
+          estimated_calories?: number | null
+          fat_grams?: number | null
+          id?: string
+          meal_tracking_id?: string | null
+          protein_grams?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          ai_response?: Json | null
+          carbs_grams?: number | null
+          created_at?: string | null
+          description?: string
+          estimated_calories?: number | null
+          fat_grams?: number | null
+          id?: string
+          meal_tracking_id?: string | null
+          protein_grams?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_details_meal_tracking_id_fkey"
+            columns: ["meal_tracking_id"]
+            isOneToOne: false
+            referencedRelation: "meal_tracking"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_tracking: {
         Row: {
           completed: boolean | null
@@ -784,6 +938,48 @@ export type Database = {
           notes?: string | null
           scheduled_time?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      music_repertoire: {
+        Row: {
+          artist: string | null
+          created_at: string | null
+          difficulty: string | null
+          id: string
+          instrument: string
+          notes: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          artist?: string | null
+          created_at?: string | null
+          difficulty?: string | null
+          id?: string
+          instrument: string
+          notes?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          artist?: string | null
+          created_at?: string | null
+          difficulty?: string | null
+          id?: string
+          instrument?: string
+          notes?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
@@ -906,6 +1102,60 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      reading_library: {
+        Row: {
+          author: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          finish_date: string | null
+          genre: string | null
+          id: string
+          notes: string | null
+          pages_read: number | null
+          pages_total: number | null
+          rating: number | null
+          start_date: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          author?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          finish_date?: string | null
+          genre?: string | null
+          id?: string
+          notes?: string | null
+          pages_read?: number | null
+          pages_total?: number | null
+          rating?: number | null
+          start_date?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          author?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          finish_date?: string | null
+          genre?: string | null
+          id?: string
+          notes?: string | null
+          pages_read?: number | null
+          pages_total?: number | null
+          rating?: number | null
+          start_date?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -1391,6 +1641,51 @@ export type Database = {
           name?: string
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      weekly_objectives: {
+        Row: {
+          area: string
+          completed: boolean | null
+          created_at: string | null
+          current_value: number | null
+          description: string | null
+          id: string
+          target_value: number | null
+          title: string
+          unit: string | null
+          updated_at: string | null
+          user_id: string | null
+          week_start_date: string
+        }
+        Insert: {
+          area: string
+          completed?: boolean | null
+          created_at?: string | null
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          target_value?: number | null
+          title: string
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          week_start_date: string
+        }
+        Update: {
+          area?: string
+          completed?: boolean | null
+          created_at?: string | null
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          target_value?: number | null
+          title?: string
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          week_start_date?: string
         }
         Relationships: []
       }
