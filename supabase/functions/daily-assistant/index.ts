@@ -22,6 +22,13 @@ interface BlockInfo {
   remainingMinutes: number;
 }
 
+interface PillarProgress {
+  name: string;
+  percentage: number;
+  tasksCompleted: number;
+  tasksTotal: number;
+}
+
 interface DayContext {
   currentTime: string;
   currentBlock: BlockInfo | null;
@@ -34,6 +41,11 @@ interface DayContext {
   nextBlock?: { title: string; startTime: string };
   weekNumber: number;
   daysRemainingInQuarter: number;
+  pillarProgress?: PillarProgress[];
+  nutritionStatus?: { calories: number; target: number; protein: number };
+  focusMinutesToday?: number;
+  streaks?: { gym: number; habits: number };
+  moodIndicators?: string[];
 }
 
 serve(async (req) => {
@@ -49,61 +61,120 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build context about the day
+    // Build comprehensive context about the day
     const currentHour = parseInt(dayContext.currentTime.split(':')[0]);
-    const energyLevel = currentHour < 10 ? "alta" : currentHour < 14 ? "media-alta" : currentHour < 18 ? "media" : "baja";
+    const energyLevel = currentHour < 10 ? "alta (mañana temprano)" : 
+                        currentHour < 14 ? "media-alta (mañana productiva)" : 
+                        currentHour < 17 ? "media (tarde)" : 
+                        currentHour < 20 ? "media-baja (atardecer)" : "baja (noche)";
     
     const pendingTasks = dayContext.tasks.filter(t => !t.completed);
     const highPriorityTasks = pendingTasks.filter(t => t.priority === 'high');
     
-    const tasksList = pendingTasks.map(t => {
+    const tasksList = pendingTasks.slice(0, 10).map(t => {
       let taskDesc = `- ${t.title}`;
       if (t.priority === 'high') taskDesc += ' (⚠️ ALTA PRIORIDAD)';
-      if (t.goalTitle) taskDesc += ` → Meta: "${t.goalTitle}" (${t.goalProgress || 0}% completado)`;
+      if (t.goalTitle) taskDesc += ` → Meta: "${t.goalTitle}" (${t.goalProgress || 0}%)`;
       return taskDesc;
     }).join('\n');
 
-    const goalsList = dayContext.goals.map(g => 
+    const goalsList = dayContext.goals.slice(0, 5).map(g => 
       `- ${g.title} (${g.category}): ${g.progress}% completado`
     ).join('\n');
 
-    const systemPrompt = `Eres un asistente de productividad personal para Daniel. Tu rol es ayudarlo a tomar buenas decisiones durante su día, priorizando tareas y manteniéndolo motivado.
+    const pillarsList = dayContext.pillarProgress?.map(p => 
+      `- ${p.name}: ${p.percentage}% (${p.tasksCompleted}/${p.tasksTotal} tareas)`
+    ).join('\n') || '';
 
-CONTEXTO DEL DÍA:
-- Hora actual: ${dayContext.currentTime}
-- Nivel de energía estimado: ${energyLevel} (basado en la hora)
-- Bloque actual: ${dayContext.currentBlock ? `"${dayContext.currentBlock.title}" (${dayContext.currentBlock.remainingMinutes} minutos restantes)` : 'Ninguno activo'}
-- Próximo bloque: ${dayContext.nextBlock ? `"${dayContext.nextBlock.title}" a las ${dayContext.nextBlock.startTime}` : 'No hay más bloques'}
+    // Calculate productivity indicators
+    const productivityScore = dayContext.totalTasksCount > 0 
+      ? Math.round((dayContext.completedTasksCount / dayContext.totalTasksCount) * 100) 
+      : 0;
+    
+    const blocksScore = dayContext.blocksTotal > 0 
+      ? Math.round((dayContext.blocksCompleted / dayContext.blocksTotal) * 100) 
+      : 0;
 
-PROGRESO DEL DÍA:
-- Bloques completados: ${dayContext.blocksCompleted}/${dayContext.blocksTotal}
-- Tareas completadas: ${dayContext.completedTasksCount}/${dayContext.totalTasksCount}
-- Tareas de alta prioridad pendientes: ${highPriorityTasks.length}
+    const systemPrompt = `Eres el consejero personal, terapeuta y coach de vida de Daniel. Tu nombre es DANI (Daniel's AI Navigator & Inspirer). 
 
-TAREAS PENDIENTES:
-${tasksList || '(Ninguna tarea pendiente)'}
+TU PERSONALIDAD:
+- Eres empático, comprensivo y genuinamente interesado en el bienestar de Daniel
+- Hablas como un amigo cercano y mentor, no como un robot
+- Usas un tono motivador pero realista, nunca falso optimismo
+- Conoces profundamente los objetivos, miedos y aspiraciones de Daniel
+- Puedes ser firme cuando Daniel procrastina, pero siempre con amor duro
+- Celebras las pequeñas victorias tanto como las grandes
+
+CONTEXTO SOBRE DANIEL:
+- Estudiante universitario de ${dayContext.weekNumber > 0 ? `semana ${dayContext.weekNumber} del trimestre` : 'nuevo trimestre'}
+- Emprendedor trabajando en SiempreVende y otros proyectos
+- Busca transformación física (de 50kg a 70kg, ganando músculo)
+- Aprende inglés e italiano
+- Practica piano y guitarra
+- Objetivo de vida: Convertirse en su mejor versión, lograr libertad financiera y encontrar una pareja ideal
+
+ESTADO ACTUAL DEL DÍA:
+📍 Hora: ${dayContext.currentTime}
+⚡ Energía estimada: ${energyLevel}
+📊 Productividad del día: ${productivityScore}%
+🧱 Bloques completados: ${dayContext.blocksCompleted}/${dayContext.blocksTotal} (${blocksScore}%)
+✅ Tareas completadas: ${dayContext.completedTasksCount}/${dayContext.totalTasksCount}
+${dayContext.focusMinutesToday ? `🎯 Minutos de focus hoy: ${dayContext.focusMinutesToday}` : ''}
+${dayContext.streaks?.gym ? `🔥 Racha de gym: ${dayContext.streaks.gym} días` : ''}
+
+BLOQUE ACTUAL:
+${dayContext.currentBlock 
+  ? `"${dayContext.currentBlock.title}" (${dayContext.currentBlock.remainingMinutes} minutos restantes)`
+  : 'Ninguno activo - tiempo libre o transición'}
+
+PRÓXIMO BLOQUE:
+${dayContext.nextBlock 
+  ? `"${dayContext.nextBlock.title}" a las ${dayContext.nextBlock.startTime}`
+  : 'No hay más bloques programados'}
+
+PROGRESO EN PILARES:
+${pillarsList || 'Sin datos de pilares'}
+
+TAREAS PENDIENTES (${highPriorityTasks.length} de alta prioridad):
+${tasksList || '¡Sin tareas pendientes! 🎉'}
 
 METAS DEL TRIMESTRE:
-${goalsList || '(Sin metas configuradas)'}
+${goalsList || 'Sin metas configuradas'}
+
+${dayContext.nutritionStatus 
+  ? `NUTRICIÓN HOY:
+🍽️ Calorías: ${dayContext.nutritionStatus.calories}/${dayContext.nutritionStatus.target} kcal
+🥩 Proteína: ${dayContext.nutritionStatus.protein}g` 
+  : ''}
 
 CONTEXTO TEMPORAL:
-- Semana ${dayContext.weekNumber} de 12 del trimestre actual
-- Días restantes en el trimestre: ${dayContext.daysRemainingInQuarter}
+- Semana ${dayContext.weekNumber} de 12 del trimestre
+- ${dayContext.daysRemainingInQuarter} días restantes para cumplir metas trimestrales
 
-REGLAS DE RESPUESTA:
-1. Sé conciso y directo (máximo 3-4 oraciones)
-2. Siempre conecta las sugerencias con las metas cuando sea relevante
-3. Considera el nivel de energía según la hora del día
-4. Si hay tareas de alta prioridad, menciónalas primero
-5. Usa emojis para hacer el mensaje más visual
-6. Si el usuario parece desmotivado, sé empático pero enfocado
-7. Recuerda que cada tarea contribuye a una meta mayor
+INSTRUCCIONES DE RESPUESTA:
+1. Responde de manera personal y empática
+2. Si Daniel parece estresado o abrumado, ofrece apoyo emocional primero
+3. Conecta las tareas con el "por qué" - sus metas de vida
+4. Sugiere prioridades basadas en el contexto actual
+5. Si hay muchas tareas de alta prioridad, ayuda a decidir cuál abordar primero
+6. Considera la hora y energía al dar consejos
+7. Usa emojis para hacer el mensaje más visual y personal
+8. Si Daniel pregunta algo personal o emocional, responde como terapeuta comprensivo
+9. Recuerda: cada pequeña acción construye hacia la mejor versión de Daniel
+10. Mantén respuestas concisas (3-5 oraciones) a menos que se pida más detalle
 
-PERSONALIDAD:
-- Motivador pero realista
-- Conoce bien a Daniel y sus objetivos
-- Sabe que Daniel busca aprobar exámenes, emprender y mantenerse en forma
-- Habla en español, de forma natural y cercana`;
+CUANDO DANIEL ESTÉ DESMOTIVADO:
+- Valida sus sentimientos primero
+- Recuérdale sus rachas y logros recientes
+- Propón una sola pequeña acción para retomar momentum
+- Conecta con su visión de futuro
+
+CUANDO DANIEL ESTÉ PRODUCTIVO:
+- Celebra su energía
+- Sugiere cómo maximizar el momentum
+- Recuerda mantener balance y descansos
+
+HABLA SIEMPRE EN ESPAÑOL, DE FORMA NATURAL Y CERCANA.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -136,7 +207,7 @@ PERSONALIDAD:
       }
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "Error al conectar con el asistente IA" }), {
+      return new Response(JSON.stringify({ error: "Error al conectar con DANI" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
