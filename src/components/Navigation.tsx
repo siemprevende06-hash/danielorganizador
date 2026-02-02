@@ -15,6 +15,7 @@ import { useState } from 'react';
 const navItems = [
   { path: '/', label: 'Inicio', icon: Home },
   { path: '/life-alignment', label: 'Alineación', icon: Compass },
+  { path: '/confidence-steps', label: 'Escalones', icon: Target },
   { path: '/focus', label: 'Focus', icon: Focus },
   { path: '/routine-day', label: 'Rutina del Día', icon: LayoutList },
   { path: '/control-room', label: 'Control', icon: Gauge },
@@ -36,6 +37,9 @@ const navItems = [
   { path: '/projects', label: 'Proyectos', icon: Target },
   { path: '/entrepreneurship', label: 'Emprendimiento', icon: Briefcase },
   { path: '/university', label: 'Universidad', icon: GraduationCap },
+  { path: '/languages-dashboard', label: 'Idiomas', icon: BookOpen },
+  { path: '/reading-library', label: 'Biblioteca', icon: BookOpen },
+  { path: '/music-dashboard', label: 'Música', icon: BookOpen },
   { path: '/journaling', label: 'Diario', icon: BookOpen },
   { path: '/tools', label: 'Herramientas', icon: Wrench },
   { path: '/reminders', label: 'Recordatorios', icon: Bell },

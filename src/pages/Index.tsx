@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Focus, CalendarPlus, ClipboardCheck, BarChart3 } from "lucide-react";
+import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass } from "lucide-react";
 import { CurrentBlockHighlight } from "@/components/today/CurrentBlockHighlight";
 import { MealTracker } from "@/components/today/MealTracker";
 import { InteractiveConsistencyTracker } from "@/components/today/InteractiveConsistencyTracker";
@@ -23,6 +23,9 @@ import { DayProgressCharts } from "@/components/today/DayProgressCharts";
 import { DetailedDayStats } from "@/components/today/DetailedDayStats";
 import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
 import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
+import { DailyGuide } from "@/components/today/DailyGuide";
+import { EnhancedHabitsSchedule } from "@/components/today/EnhancedHabitsSchedule";
+import { NutritionAITracker } from "@/components/today/NutritionAITracker";
 import { usePillarProgress } from "@/hooks/usePillarProgress";
 
 export default function Index() {
@@ -43,10 +46,13 @@ export default function Index() {
           </p>
         </div>
 
+        {/* Daily Guide - Real-time guidance */}
+        <DailyGuide />
+
         {/* Week Context - Shows where you are in the 12-week year */}
         <WeekContext />
 
-        {/* Pillar Progress Grid - 5 Main Pillars */}
+        {/* Pillar Progress Grid - 5 Main Pillars (Clickable) */}
         <Card>
           <CardContent className="pt-6">
             <PillarProgressGrid 
@@ -57,7 +63,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        {/* Secondary Goals */}
+        {/* Secondary Goals (Clickable) */}
         <Card>
           <CardContent className="pt-6">
             <SecondaryGoalsProgress 
@@ -69,6 +75,16 @@ export default function Index() {
 
         {/* Daily Motivation */}
         <DailyMotivation />
+
+        {/* Enhanced Habits Schedule - With times */}
+        <Card>
+          <CardContent className="pt-6">
+            <EnhancedHabitsSchedule />
+          </CardContent>
+        </Card>
+
+        {/* Nutrition AI Tracker */}
+        <NutritionAITracker />
 
         {/* Interactive Consistency Tracker - Clear view of daily activities */}
         <Card>
@@ -154,7 +170,7 @@ export default function Index() {
         <QuickProgress />
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <Link to="/focus" className="block">
             <Button 
               variant="outline" 
@@ -182,6 +198,16 @@ export default function Index() {
             >
               <ClipboardCheck className="w-5 h-5" />
               <span className="text-xs">Autocrítica</span>
+            </Button>
+          </Link>
+
+          <Link to="/confidence-steps" className="block">
+            <Button 
+              variant="outline" 
+              className="w-full h-auto py-4 flex-col gap-2 hover:bg-foreground hover:text-background transition-colors"
+            >
+              <Compass className="w-5 h-5" />
+              <span className="text-xs">Escalones</span>
             </Button>
           </Link>
 
