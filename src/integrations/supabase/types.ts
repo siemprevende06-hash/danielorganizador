@@ -983,6 +983,89 @@ export type Database = {
         }
         Relationships: []
       }
+      partial_exam_topics: {
+        Row: {
+          created_at: string | null
+          id: string
+          partial_exam_id: string | null
+          topic_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          partial_exam_id?: string | null
+          topic_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          partial_exam_id?: string | null
+          topic_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partial_exam_topics_partial_exam_id_fkey"
+            columns: ["partial_exam_id"]
+            isOneToOne: false
+            referencedRelation: "partial_exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partial_exam_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "subject_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partial_exams: {
+        Row: {
+          created_at: string | null
+          exam_date: string | null
+          grade: number | null
+          id: string
+          status: string | null
+          subject_id: string | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+          weight_percentage: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          exam_date?: string | null
+          grade?: number | null
+          id?: string
+          status?: string | null
+          subject_id?: string | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+          weight_percentage?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          exam_date?: string | null
+          grade?: number | null
+          id?: string
+          status?: string | null
+          subject_id?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+          weight_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partial_exams_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "university_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       physical_goals: {
         Row: {
           created_at: string | null
@@ -1331,6 +1414,50 @@ export type Database = {
         }
         Relationships: []
       }
+      subject_topics: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_for_final: boolean | null
+          order_index: number | null
+          subject_id: string | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_for_final?: boolean | null
+          order_index?: number | null
+          subject_id?: string | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_for_final?: boolean | null
+          order_index?: number | null
+          subject_id?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "university_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subtasks: {
         Row: {
           completed: boolean
@@ -1370,6 +1497,7 @@ export type Database = {
           created_at: string
           description: string | null
           due_date: string | null
+          estimated_minutes: number | null
           id: string
           priority: string | null
           routine_block_id: string | null
@@ -1377,7 +1505,9 @@ export type Database = {
           source_id: string | null
           start_date: string | null
           status: string
+          task_type: string | null
           title: string
+          topic_id: string | null
           updated_at: string
           user_id: string | null
         }
@@ -1387,6 +1517,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          estimated_minutes?: number | null
           id?: string
           priority?: string | null
           routine_block_id?: string | null
@@ -1394,7 +1525,9 @@ export type Database = {
           source_id?: string | null
           start_date?: string | null
           status?: string
+          task_type?: string | null
           title: string
+          topic_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1404,6 +1537,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          estimated_minutes?: number | null
           id?: string
           priority?: string | null
           routine_block_id?: string | null
@@ -1411,7 +1545,9 @@ export type Database = {
           source_id?: string | null
           start_date?: string | null
           status?: string
+          task_type?: string | null
           title?: string
+          topic_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -1521,30 +1657,75 @@ export type Database = {
         }
         Relationships: []
       }
+      university_settings: {
+        Row: {
+          academic_schedule: Json | null
+          created_at: string | null
+          current_semester: number | null
+          current_year: number | null
+          id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          academic_schedule?: Json | null
+          created_at?: string | null
+          current_semester?: number | null
+          current_year?: number | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          academic_schedule?: Json | null
+          created_at?: string | null
+          current_semester?: number | null
+          current_year?: number | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       university_subjects: {
         Row: {
           color: string | null
           created_at: string
+          credits: number | null
           id: string
           name: string
+          professor: string | null
+          schedule: string | null
+          semester: number | null
           updated_at: string
           user_id: string | null
+          year: number | null
         }
         Insert: {
           color?: string | null
           created_at?: string
+          credits?: number | null
           id?: string
           name: string
+          professor?: string | null
+          schedule?: string | null
+          semester?: number | null
           updated_at?: string
           user_id?: string | null
+          year?: number | null
         }
         Update: {
           color?: string | null
           created_at?: string
+          credits?: number | null
           id?: string
           name?: string
+          professor?: string | null
+          schedule?: string | null
+          semester?: number | null
           updated_at?: string
           user_id?: string | null
+          year?: number | null
         }
         Relationships: []
       }
