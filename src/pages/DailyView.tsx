@@ -3,7 +3,7 @@ import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { DailyGuide } from '@/components/today/DailyGuide';
-import { OrganizedLearning } from '@/components/today/OrganizedLearning';
+import { OrganizedDayStructure } from '@/components/today/OrganizedDayStructure';
 import { DailyActionPlan } from '@/components/today/DailyActionPlan';
 import { DailyScheduleOverview } from '@/components/today/DailyScheduleOverview';
 import { NutritionAITracker } from '@/components/today/NutritionAITracker';
@@ -39,8 +39,8 @@ export default function DailyView() {
         {/* 2. Current Block with AI Assistant */}
         <CurrentBlockHighlight />
 
-        {/* 3. Organized Learning - Book, Music, Languages, University, Projects, Entrepreneurship */}
-        <OrganizedLearning />
+        {/* 3. NEW - Organized Day Structure by Areas (Professional, Development, Appearance, Finances) */}
+        <OrganizedDayStructure />
 
         {/* 4. Daily Action Plan - All tasks organized by priority */}
         <DailyActionPlan />
@@ -52,16 +52,16 @@ export default function DailyView() {
 
         <Separator />
 
-        {/* 6. Nutrition Tracking with AI */}
-        <NutritionAITracker />
-
-        {/* 7. Meal Tracker */}
-        <MealTracker />
+        {/* 6. Daily Finances */}
+        <TodayFinances />
 
         <Separator />
 
-        {/* 8. Daily Finances */}
-        <TodayFinances />
+        {/* 7. Nutrition Tracking with AI */}
+        <NutritionAITracker />
+
+        {/* 8. Meal Tracker */}
+        <MealTracker />
 
         <Separator />
 
