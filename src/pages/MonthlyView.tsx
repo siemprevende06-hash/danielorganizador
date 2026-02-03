@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Calendar, CheckCircle2, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { MonthlyGoalsSection } from '@/components/today/MonthlyGoalsSection';
 
 interface DayData {
   date: Date;
@@ -77,14 +78,13 @@ export default function MonthlyView() {
     const today = new Date();
 
     const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    const totalHabits = habitHistory.length || 6; // Default 6 habits
+    const totalHabits = habitHistory.length || 6;
 
     const daysWithData: DayData[] = monthDays.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd');
       const isToday = isSameDay(day, today);
       const isFuture = day > today;
 
-      // Tasks for this day
       const dayTasks = allTasks.filter(t => {
         const taskDate = t.due_date?.split('T')[0];
         return taskDate === dayStr;
@@ -92,7 +92,6 @@ export default function MonthlyView() {
       const tasksCompleted = dayTasks.filter(t => t.completed).length;
       const tasksTotal = dayTasks.length;
 
-      // Habits for this day
       let habitsCompleted = 0;
       habitHistory.forEach(h => {
         const dates = (h.completed_dates as any[]) || [];
@@ -101,10 +100,8 @@ export default function MonthlyView() {
         }
       });
 
-      // Daily review for this day
       const review = dailyReviews.find(r => r.review_date === dayStr);
 
-      // Calculate score
       const taskScore = tasksTotal > 0 ? (tasksCompleted / tasksTotal) * 50 : 25;
       const habitScore = totalHabits > 0 ? (habitsCompleted / totalHabits) * 50 : 25;
       const score = Math.round(taskScore + habitScore);
@@ -141,7 +138,6 @@ export default function MonthlyView() {
       ? Math.round(pastDays.reduce((sum, d) => sum + d.score, 0) / totalDays)
       : 0;
 
-    // Calculate trend (compare first half vs second half)
     const mid = Math.floor(pastDays.length / 2);
     const firstHalf = pastDays.slice(0, mid);
     const secondHalf = pastDays.slice(mid);
@@ -157,7 +153,6 @@ export default function MonthlyView() {
     if (secondAvg > firstAvg + 5) trend = 'up';
     else if (secondAvg < firstAvg - 5) trend = 'down';
 
-    // Find best day
     const bestDay = pastDays.length > 0
       ? pastDays.reduce((best, d) => d.score > best.score ? d : best, pastDays[0])
       : null;
@@ -185,7 +180,6 @@ export default function MonthlyView() {
     });
   };
 
-  // Get the day of week the month starts on (0 = Monday in our grid)
   const firstDayOfMonth = monthStart.getDay();
   const startPadding = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
@@ -217,6 +211,9 @@ export default function MonthlyView() {
           </Button>
         </div>
       </header>
+
+      {/* Monthly Goals - Books, Piano, Guitar */}
+      <MonthlyGoalsSection />
 
       {/* Month Stats Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

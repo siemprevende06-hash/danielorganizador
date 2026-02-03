@@ -3,7 +3,7 @@ import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { DailyGuide } from '@/components/today/DailyGuide';
-import { LearningToday } from '@/components/today/LearningToday';
+import { OrganizedLearning } from '@/components/today/OrganizedLearning';
 import { DailyActionPlan } from '@/components/today/DailyActionPlan';
 import { DailyScheduleOverview } from '@/components/today/DailyScheduleOverview';
 import { NutritionAITracker } from '@/components/today/NutritionAITracker';
@@ -13,8 +13,7 @@ import { CurrentBlockHighlight } from '@/components/today/CurrentBlockHighlight'
 import { InteractiveConsistencyTracker } from '@/components/today/InteractiveConsistencyTracker';
 import { MealTracker } from '@/components/today/MealTracker';
 import { TodayWorkout } from '@/components/today/TodayWorkout';
-import { EnhancedDayTimeline } from '@/components/today/EnhancedDayTimeline';
-import { DetailedDayStats } from '@/components/today/DetailedDayStats';
+import { TodayFinances } from '@/components/today/TodayFinances';
 import { GoalContributions } from '@/components/today/GoalContributions';
 
 export default function DailyView() {
@@ -37,40 +36,47 @@ export default function DailyView() {
         {/* 1. Real-time Guide - Current block and next */}
         <DailyGuide />
 
-        {/* 2. Learning Today - Book, Music, Languages */}
-        <LearningToday />
+        {/* 2. Current Block with AI Assistant */}
+        <CurrentBlockHighlight />
 
-        {/* 3. Daily Action Plan - All tasks organized by priority */}
+        {/* 3. Organized Learning - Book, Music, Languages, University, Projects, Entrepreneurship */}
+        <OrganizedLearning />
+
+        {/* 4. Daily Action Plan - All tasks organized by priority */}
         <DailyActionPlan />
 
-        {/* 4. Full Day Schedule - Visual timeline */}
+        <Separator />
+
+        {/* 5. Full Day Schedule - Visual timeline */}
         <DailyScheduleOverview />
 
         <Separator />
 
-        {/* 5. Nutrition Tracking */}
+        {/* 6. Nutrition Tracking with AI */}
         <NutritionAITracker />
 
-        {/* 6. Meal Tracker */}
+        {/* 7. Meal Tracker */}
         <MealTracker />
 
         <Separator />
 
-        {/* 7. Area Progress with Weekly Objectives */}
+        {/* 8. Daily Finances */}
+        <TodayFinances />
+
+        <Separator />
+
+        {/* 9. Area Progress with Weekly Objectives */}
         <AreaStatsToday />
 
-        {/* 8. Day → Week → Month Connection */}
+        {/* 10. Day → Week → Month Connection */}
         <TimelineConnection />
 
         <Separator />
 
-        {/* 9. Current Block Details */}
-        <CurrentBlockHighlight />
-
-        {/* 10. Today's Workout */}
+        {/* 11. Today's Workout */}
         <TodayWorkout />
 
-        {/* 11. Interactive Habits Tracker */}
+        {/* 12. Interactive Habits Tracker */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
@@ -82,24 +88,9 @@ export default function DailyView() {
           </CardContent>
         </Card>
 
-        {/* 12. Enhanced Timeline */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              Timeline Detallado
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <EnhancedDayTimeline />
-          </CardContent>
-        </Card>
-
         <Separator />
 
-        {/* 13. Detailed Stats */}
-        <DetailedDayStats />
-
-        {/* 14. Goal Contributions */}
+        {/* 13. Goal Contributions */}
         <GoalContributions />
       </div>
     </div>
