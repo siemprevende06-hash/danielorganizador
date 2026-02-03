@@ -64,7 +64,8 @@ export function DetailedDayStats() {
         .eq("status", "active");
 
       const quarterlyGoals: QuarterlyGoal[] = (goals || []).map(goal => {
-        const targetDate = goal.target_value ? new Date(goal.target_value) : quarterEnd;
+        // Use quarter end date since target_value is a text metric, not a date
+        const targetDate = quarterEnd;
         return {
           id: goal.id,
           title: goal.title,

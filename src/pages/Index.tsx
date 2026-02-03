@@ -10,22 +10,20 @@ import { MealTracker } from "@/components/today/MealTracker";
 import { InteractiveConsistencyTracker } from "@/components/today/InteractiveConsistencyTracker";
 import { EnhancedDayTimeline } from "@/components/today/EnhancedDayTimeline";
 import { TodayStats } from "@/components/today/TodayStats";
-import { TodayTasks } from "@/components/today/TodayTasks";
-import { TodayHabits } from "@/components/today/TodayHabits";
-import { QuickProgress } from "@/components/today/QuickProgress";
 import { WeekContext } from "@/components/today/WeekContext";
 import { TodayWorkout } from "@/components/today/TodayWorkout";
 import { UpcomingDeadlines } from "@/components/today/UpcomingDeadlines";
 import { GoalContributions } from "@/components/today/GoalContributions";
 import { DailyMotivation } from "@/components/today/DailyMotivation";
 import { ProductivityMeter } from "@/components/today/ProductivityMeter";
-import { DayProgressCharts } from "@/components/today/DayProgressCharts";
 import { DetailedDayStats } from "@/components/today/DetailedDayStats";
 import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
 import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
 import { DailyGuide } from "@/components/today/DailyGuide";
-import { EnhancedHabitsSchedule } from "@/components/today/EnhancedHabitsSchedule";
 import { NutritionAITracker } from "@/components/today/NutritionAITracker";
+import { DailyActionPlan } from "@/components/today/DailyActionPlan";
+import { AreaStatsToday } from "@/components/today/AreaStatsToday";
+import { TimelineConnection } from "@/components/today/TimelineConnection";
 import { usePillarProgress } from "@/hooks/usePillarProgress";
 
 export default function Index() {
@@ -46,13 +44,19 @@ export default function Index() {
           </p>
         </div>
 
-        {/* Daily Guide - Real-time guidance */}
+        {/* 1. Daily Guide - Real-time block guidance */}
         <DailyGuide />
 
-        {/* Week Context - Shows where you are in the 12-week year */}
-        <WeekContext />
+        {/* 2. Daily Action Plan - What to do today (NEW) */}
+        <DailyActionPlan />
 
-        {/* Pillar Progress Grid - 5 Main Pillars (Clickable) */}
+        {/* 3. Area Stats Today - Progress by area with weekly objectives (NEW) */}
+        <AreaStatsToday />
+
+        {/* 4. Timeline Connection - Day → Week → Month → Quarter (NEW) */}
+        <TimelineConnection />
+
+        {/* 5. Pillar Progress Grid - 5 Main Pillars (Clickable) */}
         <Card>
           <CardContent className="pt-6">
             <PillarProgressGrid 
@@ -63,7 +67,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        {/* Secondary Goals (Clickable) */}
+        {/* 6. Secondary Goals (Clickable) */}
         <Card>
           <CardContent className="pt-6">
             <SecondaryGoalsProgress 
@@ -73,30 +77,23 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        {/* Daily Motivation */}
-        <DailyMotivation />
-
-        {/* Enhanced Habits Schedule - With times */}
-        <Card>
-          <CardContent className="pt-6">
-            <EnhancedHabitsSchedule />
-          </CardContent>
-        </Card>
-
-        {/* Nutrition AI Tracker */}
+        {/* 7. Nutrition AI Tracker */}
         <NutritionAITracker />
 
-        {/* Interactive Consistency Tracker - Clear view of daily activities */}
+        {/* 8. Interactive Consistency Tracker */}
         <Card>
           <CardContent className="pt-6">
             <InteractiveConsistencyTracker />
           </CardContent>
         </Card>
 
-        {/* Current Block - Full Width */}
+        {/* 9. Current Block Highlight */}
         <CurrentBlockHighlight />
 
-        {/* Meal Tracker - Nutrition tracking */}
+        {/* Week Context - 12-week year position */}
+        <WeekContext />
+
+        {/* Meal Tracker */}
         <MealTracker />
 
         {/* Urgent Items Row */}
@@ -105,7 +102,7 @@ export default function Index() {
           <TodayWorkout />
         </div>
 
-        {/* Main Grid */}
+        {/* Main Grid - Timeline, Stats, Motivation */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Enhanced Timeline */}
           <Card className="lg:col-span-1">
@@ -114,49 +111,24 @@ export default function Index() {
             </CardContent>
           </Card>
 
-          {/* Middle Column - Tasks */}
+          {/* Middle Column - Stats Summary */}
           <Card className="lg:col-span-1">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                Tareas de Hoy
+                Estadísticas del Día
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <TodayTasks />
+              <TodayStats />
             </CardContent>
           </Card>
 
-          {/* Right Column - Stats & Habits */}
+          {/* Right Column - Daily Motivation */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                  Estadísticas
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TodayStats />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                  Hábitos Diarios
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TodayHabits />
-              </CardContent>
-            </Card>
+            <DailyMotivation />
+            <ProductivityMeter />
           </div>
         </div>
-
-        {/* Productivity Meter */}
-        <ProductivityMeter />
-
-        {/* Charts and Statistics */}
-        <DayProgressCharts />
 
         <Separator />
 
@@ -165,9 +137,6 @@ export default function Index() {
 
         {/* Goal Contributions - Why your tasks matter */}
         <GoalContributions />
-
-        {/* Quick Progress Cards */}
-        <QuickProgress />
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
