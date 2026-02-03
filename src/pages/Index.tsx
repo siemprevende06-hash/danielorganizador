@@ -5,25 +5,11 @@ import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass } from "lucide-react";
-import { CurrentBlockHighlight } from "@/components/today/CurrentBlockHighlight";
-import { MealTracker } from "@/components/today/MealTracker";
-import { InteractiveConsistencyTracker } from "@/components/today/InteractiveConsistencyTracker";
-import { EnhancedDayTimeline } from "@/components/today/EnhancedDayTimeline";
-import { TodayStats } from "@/components/today/TodayStats";
-import { WeekContext } from "@/components/today/WeekContext";
-import { TodayWorkout } from "@/components/today/TodayWorkout";
-import { UpcomingDeadlines } from "@/components/today/UpcomingDeadlines";
-import { GoalContributions } from "@/components/today/GoalContributions";
-import { DailyMotivation } from "@/components/today/DailyMotivation";
-import { ProductivityMeter } from "@/components/today/ProductivityMeter";
-import { DetailedDayStats } from "@/components/today/DetailedDayStats";
+import { QuickDaySummary } from "@/components/today/QuickDaySummary";
 import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
 import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
-import { DailyGuide } from "@/components/today/DailyGuide";
-import { NutritionAITracker } from "@/components/today/NutritionAITracker";
-import { DailyActionPlan } from "@/components/today/DailyActionPlan";
-import { AreaStatsToday } from "@/components/today/AreaStatsToday";
-import { TimelineConnection } from "@/components/today/TimelineConnection";
+import { DailyMotivation } from "@/components/today/DailyMotivation";
+import { WeekContext } from "@/components/today/WeekContext";
 import { usePillarProgress } from "@/hooks/usePillarProgress";
 
 export default function Index() {
@@ -37,26 +23,19 @@ export default function Index() {
         {/* Header */}
         <div className="text-center mb-4">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground uppercase tracking-tight">
-            HOY
+            INICIO
           </h1>
           <p className="text-muted-foreground capitalize mt-1">
             {formattedDate}
           </p>
         </div>
 
-        {/* 1. Daily Guide - Real-time block guidance */}
-        <DailyGuide />
+        {/* Quick Day Summary - Score, Tasks, Current Block, CTA */}
+        <QuickDaySummary />
 
-        {/* 2. Daily Action Plan - What to do today (NEW) */}
-        <DailyActionPlan />
+        <Separator />
 
-        {/* 3. Area Stats Today - Progress by area with weekly objectives (NEW) */}
-        <AreaStatsToday />
-
-        {/* 4. Timeline Connection - Day → Week → Month → Quarter (NEW) */}
-        <TimelineConnection />
-
-        {/* 5. Pillar Progress Grid - 5 Main Pillars (Clickable) */}
+        {/* Pillar Progress Grid - 5 Main Pillars (Clickable) */}
         <Card>
           <CardContent className="pt-6">
             <PillarProgressGrid 
@@ -67,7 +46,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        {/* 6. Secondary Goals (Clickable) */}
+        {/* Secondary Goals (Clickable) */}
         <Card>
           <CardContent className="pt-6">
             <SecondaryGoalsProgress 
@@ -77,66 +56,13 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        {/* 7. Nutrition AI Tracker */}
-        <NutritionAITracker />
-
-        {/* 8. Interactive Consistency Tracker */}
-        <Card>
-          <CardContent className="pt-6">
-            <InteractiveConsistencyTracker />
-          </CardContent>
-        </Card>
-
-        {/* 9. Current Block Highlight */}
-        <CurrentBlockHighlight />
-
         {/* Week Context - 12-week year position */}
         <WeekContext />
 
-        {/* Meal Tracker */}
-        <MealTracker />
-
-        {/* Urgent Items Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <UpcomingDeadlines />
-          <TodayWorkout />
-        </div>
-
-        {/* Main Grid - Timeline, Stats, Motivation */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Enhanced Timeline */}
-          <Card className="lg:col-span-1">
-            <CardContent className="pt-6">
-              <EnhancedDayTimeline />
-            </CardContent>
-          </Card>
-
-          {/* Middle Column - Stats Summary */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                Estadísticas del Día
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TodayStats />
-            </CardContent>
-          </Card>
-
-          {/* Right Column - Daily Motivation */}
-          <div className="space-y-6">
-            <DailyMotivation />
-            <ProductivityMeter />
-          </div>
-        </div>
+        {/* Daily Motivation */}
+        <DailyMotivation />
 
         <Separator />
-
-        {/* Detailed Stats */}
-        <DetailedDayStats />
-
-        {/* Goal Contributions - Why your tasks matter */}
-        <GoalContributions />
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
