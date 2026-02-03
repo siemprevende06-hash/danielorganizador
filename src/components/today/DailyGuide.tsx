@@ -1,19 +1,23 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle2, ArrowRight, Lightbulb } from 'lucide-react';
+import { Clock, CheckCircle2, ArrowRight, Lightbulb, Target, AlertTriangle } from 'lucide-react';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useBlockCompletions } from '@/hooks/useBlockCompletions';
-import { format } from 'date-fns';
+import { useWeeklyObjectives } from '@/hooks/useWeeklyObjectives';
+import { format, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 export const DailyGuide = () => {
   const { blocks } = useRoutineBlocksDB();
   const { completions } = useBlockCompletions();
+  const { objectives } = useWeeklyObjectives();
+  
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinutes = now.getMinutes();
   const currentTimeMinutes = currentHour * 60 + currentMinutes;
+  const weekStartStr = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
   // Find current block
   const currentBlock = blocks.find(block => {
@@ -39,6 +43,13 @@ export const DailyGuide = () => {
     return block?.title || '';
   }).filter(Boolean);
 
+  // Get current week objectives
+  const weekObjectives = objectives.filter(o => o.week_start_date === weekStartStr);
+  const lowProgressObjectives = weekObjectives.filter(o => {
+    const percent = o.target_value ? ((o.current_value || 0) / o.target_value) * 100 : 0;
+    return percent < 40;
+  });
+
   // Calculate time remaining in current block
   const getTimeRemaining = () => {
     if (!currentBlock) return null;
@@ -49,6 +60,28 @@ export const DailyGuide = () => {
   };
 
   const timeRemaining = getTimeRemaining();
+
+  // Find related weekly objective for current block
+  const getRelatedObjective = () => {
+    if (!currentBlock) return null;
+    const blockTitle = currentBlock.title.toLowerCase();
+    
+    const areaMapping: Record<string, string[]> = {
+      'universidad': ['estudio', 'study', 'universidad', 'uni', 'fisica', 'math'],
+      'emprendimiento': ['emprendimiento', 'trabajo', 'project', 'siemprevende', 'business'],
+      'gym': ['gym', 'ejercicio', 'workout', 'fitness', 'entreno'],
+      'idiomas': ['idiomas', 'english', 'ingles', 'italiano', 'language'],
+    };
+
+    for (const [area, keywords] of Object.entries(areaMapping)) {
+      if (keywords.some(kw => blockTitle.includes(kw))) {
+        return weekObjectives.find(o => o.area?.toLowerCase() === area);
+      }
+    }
+    return null;
+  };
+
+  const relatedObjective = getRelatedObjective();
 
   // Get motivational tip based on context
   const getMotivationalTip = () => {
@@ -113,6 +146,22 @@ export const DailyGuide = () => {
           )}
         </div>
 
+        {/* Related Weekly Objective */}
+        {relatedObjective && (
+          <div className="flex items-start gap-2 text-sm p-2 bg-muted/50 rounded-lg">
+            <Target className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+            <div>
+              <span className="text-muted-foreground">Objetivo semanal: </span>
+              <span className="font-medium">{relatedObjective.title}</span>
+              <span className="text-muted-foreground"> — </span>
+              <span className="font-mono text-xs">
+                {relatedObjective.current_value || 0}/{relatedObjective.target_value || 1} 
+                ({Math.round(((relatedObjective.current_value || 0) / (relatedObjective.target_value || 1)) * 100)}%)
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Completed blocks */}
         {completedBlockNames.length > 0 && (
           <div className="flex items-start gap-2 text-sm">
@@ -134,6 +183,24 @@ export const DailyGuide = () => {
             <span className="text-muted-foreground">Próximo:</span>
             <span className="font-medium">{nextBlock.title}</span>
             <span className="text-muted-foreground">({nextBlock.startTime})</span>
+          </div>
+        )}
+
+        {/* Low progress warning */}
+        {lowProgressObjectives.length > 0 && (
+          <div className={cn(
+            "flex items-start gap-2 p-2 rounded-lg",
+            "bg-destructive/10 border border-destructive/20"
+          )}>
+            <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium text-destructive">Objetivos con bajo progreso:</p>
+              <ul className="text-muted-foreground text-xs mt-1">
+                {lowProgressObjectives.slice(0, 2).map(o => (
+                  <li key={o.id}>• {o.title} ({Math.round(((o.current_value || 0) / (o.target_value || 1)) * 100)}%)</li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
 
