@@ -50,6 +50,81 @@ export type Database = {
         }
         Relationships: []
       }
+      area_goals_config: {
+        Row: {
+          area_id: string
+          created_at: string
+          default_exercises_goal: number | null
+          default_pages_goal: number | null
+          default_time_goal_minutes: number | null
+          id: string
+          show_exercises_tracking: boolean | null
+          show_pages_tracking: boolean | null
+          show_time_tracking: boolean | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id: string
+          created_at?: string
+          default_exercises_goal?: number | null
+          default_pages_goal?: number | null
+          default_time_goal_minutes?: number | null
+          id?: string
+          show_exercises_tracking?: boolean | null
+          show_pages_tracking?: boolean | null
+          show_time_tracking?: boolean | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string
+          created_at?: string
+          default_exercises_goal?: number | null
+          default_pages_goal?: number | null
+          default_time_goal_minutes?: number | null
+          id?: string
+          show_exercises_tracking?: boolean | null
+          show_pages_tracking?: boolean | null
+          show_time_tracking?: boolean | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      area_streaks: {
+        Row: {
+          area_id: string
+          created_at: string
+          current_streak: number | null
+          id: string
+          last_completed_date: string | null
+          longest_streak: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id: string
+          created_at?: string
+          current_streak?: number | null
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string
+          created_at?: string
+          current_streak?: number | null
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       block_completions: {
         Row: {
           block_id: string
@@ -147,6 +222,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      daily_area_stats: {
+        Row: {
+          area_id: string
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string
+          exercises_done: number | null
+          exercises_goal: number | null
+          id: string
+          notes: string | null
+          pages_done: number | null
+          pages_goal: number | null
+          stat_date: string
+          time_goal_minutes: number | null
+          time_spent_minutes: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id: string
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          exercises_done?: number | null
+          exercises_goal?: number | null
+          id?: string
+          notes?: string | null
+          pages_done?: number | null
+          pages_goal?: number | null
+          stat_date?: string
+          time_goal_minutes?: number | null
+          time_spent_minutes?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          exercises_done?: number | null
+          exercises_goal?: number | null
+          id?: string
+          notes?: string | null
+          pages_done?: number | null
+          pages_goal?: number | null
+          stat_date?: string
+          time_goal_minutes?: number | null
+          time_spent_minutes?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       daily_plan_tasks: {
         Row: {
