@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Calendar, CheckCircle2, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MonthlyGoalsSection } from '@/components/today/MonthlyGoalsSection';
+import { MonthlyAreaGoals } from '@/components/monthly/MonthlyAreaGoals';
 
 interface DayData {
   date: Date;
@@ -214,6 +215,9 @@ export default function MonthlyView() {
 
       {/* Monthly Goals - Books, Piano, Guitar */}
       <MonthlyGoalsSection />
+
+      {/* Monthly Area Goals - New Feature */}
+      <MonthlyAreaGoals currentMonth={currentMonth} />
 
       {/* Month Stats Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
