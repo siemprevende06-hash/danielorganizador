@@ -34,6 +34,7 @@ import Weeks from "./pages/Weeks";
 import VidaDanielEstadisticas from "./pages/VidaDanielEstadisticas";
 import DailySelfReview from "./pages/DailySelfReview";
 import LifeAlignment from "./pages/LifeAlignment";
+import GoalAlignment from "./pages/GoalAlignment";
 import ConfidenceSteps from "./pages/ConfidenceSteps";
 import ReadingLibrary from "./pages/ReadingLibrary";
 import MusicDashboard from "./pages/MusicDashboard";
@@ -76,7 +77,9 @@ const App = () => (
           <Route path="/performance-modes" element={<PerformanceModes />} />
           <Route path="/systems" element={<Systems />} />
           <Route path="/12-week-year" element={<TwelveWeekYear />} />
+          <Route path="/3-meses" element={<TwelveWeekYear />} />
           <Route path="/weeks" element={<Weeks />} />
+          <Route path="/goal-alignment" element={<GoalAlignment />} />
           <Route path="/vida-daniel" element={<VidaDanielEstadisticas />} />
           <Route path="/self-review" element={<DailySelfReview />} />
           <Route path="/life-alignment" element={<LifeAlignment />} />

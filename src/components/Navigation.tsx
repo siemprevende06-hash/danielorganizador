@@ -14,6 +14,8 @@ import { useState } from 'react';
 
 const navItems = [
   { path: '/', label: 'Inicio', icon: Home },
+  { path: '/12-week-year', label: '3 Meses', icon: Target },
+  { path: '/goal-alignment', label: 'Conexión Total', icon: Compass },
   { path: '/life-alignment', label: 'Alineación', icon: Compass },
   { path: '/confidence-steps', label: 'Escalones', icon: Target },
   { path: '/focus', label: 'Focus', icon: Focus },
@@ -26,8 +28,9 @@ const navItems = [
     label: 'Planificación Anual', 
     icon: Target,
     submenu: [
-      { path: '/12-week-year', label: 'Año de 12 Semanas' },
+      { path: '/12-week-year', label: 'Plan 3 Meses' },
       { path: '/weeks', label: 'Semanas' },
+      { path: '/goal-alignment', label: 'Conexión Total' },
     ]
   },
   { path: '/daily', label: 'Hoy', icon: Eye },
