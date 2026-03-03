@@ -40,6 +40,7 @@ import ReadingLibrary from "./pages/ReadingLibrary";
 import MusicDashboard from "./pages/MusicDashboard";
 import LanguagesDashboard from "./pages/LanguagesDashboard";
 import Purpose from "./pages/Purpose";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,7 @@ const App = () => (
           <Route path="/music-dashboard" element={<MusicDashboard />} />
           <Route path="/languages-dashboard" element={<LanguagesDashboard />} />
           <Route path="/proposito" element={<Purpose />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

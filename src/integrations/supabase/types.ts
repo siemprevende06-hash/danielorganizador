@@ -50,6 +50,33 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          created_at: string
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          setting_key: string
+          setting_value?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       area_goals_config: {
         Row: {
           area_id: string
@@ -1066,6 +1093,60 @@ export type Database = {
           meal_type?: string
           notes?: string | null
           scheduled_time?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      monthly_area_goals: {
+        Row: {
+          area_id: string
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string
+          current_value: number
+          description: string | null
+          id: string
+          month_end: string
+          month_start: string
+          priority: string
+          target_value: number
+          title: string
+          unit: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id: string
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          current_value?: number
+          description?: string | null
+          id?: string
+          month_end: string
+          month_start: string
+          priority?: string
+          target_value?: number
+          title: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          current_value?: number
+          description?: string | null
+          id?: string
+          month_end?: string
+          month_start?: string
+          priority?: string
+          target_value?: number
+          title?: string
+          unit?: string | null
+          updated_at?: string
           user_id?: string | null
         }
         Relationships: []

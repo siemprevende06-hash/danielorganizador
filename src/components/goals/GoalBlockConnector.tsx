@@ -44,22 +44,17 @@ export function GoalBlockConnector({
   const handleSave = async () => {
     try {
       setSaving(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      // Delete old connections
       await supabase
         .from('goal_block_connections')
         .delete()
         .eq('goal_id', goalId);
 
-      // Insert new connections
       if (selectedBlocks.length > 0) {
         const connections = selectedBlocks.map(blockId => {
           const block = availableBlocks.find(b => b.id === blockId);
           return {
             goal_id: goalId,
-            user_id: user.id,
             block_id: blockId,
             block_name: block?.title || '',
             contribution_percentage: Math.round(100 / selectedBlocks.length),
@@ -94,11 +89,7 @@ export function GoalBlockConnector({
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setOpen(true)}
-      >
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Link2 className="h-4 w-4 mr-2" />
         Conectar Bloques ({currentConnections.length})
       </Button>
@@ -117,25 +108,17 @@ export function GoalBlockConnector({
 
           <div className="space-y-4 max-h-96 overflow-y-auto">
             {availableBlocks.map((block) => (
-              <div
-                key={block.id}
-                className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-              >
+              <div key={block.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
                 <Checkbox
                   id={`block-${block.id}`}
                   checked={selectedBlocks.includes(block.id)}
                   onCheckedChange={() => handleToggle(block.id)}
                 />
-                <Label
-                  htmlFor={`block-${block.id}`}
-                  className="flex-1 cursor-pointer"
-                >
+                <Label htmlFor={`block-${block.id}`} className="flex-1 cursor-pointer">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{block.title}</span>
                     {block.duration && (
-                      <span className="text-sm text-muted-foreground">
-                        {block.duration} min
-                      </span>
+                      <span className="text-sm text-muted-foreground">{block.duration} min</span>
                     )}
                   </div>
                 </Label>
@@ -144,9 +127,7 @@ export function GoalBlockConnector({
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? "Guardando..." : "Guardar Conexiones"}
             </Button>

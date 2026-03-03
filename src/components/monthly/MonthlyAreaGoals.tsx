@@ -72,7 +72,7 @@ export function MonthlyAreaGoals({ currentMonth }: MonthlyAreaGoalsProps) {
   const loadMonthlyGoals = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('monthly_area_goals')
         .select('*')
         .gte('month_start', monthStartStr)
@@ -82,14 +82,9 @@ export function MonthlyAreaGoals({ currentMonth }: MonthlyAreaGoalsProps) {
         .order('created_at');
 
       if (error) throw error;
-      setGoals(data || []);
+      setGoals((data || []) as MonthlyAreaGoal[]);
     } catch (error) {
       console.error('Error loading monthly goals:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar los objetivos mensuales',
-        variant: 'destructive',
-      });
     } finally {
       setLoading(false);
     }
@@ -109,115 +104,52 @@ export function MonthlyAreaGoals({ currentMonth }: MonthlyAreaGoalsProps) {
 
   const handleDeleteGoal = async (goalId: string) => {
     if (!confirm('¿Estás seguro de eliminar este objetivo?')) return;
-
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('monthly_area_goals')
         .delete()
         .eq('id', goalId);
-
       if (error) throw error;
-
-      toast({
-        title: 'Objetivo eliminado',
-        description: 'El objetivo ha sido eliminado correctamente',
-      });
-
+      toast({ title: 'Objetivo eliminado' });
       await loadMonthlyGoals();
     } catch (error) {
       console.error('Error deleting goal:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar el objetivo',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo eliminar el objetivo', variant: 'destructive' });
     }
   };
 
   const handleUpdateProgress = async (goal: MonthlyAreaGoal, newValue: number) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('monthly_area_goals')
         .update({ current_value: newValue })
         .eq('id', goal.id);
-
       if (error) throw error;
-
       await loadMonthlyGoals();
     } catch (error) {
       console.error('Error updating progress:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo actualizar el progreso',
-        variant: 'destructive',
-      });
     }
   };
 
-  // Group goals by area
   const groupedGoals: AreaGoalsGroup[] = Object.entries(
     goals.reduce((acc, goal) => {
-      if (!acc[goal.area_id]) {
-        acc[goal.area_id] = [];
-      }
+      if (!acc[goal.area_id]) acc[goal.area_id] = [];
       acc[goal.area_id].push(goal);
       return acc;
     }, {} as Record<string, MonthlyAreaGoal[]>)
   ).map(([areaId, areaGoals]) => {
     const areaInfo = AREA_INFO[areaId] || AREA_INFO.general;
-    const totalProgress =
-      areaGoals.length > 0
-        ? areaGoals.reduce((sum, g) => sum + (g.current_value / g.target_value) * 100, 0) /
-          areaGoals.length
-        : 0;
-
-    return {
-      areaId,
-      areaName: areaInfo.name,
-      areaIcon: areaInfo.icon,
-      goals: areaGoals,
-      totalProgress: Math.min(100, totalProgress),
-    };
+    const totalProgress = areaGoals.length > 0
+      ? areaGoals.reduce((sum, g) => sum + (g.target_value > 0 ? (g.current_value / g.target_value) * 100 : 0), 0) / areaGoals.length
+      : 0;
+    return { areaId, areaName: areaInfo.name, areaIcon: areaInfo.icon, goals: areaGoals, totalProgress: Math.min(100, totalProgress) };
   });
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'border-red-500 text-red-600';
-      case 'medium':
-        return 'border-amber-500 text-amber-600';
-      case 'low':
-        return 'border-blue-500 text-blue-600';
-      default:
-        return '';
-    }
-  };
-
-  const getPriorityLabel = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'Alta';
-      case 'medium':
-        return 'Media';
-      case 'low':
-        return 'Baja';
-      default:
-        return priority;
-    }
-  };
+  const getPriorityColor = (p: string) => p === 'high' ? 'border-red-500 text-red-600' : p === 'medium' ? 'border-amber-500 text-amber-600' : 'border-blue-500 text-blue-600';
+  const getPriorityLabel = (p: string) => p === 'high' ? 'Alta' : p === 'medium' ? 'Media' : 'Baja';
 
   if (loading) {
-    return (
-      <Card>
-        <CardContent className="py-8">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-muted rounded w-1/3" />
-            <div className="h-20 bg-muted rounded" />
-            <div className="h-20 bg-muted rounded" />
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <Card><CardContent className="py-8"><div className="animate-pulse space-y-4"><div className="h-4 bg-muted rounded w-1/3" /><div className="h-20 bg-muted rounded" /></div></CardContent></Card>;
   }
 
   return (
@@ -229,10 +161,7 @@ export function MonthlyAreaGoals({ currentMonth }: MonthlyAreaGoalsProps) {
               <Target className="w-5 h-5 text-primary" />
               Objetivos Mensuales por Área - {monthName}
             </CardTitle>
-            <Button onClick={() => handleAddGoal()} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Objetivo
-            </Button>
+            <Button onClick={() => handleAddGoal()} size="sm"><Plus className="w-4 h-4 mr-2" />Nuevo Objetivo</Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -244,117 +173,45 @@ export function MonthlyAreaGoals({ currentMonth }: MonthlyAreaGoalsProps) {
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{areaGroup.areaIcon}</span>
                       <span className="font-medium text-base">{areaGroup.areaName}</span>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'ml-2',
-                          areaGroup.totalProgress >= 80 && 'border-green-500 text-green-600',
-                          areaGroup.totalProgress >= 50 &&
-                            areaGroup.totalProgress < 80 &&
-                            'border-amber-500 text-amber-600',
-                          areaGroup.totalProgress < 50 && 'border-muted text-muted-foreground'
-                        )}
-                      >
+                      <Badge variant="outline" className={cn('ml-2', areaGroup.totalProgress >= 80 && 'border-green-500 text-green-600', areaGroup.totalProgress >= 50 && areaGroup.totalProgress < 80 && 'border-amber-500 text-amber-600')}>
                         {Math.round(areaGroup.totalProgress)}%
                       </Badge>
                     </div>
-                    <Button
-                      onClick={() => handleAddGoal(areaGroup.areaId)}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                    <Button onClick={() => handleAddGoal(areaGroup.areaId)} variant="ghost" size="sm"><Plus className="w-4 h-4" /></Button>
                   </div>
-
                   <div className="space-y-3 pl-9">
                     {areaGroup.goals.map((goal) => {
-                      const progress = Math.min(100, (goal.current_value / goal.target_value) * 100);
+                      const progress = goal.target_value > 0 ? Math.min(100, (goal.current_value / goal.target_value) * 100) : 0;
                       return (
-                        <div
-                          key={goal.id}
-                          className="p-3 rounded-lg bg-muted/30 border border-border space-y-2"
-                        >
+                        <div key={goal.id} className="p-3 rounded-lg bg-muted/30 border border-border space-y-2">
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-2 flex-1">
-                              {goal.completed ? (
-                                <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                              ) : (
-                                <Circle className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                              )}
+                              {goal.completed ? <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" /> : <Circle className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />}
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-medium text-sm">{goal.title}</p>
-                                  <Badge variant="outline" className={cn('text-xs', getPriorityColor(goal.priority))}>
-                                    {getPriorityLabel(goal.priority)}
-                                  </Badge>
+                                  <Badge variant="outline" className={cn('text-xs', getPriorityColor(goal.priority))}>{getPriorityLabel(goal.priority)}</Badge>
                                 </div>
-                                {goal.description && (
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {goal.description}
-                                  </p>
-                                )}
+                                {goal.description && <p className="text-xs text-muted-foreground mt-1">{goal.description}</p>}
                               </div>
                             </div>
                             <div className="flex items-center gap-1 ml-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleEditGoal(goal)}
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive"
-                                onClick={() => handleDeleteGoal(goal.id)}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditGoal(goal)}><Pencil className="w-3 h-3" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteGoal(goal.id)}><Trash2 className="w-3 h-3" /></Button>
                             </div>
                           </div>
-
                           <div className="space-y-1">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">
-                                {goal.current_value} / {goal.target_value} {goal.unit || ''}
-                              </span>
+                              <span className="text-muted-foreground">{goal.current_value} / {goal.target_value} {goal.unit || ''}</span>
                               <span className="font-medium">{Math.round(progress)}%</span>
                             </div>
                             <Progress value={progress} className="h-2" />
                           </div>
-
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() =>
-                                handleUpdateProgress(goal, Math.max(0, goal.current_value - 1))
-                              }
-                              disabled={goal.current_value <= 0}
-                            >
-                              -1
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => handleUpdateProgress(goal, goal.current_value + 1)}
-                            >
-                              +1
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs flex-1"
-                              onClick={() => handleUpdateProgress(goal, goal.target_value)}
-                              disabled={goal.completed}
-                            >
-                              <TrendingUp className="w-3 h-3 mr-1" />
-                              Completar
+                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleUpdateProgress(goal, Math.max(0, goal.current_value - 1))} disabled={goal.current_value <= 0}>-1</Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleUpdateProgress(goal, goal.current_value + 1)}>+1</Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => handleUpdateProgress(goal, goal.target_value)} disabled={goal.completed}>
+                              <TrendingUp className="w-3 h-3 mr-1" />Completar
                             </Button>
                           </div>
                         </div>
@@ -363,38 +220,12 @@ export function MonthlyAreaGoals({ currentMonth }: MonthlyAreaGoalsProps) {
                   </div>
                 </div>
               ))}
-
-              <div className="pt-4 border-t">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Progreso general:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold">
-                      {Math.round(
-                        groupedGoals.reduce((sum, g) => sum + g.totalProgress, 0) /
-                          groupedGoals.length
-                      )}
-                      %
-                    </span>
-                    <Badge variant="secondary">
-                      {goals.filter((g) => g.completed).length}/{goals.length} completados
-                    </Badge>
-                  </div>
-                </div>
-              </div>
             </>
           ) : (
             <div className="text-center py-8">
               <Target className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-              <p className="text-muted-foreground mb-2">
-                No hay objetivos mensuales definidos
-              </p>
-              <p className="text-sm text-muted-foreground mb-4">
-                Agrega objetivos específicos para cada área de tu vida
-              </p>
-              <Button onClick={() => handleAddGoal()}>
-                <Plus className="w-4 h-4 mr-2" />
-                Crear Primer Objetivo
-              </Button>
+              <p className="text-muted-foreground mb-2">No hay objetivos mensuales definidos</p>
+              <Button onClick={() => handleAddGoal()}><Plus className="w-4 h-4 mr-2" />Crear Primer Objetivo</Button>
             </div>
           )}
         </CardContent>

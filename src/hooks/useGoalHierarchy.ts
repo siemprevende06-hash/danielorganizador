@@ -43,13 +43,6 @@ export const useGoalHierarchy = () => {
 
       if (qError) throw qError;
 
-      // Fetch monthly goals
-      const { data: mGoals, error: mError } = await supabase
-        .from('monthly_goals')
-        .select('*');
-
-      if (mError) throw mError;
-
       // Fetch weekly objectives
       const { data: wObjectives, error: wError } = await supabase
         .from('weekly_objectives')
@@ -57,41 +50,16 @@ export const useGoalHierarchy = () => {
 
       if (wError) throw wError;
 
-      // Map them together
-      const hierarchy: GoalHierarchy[] = (qGoals || []).map(q => {
-        const months = (mGoals || [])
-          .filter(m => m.twelve_week_goal_id === q.id)
-          .map(m => {
-            const weeks = (wObjectives || [])
-              .filter(w => w.monthly_goal_id === m.id)
-              .map(w => ({
-                id: w.id,
-                title: w.title,
-                weekNumber: w.week_number || 0,
-                completed: !!w.completed
-              }));
-
-            return {
-              id: m.id,
-              title: m.title,
-              monthIndex: m.month_index,
-              year: m.year,
-              completed: !!m.completed,
-              progress: m.progress_percentage || 0,
-              weeklyObjectives: weeks
-            };
-          });
-
-        return {
-          id: q.id,
-          title: q.title,
-          area: q.category,
-          quarter: q.quarter,
-          year: q.year,
-          progress: q.progress_percentage || 0,
-          monthlyGoals: months
-        };
-      });
+      // Build hierarchy from quarterly goals
+      const hierarchy: GoalHierarchy[] = (qGoals || []).map(q => ({
+        id: q.id,
+        title: q.title,
+        area: q.category,
+        quarter: q.quarter,
+        year: q.year,
+        progress: q.progress_percentage || 0,
+        monthlyGoals: [] // No monthly_goals table exists, so leave empty
+      }));
 
       setData(hierarchy);
     } catch (err) {
