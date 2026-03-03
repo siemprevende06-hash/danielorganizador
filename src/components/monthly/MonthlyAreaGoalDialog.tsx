@@ -1,23 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -61,13 +50,7 @@ const PRIORITIES = [
 ];
 
 export function MonthlyAreaGoalDialog({
-  open,
-  onOpenChange,
-  goal,
-  selectedAreaId,
-  monthStart,
-  monthEnd,
-  onSuccess,
+  open, onOpenChange, goal, selectedAreaId, monthStart, monthEnd, onSuccess,
 }: MonthlyAreaGoalDialogProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -93,10 +76,7 @@ export function MonthlyAreaGoalDialog({
         priority: goal.priority,
       });
     } else if (selectedAreaId) {
-      setFormData((prev) => ({
-        ...prev,
-        area_id: selectedAreaId,
-      }));
+      setFormData((prev) => ({ ...prev, area_id: selectedAreaId }));
     }
   }, [goal, selectedAreaId]);
 
@@ -118,28 +98,18 @@ export function MonthlyAreaGoalDialog({
       };
 
       if (goal) {
-        // Update existing goal
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('monthly_area_goals')
           .update(dataToSave)
           .eq('id', goal.id);
-
         if (error) throw error;
-
-        toast({
-          title: 'Objetivo actualizado',
-          description: 'El objetivo ha sido actualizado correctamente',
-        });
+        toast({ title: 'Objetivo actualizado' });
       } else {
-        // Create new goal
-        const { error } = await supabase.from('monthly_area_goals').insert([dataToSave]);
-
+        const { error } = await (supabase as any)
+          .from('monthly_area_goals')
+          .insert([dataToSave]);
         if (error) throw error;
-
-        toast({
-          title: 'Objetivo creado',
-          description: 'El objetivo ha sido creado correctamente',
-        });
+        toast({ title: 'Objetivo creado' });
       }
 
       onSuccess();
@@ -147,11 +117,7 @@ export function MonthlyAreaGoalDialog({
       resetForm();
     } catch (error) {
       console.error('Error saving goal:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo guardar el objetivo',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo guardar el objetivo', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -160,145 +126,67 @@ export function MonthlyAreaGoalDialog({
   const resetForm = () => {
     setFormData({
       area_id: selectedAreaId || 'general',
-      title: '',
-      description: '',
-      target_value: '0',
-      current_value: '0',
-      unit: '',
-      priority: 'medium',
+      title: '', description: '', target_value: '0', current_value: '0', unit: '', priority: 'medium',
     });
   };
 
-  const handleClose = () => {
-    onOpenChange(false);
-    if (!goal) {
-      resetForm();
-    }
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v && !goal) resetForm(); }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>
-            {goal ? 'Editar Objetivo Mensual' : 'Nuevo Objetivo Mensual'}
-          </DialogTitle>
-          <DialogDescription>
-            Define un objetivo específico para alcanzar este mes en el área seleccionada.
-          </DialogDescription>
+          <DialogTitle>{goal ? 'Editar Objetivo Mensual' : 'Nuevo Objetivo Mensual'}</DialogTitle>
+          <DialogDescription>Define un objetivo específico para alcanzar este mes.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="area">Área</Label>
-            <Select
-              value={formData.area_id}
-              onValueChange={(value) => setFormData({ ...formData, area_id: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un área" />
-              </SelectTrigger>
+            <Label>Área</Label>
+            <Select value={formData.area_id} onValueChange={(v) => setFormData({ ...formData, area_id: v })}>
+              <SelectTrigger><SelectValue placeholder="Selecciona un área" /></SelectTrigger>
               <SelectContent>
-                {AREAS.map((area) => (
-                  <SelectItem key={area.value} value={area.value}>
-                    <span className="flex items-center gap-2">
-                      <span>{area.icon}</span>
-                      <span>{area.label}</span>
-                    </span>
+                {AREAS.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>
+                    <span className="flex items-center gap-2"><span>{a.icon}</span><span>{a.label}</span></span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="title">Título del Objetivo *</Label>
-            <Input
-              id="title"
-              placeholder="Ej: Completar 20 horas de estudio"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              required
-            />
+            <Label>Título *</Label>
+            <Input placeholder="Ej: Completar 20 horas de estudio" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required />
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="description">Descripción (opcional)</Label>
-            <Textarea
-              id="description"
-              placeholder="Agrega detalles sobre este objetivo..."
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-            />
+            <Label>Descripción</Label>
+            <Textarea placeholder="Detalles..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="target_value">Valor Meta *</Label>
-              <Input
-                id="target_value"
-                type="number"
-                min="0"
-                step="0.1"
-                placeholder="Ej: 20"
-                value={formData.target_value}
-                onChange={(e) => setFormData({ ...formData, target_value: e.target.value })}
-                required
-              />
+              <Label>Valor Meta *</Label>
+              <Input type="number" min="0" step="0.1" value={formData.target_value} onChange={(e) => setFormData({ ...formData, target_value: e.target.value })} required />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="unit">Unidad (opcional)</Label>
-              <Input
-                id="unit"
-                placeholder="Ej: horas, páginas"
-                value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-              />
+              <Label>Unidad</Label>
+              <Input placeholder="horas, páginas" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} />
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="current_value">Progreso Actual</Label>
-              <Input
-                id="current_value"
-                type="number"
-                min="0"
-                step="0.1"
-                placeholder="Ej: 5"
-                value={formData.current_value}
-                onChange={(e) => setFormData({ ...formData, current_value: e.target.value })}
-              />
+              <Label>Progreso Actual</Label>
+              <Input type="number" min="0" step="0.1" value={formData.current_value} onChange={(e) => setFormData({ ...formData, current_value: e.target.value })} />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="priority">Prioridad</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value: 'low' | 'medium' | 'high') =>
-                  setFormData({ ...formData, priority: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Label>Prioridad</Label>
+              <Select value={formData.priority} onValueChange={(v: 'low' | 'medium' | 'high') => setFormData({ ...formData, priority: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {PRIORITIES.map((priority) => (
-                    <SelectItem key={priority.value} value={priority.value}>
-                      {priority.label}
-                    </SelectItem>
-                  ))}
+                  {PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
           </div>
-
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
-              Cancelar
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {goal ? 'Actualizar' : 'Crear'} Objetivo

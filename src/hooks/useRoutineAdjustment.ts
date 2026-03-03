@@ -18,13 +18,10 @@ export function useRoutineAdjustment(blocks: RoutineBlock[]) {
 
   const fetchSettings = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('user_settings')
         .select('*')
-        .eq('user_id', user.id)
+        .limit(1)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
@@ -51,27 +48,21 @@ export function useRoutineAdjustment(blocks: RoutineBlock[]) {
 
   const updateSettings = async (newSettings: Partial<UserSettings>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       if (settings) {
         const { error } = await supabase
           .from('user_settings')
           .update(newSettings)
-          .eq('user_id', user.id);
-
+          .eq('id', settings.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('user_settings')
           .insert({
-            user_id: user.id,
+            user_id: 'anonymous',
             ...newSettings,
           });
-
         if (error) throw error;
       }
-
       await fetchSettings();
     } catch (error) {
       console.error('Error updating user settings:', error);

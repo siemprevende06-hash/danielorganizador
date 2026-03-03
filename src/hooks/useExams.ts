@@ -47,16 +47,10 @@ export function useExams() {
   const loadExams = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setExams([]);
-        return;
-      }
 
       const { data, error } = await supabase
         .from('exams')
         .select('*')
-        .eq('user_id', user.id)
         .order('exam_date', { ascending: true });
 
       if (error) throw error;
@@ -79,14 +73,10 @@ export function useExams() {
 
   const createExam = async (data: CreateExamData) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario no autenticado');
-
       const { error } = await supabase
         .from('exams')
         .insert({
           ...data,
-          user_id: user.id,
           preparation_days: data.preparation_days || 14,
           target_study_hours: data.target_study_hours || 20,
           target_exercises: data.target_exercises || 50,
@@ -102,11 +92,7 @@ export function useExams() {
       return true;
     } catch (error: any) {
       console.error('Error creating exam:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message
-      });
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
       return false;
     }
   };
