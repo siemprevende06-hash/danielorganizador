@@ -274,15 +274,16 @@ export default function Focus() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Select value={selectedTaskId} onValueChange={(v) => {
-              setSelectedTaskId(v);
-              setCustomTaskTitle("");
+            <Select value={selectedTaskId || "none"} onValueChange={(v) => {
+              setSelectedTaskId(v === "none" ? "" : v);
+              if (v === "none") setCustomTaskTitle("");
+              else setCustomTaskTitle("");
             }}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona una tarea pendiente" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">-- Ninguna (escribir manual) --</SelectItem>
+                <SelectItem value="none">-- Ninguna (escribir manual) --</SelectItem>
                 {availableTasks.map(task => (
                   <SelectItem key={task.id} value={task.id}>
                     {task.priority === 'high' && '⚠️ '}
