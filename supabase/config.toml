@@ -1,0 +1,7 @@
+project_id = "qqskvbfofqrruqeyjbuy"
+
+[functions.daily-assistant]
+verify_jwt = false
+
+[functions.nutrition-ai]
+verify_jwt = false

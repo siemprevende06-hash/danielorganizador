@@ -1,0 +1,90 @@
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { BookOpen, CheckCircle2, Clock, FileText, GraduationCap } from 'lucide-react';
+import type { Subject } from '@/hooks/useUniversity';
+
+interface SubjectProgressCardProps {
+  subject: Subject;
+  weightedAverage: number | null;
+  onClick?: () => void;
+}
+
+export function SubjectProgressCard({ subject, weightedAverage, onClick }: SubjectProgressCardProps) {
+  const totalTasks = subject.tasks.length;
+  const completedTasks = subject.tasks.filter(t => t.completed).length;
+  const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+  const gradedExams = subject.partialExams.filter(p => p.grade !== null && p.grade !== undefined);
+  const pendingExams = subject.partialExams.filter(p => p.status === 'pending');
+
+  return (
+    <Card
+      className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/40 border-l-4 border-l-primary/60"
+      onClick={onClick}
+    >
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+              {subject.name}
+            </h3>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              {subject.credits && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {subject.credits} cr
+                </Badge>
+              )}
+              {subject.professor && (
+                <span className="text-[10px] text-muted-foreground truncate">
+                  {subject.professor}
+                </span>
+              )}
+            </div>
+          </div>
+          {weightedAverage !== null && (
+            <div className={`text-right shrink-0 px-2 py-1 rounded-md ${
+              weightedAverage >= 70 ? 'bg-green-500/10 text-green-600' :
+              weightedAverage >= 50 ? 'bg-yellow-500/10 text-yellow-600' :
+              'bg-destructive/10 text-destructive'
+            }`}>
+              <p className="text-lg font-bold leading-none">{Math.round(weightedAverage)}</p>
+              <p className="text-[10px]">promedio</p>
+            </div>
+          )}
+        </div>
+
+        {/* Task progress */}
+        {totalTasks > 0 && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                Tareas
+              </span>
+              <span className="font-medium">{completedTasks}/{totalTasks}</span>
+            </div>
+            <Progress value={taskProgress} className="h-1.5" />
+          </div>
+        )}
+
+        {/* Quick stats row */}
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <FileText className="h-3 w-3" />
+            {subject.topics.length} temas
+          </span>
+          <span className="flex items-center gap-1">
+            <GraduationCap className="h-3 w-3" />
+            {gradedExams.length}/{subject.partialExams.length} parciales
+          </span>
+          {pendingExams.length > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1 py-0 text-yellow-600 border-yellow-500/30">
+              {pendingExams.length} pendiente{pendingExams.length > 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
