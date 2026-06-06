@@ -8,6 +8,7 @@ import { ArrowRight, CheckCircle2, Clock, Target, Zap } from 'lucide-react';
 import { useRoutineBlocksDB, formatTimeDisplay } from '@/hooks/useRoutineBlocksDB';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfDay } from 'date-fns';
+import { getLocalTasksForDate, getLocalBlockCompletions } from '@/lib/dataSync';
 
 interface DaySummary {
   tasksCompleted: number;
@@ -35,34 +36,60 @@ export function QuickDaySummary() {
   const loadDaySummary = async () => {
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
-      const todayStart = startOfDay(new Date()).toISOString();
-
-      // Load tasks for today
-      const { data: tasksData } = await supabase
-        .from('tasks')
-        .select('id, completed')
-        .eq('due_date', today);
-
-      const { data: entTasks } = await supabase
-        .from('entrepreneurship_tasks')
-        .select('id, completed')
-        .eq('due_date', today);
-
-      const allTasks = [...(tasksData || []), ...(entTasks || [])];
-      const tasksCompleted = allTasks.filter(t => t.completed).length;
-      const tasksTotal = allTasks.length;
-
-      // Load block completions for today
-      const { data: completionsData } = await supabase
-        .from('block_completions')
-        .select('block_id')
-        .eq('completion_date', today)
-        .eq('completed', true);
-
-      const blocksCompleted = (completionsData || []).length;
+      let tasksCompleted = 0;
+      let tasksTotal = 0;
+      let blocksCompleted = 0;
       const blocksTotal = blocks.length;
 
-      // Calculate day score
+      // Try Supabase first
+      try {
+        const { data: tasksData } = await supabase
+          .from('tasks')
+          .select('id, completed')
+          .eq('due_date', today);
+
+        const { data: entTasks } = await supabase
+          .from('entrepreneurship_tasks')
+          .select('id, completed')
+          .eq('due_date', today);
+
+        const allTasks = [...(tasksData || []), ...(entTasks || [])];
+        if (allTasks.length > 0) {
+          tasksCompleted = allTasks.filter(t => t.completed).length;
+          tasksTotal = allTasks.length;
+        }
+      } catch {
+        // Supabase failed, will use localStorage fallback
+      }
+
+      // If Supabase returned no tasks, fall back to localStorage
+      if (tasksTotal === 0) {
+        const localData = getLocalTasksForDate(today);
+        tasksCompleted = localData.completed;
+        tasksTotal = localData.total;
+      }
+
+      // Block completions from Supabase
+      try {
+        const { data: completionsData } = await supabase
+          .from('block_completions')
+          .select('block_id')
+          .eq('completion_date', today)
+          .eq('completed', true);
+
+        if ((completionsData || []).length > 0) {
+          blocksCompleted = completionsData!.length;
+        }
+      } catch {
+        // Supabase failed
+      }
+
+      // If Supabase returned no block completions, try localStorage
+      if (blocksCompleted === 0) {
+        const localBlocks = getLocalBlockCompletions(blocks);
+        blocksCompleted = localBlocks.completedCount;
+      }
+
       const taskScore = tasksTotal > 0 ? (tasksCompleted / tasksTotal) * 50 : 0;
       const blockScore = blocksTotal > 0 ? (blocksCompleted / blocksTotal) * 50 : 0;
       const dayScore = Math.round(taskScore + blockScore);

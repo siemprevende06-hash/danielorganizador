@@ -3,14 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Settings, BookOpen, Save } from 'lucide-react';
+import { Settings, BookOpen, Save, CloudUpload, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { syncAll, type SyncReport } from '@/lib/dataSync';
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [booksPerMonth, setBooksPerMonth] = useState(2);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncReport, setLastSyncReport] = useState<SyncReport | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -97,6 +100,80 @@ export default function SettingsPage() {
             <Save className="h-4 w-4 mr-2" />
             Guardar
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Data Sync Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CloudUpload className="h-5 w-5" />
+            Sincronización de Datos
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Tus datos están actualmente en el navegador (localStorage). 
+            Sincronízalos con la nube (Supabase) para que el Inicio y otras pantallas 
+            muestren datos reales.
+          </p>
+
+          <Button
+            onClick={async () => {
+              setSyncing(true);
+              try {
+                const report = await syncAll();
+                setLastSyncReport(report);
+                if (report.totalFailed === 0) {
+                  toast({ title: 'Sincronización completa', description: `${report.totalSuccess} registros sincronizados` });
+                } else {
+                  toast({ title: 'Sincronización parcial', description: `${report.totalSuccess} ok, ${report.totalFailed} fallos`, variant: 'destructive' });
+                }
+              } catch (err) {
+                toast({ title: 'Error', description: 'No se pudo sincronizar', variant: 'destructive' });
+              } finally {
+                setSyncing(false);
+              }
+            }}
+            disabled={syncing}
+            className="w-full gap-2"
+          >
+            {syncing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CloudUpload className="h-4 w-4" />
+            )}
+            {syncing ? 'Sincronizando...' : 'Sincronizar datos locales → Nube'}
+          </Button>
+
+          {lastSyncReport && (
+            <div className="space-y-2 text-sm">
+              <p className="font-medium text-foreground">
+                Última sincronización: {new Date(lastSyncReport.timestamp).toLocaleTimeString()}
+              </p>
+              <div className="space-y-1">
+                {lastSyncReport.results.map(r => (
+                  <div key={r.table} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground capitalize">{r.table}</span>
+                    <span className={r.success ? 'text-green-500' : 'text-red-500'}>
+                      {r.success ? (
+                        <><CheckCircle2 className="h-3 w-3 inline mr-1" />{r.count} registros</>
+                      ) : (
+                        <><XCircle className="h-3 w-3 inline mr-1" />{r.error || 'falló'}</>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+            <p className="text-xs text-yellow-700">
+              <strong>Nota:</strong> La sincronización envía tus datos de localStorage a Supabase. 
+              No elimina datos locales. Después de sincronizar, recarga la página para ver los cambios en el Inicio.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
