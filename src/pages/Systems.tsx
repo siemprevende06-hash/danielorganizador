@@ -335,6 +335,9 @@ export default function Systems() {
             })}
           </div>
           <div className="pt-2">
+            <FocusTasksPanel />
+          </div>
+          <div className="pt-2">
             <TodayTasksList />
           </div>
           <WorkBlockSquares
