@@ -134,10 +134,10 @@ export default function Systems() {
   const sostenPercent = sosten.total > 0 ? Math.round((sosten.done / sosten.total) * 100) : 0;
   const mejoraPercent = mejora.total > 0 ? Math.round((mejora.done / mejora.total) * 100) : 0;
 
-  // Foco: % basado en celdas de 30min (3 por bloque × 7 bloques = 21)
+  // Foco: % basado en celdas de 30min (3 por bloque × 7 bloques = 21). Excluir sentinel '__mode__'.
   const totalWorkBlocks = 21;
   const completedWorkBlocks = Object.entries(data.workAssignments)
-    .filter(([cellId, area]) => area && data.blockCompletions[cellId]).length;
+    .filter(([cellId, area]) => area && !cellId.startsWith("__mode__") && data.blockCompletions[cellId]).length;
   const focoPercent = Math.round((completedWorkBlocks / totalWorkBlocks) * 100);
 
   // Progreso global del día
