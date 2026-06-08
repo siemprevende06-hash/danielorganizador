@@ -12,7 +12,7 @@ import { DayTimeline } from "@/components/systems/DayTimeline";
 import { WorkBlockSquares } from "@/components/systems/WorkBlockSquares";
 import { TodayTasksList } from "@/components/systems/TodayTasksList";
 import { SystemsWeeklyChart } from "@/components/systems/SystemsWeeklyChart";
-import { IdentityPlan } from "@/components/systems/IdentityPlan";
+import { FocusTasksPanel } from "@/components/systems/FocusTasksPanel";
 import { Challenge90Days } from "@/components/systems/Challenge90Days";
 import { MacroSectionCard } from "@/components/systems/MacroSectionCard";
 import { ProgressContribution } from "@/components/systems/ProgressContribution";
