@@ -2,11 +2,10 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
 import { ArrowRight, Edit2, Check } from "lucide-react";
+import { IdentityTaskList } from "@/components/identity/IdentityTaskList";
 
 const DEFAULT_AREAS = [
   { area_id: "universidad", area_label: "Universidad", icon: "🎓", color: "#3b82f6" },
@@ -38,22 +37,14 @@ export function IdentityPlan() {
   const [editing, setEditing] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     const { data } = await supabase.from("identity_plan").select("*").order("created_at");
     if (data && data.length > 0) {
       setItems(data as IdentityItem[]);
     } else {
-      // Seed defaults
-      const seeds = DEFAULT_AREAS.map(a => ({
-        ...a,
-        point_a: "",
-        point_b: "",
-        progress_percentage: 0,
-      }));
+      const seeds = DEFAULT_AREAS.map(a => ({ ...a, point_a: "", point_b: "", progress_percentage: 0 }));
       const { data: inserted } = await supabase
         .from("identity_plan")
         .upsert(seeds, { onConflict: "area_id" })
@@ -73,13 +64,15 @@ export function IdentityPlan() {
   return (
     <Card className="p-4 md:p-6">
       <h3 className="text-lg font-bold mb-1">🪞 Plan Identidad</h3>
-      <p className="text-xs text-muted-foreground mb-4">Define tu Punto A → Punto B en cada área de vida</p>
+      <p className="text-xs text-muted-foreground mb-4">
+        Punto A → Punto B (con tareas y subtareas). Marca una como principal y avanza poco a poco.
+      </p>
 
       <div className="space-y-4">
         {items.map(item => {
           const isEditing = editing === item.id;
           return (
-            <div key={item.id} className="rounded-xl border p-3 space-y-2" style={{ borderColor: item.color + "40" }}>
+            <div key={item.id} className="rounded-xl border p-3 space-y-3" style={{ borderColor: item.color + "40" }}>
               <div className="flex items-center gap-2">
                 <span className="text-lg">{item.icon}</span>
                 <span className="font-semibold text-sm flex-1">{item.area_label}</span>
@@ -93,7 +86,7 @@ export function IdentityPlan() {
                 </Button>
               </div>
 
-              {/* Point A → B */}
+              {/* Point A → B (titles) */}
               <div className="flex items-center gap-2 text-xs">
                 <div className="flex-1 rounded-lg bg-red-500/10 border border-red-500/20 p-2 min-h-[2.5rem]">
                   <p className="text-[10px] text-red-500 font-semibold mb-0.5">PUNTO A</p>
@@ -123,6 +116,9 @@ export function IdentityPlan() {
                   )}
                 </div>
               </div>
+
+              {/* Tareas y subtareas del Punto B */}
+              <IdentityTaskList identityPlanId={item.id} color={item.color} />
 
               {/* Progress */}
               <div className="space-y-1">
