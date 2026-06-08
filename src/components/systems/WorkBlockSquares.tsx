@@ -99,7 +99,10 @@ export function WorkBlockSquares({ cellAssignments, cellCompletions, onAssignAre
   useEffect(() => {
     const load = async () => {
       const today = new Date().toISOString().split("T")[0];
-      const cellIds = blocksWithCells.flatMap(b => b.cells.map(c => c.id));
+      const cellIds = [
+        ...blocksWithCells.flatMap(b => b.cells.map(c => c.id)),
+        ...WORK_BLOCKS.map(b => `${b.id}-all`),
+      ];
       const { data } = await supabase
         .from("tasks")
         .select("id, title, area_id, completed, routine_block_id")
