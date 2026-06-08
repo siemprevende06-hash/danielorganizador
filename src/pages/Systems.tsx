@@ -151,7 +151,7 @@ export default function Systems() {
   // Build work block labels for timeline
   const workBlockLabels: Record<string, string> = {};
   Object.entries(data.workAssignments).forEach(([blockId, area]) => {
-    if (area) workBlockLabels[blockId] = AREA_LABELS[area] || area;
+    if (area && !blockId.startsWith("__mode__")) workBlockLabels[blockId] = AREA_LABELS[area] || area;
   });
 
   return (
