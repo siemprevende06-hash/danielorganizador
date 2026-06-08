@@ -47,6 +47,7 @@ import Alimentacion from "./pages/Alimentacion";
 import Gym from "./pages/Gym";
 import Chess from "./pages/Chess";
 import ShoppingList from "./pages/ShoppingList";
+import PlanIdentidad from "./pages/PlanIdentidad";
 
 const queryClient = new QueryClient();
 
