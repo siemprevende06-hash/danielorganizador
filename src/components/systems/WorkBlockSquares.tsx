@@ -216,21 +216,68 @@ export function WorkBlockSquares({ cellAssignments, cellCompletions, onAssignAre
       </div>
 
       <div className="space-y-3">
-        {blocksWithCells.map(({ parent, cells }) => (
-          <div key={parent.id} className="space-y-1">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] font-mono text-muted-foreground">
-                {parent.start} – {parent.end}
-              </span>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Bloque {parent.id.split("-")[1]}
-              </span>
+        {blocksWithCells.map(({ parent, cells }) => {
+          const unified = isUnified(cellAssignments, parent.id);
+          const unifiedId = `${parent.id}-all`;
+          const unifiedArea = cellAssignments[unifiedId];
+          const unifiedAreaInfo = AREAS.find(a => a.id === unifiedArea);
+          const UnifiedIcon = unifiedAreaInfo?.icon;
+          const unifiedDone = !!cellCompletions[unifiedId];
+
+          return (
+            <div key={parent.id} className="space-y-1">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[11px] font-mono text-muted-foreground">
+                  {parent.start} – {parent.end}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Bloque {parent.id.split("-")[1]}
+                  </span>
+                  <button
+                    onClick={() => onAssignArea(`${UNIFIED_PREFIX}${parent.id}`, unified ? "split" : "unified")}
+                    className="text-[10px] px-1.5 py-0.5 rounded border border-muted-foreground/30 hover:border-primary hover:text-primary transition-colors"
+                  >
+                    {unified ? "→ 3×30m" : "→ 1×1:30h"}
+                  </button>
+                </div>
+              </div>
+              {unified ? (
+                <button
+                  onClick={() => openCell(unifiedId)}
+                  className={cn(
+                    "w-full rounded-lg border-2 p-3 transition-all flex items-center gap-3 text-left",
+                    unifiedAreaInfo ? unifiedAreaInfo.bg : "bg-muted/40 border-dashed border-muted-foreground/30",
+                    unifiedDone && "ring-2 ring-green-500/60",
+                  )}
+                >
+                  {UnifiedIcon ? (
+                    <UnifiedIcon className={cn("h-6 w-6", unifiedAreaInfo!.color)} />
+                  ) : (
+                    <Plus className="h-5 w-5 text-muted-foreground/60" />
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      {unifiedAreaInfo ? unifiedAreaInfo.label : "Sin asignar"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Bloque unificado de 1:30h · {(cellTasks[unifiedId] || []).length} tarea(s)
+                    </p>
+                  </div>
+                  {unifiedDone && (
+                    <span className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <div className="flex gap-1.5">
+                  {cells.map(renderCell)}
+                </div>
+              )}
             </div>
-            <div className="flex gap-1.5">
-              {cells.map(renderCell)}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Legend */}
