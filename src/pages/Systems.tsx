@@ -365,8 +365,21 @@ export default function Systems() {
           onToggleBlock={toggleBlock}
         />
 
-        {/* Identity Plan */}
-        <IdentityPlan />
+        {/* Link al Plan Identidad (movido a su propia página) */}
+        <Link to="/plan-identidad">
+          <Card className="p-4 hover:scale-[1.01] transition-all border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">🪞</div>
+              <div className="flex-1">
+                <p className="font-bold">Plan Identidad</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Punto A → Punto B, tareas y subtareas, Mi Porqué y Recompensas
+                </p>
+              </div>
+              <span className="text-xs text-primary">Abrir →</span>
+            </div>
+          </Card>
+        </Link>
 
         {/* 90 Day Challenge */}
         <Challenge90Days />
