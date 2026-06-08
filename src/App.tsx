@@ -101,6 +101,7 @@ function AppContent() {
         <Route path="/gym" element={<Gym />} />
         <Route path="/chess" element={<Chess />} />
         <Route path="/shopping-list" element={<ShoppingList />} />
+        <Route path="/plan-identidad" element={<PlanIdentidad />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
