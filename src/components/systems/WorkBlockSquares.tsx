@@ -54,13 +54,9 @@ interface Props {
   onToggleCell: (cellId: string) => void;
 }
 
-const UNIFIED_KEY = "block-modes-v1";
-const loadModes = (): Record<string, boolean> => {
-  try { return JSON.parse(localStorage.getItem(UNIFIED_KEY) || "{}"); } catch { return {}; }
-};
-const saveModes = (m: Record<string, boolean>) => {
-  try { localStorage.setItem(UNIFIED_KEY, JSON.stringify(m)); } catch {}
-};
+const UNIFIED_PREFIX = "__mode__";
+const isUnified = (cellAssignments: Record<string, string>, parentId: string) =>
+  cellAssignments[`${UNIFIED_PREFIX}${parentId}`] === "unified";
 
 export function WorkBlockSquares({ cellAssignments, cellCompletions, onAssignArea, onToggleCell }: Props) {
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
