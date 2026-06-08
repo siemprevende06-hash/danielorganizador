@@ -42,14 +42,14 @@ const AREAS = [
   { id: 'lectura', name: 'Lectura', icon: '📚', color: 'hsl(174, 72%, 40%)' },
 ];
 
-async function safeQuery<T>(query: Promise<{ data: T | null; error: any }>): Promise<T | null> {
+async function safeQuery<T = any>(query: any): Promise<T[] | null> {
   try {
     const { data, error } = await query;
     if (error) {
       console.warn('[safeQuery] Supabase error:', error.message);
       return null;
     }
-    return data;
+    return data as T[] | null;
   } catch (err) {
     console.warn('[safeQuery] Exception:', err);
     return null;

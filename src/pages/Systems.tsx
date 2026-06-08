@@ -12,7 +12,7 @@ import { DayTimeline } from "@/components/systems/DayTimeline";
 import { WorkBlockSquares } from "@/components/systems/WorkBlockSquares";
 import { TodayTasksList } from "@/components/systems/TodayTasksList";
 import { SystemsWeeklyChart } from "@/components/systems/SystemsWeeklyChart";
-import { IdentityPlan } from "@/components/systems/IdentityPlan";
+import { FocusTasksPanel } from "@/components/systems/FocusTasksPanel";
 import { Challenge90Days } from "@/components/systems/Challenge90Days";
 import { MacroSectionCard } from "@/components/systems/MacroSectionCard";
 import { ProgressContribution } from "@/components/systems/ProgressContribution";
@@ -134,10 +134,10 @@ export default function Systems() {
   const sostenPercent = sosten.total > 0 ? Math.round((sosten.done / sosten.total) * 100) : 0;
   const mejoraPercent = mejora.total > 0 ? Math.round((mejora.done / mejora.total) * 100) : 0;
 
-  // Foco: % basado en celdas de 30min (3 por bloque × 7 bloques = 21)
+  // Foco: % basado en celdas de 30min (3 por bloque × 7 bloques = 21). Excluir sentinel '__mode__'.
   const totalWorkBlocks = 21;
   const completedWorkBlocks = Object.entries(data.workAssignments)
-    .filter(([cellId, area]) => area && data.blockCompletions[cellId]).length;
+    .filter(([cellId, area]) => area && !cellId.startsWith("__mode__") && data.blockCompletions[cellId]).length;
   const focoPercent = Math.round((completedWorkBlocks / totalWorkBlocks) * 100);
 
   // Progreso global del día
@@ -151,7 +151,7 @@ export default function Systems() {
   // Build work block labels for timeline
   const workBlockLabels: Record<string, string> = {};
   Object.entries(data.workAssignments).forEach(([blockId, area]) => {
-    if (area) workBlockLabels[blockId] = AREA_LABELS[area] || area;
+    if (area && !blockId.startsWith("__mode__")) workBlockLabels[blockId] = AREA_LABELS[area] || area;
   });
 
   return (
@@ -300,7 +300,7 @@ export default function Systems() {
           </div>
 
           {/* Idiomas: 6 habilidades */}
-          <LanguageSkillCards times={data.timeData} onTimeChange={setTimeValue} />
+          <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} />
         </MacroSectionCard>
 
         {/* === SECCIÓN 3: FOCO === */}
@@ -335,6 +335,9 @@ export default function Systems() {
             })}
           </div>
           <div className="pt-2">
+            <FocusTasksPanel />
+          </div>
+          <div className="pt-2">
             <TodayTasksList />
           </div>
           <WorkBlockSquares
@@ -362,8 +365,21 @@ export default function Systems() {
           onToggleBlock={toggleBlock}
         />
 
-        {/* Identity Plan */}
-        <IdentityPlan />
+        {/* Link al Plan Identidad (movido a su propia página) */}
+        <Link to="/plan-identidad">
+          <Card className="p-4 hover:scale-[1.01] transition-all border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">🪞</div>
+              <div className="flex-1">
+                <p className="font-bold">Plan Identidad</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Punto A → Punto B, tareas y subtareas, Mi Porqué y Recompensas
+                </p>
+              </div>
+              <span className="text-xs text-primary">Abrir →</span>
+            </div>
+          </Card>
+        </Link>
 
         {/* 90 Day Challenge */}
         <Challenge90Days />

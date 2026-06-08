@@ -27,7 +27,7 @@ function getLocalData<T>(key: string): T | null {
 async function upsertBatch(table: string, data: Record<string, unknown>[], conflictColumn?: string): Promise<SyncResult> {
   if (data.length === 0) return { table, success: true, count: 0 };
   try {
-    const query = supabase.from(table).upsert(data, conflictColumn ? { onConflict: conflictColumn } : undefined);
+    const query = (supabase.from(table as any) as any).upsert(data, conflictColumn ? { onConflict: conflictColumn } : undefined);
     const { error } = await query;
     if (error) return { table, success: false, count: 0, error: error.message };
     return { table, success: true, count: data.length };
