@@ -54,6 +54,14 @@ interface Props {
   onToggleCell: (cellId: string) => void;
 }
 
+const UNIFIED_KEY = "block-modes-v1";
+const loadModes = (): Record<string, boolean> => {
+  try { return JSON.parse(localStorage.getItem(UNIFIED_KEY) || "{}"); } catch { return {}; }
+};
+const saveModes = (m: Record<string, boolean>) => {
+  try { localStorage.setItem(UNIFIED_KEY, JSON.stringify(m)); } catch {}
+};
+
 export function WorkBlockSquares({ cellAssignments, cellCompletions, onAssignArea, onToggleCell }: Props) {
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
   const [cellTasks, setCellTasks] = useState<Record<string, Task[]>>({});
