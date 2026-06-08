@@ -206,7 +206,15 @@ export function WorkBlockSquares({ cellAssignments, cellCompletions, onAssignAre
   };
 
   const selected = selectedCell
-    ? blocksWithCells.flatMap(b => b.cells).find(c => c.id === selectedCell)
+    ? (() => {
+        if (selectedCell.endsWith("-all")) {
+          const parentId = selectedCell.replace(/-all$/, "");
+          const parent = WORK_BLOCKS.find(b => b.id === parentId);
+          if (parent) return { id: selectedCell, parentId, start: parent.start, end: parent.end, index: 0 } as Cell;
+          return null;
+        }
+        return blocksWithCells.flatMap(b => b.cells).find(c => c.id === selectedCell) || null;
+      })()
     : null;
 
   return (
