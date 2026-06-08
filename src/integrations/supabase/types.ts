@@ -1125,6 +1125,57 @@ export type Database = {
         }
         Relationships: []
       }
+      identity_plan_tasks: {
+        Row: {
+          completed: boolean
+          created_at: string
+          id: string
+          identity_plan_id: string
+          is_primary: boolean
+          order_index: number
+          parent_task_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          identity_plan_id: string
+          is_primary?: boolean
+          order_index?: number
+          parent_task_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          identity_plan_id?: string
+          is_primary?: boolean
+          order_index?: number
+          parent_task_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "identity_plan_tasks_identity_plan_id_fkey"
+            columns: ["identity_plan_id"]
+            isOneToOne: false
+            referencedRelation: "identity_plan"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "identity_plan_tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "identity_plan_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_entries: {
         Row: {
           content: string
@@ -2411,6 +2462,36 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wake_time?: string | null
+        }
+        Relationships: []
+      }
+      vision_board_cells: {
+        Row: {
+          board_type: string
+          caption: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          board_type: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          position: number
+          updated_at?: string
+        }
+        Update: {
+          board_type?: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          position?: number
+          updated_at?: string
         }
         Relationships: []
       }
