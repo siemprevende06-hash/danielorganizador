@@ -491,10 +491,9 @@ export default function TasksPage() {
       {/* Progress bar */}
       <Progress value={completionRate} className="h-1.5" />
 
-      {/* Filter tabs + controls */}
-      <div className="flex items-center justify-between gap-2">
       {/* Category tabs (área) */}
       <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
+
         {([
           { id: 'all', label: 'Todas', icon: ListTodo },
           { id: 'universidad', label: 'Universidad', icon: Target },
