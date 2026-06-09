@@ -2187,6 +2187,36 @@ export type Database = {
           },
         ]
       }
+      system_habit_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          habit_id: string
+          id: string
+          last_completed_date: string | null
+          longest_streak: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          habit_id: string
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          habit_id?: string
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           area_id: string | null
@@ -2768,7 +2798,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recompute_system_habit_streak: {
+        Args: { _habit_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       goal_status: "active" | "completed" | "paused" | "abandoned"
