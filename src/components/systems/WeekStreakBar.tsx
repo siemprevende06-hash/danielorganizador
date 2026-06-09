@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Check, Star, Flame, Trophy } from "lucide-react";
+import { useSystemHabitStreak } from "@/hooks/useSystemHabitStreaks";
 
 export type DayStatus = "max" | "min" | "none" | "special";
 
@@ -53,9 +54,11 @@ export const WeekStreakBar = ({
   onShake,
 }: WeekStreakBarProps) => {
   const [statuses, setStatuses] = useState<DayStatus[]>(weekStatuses ?? Array(7).fill("none"));
-  const [streak, setStreak] = useState({ current: 0, best: 0 });
   const [shaking, setShaking] = useState<number | null>(null);
   const [pulseStreak, setPulseStreak] = useState(false);
+  const { streak: dbStreak } = useSystemHabitStreak(habitId);
+  const streak = { current: dbStreak.current, best: dbStreak.best };
+
 
   const monday = useMemo(() => getMondayOfWeek(), []);
   const weekDates = useMemo(
@@ -71,7 +74,6 @@ export const WeekStreakBar = ({
   useEffect(() => {
     if (weekStatuses) {
       setStatuses(weekStatuses);
-      computeStreak(weekStatuses);
       return;
     }
     (async () => {
@@ -117,48 +119,17 @@ export const WeekStreakBar = ({
       }
 
       setStatuses(weekArr);
-      computeStreak(weekArr, map);
     })();
   }, [habitId, weekStatuses, todayValue, todayCompleted, minThreshold, maxThreshold]);
 
-  const computeStreak = (week: DayStatus[], allMap?: Record<string, DayStatus>) => {
-    // current: días consecutivos desde hoy hacia atrás con status != "none"
-    let cur = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    for (let i = 0; i < 60; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const k = dateKey(d);
-      const s = allMap?.[k];
-      if (s === "max" || s === "min") cur++;
-      else if (i === 0 && week[weekDates.findIndex((wd) => dateKey(wd) === k)] && week[weekDates.findIndex((wd) => dateKey(wd) === k)] !== "none") cur++;
-      else break;
+  useEffect(() => {
+    if (dbStreak.current > 0) {
+      setPulseStreak(true);
+      const t = setTimeout(() => setPulseStreak(false), 1200);
+      return () => clearTimeout(t);
     }
-    // best: pasada máxima en el mapa
-    let best = 0, run = 0;
-    if (allMap) {
-      const keys = Object.keys(allMap).sort();
-      let prev: string | null = null;
-      keys.forEach((k) => {
-        if (!prev) { run = 1; }
-        else {
-          const a = new Date(prev);
-          const b = new Date(k);
-          const diff = Math.round((b.getTime() - a.getTime()) / 86400000);
-          run = diff === 1 ? run + 1 : 1;
-        }
-        prev = k;
-        if (run > best) best = run;
-      });
-    }
-    setStreak((prev) => {
-      const newBest = Math.max(prev.best, best, cur);
-      if (cur > prev.current) setPulseStreak(true);
-      return { current: cur, best: newBest };
-    });
-    setTimeout(() => setPulseStreak(false), 1200);
-  };
+  }, [dbStreak.current]);
+
 
   const handleClick = (idx: number) => {
     if (statuses[idx] === "none") {

@@ -124,6 +124,8 @@ export function PresetSchedulePicker({
 
   if (isLoading) return null;
 
+  const preset5am = presets.find(p => /5\s*am|5:00|súper enfoque/i.test(p.name));
+
   return (
     <Card className={cn("p-4 space-y-3", className)}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -131,18 +133,29 @@ export function PresetSchedulePicker({
           <Clock className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold">Rutina del día</h3>
         </div>
-        <Select value={selected?.id || ""} onValueChange={handleChange}>
-          <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs">
-            <SelectValue placeholder="Elegir rutina..." />
-          </SelectTrigger>
-          <SelectContent>
-            {presets.map(p => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name} · {p.sleep_hours ?? "?"}h
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          {preset5am && preset5am.id !== selected?.id && (
+            <button
+              type="button"
+              onClick={() => handleChange(preset5am.id)}
+              className="text-[11px] px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition flex items-center gap-1"
+            >
+              <Sun className="h-3 w-3" /> Aplicar Rutina 5 AM
+            </button>
+          )}
+          <Select value={selected?.id || ""} onValueChange={handleChange}>
+            <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs">
+              <SelectValue placeholder="Elegir rutina..." />
+            </SelectTrigger>
+            <SelectContent>
+              {presets.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name} · {p.sleep_hours ?? "?"}h
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {selected?.description && !compact && (
