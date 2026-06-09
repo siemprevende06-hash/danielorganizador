@@ -2793,6 +2793,134 @@ export type Database = {
         }
         Relationships: []
       }
+      sprints: {
+        Row: {
+          id: string
+          name: string
+          start_date: string
+          end_date: string
+          status: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          start_date: string
+          end_date: string
+          status?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          start_date?: string
+          end_date?: string
+          status?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sprint_objectives: {
+        Row: {
+          id: string
+          sprint_id: string
+          area: string
+          type: string
+          title: string
+          description: string | null
+          target_value: number
+          current_value: number
+          unit: string
+          min_daily: number | null
+          max_daily: number | null
+          status: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          sprint_id: string
+          area: string
+          type: string
+          title: string
+          description?: string | null
+          target_value?: number
+          current_value?: number
+          unit?: string
+          min_daily?: number | null
+          max_daily?: number | null
+          status?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          sprint_id?: string
+          area?: string
+          type?: string
+          title?: string
+          description?: string | null
+          target_value?: number
+          current_value?: number
+          unit?: string
+          min_daily?: number | null
+          max_daily?: number | null
+          status?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprint_objectives_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      point_b_metrics: {
+        Row: {
+          id: string
+          area: string
+          metric_name: string
+          current_value: number
+          target_value: number
+          unit: string
+          icon: string | null
+          sort_order: number
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          area: string
+          metric_name: string
+          current_value?: number
+          target_value?: number
+          unit?: string
+          icon?: string | null
+          sort_order?: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          area?: string
+          metric_name?: string
+          current_value?: number
+          target_value?: number
+          unit?: string
+          icon?: string | null
+          sort_order?: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

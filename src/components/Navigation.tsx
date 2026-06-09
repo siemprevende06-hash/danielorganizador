@@ -63,6 +63,8 @@ const navItems = [
   { path: '/vida-daniel', label: 'Vida Daniel', icon: BarChart3 },
   { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
   { path: '/systems', label: 'Sistemas', icon: Brain },
+  { path: '/sprint', label: 'Sprint', icon: Target },
+  { path: '/vision', label: 'Point B', icon: Eye },
   { path: '/plan-identidad', label: 'Plan Identidad', icon: Compass },
   { path: '/alimentacion', label: 'Alimentación', icon: Utensils },
   { path: '/gym', label: 'Gimnasio', icon: Dumbbell },

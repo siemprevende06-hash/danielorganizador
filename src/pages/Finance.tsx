@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { wallets as initialWallets, transactionCategories } from '@/lib/data';
-import type { Wallet, Transaction, Loan } from '@/lib/definitions';
+import { wallets as initialWallets, transactionCategories, defaultDistributionBags } from '@/lib/data';
+import type { Wallet, Transaction, Loan, DistributionBag } from '@/lib/definitions';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, PlusCircle, Edit, Coins, Settings, LucideIcon, Wallet as WalletIcon, RotateCcw, ArrowRightLeft, Download, Upload, Scale, LandPlot, DollarSign } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Edit, Coins, Settings, LucideIcon, Wallet as WalletIcon, RotateCcw, ArrowRightLeft, Download, Upload, Scale, LandPlot, DollarSign, Trash2, Plus, Shield, TrendingUp, Home, Gamepad2, BookOpen, PiggyBank, Heart, GraduationCap, Sparkles, Plane, Coffee } from 'lucide-react';
 import { format, isThisMonth, startOfMonth, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -102,6 +102,14 @@ const loanPaymentSchema = z.object({
     currency: z.enum(['USD', 'CUP']),
 });
 
+const bagSchema = z.object({
+  name: z.string().min(1, 'El nombre es obligatorio.'),
+  percentage: z.coerce.number().min(0.1, 'Debe ser mayor a 0').max(100, 'No puede exceder 100'),
+  description: z.string().optional(),
+  icon: z.string().min(1, 'Selecciona un icono.'),
+  color: z.string().min(1, 'Selecciona un color.'),
+});
+
 const CurrencyDisplay = ({ usd, exchangeRate }: { usd: number, exchangeRate: number }) => {
   const cup = usd * exchangeRate;
   return (
@@ -129,6 +137,11 @@ export default function Finance() {
   const { toast } = useToast();
   const [isLoanPaymentDialogOpen, setIsLoanPaymentDialogOpen] = useState(false);
   const [loanToPay, setLoanToPay] = useState<Loan | null>(null);
+  const [distributionBags, setDistributionBags] = useState<DistributionBag[]>([]);
+  const [isBagDialogOpen, setIsBagDialogOpen] = useState(false);
+  const [editingBag, setEditingBag] = useState<DistributionBag | null>(null);
+  const [bagToDelete, setBagToDelete] = useState<DistributionBag | null>(null);
+  const [isDistributeIncomeDialogOpen, setIsDistributeIncomeDialogOpen] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -157,6 +170,13 @@ export default function Finance() {
     if (storedRate) {
       setExchangeRate(parseFloat(storedRate));
     }
+    
+    const storedBags = localStorage.getItem('distributionBags');
+    if (storedBags) {
+      setDistributionBags(JSON.parse(storedBags));
+    } else {
+      setDistributionBags(defaultDistributionBags);
+    }
   }, []);
 
   useEffect(() => {
@@ -165,8 +185,9 @@ export default function Finance() {
       localStorage.setItem('transactions', JSON.stringify(transactions));
       localStorage.setItem('loans', JSON.stringify(loans));
       localStorage.setItem('exchangeRate', exchangeRate.toString());
+      localStorage.setItem('distributionBags', JSON.stringify(distributionBags));
     }
-  }, [wallets, transactions, loans, exchangeRate, isClient]);
+  }, [wallets, transactions, loans, exchangeRate, distributionBags, isClient]);
   
   const transactionForm = useForm<z.infer<typeof transactionSchema>>({
     resolver: zodResolver(transactionSchema),
@@ -227,6 +248,17 @@ export default function Finance() {
     },
   });
 
+  const bagForm = useForm<z.infer<typeof bagSchema>>({
+    resolver: zodResolver(bagSchema),
+    defaultValues: {
+      name: '',
+      percentage: 10,
+      description: '',
+      icon: 'Target',
+      color: 'blue',
+    },
+  });
+
   const transactionType = transactionForm.watch('type');
 
   const onTransactionSubmit = (values: z.infer<typeof transactionSchema>) => {
@@ -240,6 +272,7 @@ export default function Finance() {
       walletId: values.walletId,
       categoryId: values.categoryId,
       type: values.type,
+      distributed: values.type === 'income' ? false : undefined,
     };
     setTransactions(prev => [newTransaction, ...prev]);
 
@@ -499,10 +532,49 @@ export default function Finance() {
     setTransactionToRevert(null);
   }
 
+  const onBagSubmit = (values: z.infer<typeof bagSchema>) => {
+    if (editingBag) {
+      setDistributionBags(prev => prev.map(b => b.id === editingBag.id ? { ...b, name: values.name, percentage: values.percentage, description: values.description || '', icon: values.icon, color: values.color } : b));
+      toast({ title: "Bolsa actualizada", description: `${values.name} ha sido modificada.` });
+    } else {
+      const newBag: DistributionBag = {
+        id: `bag-${Date.now()}`,
+        name: values.name,
+        percentage: values.percentage,
+        description: values.description || '',
+        icon: values.icon,
+        color: values.color,
+      };
+      setDistributionBags(prev => [...prev, newBag]);
+      toast({ title: "Bolsa agregada", description: `${values.name} ha sido añadida.` });
+    }
+    setIsBagDialogOpen(false);
+    setEditingBag(null);
+    bagForm.reset();
+  };
+
+  const handleDeleteBag = () => {
+    if (!bagToDelete) return;
+    setDistributionBags(prev => prev.filter(b => b.id !== bagToDelete.id));
+    toast({ title: "Bolsa eliminada", description: `${bagToDelete.name} ha sido eliminada.` });
+    setBagToDelete(null);
+  };
+
+  const handleConfirmDistribution = () => {
+    const incomeIds = undistributedIncomes.map(t => t.id);
+    setTransactions(prev => prev.map(t => incomeIds.includes(t.id) ? { ...t, distributed: true } : t));
+    setIsDistributeIncomeDialogOpen(false);
+    const total = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
+    toast({ title: "Ingresos distribuidos", description: `${(total * exchangeRate).toLocaleString('es-ES', { maximumFractionDigits: 0 })} CUP distribuidos en tus bolsas.` });
+  };
+
   const totalBalance = useMemo(() => wallets.reduce((acc, w) => acc + w.balance, 0), [wallets]);
   const monthlyIncome = useMemo(() => transactions.filter(t => t.type === 'income' && isThisMonth(t.date) && t.categoryId !== 'cat-transfer').reduce((acc, t) => acc + t.amount, 0), [transactions]);
   const monthlyExpenses = useMemo(() => transactions.filter(t => t.type === 'expense' && isThisMonth(t.date) && t.categoryId !== 'cat-transfer').reduce((acc, t) => acc + t.amount, 0), [transactions]);
   const monthlyBalance = monthlyIncome - monthlyExpenses;
+  const undistributedIncomes = useMemo(() => 
+    transactions.filter(t => t.type === 'income' && !t.distributed && t.categoryId !== 'cat-transfer'),
+  , [transactions]);
   
   const chartData = useMemo(() => {
     const monthlySummary = Array.from({ length: 6 }).map((_, i) => {
@@ -574,6 +646,19 @@ export default function Finance() {
       const allWallets = initialWallets;
       const wallet = allWallets.find(w => w.id === walletId);
       return wallet?.icon || WalletIcon;
+  };
+
+  const iconMap: Record<string, LucideIcon> = {
+    Shield, TrendingUp, Home, Gamepad2, BookOpen, Target, PiggyBank, Heart, GraduationCap, Sparkles, DollarSign, Wallet: WalletIcon, Plane, Coffee
+  };
+
+  const bagColorMap: Record<string, { bg: string; text: string; badge: string; bar: string }> = {
+    rose: { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-400', badge: 'bg-rose-500', bar: 'bg-rose-500' },
+    blue: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', badge: 'bg-blue-500', bar: 'bg-blue-500' },
+    amber: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-500', bar: 'bg-amber-500' },
+    green: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-600 dark:text-green-400', badge: 'bg-green-500', bar: 'bg-green-500' },
+    violet: { bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-600 dark:text-violet-400', badge: 'bg-violet-500', bar: 'bg-violet-500' },
+    orange: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-600 dark:text-orange-400', badge: 'bg-orange-500', bar: 'bg-orange-500' },
   };
 
   return (
@@ -806,6 +891,106 @@ export default function Finance() {
                   );
               })}
           </div>
+        </div>
+        
+        {/* Distribution Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold">Distribución del Dinero</h2>
+              <p className="text-sm text-muted-foreground">
+                Basado en 6 JARS (T. Harv Eker) y regla 50/30/20 de Elizabeth Warren
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {(() => {
+                const totalUndistributed = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
+                if (totalUndistributed > 0) {
+                  return (
+                    <Button onClick={() => setIsDistributeIncomeDialogOpen(true)}>
+                      <Coins className="mr-2 h-4 w-4" />
+                      Distribuir {(totalUndistributed * exchangeRate).toLocaleString('es-ES', { maximumFractionDigits: 0 })} CUP
+                    </Button>
+                  );
+                }
+                return null;
+              })()}
+              <Button variant="outline" size="sm" onClick={() => { setEditingBag(null); bagForm.reset({ name: '', percentage: 10, description: '', icon: 'Target', color: 'blue' }); setIsBagDialogOpen(true); }}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Agregar Bolsa
+              </Button>
+            </div>
+          </div>
+
+          {distributionBags.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No hay bolsas de distribución. Crea una para empezar.
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Distribución: {distributionBags.reduce((acc, b) => acc + b.percentage, 0)}%</span>
+                  {(() => {
+                    const total = distributionBags.reduce((acc, b) => acc + b.percentage, 0);
+                    if (total === 100) return <span className="text-green-500 font-medium">100% ✓</span>;
+                    if (total > 100) return <span className="text-red-500 font-medium">Excede por {total - 100}%</span>;
+                    return <span className="text-amber-500 font-medium">Falta {100 - total}%</span>;
+                  })()}
+                </div>
+                <div className="h-2.5 bg-muted rounded-full overflow-hidden flex">
+                  {distributionBags.map((bag) => {
+                    const color = bagColorMap[bag.color] || bagColorMap.blue;
+                    return (
+                      <div
+                        key={bag.id}
+                        className={`${color.bar} transition-all duration-300 first:rounded-l-full last:rounded-r-full`}
+                        style={{ width: `${bag.percentage}%`, minWidth: bag.percentage > 0 ? '4px' : '0' }}
+                        title={`${bag.name}: ${bag.percentage}%`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+                {distributionBags.map(bag => {
+                  const IconComponent = iconMap[bag.icon] || WalletIcon;
+                  const color = bagColorMap[bag.color] || bagColorMap.blue;
+                  const amount = monthlyIncome * (bag.percentage / 100);
+                  return (
+                    <Card key={bag.id}>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-2 rounded-lg ${color.bg}`}>
+                            <IconComponent className={`h-4 w-4 ${color.text}`} />
+                          </div>
+                          <CardTitle className="text-sm font-medium">{bag.name}</CardTitle>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingBag(bag); bagForm.reset({ name: bag.name, percentage: bag.percentage, description: bag.description, icon: bag.icon, color: bag.color }); setIsBagDialogOpen(true); }}>
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => setBagToDelete(bag)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-baseline justify-between mb-1">
+                          <Badge className={`${color.badge} text-white`}>{bag.percentage}%</Badge>
+                          <CurrencyDisplay usd={amount} exchangeRate={exchangeRate} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">{bag.description}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
         
         <Separator />
@@ -1092,6 +1277,156 @@ export default function Finance() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+        {/* Bag Dialog */}
+        <Dialog open={isBagDialogOpen} onOpenChange={(open) => { if (!open) { setIsBagDialogOpen(false); setEditingBag(null); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingBag ? 'Editar Bolsa' : 'Agregar Bolsa'}</DialogTitle>
+              <DialogDescription>
+                {editingBag ? 'Modifica los detalles de esta bolsa de distribución.' : 'Crea una nueva bolsa para distribuir tu dinero.'}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...bagForm}>
+              <form onSubmit={bagForm.handleSubmit(onBagSubmit)} className="space-y-4">
+                <FormField control={bagForm.control} name="name" render={({ field }) => (
+                  <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} placeholder="Ej: Vacaciones" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={bagForm.control} name="percentage" render={({ field }) => (
+                  <FormItem><FormLabel>Porcentaje (%)</FormLabel><FormControl><Input type="number" {...field} step="0.1" min="0.1" max="100" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={bagForm.control} name="description" render={({ field }) => (
+                  <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input {...field} placeholder="Breve descripción" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={bagForm.control} name="icon" render={({ field }) => (
+                    <FormItem><FormLabel>Icono</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl>
+                        <SelectContent className="max-h-60">
+                          {Object.keys(iconMap).map(key => {
+                            const Icon = iconMap[key];
+                            return (
+                              <SelectItem key={key} value={key}>
+                                <div className="flex items-center gap-2">
+                                  <Icon className="h-4 w-4" />
+                                  <span>{key}</span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={bagForm.control} name="color" render={({ field }) => (
+                    <FormItem><FormLabel>Color</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {Object.entries(bagColorMap).map(([key]) => {
+                            const color = bagColorMap[key];
+                            return (
+                              <SelectItem key={key} value={key}>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-4 h-4 rounded-full ${color.bar}`} />
+                                  <span className="capitalize">{key}</span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => { setIsBagDialogOpen(false); setEditingBag(null); }}>Cancelar</Button>
+                  <Button type="submit">{editingBag ? 'Guardar Cambios' : 'Agregar Bolsa'}</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Bag Dialog */}
+        <AlertDialog open={!!bagToDelete} onOpenChange={(open) => { if (!open) setBagToDelete(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar bolsa?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Se eliminará "{bagToDelete?.name}" de tu distribución. Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setBagToDelete(null)}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteBag}>Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Distribute Income Dialog */}
+        <Dialog open={isDistributeIncomeDialogOpen} onOpenChange={setIsDistributeIncomeDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Distribuir Ingresos</DialogTitle>
+              <DialogDescription>
+                Distribuye tus ingresos no asignados según tus bolsas de distribución.
+              </DialogDescription>
+            </DialogHeader>
+            {(() => {
+              const total = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
+              return (
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">Total a distribuir</p>
+                    <CurrencyDisplay usd={total} exchangeRate={exchangeRate} />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {undistributedIncomes.length} ingreso{undistributedIncomes.length !== 1 ? 's' : ''} sin distribuir
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {distributionBags.map(bag => {
+                      const IconComponent = iconMap[bag.icon] || WalletIcon;
+                      const color = bagColorMap[bag.color] || bagColorMap.blue;
+                      const amount = total * (bag.percentage / 100);
+                      return (
+                        <div key={bag.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-md ${color.bg}`}>
+                              <IconComponent className={`h-3.5 w-3.5 ${color.text}`} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{bag.name}</p>
+                              <p className="text-xs text-muted-foreground">{bag.percentage}%</p>
+                            </div>
+                          </div>
+                          <CurrencyDisplay usd={amount} exchangeRate={exchangeRate} />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-xs text-amber-700 dark:text-amber-300">
+                    Al marcar como distribuido, confirmas que has asignado estos ingresos a tus bolsas. 
+                    No se crearán transacciones automáticamente.
+                  </div>
+
+                  <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => setIsDistributeIncomeDialogOpen(false)}>Cancelar</Button>
+                    <Button onClick={handleConfirmDistribution}>
+                      <Coins className="mr-2 h-4 w-4" />
+                      Marcar como Distribuido
+                    </Button>
+                  </DialogFooter>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }

@@ -43,6 +43,8 @@ import LanguagesDashboard from "./pages/LanguagesDashboard";
 import Purpose from "./pages/Purpose";
 import SettingsPage from "./pages/SettingsPage";
 import PeriodicReview from "./pages/PeriodicReview";
+import SprintPage from "./pages/SprintPage";
+import VisionPage from "./pages/VisionPage";
 import Alimentacion from "./pages/Alimentacion";
 import Gym from "./pages/Gym";
 import Chess from "./pages/Chess";
@@ -83,6 +85,8 @@ function AppContent() {
         <Route path="/routine-day" element={<RoutineDay />} />
         <Route path="/performance-modes" element={<PerformanceModes />} />
         <Route path="/systems" element={<Systems />} />
+        <Route path="/sprint" element={<SprintPage />} />
+        <Route path="/vision" element={<VisionPage />} />
         <Route path="/12-week-year" element={<TwelveWeekYear />} />
         <Route path="/3-meses" element={<TwelveWeekYear />} />
         <Route path="/weeks" element={<Weeks />} />

@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle2, ArrowRight, Lightbulb, Target, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle2, ArrowRight, Target, AlertTriangle } from 'lucide-react';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useBlockCompletions } from '@/hooks/useBlockCompletions';
 import { useWeeklyObjectives } from '@/hooks/useWeeklyObjectives';
@@ -82,31 +82,6 @@ export const DailyGuide = () => {
   };
 
   const relatedObjective = getRelatedObjective();
-
-  // Get motivational tip based on context
-  const getMotivationalTip = () => {
-    if (!currentBlock) return "¡Aprovecha cada momento del día!";
-    
-    const blockTitle = currentBlock.title.toLowerCase();
-    
-    if (blockTitle.includes('gym')) {
-      return "💪 Después del gym, no olvides tu proteína para maximizar la recuperación muscular.";
-    }
-    if (blockTitle.includes('desayuno') || blockTitle.includes('almuerzo') || blockTitle.includes('comida')) {
-      return "🍽️ Recuerda comer suficiente para alcanzar tu meta de 3200 kcal. ¡Cada caloría cuenta!";
-    }
-    if (blockTitle.includes('deep work') || blockTitle.includes('focus')) {
-      return "🎯 Elimina distracciones. Un Pomodoro de 25 minutos de focus profundo vale más que 2 horas distraído.";
-    }
-    if (blockTitle.includes('idiomas')) {
-      return "🌍 La práctica diaria es la clave. 30 minutos hoy te acercan a la fluidez.";
-    }
-    if (blockTitle.includes('activación')) {
-      return "☀️ Gran inicio! La rutina matutina define tu energía para todo el día.";
-    }
-    
-    return "🚀 Mantén el momentum. Cada bloque completado te acerca a tu mejor versión.";
-  };
 
   return (
     <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
@@ -204,16 +179,6 @@ export const DailyGuide = () => {
           </div>
         )}
 
-        {/* AI Tip */}
-        <div className={cn(
-          "flex items-start gap-2 p-3 rounded-lg",
-          "bg-amber-500/10 border border-amber-500/20"
-        )}>
-          <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-amber-700 dark:text-amber-300">
-            {getMotivationalTip()}
-          </p>
-        </div>
       </CardContent>
     </Card>
   );

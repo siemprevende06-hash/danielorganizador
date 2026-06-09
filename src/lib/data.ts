@@ -28,8 +28,11 @@ import {
   Heart as HeartIcon,
   Shirt,
   Droplet,
+  Shield,
+  TrendingUp,
+  BookOpen,
 } from "lucide-react";
-import type { LifeArea, Habit, Wallet, TransactionCategory, RoutineTaskGroup, QuarterlyGoal } from "./definitions";
+import type { LifeArea, Habit, Wallet, TransactionCategory, RoutineTaskGroup, QuarterlyGoal, DistributionBag } from "./definitions";
 
 // Life Areas — alineadas con el Plan Identidad (no más "Profesional")
 export const lifeAreas: LifeArea[] = [
@@ -108,6 +111,16 @@ export const wallets: Wallet[] = [
   { id: "wallet-inversion", name: "Inversión", balance: 0, icon: Target },
   { id: "wallet-digital-1", name: "Digital 1", balance: 0, icon: WalletIcon },
   { id: "wallet-digital-2", name: "Digital 2", balance: 0, icon: WalletIcon },
+];
+
+// Distribution Bags
+export const defaultDistributionBags: DistributionBag[] = [
+  { id: "bag-emergency", name: "Fondo de Emergencia", description: "Protección ante imprevistos (3-6 meses de gastos)", percentage: 10, icon: "Shield", color: "rose" },
+  { id: "bag-investment", name: "Inversión", description: "Libertad financiera, ingresos pasivos", percentage: 10, icon: "TrendingUp", color: "blue" },
+  { id: "bag-essentials", name: "Gastos Esenciales", description: "Vivienda, comida, transporte, servicios", percentage: 50, icon: "Home", color: "amber" },
+  { id: "bag-leisure", name: "Ocio", description: "Disfrute sin culpa: hobbies, viajes, salidas", percentage: 10, icon: "Gamepad2", color: "green" },
+  { id: "bag-education", name: "Educación", description: "Libros, cursos, desarrollo personal", percentage: 10, icon: "BookOpen", color: "violet" },
+  { id: "bag-goals", name: "Metas", description: "Grandes compras, proyectos futuros", percentage: 10, icon: "Target", color: "orange" },
 ];
 
 // Transaction Categories

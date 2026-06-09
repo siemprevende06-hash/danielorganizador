@@ -17,8 +17,7 @@ import { ProductivityPatterns } from "@/components/dashboard/ProductivityPattern
 import { AchievementsDisplay } from "@/components/dashboard/AchievementsDisplay";
 import { WeeklySummaryCard } from "@/components/dashboard/WeeklySummaryCard";
 import { ExportDataButton } from "@/components/dashboard/ExportDataButton";
-import { EffortResultCompact, AreaEffortResultGrid } from "@/components/dashboard/EffortResultCards";
-import { useEffortResultStats } from "@/hooks/useEffortResultStats";
+import { RealStatsDashboard } from "@/components/dashboard/RealStatsDashboard";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useEffect } from "react";
 
@@ -27,7 +26,6 @@ export default function Index() {
   const formattedDate = format(today, "EEEE, d 'de' MMMM", { locale: es });
   const { pillars, secondaryGoals, overallScore, loading: pillarsLoading } = usePillarProgress();
   const { requestPermission } = useNotifications();
-  const effortResult = useEffortResultStats();
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -51,8 +49,8 @@ export default function Index() {
           </div>
         </div>
 
-        {/* Effort vs Results - NEW */}
-        {!effortResult.loading && <EffortResultCompact data={effortResult} />}
+        {/* REAL STATS — día, semana, mes, trimestre */}
+        <RealStatsDashboard />
 
         {/* Quick Day Summary */}
         <QuickDaySummary />
@@ -72,18 +70,6 @@ export default function Index() {
             <SecondaryGoalsProgress goals={secondaryGoals} loading={pillarsLoading} />
           </CardContent>
         </Card>
-
-        {/* Effort & Results per Area - NEW */}
-        {!effortResult.loading && (
-          <Card>
-            <CardContent className="pt-6 space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                📊 Esfuerzo vs Resultados por Área
-              </h3>
-              <AreaEffortResultGrid areas={effortResult.areas} />
-            </CardContent>
-          </Card>
-        )}
 
         {/* Analytics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

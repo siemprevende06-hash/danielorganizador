@@ -107,6 +107,15 @@ export interface Wallet {
   icon: LucideIcon;
 }
 
+export interface DistributionBag {
+  id: string;
+  name: string;
+  description: string;
+  percentage: number;
+  icon: string;
+  color: string;
+}
+
 export interface Transaction {
   id: string;
   description: string;
@@ -117,6 +126,7 @@ export interface Transaction {
   type: 'income' | 'expense';
   transferId?: string;
   loanId?: string;
+  distributed?: boolean;
 }
 
 export interface TransactionCategory {
@@ -135,4 +145,20 @@ export interface Loan {
   walletId: string;
   date: Date;
   status: 'outstanding' | 'paid';
+}
+
+export interface IdentitySystemTask {
+  id: string;
+  description: string;
+}
+
+export interface IdentitySystem {
+  id: string;
+  area_id: string;
+  name: string;
+  description: string;
+  tasks: IdentitySystemTask[];
+  linked_system_hint: string;
+  is_active: boolean;
+  sort_order: number;
 }
