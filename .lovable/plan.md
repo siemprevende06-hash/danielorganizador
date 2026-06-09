@@ -1,81 +1,72 @@
-# Plan de cambios
+# Plan de mejoras
 
-## 1. Página Sistemas
+## 1. PWA instalable y 100% offline
 
-### 1.1 Entrenamiento como checklist
-- En `SystemHabitGroup` / sección de entrenamiento del `Systems.tsx`, añadir un checklist integrado igual al de Lectura, Música y Ajedrez (hecho/no hecho, con su `WeekStreakBar` y color rojo/azul/verde según umbral).
-- Reutilizar `HobbyCards` o crear una tarjeta `WorkoutCheckCard` con el mismo patrón visual.
+- Activar `vite-plugin-pwa` con `registerType: "autoUpdate"` y `generateSW` (Workbox).
+- Manifest completo en `public/manifest.webmanifest` con `display: standalone`, iconos 192/512 (ya existentes), `theme_color`, `background_color`, `start_url: "/"`.
+- Estrategias de caché:
+  - **App shell / JS / CSS / fuentes**: `CacheFirst` (assets hasheados, mismo origen).
+  - **Navegaciones HTML**: `NetworkFirst` con fallback al shell cacheado.
+  - **Imágenes subidas a Supabase Storage** (`user-images`): `CacheFirst` con expiración (30 días, máx 200 entradas).
+  - **Llamadas a Supabase REST/RPC**: `NetworkFirst` con fallback a caché (TTL 7 días) para que la app abra sin internet con los últimos datos.
+- Registro del SW envuelto en guardas (no registrar en preview de Lovable / iframes / dev), kill-switch `?sw=off`.
+- Cola offline ya existe (`src/lib/offlineQueue.ts`) — la integramos para reintentar escrituras (toggles, completaciones, tareas) cuando vuelve la red.
+- Resultado: al abrir la app sin internet carga la última versión y muestra datos e imágenes cacheados; los cambios se sincronizan al reconectarse.
 
-### 1.2 Idiomas en una sola tarjeta
-- Modificar `LanguageSkillCards.tsx`: encerrar las 6 habilidades dentro de **una sola tarjeta contenedora** ("🌐 Idiomas").
-- Quitar el conteo de tiempo (30m) — solo checkbox por habilidad (hecha / no hecha).
-- Mantener un solo `WeekStreakBar` global de idiomas (ya existe).
+## 2. Página Tareas con pestañas por área real
 
-### 1.3 Sección Foco
-- En la sección Foco de Sistemas, agregar un botón "+ Nueva tarea" que abre un diálogo rápido para crear tarea en `tasks` con `area_id`.
-- Mostrar bajo Foco las tareas del día agrupadas por área: **Universidad, Emprendimiento, Proyectos, Tareas** (cada una colapsable) con su lista filtrada por `area_id`.
+- Refactor de `src/pages/Tasks.tsx`: añadir `<Tabs>` con pestañas:
+  - **Universidad** (tareas con `area_id` del área universidad o `source = 'university'` / `task_type = 'study'`).
+  - **Emprendimiento** (origen `entrepreneurship_tasks` + tareas con área de emprendimiento).
+  - **Proyectos** (`source = 'projects'` o con `project_id`).
+  - **Tareas** (resto / personales).
+- Cada pestaña reutiliza el listado actual filtrado, con su contador.
 
-### 1.4 Bloques de trabajo: 1.30h ↔ 3x30m
-- En `WorkBlockSquares.tsx`, añadir por bloque un toggle "Unificar / Dividir":
-  - Modo unificado: una sola caja de 1h30 (estilo bloque completo, asignable a un área/tarea).
-  - Modo dividido: las 3 cajas de 30m actuales.
-- Persistir el modo por bloque en `daily_systems_tracking.block_modes` (JSON nuevo) o reutilizar `work_assignments`.
+## 3. Arreglar áreas (eliminar "Profesional")
 
-### 1.5 Horario del día: Rutina Normal vs Rutina 5AM
-- En el `PresetSchedulePicker` del Systems, ofrecer dos opciones rápidas:
-  - **Rutina Normal** (la actual).
-  - **Rutina 5AM**: 5:00–5:30 inicio, 5:30–7:00 activación, 7:00–8:00 gym, 8:00–8:30 alistamiento+desayuno, y el resto igual a la normal.
-- Insertar el preset `Rutina 5AM` en `routine_presets` si no existe.
+- Las áreas canónicas son las del **Plan Identidad** (tabla `identity_plan` / pilares definidos ahí).
+- Auditar dónde aparece "Profesional" hardcodeado (probablemente `src/lib/data.ts`, `definitions.ts`, `MonthlyAreaGoals`, selects de tareas).
+- Reemplazar la lista hardcodeada por un hook `useIdentityAreas()` que lea las áreas oficiales del Plan Identidad y las exponga a todos los selectores (Tareas, Sistemas, Goals, etc.).
+- Migrar datos: tareas con `area_id` apuntando a "profesional" se reasignan al área equivalente del Plan Identidad (o quedan sin área para que el usuario reasigne).
 
-## 2. Nueva página Plan Identidad (`/plan-identidad`)
+## 4. Crear tareas desde la página Sistemas
 
-- Crear `src/pages/PlanIdentidad.tsx` y ruta en `App.tsx`. Añadir entrada en `Navigation`.
-- **Mover** `IdentityPlan` desde Systems a esta página (quitar de `Systems.tsx`).
+- `FocusTasksPanel.tsx` ya existe pero el botón "+ Nueva tarea" no está persistiendo / no abre diálogo funcional. Lo conectamos:
+  - Reutilizar `AddItemDialog` (o un `QuickTaskCreator`) con campos: título, área (del Plan Identidad), tipo (universidad/emprendimiento/proyecto/tarea), fecha = hoy.
+  - Inserta en `tasks` con `area_id` correcto y queda visible en la pestaña correspondiente de la página Tareas.
+- Añadir también un botón "+" global en el header de la sección Foco de `Systems.tsx`.
 
-### 2.1 Punto B con tareas y subtareas
-- Migración: nueva tabla `identity_plan_tasks`:
-  - `id`, `identity_plan_id` (FK), `title`, `is_primary` (boolean), `parent_task_id` (FK self, para subtareas), `completed`, `order_index`, `created_at`, `updated_at`.
-  - GRANT a authenticated/service_role, RLS `USING (true)` (en línea con el resto del proyecto sin auth).
-- Reemplazar el campo de texto Punto B por una lista de tareas:
-  - Cada tarea con check, botón "Marcar como principal" y permite subtareas anidadas.
-  - Barra de progreso = subtareas/tareas completadas.
-- El campo `point_b` queda como título-resumen opcional.
+## 5. Botón rutina 5 AM en horario del día
 
-### 2.2 Sección "Mi Porqué" (Vision Board 3x3)
-- Debajo del Plan Identidad, grid 3x3 de tarjetas grandes.
-- Cada tarjeta permite subir foto desde galería (bucket `user-images`).
-- Persistencia: tabla `vision_board_cells` con `id`, `board_type` ('porque' | 'recompensas'), `position` (0–8), `image_url`, `caption`.
+- En `PresetSchedulePicker.tsx` (usado en Sistemas y Planificación) añadir un botón rápido "Aplicar rutina 5 AM" que selecciona el preset ya creado (`Rutina 5AM`) y lo guarda en `daily_plans` de hoy.
+- Si el preset no existe aún (instalaciones nuevas), seed automático con los bloques que el usuario definió:
+  ```text
+  05:00–05:30  Rutina de inicio
+  05:30–07:00  Foco
+  07:00–08:00  Gym
+  08:00–08:30  Alistamiento + desayuno
+  08:30–09:00  Podcast / lectura
+  09:00–13:20  Trabajo (bloques 1:30)
+  13:20–14:00  Almuerzo
+  14:00–18:30  Trabajo (bloques 1:30)
+  18:30–20:00  Idiomas
+  20:00–21:30  Trabajo u ocio
+  21:30–22:00  Piano
+  22:00–22:30  Rutina de desactivación
+  ```
 
-### 2.3 Sección "Recompensas" (Vision Board 3x3)
-- Idéntico al de Mi Porqué, debajo, con `board_type='recompensas'`.
+## 6. Rachas de Sistemas en base de datos (no localStorage)
+
+- `WeekStreakBar.tsx` ya lee de `daily_systems_tracking`, pero el cálculo de la **racha actual** (🔥 número) sigue derivándose en cliente sin persistir.
+- Crear tabla `system_habit_streaks` (`habit_id`, `current_streak`, `longest_streak`, `last_completed_date`, timestamps) y trigger que la actualice cuando cambia `daily_systems_tracking.completions/time_data/count_data` (lógica similar a `update_area_streak`).
+- Hook `useSystemHabitStreaks()` que lee de esa tabla en lugar de recomputar/usar localStorage.
+- Limpieza: eliminar cualquier `localStorage.setItem` de rachas en `useSystemsTracking`, `LanguageSkillCards`, `HobbyCards`, etc.
 
 ## Detalles técnicos
 
-```text
-/plan-identidad
-├── IdentityPlan (movido de Systems)
-│   └── por cada área: Punto A | Punto B (tareas + subtareas) | Progreso
-├── Mi Porqué (Vision Board 3x3)
-└── Recompensas (Vision Board 3x3)
-```
+- **Archivos nuevos**: `src/lib/pwa-register.ts`, `src/hooks/useIdentityAreas.ts`, `src/hooks/useSystemHabitStreaks.ts`, `src/components/systems/QuickAddTaskDialog.tsx`.
+- **Archivos modificados**: `vite.config.ts`, `index.html`, `public/manifest.webmanifest`, `src/main.tsx`, `src/pages/Tasks.tsx`, `src/pages/Systems.tsx`, `src/components/systems/FocusTasksPanel.tsx`, `src/components/systems/WeekStreakBar.tsx`, `src/components/routine/PresetSchedulePicker.tsx`, `src/lib/data.ts`, `src/lib/definitions.ts`.
+- **Migración**: tabla `system_habit_streaks` (con GRANTs + RLS allow-all conforme al modo sin auth) y trigger sobre `daily_systems_tracking`. Seed/actualización del preset `Rutina 5AM` si falta.
+- **Sin cambios destructivos**: los datos existentes se conservan; las tareas con área "profesional" se reasignan vía UPDATE seguro.
 
-### Migraciones SQL
-1. `identity_plan_tasks` (tareas/subtareas del Punto B).
-2. `vision_board_cells` (9 celdas × 2 boards).
-3. Insertar preset `Rutina 5AM` en `routine_presets`.
-
-### Archivos a crear
-- `src/pages/PlanIdentidad.tsx`
-- `src/components/identity/IdentityTaskList.tsx` (tareas+subtareas)
-- `src/components/identity/VisionBoardGrid3x3.tsx` (reutilizable porqué/recompensas)
-- `src/components/systems/WorkoutCheckCard.tsx` (entrenamiento checklist)
-- `src/components/systems/FocusTasksPanel.tsx` (tareas por área + crear)
-
-### Archivos a editar
-- `src/pages/Systems.tsx` — quitar IdentityPlan, añadir Workout check, FocusTasksPanel, toggle bloques.
-- `src/components/systems/LanguageSkillCards.tsx` — tarjeta única sin tiempos.
-- `src/components/systems/WorkBlockSquares.tsx` — toggle 1.30h/3x30m.
-- `src/components/routine/PresetSchedulePicker.tsx` — opciones Normal / 5AM.
-- `src/App.tsx`, `src/components/Navigation.tsx` — nueva ruta.
-
-¿Procedo a implementarlo?
+¿Procedo con esta implementación?
