@@ -48,6 +48,15 @@ interface TaskItem {
   createdAt: Date;
 }
 
+type Category = 'all' | 'universidad' | 'emprendimiento' | 'proyectos' | 'tareas';
+
+const categorize = (t: { areaId?: string; source?: string }): Exclude<Category, 'all'> => {
+  if (t.areaId === 'universidad' || t.source === 'university') return 'universidad';
+  if (t.areaId === 'emprendimiento' || t.source === 'entrepreneurship') return 'emprendimiento';
+  if (t.areaId === 'proyectos' || t.source === 'projects') return 'proyectos';
+  return 'tareas';
+};
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +64,7 @@ export default function TasksPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [activeTab, setActiveTab] = useState('pending');
+  const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [sortBy, setSortBy] = useState<'priority' | 'date' | 'area'>('priority');
   const [viewMode, setViewMode] = useState<'list' | 'grouped'>('list');
   
@@ -84,7 +94,6 @@ export default function TasksPage() {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('source', 'general')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -192,16 +201,18 @@ export default function TasksPage() {
   const overdueTasks = pendingTasks.filter(t => t.dueDate && isPast(t.dueDate) && !isToday(t.dueDate)).length;
   const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
-  // Filtered + sorted
+  // Filtered + sorted — combina categoría con estado
   const filteredTasks = useMemo(() => {
-    let list = activeTab === 'pending' ? pendingTasks 
-      : activeTab === 'completed' ? completedTasks 
-      : activeTab === 'overdue' ? pendingTasks.filter(t => t.dueDate && isPast(t.dueDate) && !isToday(t.dueDate))
-      : activeTab === 'today' ? pendingTasks.filter(t => t.dueDate && (isToday(t.dueDate) || isTomorrow(t.dueDate)))
-      : tasks;
+    const byCat = activeCategory === 'all' ? tasks : tasks.filter(t => categorize(t) === activeCategory);
+    const pending = byCat.filter(t => !t.completed);
+    const done = byCat.filter(t => t.completed);
+    let list = activeTab === 'pending' ? pending
+      : activeTab === 'completed' ? done
+      : activeTab === 'overdue' ? pending.filter(t => t.dueDate && isPast(t.dueDate) && !isToday(t.dueDate))
+      : activeTab === 'today' ? pending.filter(t => t.dueDate && (isToday(t.dueDate) || isTomorrow(t.dueDate)))
+      : byCat;
 
     const priorityOrder: Record<string, number> = { high: 3, medium: 2, low: 1 };
-    
     if (sortBy === 'priority') {
       list = [...list].sort((a, b) => (priorityOrder[b.priority || 'low'] || 0) - (priorityOrder[a.priority || 'low'] || 0));
     } else if (sortBy === 'date') {
@@ -212,9 +223,14 @@ export default function TasksPage() {
         return a.dueDate.getTime() - b.dueDate.getTime();
       });
     }
-
     return list;
-  }, [tasks, activeTab, sortBy]);
+  }, [tasks, activeTab, activeCategory, sortBy]);
+
+  const categoryCounts = useMemo(() => {
+    const c: Record<string, number> = { universidad: 0, emprendimiento: 0, proyectos: 0, tareas: 0 };
+    tasks.filter(t => !t.completed).forEach(t => { c[categorize(t)]++; });
+    return c;
+  }, [tasks]);
 
   // Grouped by area
   const groupedByArea = useMemo(() => {

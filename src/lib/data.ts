@@ -31,37 +31,19 @@ import {
 } from "lucide-react";
 import type { LifeArea, Habit, Wallet, TransactionCategory, RoutineTaskGroup, QuarterlyGoal } from "./definitions";
 
-// Life Areas
+// Life Areas — alineadas con el Plan Identidad (no más "Profesional")
 export const lifeAreas: LifeArea[] = [
-  {
-    id: "profesional",
-    name: "Profesional",
-    description: "Carrera y desarrollo profesional",
-    icon: Briefcase,
-    subAreas: [
-      { id: "universidad", name: "Universidad", description: "", icon: GraduationCap },
-      { id: "proyectos-personales", name: "Proyectos Personales", description: "", icon: Code },
-    ],
-  },
-  {
-    id: "desarrollo-personal",
-    name: "Desarrollo Personal",
-    description: "Crecimiento y aprendizaje",
-    icon: Brain,
-    subAreas: [
-      {
-        id: "hobbies",
-        name: "Hobbies",
-        description: "",
-        icon: Palette,
-        subAreas: [
-          { id: "musica", name: "Música", description: "", icon: Music },
-          { id: "videojuegos", name: "Videojuegos", description: "", icon: Gamepad2 },
-          { id: "lectura", name: "Lectura", description: "", icon: Book },
-        ],
-      },
-    ],
-  },
+  { id: "universidad", name: "Universidad", description: "Académico", icon: GraduationCap },
+  { id: "emprendimiento", name: "Emprendimiento", description: "Negocios", icon: Briefcase },
+  { id: "proyectos", name: "Proyectos", description: "Proyectos personales", icon: Code },
+  { id: "gym", name: "Gym", description: "Entrenamiento", icon: Dumbbell },
+  { id: "idiomas", name: "Idiomas", description: "Aprendizaje", icon: Brain },
+  { id: "ajedrez", name: "Ajedrez", description: "Estrategia", icon: Gamepad2 },
+  { id: "lectura", name: "Lectura", description: "Libros", icon: Book },
+  { id: "piano", name: "Piano", description: "Música", icon: Music },
+  { id: "guitarra", name: "Guitarra", description: "Música", icon: Music },
+  { id: "apariencia", name: "Apariencia", description: "Cuidado personal", icon: Shirt },
+  { id: "finanzas", name: "Finanzas", description: "Gestión financiera", icon: WalletIcon },
   {
     id: "mental",
     name: "Mental",
@@ -71,24 +53,10 @@ export const lifeAreas: LifeArea[] = [
       { id: "rutina-activacion", name: "Rutina Activación", description: "", icon: Repeat },
       { id: "rutina-desactivacion", name: "Rutina Desactivación", description: "", icon: Moon },
       { id: "no-fap", name: "No Fap", description: "", icon: Zap },
-      { id: "no-videojuegos", name: "No Videojuegos", description: "", icon: Sparkles },
-      { id: "redes-sociales", name: "Redes Sociales", description: "", icon: Sparkles },
       { id: "ducha-fria", name: "Ducha Fría", description: "", icon: Droplet },
       { id: "planificacion", name: "Planificación", description: "", icon: Target },
-      { id: "autocritica", name: "Autocrítica", description: "", icon: Brain },
     ],
   },
-  {
-    id: "apariencia",
-    name: "Apariencia",
-    description: "Cuidado personal",
-    icon: Shirt,
-    subAreas: [
-      { id: "cuidado-personal", name: "Cuidado Personal", description: "", icon: Shirt },
-      { id: "skincare", name: "Skincare", description: "", icon: Droplet },
-    ],
-  },
-  { id: "finanzas", name: "Finanzas", description: "Gestión financiera", icon: WalletIcon },
 ];
 
 export const centralAreas: LifeArea[] = [
