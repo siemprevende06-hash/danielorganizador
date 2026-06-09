@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Subject, SubjectTopic, PartialExam, SubjectTask } from '@/hooks/useUniversity';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { AssignTaskToBlockDialog } from './AssignTaskToBlockDialog';
 
 interface SubjectDetailCardProps {
   subject: Subject;
@@ -86,6 +87,10 @@ export function SubjectDetailCard({
   const [taskType, setTaskType] = useState<'delivery' | 'study'>('delivery');
   const [taskMinutes, setTaskMinutes] = useState('30');
   const [taskTopicId, setTaskTopicId] = useState('');
+
+  // Assign to routine block dialog
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [taskForAssignment, setTaskForAssignment] = useState<SubjectTask | null>(null);
 
   const deliveryTasks = subject.tasks.filter(t => t.task_type === 'delivery');
   const studyTasks = subject.tasks.filter(t => t.task_type === 'study');
@@ -520,6 +525,12 @@ export function SubjectDetailCard({
                           <Play className="h-3 w-3 text-primary" />
                         </Button>
                       )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                        setTaskForAssignment(task);
+                        setAssignDialogOpen(true);
+                      }}>
+                        <Calendar className="h-3 w-3" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDeleteTask(task.id)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -570,6 +581,12 @@ export function SubjectDetailCard({
                             Focus
                           </Button>
                         )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                          setTaskForAssignment(task);
+                          setAssignDialogOpen(true);
+                        }}>
+                          <Calendar className="h-3 w-3" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDeleteTask(task.id)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -611,6 +628,22 @@ export function SubjectDetailCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assign to Routine Block Dialog */}
+      <AssignTaskToBlockDialog
+        open={assignDialogOpen}
+        onOpenChange={setAssignDialogOpen}
+        task={taskForAssignment ? {
+          id: taskForAssignment.id,
+          title: taskForAssignment.title,
+          subjectName: subject.name,
+          source: 'university',
+        } : null}
+        onAssigned={() => {
+          setTaskForAssignment(null);
+          window.dispatchEvent(new CustomEvent('taskAssignmentChanged'));
+        }}
+      />
     </Card>
   );
 }

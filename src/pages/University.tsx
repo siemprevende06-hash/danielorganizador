@@ -23,6 +23,7 @@ import { SubjectProgressCard } from '@/components/university/SubjectProgressCard
 import { GPATracker } from '@/components/university/GPATracker';
 import { ExamCalendar } from '@/components/university/ExamCalendar';
 import { AcademicAnalytics } from '@/components/university/AcademicAnalytics';
+import { RoutineBlockSchedule } from '@/components/university/RoutineBlockSchedule';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -365,6 +366,11 @@ export default function UniversityPage() {
             <div>
               <GPATracker gpaData={gpaData} overallGPA={overallGPA} totalCredits={totalCredits} />
             </div>
+          </div>
+
+          {/* Routine Block Schedule */}
+          <div className="mt-6">
+            <RoutineBlockSchedule />
           </div>
         </TabsContent>
 
