@@ -1176,6 +1176,79 @@ export type Database = {
           },
         ]
       }
+      identity_systems: {
+        Row: {
+          id: string
+          area_id: string
+          name: string
+          description: string | null
+          tasks: Json
+          linked_system_hint: string | null
+          is_active: boolean
+          sort_order: number
+          user_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          area_id: string
+          name?: string
+          description?: string | null
+          tasks?: Json
+          linked_system_hint?: string | null
+          is_active?: boolean
+          sort_order?: number
+          user_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          area_id?: string
+          name?: string
+          description?: string | null
+          tasks?: Json
+          linked_system_hint?: string | null
+          is_active?: boolean
+          sort_order?: number
+          user_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      identity_systems_daily: {
+        Row: {
+          id: string
+          system_id: string
+          tracking_date: string
+          task_states: Json
+          user_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          system_id: string
+          tracking_date?: string
+          task_states?: Json
+          user_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          system_id?: string
+          tracking_date?: string
+          task_states?: Json
+          user_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      }
       journal_entries: {
         Row: {
           content: string
