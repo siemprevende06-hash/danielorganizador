@@ -493,6 +493,40 @@ export default function TasksPage() {
 
       {/* Filter tabs + controls */}
       <div className="flex items-center justify-between gap-2">
+      {/* Category tabs (área) */}
+      <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
+        {([
+          { id: 'all', label: 'Todas', icon: ListTodo },
+          { id: 'universidad', label: 'Universidad', icon: Target },
+          { id: 'emprendimiento', label: 'Emprendimiento', icon: Target },
+          { id: 'proyectos', label: 'Proyectos', icon: Target },
+          { id: 'tareas', label: 'Tareas', icon: Target },
+        ] as const).map(cat => {
+          const count = cat.id === 'all'
+            ? tasks.filter(t => !t.completed).length
+            : (categoryCounts[cat.id] || 0);
+          const active = activeCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id as Category)}
+              className={`shrink-0 px-3 h-8 text-xs rounded-full border transition flex items-center gap-1.5 ${
+                active
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card hover:bg-muted border-border text-foreground'
+              }`}
+            >
+              <span>{cat.label}</span>
+              <span className={`text-[10px] px-1.5 rounded ${active ? 'bg-primary-foreground/20' : 'bg-muted'}`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Filter tabs + controls */}
+      <div className="flex items-center justify-between gap-2">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
           <TabsList className="h-8 p-0.5">
             <TabsTrigger value="pending" className="text-xs h-7 px-3">
