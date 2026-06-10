@@ -1176,79 +1176,6 @@ export type Database = {
           },
         ]
       }
-      identity_systems: {
-        Row: {
-          id: string
-          area_id: string
-          name: string
-          description: string | null
-          tasks: Json
-          linked_system_hint: string | null
-          is_active: boolean
-          sort_order: number
-          user_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          area_id: string
-          name?: string
-          description?: string | null
-          tasks?: Json
-          linked_system_hint?: string | null
-          is_active?: boolean
-          sort_order?: number
-          user_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          area_id?: string
-          name?: string
-          description?: string | null
-          tasks?: Json
-          linked_system_hint?: string | null
-          is_active?: boolean
-          sort_order?: number
-          user_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      identity_systems_daily: {
-        Row: {
-          id: string
-          system_id: string
-          tracking_date: string
-          task_states: Json
-          user_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          system_id: string
-          tracking_date?: string
-          task_states?: Json
-          user_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          system_id?: string
-          tracking_date?: string
-          task_states?: Json
-          user_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      }
       journal_entries: {
         Row: {
           content: string
@@ -1881,6 +1808,24 @@ export type Database = {
           user_id?: string | null
           waist_cm?: number | null
           weight?: number
+        }
+        Relationships: []
+      }
+      pillar_covers: {
+        Row: {
+          cover_url: string | null
+          pillar_id: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          pillar_id: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          pillar_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2863,134 +2808,6 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           workout_days?: Json
-        }
-        Relationships: []
-      }
-      sprints: {
-        Row: {
-          id: string
-          name: string
-          start_date: string
-          end_date: string
-          status: string
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          name: string
-          start_date: string
-          end_date: string
-          status?: string
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          name?: string
-          start_date?: string
-          end_date?: string
-          status?: string
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      sprint_objectives: {
-        Row: {
-          id: string
-          sprint_id: string
-          area: string
-          type: string
-          title: string
-          description: string | null
-          target_value: number
-          current_value: number
-          unit: string
-          min_daily: number | null
-          max_daily: number | null
-          status: string
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          sprint_id: string
-          area: string
-          type: string
-          title: string
-          description?: string | null
-          target_value?: number
-          current_value?: number
-          unit?: string
-          min_daily?: number | null
-          max_daily?: number | null
-          status?: string
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          sprint_id?: string
-          area?: string
-          type?: string
-          title?: string
-          description?: string | null
-          target_value?: number
-          current_value?: number
-          unit?: string
-          min_daily?: number | null
-          max_daily?: number | null
-          status?: string
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sprint_objectives_sprint_id_fkey"
-            columns: ["sprint_id"]
-            isOneToOne: false
-            referencedRelation: "sprints"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      point_b_metrics: {
-        Row: {
-          id: string
-          area: string
-          metric_name: string
-          current_value: number
-          target_value: number
-          unit: string
-          icon: string | null
-          sort_order: number
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          area: string
-          metric_name: string
-          current_value?: number
-          target_value?: number
-          unit?: string
-          icon?: string | null
-          sort_order?: number
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          area?: string
-          metric_name?: string
-          current_value?: number
-          target_value?: number
-          unit?: string
-          icon?: string | null
-          sort_order?: number
-          created_at?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
