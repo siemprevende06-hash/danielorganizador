@@ -1811,6 +1811,24 @@ export type Database = {
         }
         Relationships: []
       }
+      pillar_covers: {
+        Row: {
+          cover_url: string | null
+          pillar_id: string
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          pillar_id: string
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          pillar_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           cover_image: string | null

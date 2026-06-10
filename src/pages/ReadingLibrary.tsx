@@ -14,6 +14,7 @@ import { BookOpen, Plus, Star, BookMarked, Library, Trash2, Upload, Calendar, Ch
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, addMonths, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { DailyReadingIndicator } from '@/components/reading/DailyReadingIndicator';
 
 export default function ReadingLibrary() {
   const {
@@ -289,6 +290,9 @@ export default function ReadingLibrary() {
         </DialogContent>
       </Dialog>
 
+      {/* Indicador de lectura diaria */}
+      <DailyReadingIndicator dailyPagesGoal={dailyPages} dailyMinutesGoal={30} />
+
       {/* Stats Overview */}
       <Card>
         <CardContent className="p-4">
@@ -306,6 +310,7 @@ export default function ReadingLibrary() {
           <Progress value={(stats.thisYearBooks / (booksPerMonth * 12)) * 100} className="h-2 mt-3" />
         </CardContent>
       </Card>
+
 
       <Tabs defaultValue="monthly">
         <TabsList className="grid grid-cols-4 w-full">
