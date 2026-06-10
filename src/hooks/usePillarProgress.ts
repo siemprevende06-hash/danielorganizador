@@ -107,7 +107,7 @@ export function usePillarProgress(date?: Date) {
             const studyMin = (timeData['study'] || 0) + (timeData['universidad'] || 0);
             hoursToday = studyMin / 60;
             effort = Math.min(100, Math.round((studyMin / 120) * 100));
-            const upcomingExams = exams.filter(e => !e.completed).length;
+            const upcomingExams = exams.filter((e: any) => e.status !== 'completed').length;
             if (upcomingExams === 0 && effort === 0) effort = 0;
             break;
           }
