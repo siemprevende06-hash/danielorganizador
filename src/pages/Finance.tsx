@@ -574,7 +574,7 @@ export default function Finance() {
   const monthlyBalance = monthlyIncome - monthlyExpenses;
   const undistributedIncomes = useMemo(() => 
     transactions.filter(t => t.type === 'income' && !t.distributed && t.categoryId !== 'cat-transfer'),
-  , [transactions]);
+  [transactions]);
   
   const chartData = useMemo(() => {
     const monthlySummary = Array.from({ length: 6 }).map((_, i) => {
