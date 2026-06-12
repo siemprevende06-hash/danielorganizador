@@ -1176,6 +1176,80 @@ export type Database = {
           },
         ]
       }
+      identity_systems: {
+        Row: {
+          area_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          linked_system_hint: string | null
+          name: string
+          sort_order: number
+          tasks: Json
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          linked_system_hint?: string | null
+          name: string
+          sort_order?: number
+          tasks?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          linked_system_hint?: string | null
+          name?: string
+          sort_order?: number
+          tasks?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      identity_systems_daily: {
+        Row: {
+          created_at: string
+          id: string
+          system_id: string
+          task_states: Json
+          tracking_date: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          system_id: string
+          task_states?: Json
+          tracking_date?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          system_id?: string
+          task_states?: Json
+          tracking_date?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "identity_systems_daily_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "identity_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_entries: {
         Row: {
           content: string
@@ -1864,6 +1938,45 @@ export type Database = {
         }
         Relationships: []
       }
+      point_b_metrics: {
+        Row: {
+          area_id: string
+          created_at: string
+          current_value: string | null
+          id: string
+          metric_name: string
+          sort_order: number
+          target_value: string | null
+          unit: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id: string
+          created_at?: string
+          current_value?: string | null
+          id?: string
+          metric_name: string
+          sort_order?: number
+          target_value?: string | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string
+          created_at?: string
+          current_value?: string | null
+          id?: string
+          metric_name?: string
+          sort_order?: number
+          target_value?: string | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           cover_image: string | null
@@ -2266,6 +2379,95 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sprint_objectives: {
+        Row: {
+          created_at: string
+          current_value: number | null
+          description: string | null
+          id: string
+          objective_type: string
+          sort_order: number
+          sprint_id: string
+          status: string
+          target_value: number | null
+          title: string
+          unit: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          objective_type: string
+          sort_order?: number
+          sprint_id: string
+          status?: string
+          target_value?: number | null
+          title: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          objective_type?: string
+          sort_order?: number
+          sprint_id?: string
+          status?: string
+          target_value?: number | null
+          title?: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprint_objectives_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sprints: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       strength_goals: {
         Row: {
