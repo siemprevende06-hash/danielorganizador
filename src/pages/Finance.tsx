@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, PlusCircle, Edit, Coins, Settings, LucideIcon, Wallet as WalletIcon, RotateCcw, ArrowRightLeft, Download, Upload, Scale, LandPlot, DollarSign, Trash2, Plus, Shield, TrendingUp, Home, Gamepad2, BookOpen, PiggyBank, Heart, GraduationCap, Sparkles, Plane, Coffee } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Edit, Coins, Settings, LucideIcon, Wallet as WalletIcon, RotateCcw, ArrowRightLeft, Download, Upload, Scale, LandPlot, DollarSign, Trash2, Plus, Shield, TrendingUp, Home, Gamepad2, BookOpen, PiggyBank, Heart, GraduationCap, Sparkles, Plane, Coffee, Target } from 'lucide-react';
 import { format, isThisMonth, startOfMonth, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
