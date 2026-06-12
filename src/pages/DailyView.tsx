@@ -205,7 +205,7 @@ export default function DailyView() {
             </div>
 
             <div>
-              <LanguageSkillCards times={data.timeData} onTimeChange={setTimeValue} />
+              <LanguageSkillCards completions={{}} onToggle={() => {}} />
             </div>
           </CardContent>
         </Card>

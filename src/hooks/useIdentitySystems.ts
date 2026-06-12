@@ -17,7 +17,7 @@ export function useIdentitySystems() {
     ]);
 
     if (sysRes.data) {
-      setSystems(sysRes.data as IdentitySystem[]);
+      setSystems(sysRes.data as unknown as IdentitySystem[]);
     }
 
     if (dailyRes.data) {
@@ -62,7 +62,7 @@ export function useIdentitySystems() {
       return false;
     }
 
-    setSystems(prev => [...prev, data as IdentitySystem]);
+    setSystems(prev => [...prev, data as unknown as IdentitySystem]);
     return true;
   };
 

@@ -55,13 +55,13 @@ export function usePointBMetrics() {
   useEffect(() => { load(); }, [load]);
 
   const addMetric = async (metric: Omit<PointBMetric, 'id'>) => {
-    const { error } = await supabase.from('point_b_metrics').insert(metric);
+    const { error } = await supabase.from('point_b_metrics').insert(metric as any);
     if (error) throw error;
     await load();
   };
 
   const updateMetric = async (id: string, updates: Partial<PointBMetric>) => {
-    await supabase.from('point_b_metrics').update(updates).eq('id', id);
+    await supabase.from('point_b_metrics').update(updates as any).eq('id', id);
     await load();
   };
 

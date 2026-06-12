@@ -1176,6 +1176,83 @@ export type Database = {
           },
         ]
       }
+      identity_systems: {
+        Row: {
+          area_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          linked_system_hint: string | null
+          name: string
+          sort_order: number
+          tasks: Json
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          linked_system_hint?: string | null
+          name: string
+          sort_order?: number
+          tasks?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          linked_system_hint?: string | null
+          name?: string
+          sort_order?: number
+          tasks?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      identity_systems_daily: {
+        Row: {
+          created_at: string
+          id: string
+          system_id: string
+          task_states: Json
+          tracking_date: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          system_id: string
+          task_states?: Json
+          tracking_date?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          system_id?: string
+          task_states?: Json
+          tracking_date?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "identity_systems_daily_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "identity_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_entries: {
         Row: {
           content: string
@@ -1395,6 +1472,41 @@ export type Database = {
             columns: ["meal_tracking_id"]
             isOneToOne: false
             referencedRelation: "meal_tracking"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_plan: {
+        Row: {
+          created_at: string
+          id: string
+          meal_slot: string
+          plan_date: string
+          recipe_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meal_slot: string
+          plan_date: string
+          recipe_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meal_slot?: string
+          plan_date?: string
+          recipe_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
         ]
@@ -1829,6 +1941,51 @@ export type Database = {
         }
         Relationships: []
       }
+      point_b_metrics: {
+        Row: {
+          area: string | null
+          area_id: string
+          created_at: string
+          current_value: string | null
+          icon: string | null
+          id: string
+          metric_name: string
+          sort_order: number
+          target_value: string | null
+          unit: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area?: string | null
+          area_id: string
+          created_at?: string
+          current_value?: string | null
+          icon?: string | null
+          id?: string
+          metric_name: string
+          sort_order?: number
+          target_value?: string | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area?: string | null
+          area_id?: string
+          created_at?: string
+          current_value?: string | null
+          icon?: string | null
+          id?: string
+          metric_name?: string
+          sort_order?: number
+          target_value?: string | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           cover_image: string | null
@@ -1912,6 +2069,77 @@ export type Database = {
           status?: string | null
           title?: string
           updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      recipe_ingredients: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          quantity: number | null
+          recipe_id: string
+          sort_order: number | null
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          quantity?: number | null
+          recipe_id: string
+          sort_order?: number | null
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          quantity?: number | null
+          recipe_id?: string
+          sort_order?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_ingredients_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipes: {
+        Row: {
+          created_at: string
+          id: string
+          instructions: string | null
+          name: string
+          photo_url: string | null
+          servings: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instructions?: string | null
+          name: string
+          photo_url?: string | null
+          servings?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instructions?: string | null
+          name?: string
+          photo_url?: string | null
+          servings?: number | null
+          updated_at?: string
           user_id?: string | null
         }
         Relationships: []
@@ -2087,6 +2315,181 @@ export type Database = {
         }
         Relationships: []
       }
+      routine_steps: {
+        Row: {
+          created_at: string
+          duration_min: number | null
+          group_id: string | null
+          group_title: string | null
+          id: string
+          routine_type: string
+          sort_order: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_min?: number | null
+          group_id?: string | null
+          group_title?: string | null
+          id?: string
+          routine_type: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_min?: number | null
+          group_id?: string | null
+          group_title?: string | null
+          id?: string
+          routine_type?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      routine_steps_daily: {
+        Row: {
+          completed: boolean
+          created_at: string
+          id: string
+          step_id: string
+          tracking_date: string
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          step_id: string
+          tracking_date?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          step_id?: string
+          tracking_date?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_steps_daily_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "routine_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sprint_objectives: {
+        Row: {
+          area: string | null
+          created_at: string
+          current_value: number | null
+          description: string | null
+          id: string
+          max_daily: number | null
+          min_daily: number | null
+          objective_type: string
+          sort_order: number
+          sprint_id: string
+          status: string
+          target_value: number | null
+          title: string
+          type: string | null
+          unit: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area?: string | null
+          created_at?: string
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          max_daily?: number | null
+          min_daily?: number | null
+          objective_type: string
+          sort_order?: number
+          sprint_id: string
+          status?: string
+          target_value?: number | null
+          title: string
+          type?: string | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area?: string | null
+          created_at?: string
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          max_daily?: number | null
+          min_daily?: number | null
+          objective_type?: string
+          sort_order?: number
+          sprint_id?: string
+          status?: string
+          target_value?: number | null
+          title?: string
+          type?: string | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sprint_objectives_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sprints: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          name: string
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          name?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       strength_goals: {
         Row: {
           created_at: string
@@ -2204,6 +2607,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_card_covers: {
+        Row: {
+          card_id: string
+          cover_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          card_id: string
+          cover_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          card_id?: string
+          cover_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       system_habit_streaks: {
         Row: {
