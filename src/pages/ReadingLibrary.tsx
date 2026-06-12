@@ -313,12 +313,14 @@ export default function ReadingLibrary() {
 
 
       <Tabs defaultValue="monthly">
-        <TabsList className="grid grid-cols-4 w-full">
+        <TabsList className="grid grid-cols-5 w-full">
           <TabsTrigger value="monthly">📅 Del Mes</TabsTrigger>
           <TabsTrigger value="history">📖 Leídos</TabsTrigger>
+          <TabsTrigger value="archive">🗂️ Historial</TabsTrigger>
           <TabsTrigger value="future">📋 Próximas</TabsTrigger>
           <TabsTrigger value="timeline">🗓️ Cronología</TabsTrigger>
         </TabsList>
+
 
         {/* Monthly Goals */}
         <TabsContent value="monthly" className="space-y-4 mt-4">
@@ -532,7 +534,8 @@ export default function ReadingLibrary() {
 
           {/* Book Detail/Notes Dialog */}
           <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
-            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-full w-screen h-screen sm:max-w-full sm:rounded-none p-6 overflow-y-auto">
+
               {selectedBook && (
                 <>
                   <DialogHeader>
@@ -630,6 +633,40 @@ export default function ReadingLibrary() {
               )}
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* Archive: monthly grouping from Jan 2026 */}
+        <TabsContent value="archive" className="mt-4 space-y-4">
+          {(() => {
+            const cutoff = new Date('2026-01-01');
+            const completed = getBooksByStatus('completed').filter(b => b.finish_date && new Date(b.finish_date) >= cutoff);
+            if (completed.length === 0) {
+              return <div className="text-center py-12 text-muted-foreground"><Library className="w-12 h-12 mx-auto mb-4 opacity-50" /><p>Sin libros terminados desde enero 2026</p></div>;
+            }
+            const groups: Record<string, typeof completed> = {};
+            for (const b of completed) {
+              const key = format(new Date(b.finish_date!), 'yyyy-MM');
+              (groups[key] ||= []).push(b);
+            }
+            const keys = Object.keys(groups).sort().reverse();
+            return keys.map(k => (
+              <Card key={k}>
+                <CardHeader className="pb-2"><CardTitle className="text-base capitalize">{format(new Date(k + '-01'), 'MMMM yyyy', { locale: es })} <Badge variant="outline" className="ml-2">{groups[k].length}</Badge></CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {groups[k].map(book => (
+                      <Card key={book.id} className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50" onClick={() => { setSelectedBook(book); setEditingNotes(book.notes || ''); setNotesOpen(true); }}>
+                        <div className="aspect-[2/3] bg-muted flex items-center justify-center">
+                          {book.cover_image_url ? <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" /> : <BookOpen className="w-10 h-10 text-muted-foreground/50" />}
+                        </div>
+                        <CardContent className="p-2"><h3 className="text-xs font-medium line-clamp-2">{book.title}</h3>{renderStars(book.rating)}</CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ));
+          })()}
         </TabsContent>
 
         {/* Future Reads */}
