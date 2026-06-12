@@ -56,6 +56,7 @@ const navItems = [
     submenu: [
       { path: '/daily-routine', label: 'Rutina Diaria' },
       { path: '/activation-routine', label: 'Activación' },
+      { path: '/morning-prep', label: 'Alistamiento y Desayuno' },
       { path: '/deactivation-routine', label: 'Desactivación' },
     ]
   },
