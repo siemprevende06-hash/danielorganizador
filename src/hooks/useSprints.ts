@@ -53,7 +53,7 @@ export function useSprints() {
           name: s.name,
           start_date: s.start_date,
           end_date: s.end_date,
-          status: s.status,
+          status: s.status as Sprint['status'],
           objectives: (objectives || []).map((o: any) => ({
             id: o.id,
             sprint_id: o.sprint_id,
@@ -99,7 +99,8 @@ export function useSprints() {
   const addObjective = async (sprintId: string, objective: Omit<SprintObjective, 'id' | 'sprint_id'>) => {
     const { error } = await supabase
       .from('sprint_objectives')
-      .insert({ sprint_id: sprintId, ...objective });
+      .insert({ sprint_id: sprintId, objective_type: objective.type, ...objective } as any);
+
 
     if (error) throw error;
     await load();
