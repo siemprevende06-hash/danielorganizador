@@ -1180,6 +1180,7 @@ export type Database = {
         Row: {
           area_id: string
           created_at: string
+          description: string | null
           id: string
           is_active: boolean
           linked_system_hint: string | null
@@ -1192,6 +1193,7 @@ export type Database = {
         Insert: {
           area_id: string
           created_at?: string
+          description?: string | null
           id?: string
           is_active?: boolean
           linked_system_hint?: string | null
@@ -1204,6 +1206,7 @@ export type Database = {
         Update: {
           area_id?: string
           created_at?: string
+          description?: string | null
           id?: string
           is_active?: boolean
           linked_system_hint?: string | null
@@ -1940,9 +1943,11 @@ export type Database = {
       }
       point_b_metrics: {
         Row: {
+          area: string | null
           area_id: string
           created_at: string
           current_value: string | null
+          icon: string | null
           id: string
           metric_name: string
           sort_order: number
@@ -1952,9 +1957,11 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          area?: string | null
           area_id: string
           created_at?: string
           current_value?: string | null
+          icon?: string | null
           id?: string
           metric_name: string
           sort_order?: number
@@ -1964,9 +1971,11 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          area?: string | null
           area_id?: string
           created_at?: string
           current_value?: string | null
+          icon?: string | null
           id?: string
           metric_name?: string
           sort_order?: number
@@ -2382,46 +2391,58 @@ export type Database = {
       }
       sprint_objectives: {
         Row: {
+          area: string | null
           created_at: string
           current_value: number | null
           description: string | null
           id: string
+          max_daily: number | null
+          min_daily: number | null
           objective_type: string
           sort_order: number
           sprint_id: string
           status: string
           target_value: number | null
           title: string
+          type: string | null
           unit: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          area?: string | null
           created_at?: string
           current_value?: number | null
           description?: string | null
           id?: string
+          max_daily?: number | null
+          min_daily?: number | null
           objective_type: string
           sort_order?: number
           sprint_id: string
           status?: string
           target_value?: number | null
           title: string
+          type?: string | null
           unit?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          area?: string | null
           created_at?: string
           current_value?: number | null
           description?: string | null
           id?: string
+          max_daily?: number | null
+          min_daily?: number | null
           objective_type?: string
           sort_order?: number
           sprint_id?: string
           status?: string
           target_value?: number | null
           title?: string
+          type?: string | null
           unit?: string | null
           updated_at?: string
           user_id?: string | null
