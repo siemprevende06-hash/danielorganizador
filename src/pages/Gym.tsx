@@ -530,6 +530,8 @@ export default function Gym() {
             )}
           </>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
