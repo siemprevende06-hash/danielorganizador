@@ -18,6 +18,7 @@ import { AchievementsDisplay } from "@/components/dashboard/AchievementsDisplay"
 import { WeeklySummaryCard } from "@/components/dashboard/WeeklySummaryCard";
 import { ExportDataButton } from "@/components/dashboard/ExportDataButton";
 import { RealStatsDashboard } from "@/components/dashboard/RealStatsDashboard";
+import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useEffect } from "react";
 
@@ -51,6 +52,9 @@ export default function Index() {
 
         {/* REAL STATS — día, semana, mes, trimestre */}
         <RealStatsDashboard />
+
+        {/* Mis Sistemas — esfuerzo acumulado por área */}
+        <MySystemsSection />
 
         {/* Quick Day Summary */}
         <QuickDaySummary />

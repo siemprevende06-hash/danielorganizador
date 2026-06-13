@@ -9,6 +9,8 @@ import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Camera, Utensils, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { RecipeManager } from "@/components/alimentacion/RecipeManager";
+import { WeeklyMealPlan } from "@/components/alimentacion/WeeklyMealPlan";
 
 const MEALS = [
   { id: "pre-entreno", name: "Pre-entreno", time: "5:30 AM" },
@@ -120,9 +122,11 @@ export default function Alimentacion() {
         </Card>
 
         <Tabs defaultValue="today">
-          <TabsList className="grid grid-cols-2">
+          <TabsList className="grid grid-cols-4">
             <TabsTrigger value="today">Hoy</TabsTrigger>
             <TabsTrigger value="week">Semana</TabsTrigger>
+            <TabsTrigger value="recipes">Recetas</TabsTrigger>
+            <TabsTrigger value="plan">Planificar</TabsTrigger>
           </TabsList>
 
           <TabsContent value="today" className="space-y-3 mt-4">
@@ -138,15 +142,8 @@ export default function Alimentacion() {
                     {photo ? (
                       <img src={photo} alt={meal.name} className="h-16 w-16 rounded-lg object-cover" />
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePhotoUpload(meal.id)}
-                        disabled={uploading}
-                        className="gap-1"
-                      >
-                        <Camera className="h-3 w-3" />
-                        Foto
+                      <Button variant="outline" size="sm" onClick={() => handlePhotoUpload(meal.id)} disabled={uploading} className="gap-1">
+                        <Camera className="h-3 w-3" />Foto
                       </Button>
                     )}
                   </div>
@@ -164,17 +161,13 @@ export default function Alimentacion() {
                 const photoList = Object.entries(photos).filter(([, v]) => v);
                 return (
                   <Card key={dayStr} className="p-4">
-                    <p className="text-sm font-semibold capitalize mb-2">
-                      {format(day, "EEEE d", { locale: es })}
-                    </p>
+                    <p className="text-sm font-semibold capitalize mb-2">{format(day, "EEEE d", { locale: es })}</p>
                     {photoList.length > 0 ? (
                       <div className="flex gap-2 overflow-x-auto pb-2">
                         {photoList.map(([mealId, url]) => (
                           <div key={mealId} className="shrink-0">
                             <img src={url} alt={mealId} className="h-16 w-16 rounded-lg object-cover" />
-                            <p className="text-[10px] text-center text-muted-foreground mt-1">
-                              {MEALS.find(m => m.id === mealId)?.name || mealId}
-                            </p>
+                            <p className="text-[10px] text-center text-muted-foreground mt-1">{MEALS.find(m => m.id === mealId)?.name || mealId}</p>
                           </div>
                         ))}
                       </div>
@@ -185,6 +178,14 @@ export default function Alimentacion() {
                 );
               })}
             </div>
+          </TabsContent>
+
+          <TabsContent value="recipes" className="mt-4">
+            <RecipeManager />
+          </TabsContent>
+
+          <TabsContent value="plan" className="mt-4">
+            <WeeklyMealPlan />
           </TabsContent>
         </Tabs>
       </div>

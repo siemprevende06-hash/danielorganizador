@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { StrengthGoalsCard } from "@/components/gym/StrengthGoalsCard";
+import { GymStatsView } from "@/components/gym/GymStatsView";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface ActiveSet {
   exerciseIndex: number;
@@ -303,6 +305,16 @@ export default function Gym() {
           </div>
         </div>
 
+        <Tabs defaultValue="workout">
+          <TabsList className="grid grid-cols-2">
+            <TabsTrigger value="workout">Entrenamiento</TabsTrigger>
+            <TabsTrigger value="stats">Estadísticas</TabsTrigger>
+          </TabsList>
+          <TabsContent value="stats" className="mt-3">
+            <GymStatsView />
+          </TabsContent>
+          <TabsContent value="workout" className="mt-3 space-y-4">
+
         {!todayWorkout?.isWorkoutDay && !workoutStarted ? (
           /* Non-workout day: show routine overview */
           <div className="space-y-4">
@@ -518,6 +530,8 @@ export default function Gym() {
             )}
           </>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
