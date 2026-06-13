@@ -305,6 +305,16 @@ export default function Gym() {
           </div>
         </div>
 
+        <Tabs defaultValue="workout">
+          <TabsList className="grid grid-cols-2">
+            <TabsTrigger value="workout">Entrenamiento</TabsTrigger>
+            <TabsTrigger value="stats">Estadísticas</TabsTrigger>
+          </TabsList>
+          <TabsContent value="stats" className="mt-3">
+            <GymStatsView />
+          </TabsContent>
+          <TabsContent value="workout" className="mt-3 space-y-4">
+
         {!todayWorkout?.isWorkoutDay && !workoutStarted ? (
           /* Non-workout day: show routine overview */
           <div className="space-y-4">
