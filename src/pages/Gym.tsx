@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { StrengthGoalsCard } from "@/components/gym/StrengthGoalsCard";
+import { GymStatsView } from "@/components/gym/GymStatsView";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface ActiveSet {
   exerciseIndex: number;
