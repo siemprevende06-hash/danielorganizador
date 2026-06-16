@@ -1,27 +1,38 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays } from "date-fns";
-import { Activity, BookOpen, Dumbbell, Languages, Music, Brain, Heart, Gamepad2 } from "lucide-react";
+import { Activity, Dumbbell, Brain, Languages, Music, Gamepad2, BookOpen } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface SystemSummary {
+interface SystemCard {
   id: string;
   label: string;
   icon: any;
   route?: string;
+  schedule: string;
   todayValue: number;
   unit: string;
+  minThreshold: number;
+  maxThreshold: number;
   weekTotal: number;
   streak: number;
-  goal?: number;
   spark: number[];
 }
 
 const todayKey = () => new Date().toISOString().split("T")[0];
 
+const semaphore = (value: number, min: number, max: number) => {
+  if (value >= max) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Máximo ✓" };
+  if (value >= min) return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "Mínimo ✓" };
+  if (value > 0) return { ring: "ring-red-500/60", bg: "bg-red-500/5", text: "text-red-500", label: "Incompleto" };
+  return { ring: "ring-red-500/40", bg: "bg-red-500/5", text: "text-red-500", label: "Sin hacer" };
+};
+
 export function MySystemsSection() {
-  const [systems, setSystems] = useState<SystemSummary[]>([]);
+  const [cards, setCards] = useState<SystemCard[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,12 +40,10 @@ export function MySystemsSection() {
       const today = todayKey();
       const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
 
-      const [trackingR, langR, examsR, streaksR, exerciseR] = await Promise.all([
+      const [trackingR, langR, streaksR] = await Promise.all([
         supabase.from("daily_systems_tracking").select("*").gte("tracking_date", start).lte("tracking_date", today),
-        supabase.from("language_sessions").select("session_date, duration_minutes, reading_duration").gte("session_date", start),
-        supabase.from("exercise_logs").select("log_date").gte("log_date", start),
+        supabase.from("language_sessions").select("session_date, duration_minutes").gte("session_date", start),
         supabase.from("system_habit_streaks").select("*"),
-        supabase.from("exercise_logs").select("log_date").eq("log_date", today),
       ]);
 
       const rows = trackingR.data || [];
@@ -65,23 +74,62 @@ export function MySystemsSection() {
       const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
       const last = (a: number[]) => a[a.length - 1] || 0;
 
-      const lecturaSpark = minutesByDay("lectura");
-      const ajedrezSpark = minutesByDay("ajedrez");
-      const musicaSpark = minutesByDay("piano").map((v, i) => v + (minutesByDay("guitarra")[i] || 0));
-      const gymDays = new Set((exerciseR.data || []).map((e: any) => e.log_date));
       const gymSpark: number[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-        gymSpark.push(gymDays.has(d) ? 1 : 0);
+        const row = rows.find((r: any) => r.tracking_date === d);
+        gymSpark.push(row?.workout_duration || 0);
       }
+      const ajedrezSpark = minutesByDay("ajedrez");
+      const gamingSpark = minutesByDay("gaming");
+      const musicaSpark = minutesByDay("musica");
 
-      setSystems([
-        { id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard", todayValue: last(langSpark), unit: "min", weekTotal: sum(langSpark), streak: streaks.idiomas || 0, goal: 120, spark: langSpark },
-        { id: "lectura", label: "Lectura", icon: BookOpen, route: "/reading-library", todayValue: last(lecturaSpark), unit: "min", weekTotal: sum(lecturaSpark), streak: streaks.lectura || 0, goal: 30, spark: lecturaSpark },
-        { id: "musica", label: "Música", icon: Music, route: "/music-dashboard", todayValue: last(musicaSpark), unit: "min", weekTotal: sum(musicaSpark), streak: Math.max(streaks.piano || 0, streaks.guitarra || 0), goal: 30, spark: musicaSpark },
-        { id: "ajedrez", label: "Ajedrez", icon: Brain, route: "/chess", todayValue: last(ajedrezSpark), unit: "min", weekTotal: sum(ajedrezSpark), streak: streaks.ajedrez || 0, goal: 30, spark: ajedrezSpark },
-        { id: "gym", label: "Gym", icon: Dumbbell, route: "/gym", todayValue: last(gymSpark), unit: "sesión", weekTotal: sum(gymSpark), streak: streaks.gym || 0, goal: 1, spark: gymSpark },
-        { id: "gaming", label: "Gaming", icon: Heart, todayValue: 0, unit: "", weekTotal: 0, streak: streaks.gaming || 0, spark: [] },
+      const gymToday = rows.find((r: any) => r.tracking_date === today);
+      const gymValue = gymToday?.workout_duration || 0;
+
+      setCards([
+        {
+          id: "gym", label: "Gym", icon: Dumbbell, route: "/systems",
+          schedule: "7:00 - 8:00 AM",
+          todayValue: gymValue, unit: "min",
+          minThreshold: 30, maxThreshold: 60,
+          weekTotal: sum(gymSpark), streak: streaks.gym || 0, spark: gymSpark,
+        },
+        {
+          id: "ajedrez", label: "Ajedrez", icon: Brain, route: "/chess",
+          schedule: "1:20 - 2:00 PM",
+          todayValue: last(ajedrezSpark), unit: "min",
+          minThreshold: 15, maxThreshold: 30,
+          weekTotal: sum(ajedrezSpark), streak: streaks.ajedrez || 0, spark: ajedrezSpark,
+        },
+        {
+          id: "gaming", label: "Gaming", icon: Gamepad2, route: "/systems",
+          schedule: "1:20 - 2:00 PM",
+          todayValue: last(gamingSpark), unit: "min",
+          minThreshold: 15, maxThreshold: 30,
+          weekTotal: sum(gamingSpark), streak: streaks.gaming || 0, spark: gamingSpark,
+        },
+        {
+          id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard",
+          schedule: "5:00 - 6:30 PM",
+          todayValue: last(langSpark), unit: "min",
+          minThreshold: 30, maxThreshold: 90,
+          weekTotal: sum(langSpark), streak: streaks.idiomas || 0, spark: langSpark,
+        },
+        {
+          id: "musica", label: "Música", icon: Music, route: "/music-dashboard",
+          schedule: "8:00 - 8:30 PM",
+          todayValue: last(musicaSpark), unit: "min",
+          minThreshold: 15, maxThreshold: 30,
+          weekTotal: sum(musicaSpark), streak: Math.max(streaks.piano || 0, streaks.guitarra || 0), spark: musicaSpark,
+        },
+        {
+          id: "lectura", label: "Lectura", icon: BookOpen, route: "/reading-library",
+          schedule: "",
+          todayValue: last(minutesByDay("lectura")), unit: "min",
+          minThreshold: 15, maxThreshold: 30,
+          weekTotal: sum(minutesByDay("lectura")), streak: streaks.lectura || 0, spark: minutesByDay("lectura"),
+        },
       ]);
       setLoading(false);
     })();
@@ -92,42 +140,66 @@ export function MySystemsSection() {
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold uppercase tracking-wide flex items-center gap-2"><Activity className="h-4 w-4" />Mis Sistemas</h2>
+        <h2 className="text-sm font-bold uppercase tracking-wide flex items-center gap-2">
+          <Activity className="h-4 w-4" />Mis Sistemas
+        </h2>
         <Link to="/systems" className="text-xs text-muted-foreground hover:text-foreground">Ver todo →</Link>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-        {systems.map(s => {
-          const Icon = s.icon;
-          const goalPct = s.goal ? Math.min(100, Math.round((s.todayValue / s.goal) * 100)) : 0;
-          const max = Math.max(1, ...s.spark);
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {cards.map((c) => {
+          const Icon = c.icon;
+          const sem = semaphore(c.todayValue, c.minThreshold, c.maxThreshold);
+          const goalPct = c.maxThreshold > 0 ? Math.min(100, Math.round((c.todayValue / c.maxThreshold) * 100)) : 0;
+          const max = Math.max(1, ...c.spark);
+
           return (
-            <Link key={s.id} to={s.route || "/systems"} className="block">
-              <Card className="p-3 hover:bg-muted/30 transition-colors h-full">
-                <div className="flex items-center justify-between mb-1">
+            <Link key={c.id} to={c.route || "/systems"} className="block">
+              <Card className={cn("p-3 ring-2 transition-all h-full", sem.ring, sem.bg)}>
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-semibold">{s.label}</span>
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-bold">{c.label}</span>
                   </div>
-                  {s.streak > 0 && <span className="text-[10px] text-orange-500">🔥{s.streak}</span>}
+                  <div className="flex items-center gap-1.5">
+                    {c.streak > 0 && <span className="text-[10px] text-orange-500">🔥{c.streak}</span>}
+                    <span className={cn("text-[10px] font-semibold", sem.text)}>{sem.label}</span>
+                  </div>
                 </div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-lg font-bold">{s.todayValue}</span>
-                  <span className="text-[10px] text-muted-foreground">{s.unit}</span>
-                  {s.goal && <span className="text-[10px] text-muted-foreground ml-auto">/{s.goal}</span>}
+
+                {c.schedule && (
+                  <p className="text-[10px] text-muted-foreground mb-1.5 font-mono">{c.schedule}</p>
+                )}
+
+                <div className="flex items-baseline gap-1 mb-1.5">
+                  <span className="text-2xl font-bold">{c.todayValue}</span>
+                  <span className="text-[10px] text-muted-foreground">{c.unit}</span>
+                  {c.maxThreshold > 0 && (
+                    <span className="text-[10px] text-muted-foreground ml-auto">/{c.maxThreshold}</span>
+                  )}
                 </div>
-                {s.spark.length > 0 && (
-                  <div className="flex items-end gap-0.5 h-6">
-                    {s.spark.map((v, i) => (
-                      <div key={i} className="flex-1 bg-primary/60 rounded-sm" style={{ height: `${Math.max(8, (v / max) * 100)}%` }} />
+
+                {c.maxThreshold > 0 && (
+                  <Progress value={goalPct} className="h-1.5 mb-1.5" />
+                )}
+
+                {c.spark.length > 0 && (
+                  <div className="flex items-end gap-0.5 h-5 mb-1">
+                    {c.spark.map((v, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 rounded-sm"
+                        style={{
+                          height: `${Math.max(6, (v / max) * 100)}%`,
+                          backgroundColor: i === 6 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.4)",
+                        }}
+                      />
                     ))}
                   </div>
                 )}
-                {s.goal && (
-                  <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: `${goalPct}%` }} />
-                  </div>
-                )}
-                <p className="text-[10px] text-muted-foreground mt-1">Semana: {s.weekTotal}{s.unit && ` ${s.unit}`}</p>
+
+                <p className="text-[10px] text-muted-foreground">
+                  Semana: {c.weekTotal}{c.unit && ` ${c.unit}`}
+                </p>
               </Card>
             </Link>
           );

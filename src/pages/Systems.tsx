@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Brain, Dumbbell, BookOpen, Sparkles, Utensils, LayoutGrid, Shield, TrendingUp, Target, GraduationCap, Briefcase, Code2, Languages, ListTodo, BarChart3 } from "lucide-react";
+import { Brain, Dumbbell, BookOpen, Sparkles, Utensils, LayoutGrid, Shield, TrendingUp, Target, GraduationCap, Briefcase, Code2, Languages, ListTodo, BarChart3, Gamepad2, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { SystemHabitGroup, type SystemGroup } from "@/components/systems/SystemHabitGroup";
 import { SystemsStatsPanel } from "@/components/systems/SystemsStatsPanel";
 import { SystemCirclesOverview } from "@/components/systems/SystemCirclesOverview";
@@ -80,6 +81,7 @@ const MEJORA_GROUPS: SystemGroup[] = [
       { id: "lectura", name: "Lectura", hasTime: true },
       { id: "musica", name: "Música", hasTime: true },
       { id: "ajedrez", name: "Ajedrez", hasTime: true, hasCount: true, countLabel: "partidas" },
+      { id: "gaming", name: "Gaming", hasTime: true },
     ],
   },
 ];
@@ -297,6 +299,31 @@ export default function Systems() {
               onTimeChange={setTimeValue}
               onCountChange={setCountValue}
             />
+          </div>
+
+          {/* Gaming */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Gaming</p>
+            <Card className="p-3 ring-2 ring-purple-500/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Gamepad2 className="h-4 w-4 text-purple-500" />
+                  <span className="text-sm font-semibold">Gaming</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    min={0}
+                    value={data.timeData["gaming"] || ""}
+                    onChange={e => setTimeValue("gaming", parseInt(e.target.value) || 0)}
+                    placeholder="min"
+                    className="w-16 h-7 text-xs text-center"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Horario: 1:20 - 2:00 PM</p>
+            </Card>
           </div>
 
           {/* Idiomas: 6 habilidades */}
