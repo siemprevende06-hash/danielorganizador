@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart } from 'lucide-react';
+import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from 'react';
+import { useOffline } from '@/providers/OfflineProvider';
 
 const navItems = [
   { path: '/', label: 'Inicio', icon: Home },
@@ -142,6 +143,32 @@ export const Navigation = () => {
     );
   };
 
+  const { isOnline, pendingMutations } = useOffline();
+
+  const OfflineBadge = () => {
+    if (!isOnline) {
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-amber-500 font-medium">
+          <WifiOff className="h-3 w-3" />
+          {pendingMutations > 0 && <span>{pendingMutations}</span>}
+        </span>
+      );
+    }
+    if (pendingMutations > 0) {
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-primary font-medium">
+          <CloudOff className="h-3 w-3 animate-pulse" />
+          {pendingMutations}
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-green-500">
+        <Wifi className="h-3 w-3" />
+      </span>
+    );
+  };
+
   return (
     <nav 
       className="fixed top-0 left-0 right-0 z-50 border-b"
@@ -152,7 +179,10 @@ export const Navigation = () => {
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center h-16 justify-between">
-          <h1 className="text-xl font-headline font-bold mr-4 flex-shrink-0">Organizador</h1>
+          <div className="flex items-center gap-2 mr-4 flex-shrink-0">
+            <h1 className="text-xl font-headline font-bold">Organizador</h1>
+            <OfflineBadge />
+          </div>
           
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center gap-1 flex-nowrap">

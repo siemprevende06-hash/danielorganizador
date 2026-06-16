@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { getCached, setCache } from "@/lib/offlineCache";
 import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 import { Briefcase, FolderKanban, CheckSquare, Target, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -87,117 +88,146 @@ export function QuickStatsGrid() {
       const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
       const start7 = format(subDays(new Date(), 6), "yyyy-MM-dd");
 
-      const [tasksR, entTasksR, uniTasksR, subjectsR, trackingR, weekTrackingR] = await Promise.all([
-        supabase.from("tasks").select("*"),
-        supabase.from("entrepreneurship_tasks").select("*"),
-        supabase.from("tasks").select("*").eq("source", "university"),
-        supabase.from("university_subjects").select("id,name").order("created_at"),
-        supabase.from("daily_systems_tracking").select("time_data").eq("tracking_date", today).maybeSingle(),
-        supabase.from("daily_systems_tracking").select("tracking_date,time_data").gte("tracking_date", start7).lte("tracking_date", today).order("tracking_date", { ascending: true }),
-      ]);
-
-      const timeData = (trackingR.data?.time_data as Record<string, number>) || {};
-      const weekRows = weekTrackingR.data || [];
-
-      const sparkByKey = (key: string) => {
-        const arr: number[] = [];
-        for (let i = 6; i >= 0; i--) {
-          const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-          const row = weekRows.find((r: any) => r.tracking_date === d);
-          arr.push(Number((row?.time_data as any)?.[key]) || 0);
-        }
-        return arr;
-      };
-
-      // --- General Tasks ---
-      const allRawTasks = tasksR.data || [];
-      const allTasks = allRawTasks.filter((t: any) => {
-        if (t.source === "university" || t.source === "entrepreneurship" || t.source === "project") return false;
-        if (t.area_id === "universidad" || t.area_id === "emprendimiento" || t.area_id === "proyectos") return false;
-        return true;
-      });
-      const todayStr = today;
-      const completedToday = allTasks.filter((t: any) => t.completed && t.updated_at?.startsWith(todayStr)).length;
-      const overdue = allTasks.filter((t: any) => !t.completed && t.due_date && t.due_date < todayStr).length;
-      const highPriority = allTasks.filter((t: any) => !t.completed && t.priority === "high").length;
-      const weekTasks = allTasks.filter((t: any) => t.created_at?.startsWith(weekStart) || t.updated_at?.startsWith(weekStart));
-      const weekCompleted = weekTasks.filter((t: any) => t.completed).length;
-
-      setGeneralTasks({
-        total: allTasks.length,
-        pending: allTasks.filter(t => !t.completed).length,
-        completedToday,
-        overdue,
-        highPriority,
-        weekCompleted,
-        weekTotal: weekTasks.length || allTasks.length,
-        hasData: allTasks.length > 0,
-      });
-
-      // --- Entrepreneurship ---
-      const entTasks = entTasksR.data || [];
-      setEntrepreneurship({
-        tasksTotal: entTasks.length,
-        tasksCompleted: entTasks.filter(t => t.completed).length,
-        todayMinutes: timeData["emprendimiento"] || 0,
-        hasTasks: entTasks.length > 0,
-        hasTime: (timeData["emprendimiento"] || 0) > 0,
-        weekSpark: sparkByKey("emprendimiento"),
-      });
-
-      // --- University ---
-      const uniTasks = uniTasksR.data || [];
-      const subjects = subjectsR.data || [];
-      const mainSubject = subjects.length > 0 ? subjects[0].name : "";
-      setUniversity({
-        tasksTotal: uniTasks.length,
-        tasksCompleted: uniTasks.filter(t => t.completed).length,
-        todayMinutes: timeData["universidad"] || 0,
-        subjectCount: subjects.length,
-        mainSubject,
-        hasTasks: uniTasks.length > 0,
-        hasTime: (timeData["universidad"] || 0) > 0,
-        weekSpark: sparkByKey("universidad"),
-      });
-
-      // --- Projects ---
       try {
-        const stored = localStorage.getItem("userProjects");
-        const selectedId = localStorage.getItem("selectedProjectId");
-        if (stored) {
-          const parsed: any[] = JSON.parse(stored);
-          const selected = selectedId ? parsed.find((p: any) => p.id === selectedId) : parsed[0];
-          const active = selected || null;
-          const taskCompleted = active ? active.tasks.filter((t: any) => t.completed).length : 0;
-          const taskTotal = active ? active.tasks.length : 0;
+        const [tasksR, entTasksR, uniTasksR, subjectsR, trackingR, weekTrackingR] = await Promise.all([
+          supabase.from("tasks").select("*"),
+          supabase.from("entrepreneurship_tasks").select("*"),
+          supabase.from("tasks").select("*").eq("source", "university"),
+          supabase.from("university_subjects").select("id,name").order("created_at"),
+          supabase.from("daily_systems_tracking").select("time_data").eq("tracking_date", today).maybeSingle(),
+          supabase.from("daily_systems_tracking").select("tracking_date,time_data").gte("tracking_date", start7).lte("tracking_date", today).order("tracking_date", { ascending: true }),
+        ]);
 
-          const projSpark: number[] = [];
-          for (let i = 6; i >= 0; i--) {
-            const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-            const dayTasks = parsed.flatMap(p =>
-              p.tasks.filter((t: any) => t.completed && t.dueDate === d)
-            );
-            projSpark.push(dayTasks.length);
-          }
+        await setCache("quickstats", `full_${today}`, {
+          tasks: tasksR.data,
+          entTasks: entTasksR.data,
+          uniTasks: uniTasksR.data,
+          subjects: subjectsR.data,
+          timeData: trackingR.data?.time_data,
+          weekRows: weekTrackingR.data,
+        });
 
-          setProjects({
-            projectCount: parsed.length,
-            activeProject: active ? { id: active.id, name: active.name, tasks: active.tasks } : null,
-            taskCompleted,
-            taskTotal,
-            hasData: parsed.length > 0,
-            weekSpark: projSpark,
-          });
-        } else {
-          setProjects({ projectCount: 0, activeProject: null, taskCompleted: 0, taskTotal: 0, hasData: false, weekSpark: [] });
-        }
+        processData(tasksR.data || [], entTasksR.data || [], uniTasksR.data || [], subjectsR.data || [], trackingR.data?.time_data as Record<string, number> || {}, weekTrackingR.data || [], today, weekStart);
       } catch {
-        setProjects({ projectCount: 0, activeProject: null, taskCompleted: 0, taskTotal: 0, hasData: false, weekSpark: [] });
+        const cached = await getCached<any>("quickstats", `full_${today}`);
+        if (cached) {
+          processData(cached.tasks || [], cached.entTasks || [], cached.uniTasks || [], cached.subjects || [], cached.timeData || {}, cached.weekRows || [], today, weekStart);
+        } else {
+          setDefaults();
+        }
       }
-
       setLoading(false);
     })();
   }, []);
+
+  function processData(tasksData: any[], entTasksData: any[], uniTasksData: any[], subjects: any[], timeData: Record<string, number>, weekRows: any[], today: string, weekStart: string) {
+    const sparkByKey = (key: string) => {
+      const arr: number[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+        const row = weekRows.find((r: any) => r.tracking_date === d);
+        arr.push(Number((row?.time_data as any)?.[key]) || 0);
+      }
+      return arr;
+    };
+
+    // --- General Tasks ---
+    const allRawTasks = tasksData || [];
+    const allTasks = allRawTasks.filter((t: any) => {
+      if (t.source === "university" || t.source === "entrepreneurship" || t.source === "project") return false;
+      if (t.area_id === "universidad" || t.area_id === "emprendimiento" || t.area_id === "proyectos") return false;
+      return true;
+    });
+    const todayStr = today;
+    const completedToday = allTasks.filter((t: any) => t.completed && t.updated_at?.startsWith(todayStr)).length;
+    const overdue = allTasks.filter((t: any) => !t.completed && t.due_date && t.due_date < todayStr).length;
+    const highPriority = allTasks.filter((t: any) => !t.completed && t.priority === "high").length;
+    const weekTasks = allTasks.filter((t: any) => t.created_at?.startsWith(weekStart) || t.updated_at?.startsWith(weekStart));
+    const weekCompleted = weekTasks.filter((t: any) => t.completed).length;
+
+    setGeneralTasks({
+      total: allTasks.length,
+      pending: allTasks.filter(t => !t.completed).length,
+      completedToday,
+      overdue,
+      highPriority,
+      weekCompleted,
+      weekTotal: weekTasks.length || allTasks.length,
+      hasData: allTasks.length > 0,
+    });
+
+    // --- Entrepreneurship ---
+    const entTasks = entTasksData || [];
+    setEntrepreneurship({
+      tasksTotal: entTasks.length,
+      tasksCompleted: entTasks.filter((t: any) => t.completed).length,
+      todayMinutes: timeData["emprendimiento"] || 0,
+      hasTasks: entTasks.length > 0,
+      hasTime: (timeData["emprendimiento"] || 0) > 0,
+      weekSpark: sparkByKey("emprendimiento"),
+    });
+
+    // --- University ---
+    const uniTasks = uniTasksData || [];
+    const subjList = subjects || [];
+    const mainSubject = subjList.length > 0 ? subjList[0].name : "";
+    setUniversity({
+      tasksTotal: uniTasks.length,
+      tasksCompleted: uniTasks.filter((t: any) => t.completed).length,
+      todayMinutes: timeData["universidad"] || 0,
+      subjectCount: subjList.length,
+      mainSubject,
+      hasTasks: uniTasks.length > 0,
+      hasTime: (timeData["universidad"] || 0) > 0,
+      weekSpark: sparkByKey("universidad"),
+    });
+
+    // --- Projects ---
+    loadProjects();
+  }
+
+  function loadProjects() {
+    try {
+      const stored = localStorage.getItem("userProjects");
+      const selectedId = localStorage.getItem("selectedProjectId");
+      if (stored) {
+        const parsed: any[] = JSON.parse(stored);
+        const selected = selectedId ? parsed.find((p: any) => p.id === selectedId) : parsed[0];
+        const active = selected || null;
+        const taskCompleted = active ? active.tasks.filter((t: any) => t.completed).length : 0;
+        const taskTotal = active ? active.tasks.length : 0;
+
+        const projSpark: number[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+          const dayTasks = parsed.flatMap((p: any) =>
+            p.tasks.filter((t: any) => t.completed && t.dueDate === d)
+          );
+          projSpark.push(dayTasks.length);
+        }
+
+        setProjects({
+          projectCount: parsed.length,
+          activeProject: active ? { id: active.id, name: active.name, tasks: active.tasks } : null,
+          taskCompleted,
+          taskTotal,
+          hasData: parsed.length > 0,
+          weekSpark: projSpark,
+        });
+      } else {
+        setDefaults();
+      }
+    } catch {
+      setDefaults();
+    }
+  }
+
+  function setDefaults() {
+    setGeneralTasks({ total: 0, pending: 0, completedToday: 0, overdue: 0, highPriority: 0, weekCompleted: 0, weekTotal: 0, hasData: false });
+    setEntrepreneurship({ tasksTotal: 0, tasksCompleted: 0, todayMinutes: 0, hasTasks: false, hasTime: false, weekSpark: [] });
+    setUniversity({ tasksTotal: 0, tasksCompleted: 0, todayMinutes: 0, subjectCount: 0, mainSubject: "", hasTasks: false, hasTime: false, weekSpark: [] });
+    setProjects({ projectCount: 0, activeProject: null, taskCompleted: 0, taskTotal: 0, hasData: false, weekSpark: [] });
+  }
 
   if (loading || !generalTasks || !entrepreneurship || !university || !projects) {
     return null;

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { cachedMutation } from "@/lib/supabaseCache";
+import { getCached, setCache } from "@/lib/offlineCache";
 import { LayoutGrid, Sparkles, Utensils, Heart, Moon, Dumbbell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,11 +51,22 @@ export function SostenSection() {
   useEffect(() => {
     (async () => {
       const today = todayKey();
-      const { data: row } = await supabase
-        .from("daily_systems_tracking")
-        .select("*")
-        .eq("tracking_date", today)
-        .maybeSingle();
+      let row: any = null;
+      try {
+        const { data } = await supabase
+          .from("daily_systems_tracking")
+          .select("*")
+          .eq("tracking_date", today)
+          .maybeSingle();
+        row = data;
+        if (row) {
+          setRecordId(row.id);
+          await setCache("daily_systems_tracking", `sosten_${today}`, row);
+        }
+      } catch {
+        const cached = await getCached<any>("daily_systems_tracking", `sosten_${today}`);
+        row = cached;
+      }
 
       if (row) {
         setRecordId(row.id);
@@ -69,51 +82,35 @@ export function SostenSection() {
 
   const toggle = async (id: string) => {
     const newCompletions = { ...data.completions, [id]: !data.completions[id] };
-    const newData = { ...data, completions: newCompletions };
-    setData(newData);
-
+    setData(prev => ({ ...prev, completions: newCompletions }));
     const payload = { completions: newCompletions, tracking_date: todayKey() };
     if (recordId) {
-      await supabase.from("daily_systems_tracking").update(payload).eq("id", recordId);
+      await cachedMutation("daily_systems_tracking", "update", payload, { id: recordId });
     } else {
-      const { data: row } = await supabase
-        .from("daily_systems_tracking")
-        .upsert(payload, { onConflict: "tracking_date" })
-        .select("id")
-        .single();
-      if (row) setRecordId(row.id);
+      const { queued } = await cachedMutation("daily_systems_tracking", "upsert", payload, undefined, "tracking_date");
+      if (queued) {
+        setRecordId("pending");
+      }
     }
   };
 
   const setSleepQuality = async (v: number) => {
-    const newData = { ...data, sleepQuality: v };
-    setData(newData);
+    setData(prev => ({ ...prev, sleepQuality: v }));
     const payload = { sleep_quality: v, tracking_date: todayKey() };
     if (recordId) {
-      await supabase.from("daily_systems_tracking").update(payload).eq("id", recordId);
+      await cachedMutation("daily_systems_tracking", "update", payload, { id: recordId });
     } else {
-      const { data: row } = await supabase
-        .from("daily_systems_tracking")
-        .upsert(payload, { onConflict: "tracking_date" })
-        .select("id")
-        .single();
-      if (row) setRecordId(row.id);
+      await cachedMutation("daily_systems_tracking", "upsert", payload, undefined, "tracking_date");
     }
   };
 
   const setWorkoutDone = async (v: boolean) => {
-    const newData = { ...data, workoutDone: v };
-    setData(newData);
+    setData(prev => ({ ...prev, workoutDone: v }));
     const payload = { workout_duration: v ? 1 : 0, tracking_date: todayKey() };
     if (recordId) {
-      await supabase.from("daily_systems_tracking").update(payload).eq("id", recordId);
+      await cachedMutation("daily_systems_tracking", "update", payload, { id: recordId });
     } else {
-      const { data: row } = await supabase
-        .from("daily_systems_tracking")
-        .upsert(payload, { onConflict: "tracking_date" })
-        .select("id")
-        .single();
-      if (row) setRecordId(row.id);
+      await cachedMutation("daily_systems_tracking", "upsert", payload, undefined, "tracking_date");
     }
   };
 

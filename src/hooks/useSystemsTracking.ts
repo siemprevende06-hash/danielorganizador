@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
+import { getCached, setCache, clearTableCache } from "@/lib/offlineCache";
+import { cachedMutation } from "@/lib/supabaseCache";
 
 const todayKey = () => new Date().toISOString().split("T")[0];
 
@@ -45,38 +47,53 @@ export function useSystemsTracking() {
     setCurrentDate(todayKey());
   }, []));
 
-  // Load from DB
+  // Load from DB with offline cache fallback
   useEffect(() => {
     const load = async () => {
       const today = todayKey();
-      const { data: row } = await supabase
-        .from("daily_systems_tracking")
-        .select("*")
-        .eq("tracking_date", today)
-        .maybeSingle();
+
+      const buildData = (row: any) => ({
+        completions: (row.completions as Record<string, boolean>) || {},
+        timeData: (row.time_data as Record<string, number>) || {},
+        countData: (row.count_data as Record<string, number>) || {},
+        waterData: (row.water_data as Record<string, boolean>) || {},
+        workAssignments: (row.work_assignments as Record<string, string>) || {},
+        blockCompletions: (row.block_completions as Record<string, boolean>) || {},
+        wakeTime: row.wake_time || "",
+        sleepTime: row.sleep_time || "",
+        workoutDuration: row.workout_duration || 0,
+        workoutIntensity: row.workout_intensity || "moderate",
+        mealPhotos: (row.meal_photos as Record<string, string>) || {},
+      });
+
+      const cacheKey = `tracking_${today}`;
+
+      let row: any = null;
+      try {
+        const { data } = await supabase
+          .from("daily_systems_tracking")
+          .select("*")
+          .eq("tracking_date", today)
+          .maybeSingle();
+        row = data;
+        if (row) {
+          setRecordId(row.id);
+          await setCache("daily_systems_tracking", cacheKey, row);
+        }
+      } catch {
+        const cached = await getCached<any>("daily_systems_tracking", cacheKey);
+        row = cached;
+      }
 
       if (row) {
-        setRecordId(row.id);
-        setData({
-          completions: (row.completions as Record<string, boolean>) || {},
-          timeData: (row.time_data as Record<string, number>) || {},
-          countData: (row.count_data as Record<string, number>) || {},
-          waterData: (row.water_data as Record<string, boolean>) || {},
-          workAssignments: (row.work_assignments as Record<string, string>) || {},
-          blockCompletions: (row.block_completions as Record<string, boolean>) || {},
-          wakeTime: row.wake_time || "",
-          sleepTime: row.sleep_time || "",
-          workoutDuration: row.workout_duration || 0,
-          workoutIntensity: row.workout_intensity || "moderate",
-          mealPhotos: (row.meal_photos as Record<string, string>) || {},
-        });
+        setData(buildData(row));
       }
       setLoading(false);
     };
     load();
   }, [currentDate]);
 
-  // Save to DB (debounced)
+  // Save to DB (debounced) with offline queue fallback
   const save = useCallback(async (newData: SystemsData) => {
     const today = todayKey();
     const payload = {
@@ -95,14 +112,22 @@ export function useSystemsTracking() {
     };
 
     if (recordId) {
-      await supabase.from("daily_systems_tracking").update(payload).eq("id", recordId);
+      const r = await cachedMutation("daily_systems_tracking", "update", payload, { id: recordId });
+      if (!r.queued) {
+        await clearTableCache("daily_systems_tracking").catch(() => {});
+      }
     } else {
-      const { data: row } = await supabase
-        .from("daily_systems_tracking")
-        .upsert(payload, { onConflict: "tracking_date" })
-        .select("id")
-        .single();
-      if (row) setRecordId(row.id);
+      try {
+        const { data: row, error } = await supabase
+          .from("daily_systems_tracking")
+          .upsert(payload, { onConflict: "tracking_date" })
+          .select("id")
+          .single();
+        if (error) throw error;
+        if (row) setRecordId(row.id);
+      } catch {
+        await cachedMutation("daily_systems_tracking", "upsert", payload, undefined, "tracking_date");
+      }
     }
   }, [recordId]);
 

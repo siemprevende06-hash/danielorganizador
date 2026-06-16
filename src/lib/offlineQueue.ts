@@ -71,12 +71,27 @@ export const flushQueue = async (): Promise<{ ok: number; failed: number }> => {
   if (q.length === 0) return { ok: 0, failed: 0 };
 
   const remaining: QueuedMutation[] = [];
+  const clearedTables = new Set<string>();
   let ok = 0, failed = 0;
+
   for (const m of q) {
     const success = await runMutation(m);
-    if (success) ok++;
-    else { failed++; remaining.push(m); }
+    if (success) {
+      ok++;
+      clearedTables.add(m.table);
+    } else {
+      failed++;
+      remaining.push(m);
+    }
   }
+
+  if (ok > 0) {
+    const { clearTableCache } = await import("./offlineCache");
+    for (const table of clearedTables) {
+      await clearTableCache(table).catch(() => {});
+    }
+  }
+
   await writeQueue(remaining);
   return { ok, failed };
 };

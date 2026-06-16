@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { useRoutineBlocks, formatTimeDisplay, type RoutineBlock } from "@/hooks/useRoutineBlocks";
 import { useFocusSessions } from "@/hooks/useFocusSessions";
 import { supabase } from "@/integrations/supabase/client";
+import { cachedQuery } from "@/lib/supabaseCache";
+import { getCached, setCache } from "@/lib/offlineCache";
 import { Play, Pause, RotateCcw, Target, Clock, CheckCircle2, Plus, BarChart3, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -67,23 +69,27 @@ export default function Focus() {
       const [tasksResult, entTasksResult] = await Promise.all([
         supabase.from('tasks').select('id, title, priority, source, area_id, routine_block_id')
           .eq('completed', false)
-          .order('priority', { ascending: false }),
+          .order('priority', { ascending: false }).catch(() => null),
         supabase.from('entrepreneurship_tasks').select('id, title, routine_block_id')
-          .eq('completed', false)
+          .eq('completed', false).catch(() => null)
       ]);
 
-      const tasks: AvailableTask[] = [
-        ...(tasksResult.data || []).map(t => ({ 
-          ...t, source: t.source || 'general',
-          routine_block_id: t.routine_block_id || undefined
-        })),
-        ...(entTasksResult.data || []).map(t => ({ 
-          id: t.id, title: t.title, source: 'entrepreneurship',
-          routine_block_id: t.routine_block_id || undefined
-        }))
-      ];
-
-      setAvailableTasks(tasks);
+      if (tasksResult && entTasksResult) {
+        const tasks: AvailableTask[] = [
+          ...(tasksResult.data || []).map(t => ({ 
+            ...t, source: t.source || 'general',
+            routine_block_id: t.routine_block_id || undefined
+          })),
+          ...(entTasksResult.data || []).map(t => ({ 
+            id: t.id, title: t.title, source: 'entrepreneurship',
+            routine_block_id: t.routine_block_id || undefined
+          }))
+        ];
+        setAvailableTasks(tasks);
+      } else {
+        const cached = await cachedQuery<AvailableTask[]>("tasks", "pending", async () => [], 30000);
+        if (cached) setAvailableTasks(cached);
+      }
     };
 
     loadTasks();
@@ -98,9 +104,11 @@ export default function Focus() {
 
       if (error) throw error;
       setBlockTasks(data || []);
+      await setCache("tasks", `block_${blockId}`, data || []);
     } catch (error) {
       console.error('Error loading block tasks:', error);
-      setBlockTasks([]);
+      const cached = await getCached<any[]>("tasks", `block_${blockId}`);
+      setBlockTasks(cached || []);
     }
   }, []);
 

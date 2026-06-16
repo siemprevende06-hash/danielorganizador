@@ -28,14 +28,18 @@ if (isPreviewHost || isInIframe) {
   import("virtual:pwa-register").then(({ registerSW }) => {
     registerSW({
       immediate: true,
-      onRegisteredSW(_swUrl, registration) {
-        // Revisión periódica de actualizaciones (cada hora)
-        if (registration) {
-          setInterval(() => registration.update().catch(() => {}), 60 * 60 * 1000);
+      onNeedRefresh() {
+        if (confirm("Nueva versión disponible. ¿Actualizar?")) {
+          window.location.reload();
         }
       },
       onOfflineReady() {
         console.log("[PWA] App lista para usar offline");
+      },
+      onRegisteredSW(_swUrl, registration) {
+        if (registration) {
+          setInterval(() => registration.update().catch(() => {}), 60 * 60 * 1000);
+        }
       },
     });
   }).catch(() => {});

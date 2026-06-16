@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, isToday, isTomorrow, isPast, isThisWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
+import { cachedQuery, cachedMutation, clearCacheForTable } from '@/lib/supabaseCache';
 import { z } from 'zod';
 import { lifeAreas, centralAreas } from '@/lib/data';
 import { flattenAreas } from '@/lib/utils';
@@ -98,20 +99,41 @@ export default function TasksPage() {
 
       if (error) throw error;
       
-      setTasks((data || []).map(t => ({
-        id: t.id,
-        title: t.title,
-        description: t.description || undefined,
-        priority: t.priority as any,
-        completed: t.completed || false,
-        dueDate: t.due_date ? new Date(t.due_date) : undefined,
-        areaId: t.area_id || undefined,
-        routineBlockId: t.routine_block_id || undefined,
-        source: t.source,
-        createdAt: new Date(t.created_at),
-      })));
+      if (data) {
+        const mapped = data.map(t => ({
+          id: t.id,
+          title: t.title,
+          description: t.description || undefined,
+          priority: t.priority as any,
+          completed: t.completed || false,
+          dueDate: t.due_date ? new Date(t.due_date) : undefined,
+          areaId: t.area_id || undefined,
+          routineBlockId: t.routine_block_id || undefined,
+          source: t.source,
+          createdAt: new Date(t.created_at),
+        }));
+        setTasks(mapped);
+      }
     } catch (error) {
-      console.error('Error loading tasks:', error);
+      const { data: cached } = await cachedQuery<any[]>(
+        "tasks", "all", 
+        async () => [], 
+        60 * 1000
+      );
+      if (cached && cached.length > 0) {
+        setTasks(cached.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description || undefined,
+          priority: t.priority as any,
+          completed: t.completed || false,
+          dueDate: t.due_date ? new Date(t.due_date) : undefined,
+          areaId: t.area_id || undefined,
+          routineBlockId: t.routine_block_id || undefined,
+          source: t.source,
+          createdAt: new Date(t.created_at),
+        })));
+      }
     } finally {
       setLoading(false);
     }
@@ -125,17 +147,21 @@ export default function TasksPage() {
   const handleCreateTask = async () => {
     try {
       const validated = taskSchema.parse({ title, description, priority, dueDate });
-      const { error } = await supabase.from('tasks').insert({
+      const payload = {
         title: validated.title, description: validated.description || null,
         status: 'pendiente', priority: validated.priority,
         due_date: validated.dueDate || null, completed: false, source: 'general',
         area_id: selectedAreaId || null,
         routine_block_id: selectedBlockId && selectedBlockId !== 'none' ? selectedBlockId : null,
         user_id: null,
-      });
-      if (error) throw error;
+      };
+      const { queued } = await cachedMutation("tasks", "insert", payload);
+      if (queued) {
+        toast({ title: 'Tarea creada (offline) — se sincronizará al reconectar' });
+      } else {
+        toast({ title: 'Tarea creada ✓' });
+      }
       await loadTasks(); resetForm(); setIsDialogOpen(false);
-      toast({ title: 'Tarea creada ✓' });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         toast({ variant: "destructive", title: "Error", description: error.errors[0].message });
@@ -149,15 +175,19 @@ export default function TasksPage() {
     if (!editingTask) return;
     try {
       const validated = taskSchema.parse({ title, description, priority, dueDate });
-      const { error } = await supabase.from('tasks').update({
+      const payload = {
         title: validated.title, description: validated.description || null,
         priority: validated.priority, due_date: validated.dueDate || null,
         area_id: selectedAreaId || null,
         routine_block_id: selectedBlockId && selectedBlockId !== 'none' ? selectedBlockId : null,
-      }).eq('id', editingTask.id);
-      if (error) throw error;
+      };
+      const { queued } = await cachedMutation("tasks", "update", payload, { id: editingTask.id });
+      if (queued) {
+        toast({ title: 'Tarea actualizada (offline) — se sincronizará al reconectar' });
+      } else {
+        toast({ title: 'Tarea actualizada ✓' });
+      }
       await loadTasks(); resetForm(); setEditingTask(null); setIsEditDialogOpen(false);
-      toast({ title: 'Tarea actualizada ✓' });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         toast({ variant: "destructive", title: "Error", description: error.errors[0].message });
@@ -179,18 +209,23 @@ export default function TasksPage() {
   const handleToggleTask = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    const { error } = await supabase.from('tasks').update({
-      completed: !task.completed, status: task.completed ? 'pendiente' : 'completada'
-    }).eq('id', taskId);
-    if (error) { toast({ title: 'Error', variant: 'destructive' }); return; }
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t));
+    const { queued } = await cachedMutation("tasks", "update", {
+      completed: !task.completed, status: task.completed ? 'pendiente' : 'completada'
+    }, { id: taskId });
+    if (queued) {
+      toast({ title: 'Cambio guardado offline — pendiente de sincronización' });
+    }
   };
 
   const handleDeleteTask = async (taskId: string) => {
-    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
-    if (error) { toast({ title: 'Error', variant: 'destructive' }); return; }
     setTasks(prev => prev.filter(t => t.id !== taskId));
-    toast({ title: 'Tarea eliminada' });
+    const { queued } = await cachedMutation("tasks", "delete", undefined, { id: taskId });
+    if (queued) {
+      toast({ title: 'Eliminado offline — pendiente de sincronización' });
+    } else {
+      toast({ title: 'Tarea eliminada' });
+    }
   };
 
   // Stats
