@@ -19,6 +19,7 @@ import { WeeklySummaryCard } from "@/components/dashboard/WeeklySummaryCard";
 import { ExportDataButton } from "@/components/dashboard/ExportDataButton";
 import { RealStatsDashboard } from "@/components/dashboard/RealStatsDashboard";
 import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
+import { QuickStatsGrid } from "@/components/dashboard/QuickStatsGrid";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useEffect } from "react";
 
@@ -52,6 +53,9 @@ export default function Index() {
 
         {/* REAL STATS — día, semana, mes, trimestre */}
         <RealStatsDashboard />
+
+        {/* Quick Stats Grid */}
+        <QuickStatsGrid />
 
         {/* Mis Sistemas — esfuerzo acumulado por área */}
         <MySystemsSection />
@@ -95,8 +99,6 @@ export default function Index() {
 
         {/* Daily Motivation */}
         <DailyMotivation />
-
-        <Separator />
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
