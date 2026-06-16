@@ -532,95 +532,108 @@ export default function ReadingLibrary() {
             );
           })()}
 
-          {/* Book Detail/Notes Dialog */}
+          {/* Book Detail/Notes Dialog - Full Screen */}
           <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
-            <DialogContent className="max-w-full w-screen h-screen sm:max-w-full sm:rounded-none p-6 overflow-y-auto">
+            <DialogContent className="max-w-full w-screen h-screen sm:max-w-full sm:rounded-none p-0 overflow-hidden">
 
               {selectedBook && (
-                <>
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-3">
-                      <div className="w-12 h-16 bg-muted rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
-                        {selectedBook.cover_image_url ? (
-                          <img src={selectedBook.cover_image_url} alt={selectedBook.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <BookOpen className="w-5 h-5 text-muted-foreground" />
+                <div className="flex flex-col md:flex-row h-full">
+                  {/* Left: Cover Image */}
+                  <div className="md:w-2/5 lg:w-1/3 bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center p-8 md:p-12 shrink-0">
+                    {selectedBook.cover_image_url ? (
+                      <img
+                        src={selectedBook.cover_image_url}
+                        alt={selectedBook.title}
+                        className="max-h-[50vh] md:max-h-[70vh] w-auto object-contain rounded-lg shadow-2xl"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                        <BookOpen className="w-20 h-20" />
+                        <p className="text-sm">Sin portada</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Content */}
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Header */}
+                    <DialogHeader className="p-6 pb-2 shrink-0">
+                      <DialogTitle className="text-xl md:text-2xl">{selectedBook.title}</DialogTitle>
+                      {selectedBook.author && (
+                        <p className="text-base text-muted-foreground">{selectedBook.author}</p>
+                      )}
+                    </DialogHeader>
+
+                    {/* Scrollable content */}
+                    <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-5">
+                      {/* Rating */}
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Calificación</label>
+                        <div className="flex items-center gap-1 mt-1">
+                          {[1,2,3,4,5].map(s => (
+                            <button key={s} onClick={() => { updateBook(selectedBook.id, { rating: s }); setSelectedBook({...selectedBook, rating: s}); }}>
+                              <Star className={cn("w-8 h-8 transition-colors", s <= (selectedBook.rating || 0) ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground hover:text-yellow-400")} />
+                            </button>
+                          ))}
+                          {selectedBook.rating && <span className="text-sm text-muted-foreground ml-2">{selectedBook.rating}/5</span>}
+                        </div>
+                      </div>
+
+                      {/* Info */}
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        {selectedBook.pages_total && (
+                          <div className="bg-muted/50 rounded-lg p-3">
+                            <p className="text-muted-foreground text-xs">Páginas</p>
+                            <p className="font-medium">{selectedBook.pages_total}</p>
+                          </div>
+                        )}
+                        {selectedBook.genre && (
+                          <div className="bg-muted/50 rounded-lg p-3">
+                            <p className="text-muted-foreground text-xs">Género</p>
+                            <p className="font-medium">{selectedBook.genre}</p>
+                          </div>
+                        )}
+                        {selectedBook.start_date && (
+                          <div className="bg-muted/50 rounded-lg p-3">
+                            <p className="text-muted-foreground text-xs">Empezado</p>
+                            <p className="font-medium">{format(new Date(selectedBook.start_date), "d MMM yyyy", { locale: es })}</p>
+                          </div>
+                        )}
+                        {selectedBook.finish_date && (
+                          <div className="bg-muted/50 rounded-lg p-3">
+                            <p className="text-muted-foreground text-xs">Terminado</p>
+                            <p className="font-medium">{format(new Date(selectedBook.finish_date), "d MMM yyyy", { locale: es })}</p>
+                          </div>
                         )}
                       </div>
-                      <div>
-                        <p className="text-base">{selectedBook.title}</p>
-                        {selectedBook.author && <p className="text-sm font-normal text-muted-foreground">{selectedBook.author}</p>}
+
+                      {/* Notes / Summary */}
+                      <div className="flex-1">
+                        <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-2">
+                          <StickyNote className="w-4 h-4" /> Notas / Resumen del libro
+                        </label>
+                        <Textarea
+                          value={editingNotes}
+                          onChange={(e) => setEditingNotes(e.target.value)}
+                          placeholder="Escribe tus notas, resumen, citas favoritas, lecciones aprendidas..."
+                          className="min-h-[200px] md:min-h-[300px] resize-y"
+                        />
+                        <div className="flex justify-end mt-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              updateBook(selectedBook.id, { notes: editingNotes });
+                              setSelectedBook({...selectedBook, notes: editingNotes});
+                            }}
+                          >
+                            Guardar notas
+                          </Button>
+                        </div>
                       </div>
-                    </DialogTitle>
-                  </DialogHeader>
-
-                  <div className="space-y-4 pt-2">
-                    {/* Rating */}
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Calificación</label>
-                      <div className="flex items-center gap-1 mt-1">
-                        {[1,2,3,4,5].map(s => (
-                          <button key={s} onClick={() => { updateBook(selectedBook.id, { rating: s }); setSelectedBook({...selectedBook, rating: s}); }}>
-                            <Star className={cn("w-7 h-7 transition-colors", s <= (selectedBook.rating || 0) ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground hover:text-yellow-400")} />
-                          </button>
-                        ))}
-                        {selectedBook.rating && <span className="text-sm text-muted-foreground ml-2">{selectedBook.rating}/5</span>}
-                      </div>
                     </div>
 
-                    {/* Info */}
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      {selectedBook.pages_total && (
-                        <div className="bg-muted/50 rounded-lg p-3">
-                          <p className="text-muted-foreground text-xs">Páginas</p>
-                          <p className="font-medium">{selectedBook.pages_total}</p>
-                        </div>
-                      )}
-                      {selectedBook.genre && (
-                        <div className="bg-muted/50 rounded-lg p-3">
-                          <p className="text-muted-foreground text-xs">Género</p>
-                          <p className="font-medium">{selectedBook.genre}</p>
-                        </div>
-                      )}
-                      {selectedBook.start_date && (
-                        <div className="bg-muted/50 rounded-lg p-3">
-                          <p className="text-muted-foreground text-xs">Empezado</p>
-                          <p className="font-medium">{format(new Date(selectedBook.start_date), "d MMM yyyy", { locale: es })}</p>
-                        </div>
-                      )}
-                      {selectedBook.finish_date && (
-                        <div className="bg-muted/50 rounded-lg p-3">
-                          <p className="text-muted-foreground text-xs">Terminado</p>
-                          <p className="font-medium">{format(new Date(selectedBook.finish_date), "d MMM yyyy", { locale: es })}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Notes / Summary */}
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                        <StickyNote className="w-3.5 h-3.5" /> Notas / Resumen del libro
-                      </label>
-                      <Textarea
-                        value={editingNotes}
-                        onChange={(e) => setEditingNotes(e.target.value)}
-                        placeholder="Escribe tus notas, resumen, citas favoritas, lecciones aprendidas..."
-                        className="mt-2 min-h-[160px]"
-                      />
-                      <Button
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => {
-                          updateBook(selectedBook.id, { notes: editingNotes });
-                          setSelectedBook({...selectedBook, notes: editingNotes});
-                        }}
-                      >
-                        Guardar notas
-                      </Button>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2 pt-2 border-t border-border">
+                    {/* Fixed bottom: Actions */}
+                    <div className="flex gap-2 px-6 py-4 border-t border-border shrink-0 bg-background">
                       <Button size="sm" variant="outline" onClick={() => { openEditDialog(selectedBook); setNotesOpen(false); }}>
                         <Edit2 className="w-3 h-3 mr-1.5" /> Editar libro
                       </Button>
@@ -629,7 +642,7 @@ export default function ReadingLibrary() {
                       </Button>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </DialogContent>
           </Dialog>
