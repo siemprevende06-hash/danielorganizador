@@ -256,9 +256,8 @@ const ChessCard = ({
   onMinChange: (v: number) => void; onGamesChange: (v: number) => void;
 }) => {
   const { stats, goals } = useChessTracking();
-  const dayGoalMin = goals?.target_minutes_per_day || 30;
-  const MIN_GOAL = Math.max(15, Math.round(dayGoalMin / 2));
-  const MAX_GOAL = dayGoalMin;
+  const MIN_GOAL = 10;
+  const MAX_GOAL = 20;
   const sem = semaphore(todayMin, MIN_GOAL, MAX_GOAL);
   const [draftMin, setDraftMin] = useState(todayMin);
   const [draftGames, setDraftGames] = useState(todayGames);

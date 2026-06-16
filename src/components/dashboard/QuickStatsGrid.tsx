@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
-import { BookOpen, Briefcase, FolderKanban, CheckSquare, Clock, TrendingUp, Target, Zap, GraduationCap } from "lucide-react";
+import { Briefcase, FolderKanban, CheckSquare, Target, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface GeneralTasks {
@@ -23,6 +23,7 @@ interface EntrepreneurshipData {
   todayMinutes: number;
   hasTasks: boolean;
   hasTime: boolean;
+  weekSpark: number[];
 }
 
 interface UniversityData {
@@ -33,6 +34,7 @@ interface UniversityData {
   mainSubject: string;
   hasTasks: boolean;
   hasTime: boolean;
+  weekSpark: number[];
 }
 
 interface ProjectsData {
@@ -41,6 +43,7 @@ interface ProjectsData {
   taskCompleted: number;
   taskTotal: number;
   hasData: boolean;
+  weekSpark: number[];
 }
 
 const semaphore = (value: number, min: number, max: number, hasData: boolean) => {
@@ -51,6 +54,24 @@ const semaphore = (value: number, min: number, max: number, hasData: boolean) =>
 };
 
 const todayKey = () => new Date().toISOString().split("T")[0];
+
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  const max = Math.max(1, ...data);
+  return (
+    <div className="flex items-end gap-0.5 h-6 mt-1">
+      {data.map((v, i) => (
+        <div
+          key={i}
+          className="flex-1 rounded-sm"
+          style={{
+            height: `${Math.max(4, (v / max) * 100)}%`,
+            backgroundColor: i === 6 ? color : `${color}40`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function QuickStatsGrid() {
   const [generalTasks, setGeneralTasks] = useState<GeneralTasks | null>(null);
@@ -64,16 +85,29 @@ export function QuickStatsGrid() {
       const today = todayKey();
       const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
       const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+      const start7 = format(subDays(new Date(), 6), "yyyy-MM-dd");
 
-      const [tasksR, entTasksR, uniTasksR, subjectsR, trackingR] = await Promise.all([
+      const [tasksR, entTasksR, uniTasksR, subjectsR, trackingR, weekTrackingR] = await Promise.all([
         supabase.from("tasks").select("*"),
         supabase.from("entrepreneurship_tasks").select("*"),
         supabase.from("tasks").select("*").eq("source", "university"),
         supabase.from("university_subjects").select("id,name").order("created_at"),
         supabase.from("daily_systems_tracking").select("time_data").eq("tracking_date", today).maybeSingle(),
+        supabase.from("daily_systems_tracking").select("tracking_date,time_data").gte("tracking_date", start7).lte("tracking_date", today).order("tracking_date", { ascending: true }),
       ]);
 
       const timeData = (trackingR.data?.time_data as Record<string, number>) || {};
+      const weekRows = weekTrackingR.data || [];
+
+      const sparkByKey = (key: string) => {
+        const arr: number[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+          const row = weekRows.find((r: any) => r.tracking_date === d);
+          arr.push(Number((row?.time_data as any)?.[key]) || 0);
+        }
+        return arr;
+      };
 
       // --- General Tasks ---
       const allRawTasks = tasksR.data || [];
@@ -108,6 +142,7 @@ export function QuickStatsGrid() {
         todayMinutes: timeData["emprendimiento"] || 0,
         hasTasks: entTasks.length > 0,
         hasTime: (timeData["emprendimiento"] || 0) > 0,
+        weekSpark: sparkByKey("emprendimiento"),
       });
 
       // --- University ---
@@ -122,28 +157,42 @@ export function QuickStatsGrid() {
         mainSubject,
         hasTasks: uniTasks.length > 0,
         hasTime: (timeData["universidad"] || 0) > 0,
+        weekSpark: sparkByKey("universidad"),
       });
 
       // --- Projects ---
       try {
         const stored = localStorage.getItem("userProjects");
+        const selectedId = localStorage.getItem("selectedProjectId");
         if (stored) {
           const parsed: any[] = JSON.parse(stored);
-          const active = parsed.length > 0 ? parsed[0] : null;
+          const selected = selectedId ? parsed.find((p: any) => p.id === selectedId) : parsed[0];
+          const active = selected || null;
           const taskCompleted = active ? active.tasks.filter((t: any) => t.completed).length : 0;
           const taskTotal = active ? active.tasks.length : 0;
+
+          const projSpark: number[] = [];
+          for (let i = 6; i >= 0; i--) {
+            const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+            const dayTasks = parsed.flatMap(p =>
+              p.tasks.filter((t: any) => t.completed && t.dueDate === d)
+            );
+            projSpark.push(dayTasks.length);
+          }
+
           setProjects({
             projectCount: parsed.length,
             activeProject: active ? { id: active.id, name: active.name, tasks: active.tasks } : null,
             taskCompleted,
             taskTotal,
             hasData: parsed.length > 0,
+            weekSpark: projSpark,
           });
         } else {
-          setProjects({ projectCount: 0, activeProject: null, taskCompleted: 0, taskTotal: 0, hasData: false });
+          setProjects({ projectCount: 0, activeProject: null, taskCompleted: 0, taskTotal: 0, hasData: false, weekSpark: [] });
         }
       } catch {
-        setProjects({ projectCount: 0, activeProject: null, taskCompleted: 0, taskTotal: 0, hasData: false });
+        setProjects({ projectCount: 0, activeProject: null, taskCompleted: 0, taskTotal: 0, hasData: false, weekSpark: [] });
       }
 
       setLoading(false);
@@ -196,6 +245,7 @@ export function QuickStatsGrid() {
               <span>{university.subjectCount} materias</span>
             </div>
             {university.tasksTotal > 0 && <Progress value={uniTaskPct} className="h-1.5" />}
+            {university.weekSpark.length > 0 && <Sparkline data={university.weekSpark} color="hsl(var(--primary))" />}
           </CardContent>
         </Card>
 
@@ -222,6 +272,7 @@ export function QuickStatsGrid() {
               <Target className="h-3 w-3" />
               <span>Meta: 120 min/día</span>
             </div>
+            {entrepreneurship.weekSpark.length > 0 && <Sparkline data={entrepreneurship.weekSpark} color="hsl(var(--primary))" />}
           </CardContent>
         </Card>
 
@@ -252,6 +303,7 @@ export function QuickStatsGrid() {
                     <Progress value={projTaskPct} className="h-1.5" />
                   </>
                 )}
+                {projects.weekSpark.length > 0 && <Sparkline data={projects.weekSpark} color="hsl(var(--primary))" />}
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">

@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, Pencil } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil, CheckCircle2, Circle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { useImageUpload } from '@/hooks/useImageUpload';
@@ -47,6 +48,7 @@ export default function ProjectsPage() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
   const [subTaskTitle, setSubTaskTitle] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => localStorage.getItem("selectedProjectId"));
   const { toast } = useToast();
   const { uploadImage, uploading } = useImageUpload();
 
@@ -62,6 +64,19 @@ export default function ProjectsPage() {
       localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
     }
   }, [projects]);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      localStorage.setItem("selectedProjectId", selectedProjectId);
+    } else {
+      localStorage.removeItem("selectedProjectId");
+    }
+  }, [selectedProjectId]);
+
+  const handleSelectProject = (projectId: string) => {
+    setSelectedProjectId(prev => prev === projectId ? null : projectId);
+    toast({ title: selectedProjectId === projectId ? 'Proyecto deseleccionado' : 'Proyecto seleccionado' });
+  };
 
   const handleImageUpload = async (projectId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -294,7 +309,7 @@ export default function ProjectsPage() {
         {projects.map((project) => {
           const progress = getProjectProgress(project);
           return (
-            <Card key={project.id}>
+            <Card key={project.id} className={cn(selectedProjectId === project.id ? "ring-2 ring-primary" : "")}>
               <CardHeader>
                 {project.coverImage && (
                   <div className="mb-4 -mt-6 -mx-6">
@@ -318,13 +333,27 @@ export default function ProjectsPage() {
                       />
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteProject(project.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSelectProject(project.id)}
+                        title={selectedProjectId === project.id ? "Deseleccionar" : "Seleccionar proyecto activo"}
+                      >
+                        {selectedProjectId === project.id ? (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteProject(project.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                 </div>
                 <div className="space-y-2 mt-4">
                   <div className="flex items-center justify-between text-sm">

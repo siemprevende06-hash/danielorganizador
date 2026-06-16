@@ -608,17 +608,17 @@ export default function ReadingLibrary() {
                       </div>
 
                       {/* Notes / Summary */}
-                      <div className="flex-1">
-                        <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-2">
+                      <div className="flex-1 flex flex-col min-h-0">
+                        <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-2 shrink-0">
                           <StickyNote className="w-4 h-4" /> Notas / Resumen del libro
                         </label>
                         <Textarea
                           value={editingNotes}
                           onChange={(e) => setEditingNotes(e.target.value)}
                           placeholder="Escribe tus notas, resumen, citas favoritas, lecciones aprendidas..."
-                          className="min-h-[200px] md:min-h-[300px] resize-y"
+                          className="flex-1 resize-none min-h-0"
                         />
-                        <div className="flex justify-end mt-2">
+                        <div className="flex justify-end mt-2 shrink-0">
                           <Button
                             size="sm"
                             onClick={() => {

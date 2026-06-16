@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass, Bell } from "lucide-react";
+import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass, Bell, Activity } from "lucide-react";
 import { QuickDaySummary } from "@/components/today/QuickDaySummary";
 import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
 import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
@@ -20,12 +20,28 @@ import { ExportDataButton } from "@/components/dashboard/ExportDataButton";
 import { RealStatsDashboard } from "@/components/dashboard/RealStatsDashboard";
 import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
 import { QuickStatsGrid } from "@/components/dashboard/QuickStatsGrid";
+import { SostenSection } from "@/components/dashboard/SostenSection";
 import { useNotifications } from "@/hooks/useNotifications";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+function ClockWidget() {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
+  const formattedDate = format(time, "EEEE, d 'de' MMMM", { locale: es });
+  const formattedTime = format(time, "h:mm a");
+  return (
+    <div className="text-center">
+      <h1 className="text-4xl md:text-5xl font-bold text-foreground uppercase tracking-tight">INICIO</h1>
+      <p className="text-lg text-muted-foreground capitalize mt-1">{formattedDate}</p>
+      <p className="text-2xl font-light text-muted-foreground/70 mt-0.5 tabular-nums">{formattedTime}</p>
+    </div>
+  );
+}
 
 export default function Index() {
-  const today = new Date();
-  const formattedDate = format(today, "EEEE, d 'de' MMMM", { locale: es });
   const { pillars, secondaryGoals, overallScore, loading: pillarsLoading } = usePillarProgress();
   const { requestPermission } = useNotifications();
 
@@ -38,30 +54,29 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center mb-4">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground uppercase tracking-tight">
-            INICIO
-          </h1>
-          <p className="text-muted-foreground capitalize mt-1">
-            {formattedDate}
-          </p>
-          <div className="mt-2 flex justify-center">
-            <ExportDataButton />
-          </div>
-        </div>
+        {/* Header con fecha y hora grande */}
+        <ClockWidget />
+
+        {/* Score del día + Ver mi día completo */}
+        <QuickDaySummary />
 
         {/* REAL STATS — día, semana, mes, trimestre */}
         <RealStatsDashboard />
 
-        {/* Quick Stats Grid */}
-        <QuickStatsGrid />
+        {/* FOCUS — tarjetas de áreas principales */}
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Focus className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS</h2>
+          </div>
+          <QuickStatsGrid />
+        </Card>
 
         {/* Mis Sistemas — esfuerzo acumulado por área */}
         <MySystemsSection />
 
-        {/* Quick Day Summary */}
-        <QuickDaySummary />
+        {/* SOSTÉN — hábitos estructurales, apariencia y salud */}
+        <SostenSection />
 
         <Separator />
 

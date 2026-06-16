@@ -99,14 +99,14 @@ export function MySystemsSection() {
           id: "ajedrez", label: "Ajedrez", icon: Brain, route: "/chess",
           schedule: "1:20 - 2:00 PM",
           todayValue: last(ajedrezSpark), unit: "min",
-          minThreshold: 15, maxThreshold: 30,
+          minThreshold: 10, maxThreshold: 20,
           weekTotal: sum(ajedrezSpark), streak: streaks.ajedrez || 0, spark: ajedrezSpark,
         },
         {
           id: "gaming", label: "Gaming", icon: Gamepad2, route: "/systems",
           schedule: "1:20 - 2:00 PM",
           todayValue: last(gamingSpark), unit: "min",
-          minThreshold: 15, maxThreshold: 30,
+          minThreshold: 10, maxThreshold: 20,
           weekTotal: sum(gamingSpark), streak: streaks.gaming || 0, spark: gamingSpark,
         },
         {
@@ -125,7 +125,7 @@ export function MySystemsSection() {
         },
         {
           id: "lectura", label: "Lectura", icon: BookOpen, route: "/reading-library",
-          schedule: "",
+          schedule: "8:30 - 9:00 AM",
           todayValue: last(minutesByDay("lectura")), unit: "min",
           minThreshold: 15, maxThreshold: 30,
           weekTotal: sum(minutesByDay("lectura")), streak: streaks.lectura || 0, spark: minutesByDay("lectura"),
