@@ -103,12 +103,21 @@ export default function EntrepreneurshipDetail() {
     if (!title.trim()) { toast.error('Título requerido'); return; }
     if (editingTask) {
       await supabase.from('entrepreneurship_tasks').update({ title: title.trim(), description: desc.trim() || null, due_date: dueDate || null }).eq('id', editingTask.id);
+      await supabase.from('tasks').update({ title: title.trim(), description: desc.trim() || null, due_date: dueDate || null }).eq('source_id', editingTask.id).eq('source', 'entrepreneurship');
       toast.success('Tarea actualizada');
     } else {
-      await supabase.from('entrepreneurship_tasks').insert({
+      const { data: newTask } = await supabase.from('entrepreneurship_tasks').insert({
         entrepreneurship_id: id, title: title.trim(), description: desc.trim() || null,
         task_type: taskType, completed: false, due_date: dueDate || null
-      });
+      }).select('id').single();
+      if (newTask) {
+        await supabase.from('tasks').insert({
+          title: title.trim(), description: desc.trim() || null,
+          status: 'pendiente', completed: false, source: 'entrepreneurship',
+          source_id: newTask.id, area_id: 'emprendimiento',
+          due_date: dueDate || null, priority: 'medium',
+        });
+      }
       toast.success('Tarea creada');
     }
     setTaskDialogOpen(false); loadTasks();
@@ -117,12 +126,15 @@ export default function EntrepreneurshipDetail() {
   const toggleTask = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    await supabase.from('entrepreneurship_tasks').update({ completed: !task.completed }).eq('id', taskId);
+    const newCompleted = !task.completed;
+    await supabase.from('entrepreneurship_tasks').update({ completed: newCompleted }).eq('id', taskId);
+    await supabase.from('tasks').update({ completed: newCompleted, status: newCompleted ? 'completada' : 'pendiente' }).eq('source_id', taskId).eq('source', 'entrepreneurship');
     loadTasks();
   };
 
   const deleteTask = async (taskId: string) => {
     await supabase.from('entrepreneurship_tasks').delete().eq('id', taskId);
+    await supabase.from('tasks').delete().eq('source_id', taskId).eq('source', 'entrepreneurship');
     setTasks(prev => prev.filter(t => t.id !== taskId));
     toast.success('Tarea eliminada');
   };

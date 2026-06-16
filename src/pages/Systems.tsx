@@ -361,6 +361,52 @@ export default function Systems() {
               );
             })}
           </div>
+
+          {/* Tiempo manual para áreas FOCO */}
+          <div className="space-y-1.5 pt-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Tiempo dedicado hoy</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Card className="p-3 ring-2 ring-purple-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-purple-500" />
+                    <span className="text-sm font-semibold">Universidad</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      min={0}
+                      value={data.timeData["universidad"] || ""}
+                      onChange={e => setTimeValue("universidad", parseInt(e.target.value) || 0)}
+                      placeholder="min"
+                      className="w-16 h-7 text-xs text-center"
+                    />
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3 ring-2 ring-amber-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm font-semibold">Emprendimiento</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      min={0}
+                      value={data.timeData["emprendimiento"] || ""}
+                      onChange={e => setTimeValue("emprendimiento", parseInt(e.target.value) || 0)}
+                      placeholder="min"
+                      className="w-16 h-7 text-xs text-center"
+                    />
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+
           <div className="pt-2">
             <FocusTasksPanel />
           </div>
