@@ -21,6 +21,7 @@ import { RealStatsDashboard } from "@/components/dashboard/RealStatsDashboard";
 import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
 import { QuickStatsGrid } from "@/components/dashboard/QuickStatsGrid";
 import { SostenSection } from "@/components/dashboard/SostenSection";
+import { MiniHabitsSection } from "@/components/dashboard/MiniHabitsSection";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useEffect, useState } from "react";
 
@@ -77,6 +78,9 @@ export default function Index() {
 
         {/* SOSTÉN — hábitos estructurales, apariencia y salud */}
         <SostenSection />
+
+        {/* MINI HÁBITOS — No FAP, No Redes Sociales, etc */}
+        <MiniHabitsSection />
 
         <Separator />
 
