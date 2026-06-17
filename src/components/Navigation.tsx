@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff } from 'lucide-react';
+import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +71,7 @@ const navItems = [
   { path: '/alimentacion', label: 'Alimentación', icon: Utensils },
   { path: '/gym', label: 'Gimnasio', icon: Dumbbell },
   { path: '/shopping-list', label: 'Lista Compra', icon: ShoppingCart },
+  { path: '/punto-partida', label: 'Punto Partida', icon: Activity },
   { path: '/chess', label: 'Ajedrez', icon: Crown },
   { path: '/settings', label: 'Configuración', icon: Settings },
 ];

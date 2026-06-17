@@ -11,8 +11,15 @@ export const WHEEL_AREAS = [
   { id: "proposito", label: "PROPÓSITO / ESPIRITUAL", areaIds: [] },
 ]
 
-// Wheel areas map to these baseline IDs in punto_partida
-const WHEEL_BASELINE_IDS = ["salud", "mente", "carrera", "finanzas", "relaciones", "proposito"]
+// Hardcoded baseline notas — usadas cuando no hay datos en Supabase ni tracking real
+const WHEEL_BASELINE_NOTAS: Record<string, number> = {
+  salud: 4,
+  mente: 7,
+  carrera: 5,
+  finanzas: 5,
+  relaciones: 5,
+  proposito: 7,
+}
 
 export function useWheelScores(timeframe: Timeframe) {
   const groups: Record<string, string[]> = {}
@@ -27,10 +34,11 @@ export function useWheelScores(timeframe: Timeframe) {
 
   const wheelScores = WHEEL_AREAS.map((area) => {
     const real = realScores[area.id] ?? 0
-    // Use baseline if no real data, otherwise use real data
-    const base = baselineEntries[area.id]?.nota !== undefined ? Math.round(baselineEntries[area.id].nota * 10) : 0
-    const value = real > 0 ? real : base
-    return { id: area.id, label: area.label, value }
+    if (real > 0) return { id: area.id, label: area.label, value: real }
+    // Fallback: try Supabase baseline, then hardcoded
+    const baseFromDB = baselineEntries[area.id]?.nota
+    if (baseFromDB !== undefined) return { id: area.id, label: area.label, value: Math.round(baseFromDB * 10) }
+    return { id: area.id, label: area.label, value: (WHEEL_BASELINE_NOTAS[area.id] ?? 0) * 10 }
   })
 
   const average =
