@@ -564,10 +564,10 @@ export default function ReadingLibrary() {
                       )}
                     </DialogHeader>
 
-                    {/* Scrollable content */}
-                    <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-5">
+                    {/* Scrollable content - flex column so flex-1 children fill space */}
+                    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto px-6 pb-4">
                       {/* Rating */}
-                      <div>
+                      <div className="shrink-0 mb-4">
                         <label className="text-sm font-medium text-muted-foreground">Calificación</label>
                         <div className="flex items-center gap-1 mt-1">
                           {[1,2,3,4,5].map(s => (
@@ -580,7 +580,7 @@ export default function ReadingLibrary() {
                       </div>
 
                       {/* Info */}
-                      <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-2 gap-3 text-sm shrink-0 mb-4">
                         {selectedBook.pages_total && (
                           <div className="bg-muted/50 rounded-lg p-3">
                             <p className="text-muted-foreground text-xs">Páginas</p>
@@ -607,7 +607,7 @@ export default function ReadingLibrary() {
                         )}
                       </div>
 
-                      {/* Notes / Summary */}
+                      {/* Notes / Summary - fills remaining space */}
                       <div className="flex-1 flex flex-col min-h-0">
                         <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-2 shrink-0">
                           <StickyNote className="w-4 h-4" /> Notas / Resumen del libro
