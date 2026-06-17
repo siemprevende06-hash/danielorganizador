@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react"
 
-export type Timeframe = "today" | "week" | "month" | "quarter" | "year"
+export type Timeframe = "today" | "week" | "month" | "quarter" | "year" | "sprint"
 
 interface TimeframeContextType {
   timeframe: Timeframe

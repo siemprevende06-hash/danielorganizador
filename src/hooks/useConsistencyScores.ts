@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { supabase } from "@/integrations/supabase/client"
-import { format, subDays, startOfWeek, startOfMonth, startOfQuarter, startOfYear } from "date-fns"
+import { format, subDays } from "date-fns"
 import type { Timeframe } from "@/contexts/TimeframeContext"
 
 function getDateRange(timeframe: Timeframe): { start: string; end: string } {
@@ -24,6 +24,8 @@ function getDateRange(timeframe: Timeframe): { start: string; end: string } {
     case "year":
       start = subDays(today, 364)
       break
+    case "sprint":
+      return { start: "", end: "" }
     default:
       start = subDays(today, 6)
   }
@@ -31,12 +33,11 @@ function getDateRange(timeframe: Timeframe): { start: string; end: string } {
   return { start: format(start, "yyyy-MM-dd"), end }
 }
 
-/**
- * Returns the average consistency score (0–100) for a group of area_ids
- * over a given timeframe. Score = average daily time_spent / time_goal ratio.
- * Days with no data are excluded from the average.
- */
-export function useConsistencyScores(areaIds: string[], timeframe: Timeframe) {
+export function useConsistencyScores(
+  areaIds: string[],
+  timeframe: Timeframe,
+  sprintDateRange?: { start: string; end: string }
+) {
   const [score, setScore] = useState(0)
   const [daysWithData, setDaysWithData] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -49,7 +50,34 @@ export function useConsistencyScores(areaIds: string[], timeframe: Timeframe) {
       return
     }
 
-    const { start, end } = getDateRange(timeframe)
+    let start: string, end: string
+    if (timeframe === "sprint" && sprintDateRange) {
+      start = sprintDateRange.start
+      end = sprintDateRange.end
+    } else if (timeframe === "sprint") {
+      const { data: active } = await supabase
+        .from("sprints")
+        .select("start_date, end_date")
+        .eq("status", "active")
+        .order("start_date", { ascending: false })
+        .limit(1)
+        .single()
+
+      if (active) {
+        start = active.start_date
+        end = active.end_date
+      } else {
+        setScore(0)
+        setDaysWithData(0)
+        setLoading(false)
+        return
+      }
+    } else {
+      const range = getDateRange(timeframe)
+      start = range.start
+      end = range.end
+    }
+
     setLoading(true)
 
     try {
@@ -75,7 +103,6 @@ export function useConsistencyScores(areaIds: string[], timeframe: Timeframe) {
         return
       }
 
-      // Group by area_id + stat_date and calculate daily completion rate
       const dailyRates: number[] = []
       const seen = new Set<string>()
 
@@ -105,7 +132,7 @@ export function useConsistencyScores(areaIds: string[], timeframe: Timeframe) {
     } finally {
       setLoading(false)
     }
-  }, [areaIds.join(","), timeframe])
+  }, [areaIds.join(","), timeframe, sprintDateRange?.start, sprintDateRange?.end])
 
   useEffect(() => {
     load()
@@ -114,20 +141,15 @@ export function useConsistencyScores(areaIds: string[], timeframe: Timeframe) {
   return { score, daysWithData, loading, refresh: load }
 }
 
-/**
- * Returns scores for multiple area groups in one call.
- * Groups is a record of group_name -> area_ids[].
- */
 export function useMultiConsistencyScores(
   groups: Record<string, string[]>,
-  timeframe: Timeframe
+  timeframe: Timeframe,
+  sprintDateRange?: { start: string; end: string }
 ) {
   const [scores, setScores] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   const allAreaIds = Object.values(groups).flat()
-  const { score: _single, ...rest } = useConsistencyScores(allAreaIds, timeframe)
-  // We use the individual hook per group instead
   const groupKeys = Object.keys(groups)
 
   const loadAll = useCallback(async () => {
@@ -137,7 +159,33 @@ export function useMultiConsistencyScores(
       return
     }
 
-    const { start, end } = getDateRange(timeframe)
+    let start: string, end: string
+    if (timeframe === "sprint" && sprintDateRange) {
+      start = sprintDateRange.start
+      end = sprintDateRange.end
+    } else if (timeframe === "sprint") {
+      const { data: active } = await supabase
+        .from("sprints")
+        .select("start_date, end_date")
+        .eq("status", "active")
+        .order("start_date", { ascending: false })
+        .limit(1)
+        .single()
+
+      if (active) {
+        start = active.start_date
+        end = active.end_date
+      } else {
+        setScores({})
+        setLoading(false)
+        return
+      }
+    } else {
+      const range = getDateRange(timeframe)
+      start = range.start
+      end = range.end
+    }
+
     setLoading(true)
 
     try {
@@ -190,7 +238,7 @@ export function useMultiConsistencyScores(
     } finally {
       setLoading(false)
     }
-  }, [allAreaIds.join(","), timeframe])
+  }, [allAreaIds.join(","), timeframe, sprintDateRange?.start, sprintDateRange?.end])
 
   useEffect(() => {
     loadAll()

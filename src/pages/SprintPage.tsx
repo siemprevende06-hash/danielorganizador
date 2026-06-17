@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSprints, type SprintObjective } from '@/hooks/useSprints';
+import { usePointBMetrics } from '@/hooks/usePointBMetrics';
 import { useSystemsTracking, type SystemsData } from '@/hooks/useSystemsTracking';
 import { SprintHeader } from '@/components/sprint/SprintHeader';
 import { FocoObjectiveCard } from '@/components/sprint/FocoObjectiveCard';
@@ -12,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Target, TrendingUp } from 'lucide-react';
+import { Plus, Target, TrendingUp, Crosshair, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -37,8 +38,20 @@ const AREA_LABELS: Record<string, string> = {
   ajedrez: '♟️', idiomas: '🌍',
 };
 
+const AREA_TO_PB: Record<string, { label: string; metric: string }> = {
+  gym: { label: 'Salud / Físico', metric: 'Masa muscular' },
+  piano: { label: 'Mente / Música', metric: 'Habilidad musical' },
+  guitarra: { label: 'Mente / Música', metric: 'Habilidad musical' },
+  lectura: { label: 'Mente', metric: 'Libros leídos' },
+  idiomas: { label: 'Mente / Idiomas', metric: 'Nivel de idiomas' },
+  universidad: { label: 'Carrera', metric: 'Título universitario' },
+  emprendimiento: { label: 'Carrera / Emprendimiento', metric: 'Ingresos del negocio' },
+  proyectos: { label: 'Carrera', metric: 'Portafolio' },
+};
+
 export default function SprintPage() {
   const { sprints, activeSprint, loading, createSprint, addObjective, updateObjective, completeSprint, deleteSprint } = useSprints();
+  const { groupedByArea } = usePointBMetrics();
   const { data: systemsData } = useSystemsTracking();
   const [showCreate, setShowCreate] = useState(false);
   const [showAddObjective, setShowAddObjective] = useState(false);
@@ -90,7 +103,6 @@ export default function SprintPage() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -106,7 +118,6 @@ export default function SprintPage() {
           </Button>
         </div>
 
-        {/* Past sprints selector */}
         {sprints.length > 0 && !activeSprint && (
           <Card className="border-2 border-muted">
             <CardContent className="p-6 text-center">
@@ -174,11 +185,13 @@ export default function SprintPage() {
                 ) : (
                   <div className="space-y-3">
                     {focoObjectives.map(obj => (
-                      <FocoObjectiveCard
-                        key={obj.id}
-                        objective={obj}
-                        onUpdate={(updates) => updateObjective(obj.id, updates)}
-                      />
+                      <div key={obj.id} className="relative">
+                        <FocoObjectiveCard
+                          objective={obj}
+                          onUpdate={(updates) => updateObjective(obj.id, updates)}
+                        />
+                        <PointBLink area={obj.area} groupedByArea={groupedByArea} />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -218,11 +231,14 @@ export default function SprintPage() {
                 ) : (
                   <div className="space-y-3">
                     {mejoraObjectives.map(obj => (
-                      <MejoraObjectiveCard
-                        key={obj.id}
-                        objective={obj}
-                        todayMinutes={getTodayMinutes(obj.area, systemsData)}
-                      />
+                      <div key={obj.id} className="relative">
+                        <MejoraObjectiveCard
+                          key={obj.id}
+                          objective={obj}
+                          todayMinutes={getTodayMinutes(obj.area, systemsData)}
+                        />
+                        <PointBLink area={obj.area} groupedByArea={groupedByArea} />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -330,6 +346,27 @@ export default function SprintPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PointBLink({ area, groupedByArea }: { area: string; groupedByArea: Record<string, any[]> }) {
+  const pbMetrics = Object.values(groupedByArea).flat().filter(m => m.area === area);
+  const areaInfo = AREA_TO_PB[area];
+
+  if (pbMetrics.length === 0 && !areaInfo) return null;
+
+  return (
+    <div className="mt-1 ml-2 flex items-start gap-1.5 text-[10px] text-muted-foreground/60">
+      <ArrowRight className="h-3 w-3 mt-0.5 flex-shrink-0" />
+      <span>
+        Contribuye a <strong>Point B</strong>
+        {pbMetrics.length > 0
+          ? `: ${pbMetrics.map(m => `${m.metric_name} (${m.current_value}/${m.target_value} ${m.unit})`).join(', ')}`
+          : areaInfo
+            ? `: ${areaInfo.label} — ${areaInfo.metric}`
+            : ''}
+      </span>
     </div>
   );
 }

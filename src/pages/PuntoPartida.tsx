@@ -1,9 +1,29 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Save, CheckCircle2, ArrowRight } from "lucide-react"
+import { Save, CheckCircle2, ArrowRight, Crosshair, Target, TrendingUp } from "lucide-react"
 import { usePuntoPartida, PuntoPartidaEntry } from "@/hooks/usePuntoPartida"
+import { usePointBMetrics } from "@/hooks/usePointBMetrics"
+import { useSprints } from "@/hooks/useSprints"
 import { useState } from "react"
 import { toast } from "sonner"
+
+const AREA_TO_PB_AREA: Record<string, string[]> = {
+  salud: ["gym", "apariencia"],
+  mente: ["lectura", "idiomas", "musica", "universidad"],
+  carrera: ["universidad", "emprendimiento", "proyectos"],
+  finanzas: ["finanzas"],
+  relaciones: ["relaciones"],
+  proposito: ["proposito"],
+}
+
+const MAPPED_SPRINT_AREAS: Record<string, string[]> = {
+  salud: ["gym"],
+  mente: ["lectura", "piano", "guitarra", "idiomas", "ajedrez"],
+  carrera: ["universidad", "emprendimiento", "proyectos"],
+  finanzas: [],
+  relaciones: [],
+  proposito: [],
+}
 
 const WHEEL_DATA: {
   id: string
@@ -112,6 +132,8 @@ const HOMBRE_DATA: {
 
 export default function PuntoPartida() {
   const { saveAll, loading: saving } = usePuntoPartida()
+  const { groupedByArea, loading: pbLoading } = usePointBMetrics()
+  const { activeSprint } = useSprints()
   const [saved, setSaved] = useState(false)
 
   const handleSave = async () => {
@@ -143,6 +165,9 @@ export default function PuntoPartida() {
     }
   }
 
+  const allPbMetrics = Object.values(groupedByArea).flat()
+  const sprintObjectives = activeSprint?.objectives || []
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -163,6 +188,62 @@ export default function PuntoPartida() {
           <p className="text-sm uppercase tracking-widest opacity-80">Promedio General</p>
           <p className="text-5xl font-black">6/10</p>
           <p className="text-sm opacity-80 mt-1">Rueda de la Vida</p>
+        </Card>
+
+        {/* JERARQUÍA: Point B → Sprint → Score */}
+        <Card className="border-amber-500/30">
+          <CardContent className="p-5">
+            <h2 className="text-sm font-bold uppercase tracking-wide flex items-center gap-2 mb-4">
+              <Crosshair className="h-4 w-4 text-amber-500" />
+              JERARQUÍA DE METAS: Point B → Sprint → Punto Partida
+            </h2>
+            <p className="text-xs text-muted-foreground mb-4">
+              Cada área de la Rueda de la Vida está conectada a un objetivo de Point B (visión a 8 años),
+              impulsado por objetivos del sprint actual (90 días), midiendo tu score actual (consistencia diaria).
+            </p>
+            <div className="space-y-3">
+              {WHEEL_DATA.map(area => {
+                const pbAreas = AREA_TO_PB_AREA[area.id] || []
+                const pbMetrics = allPbMetrics.filter(m => pbAreas.includes(m.area))
+                const sprintAreas = MAPPED_SPRINT_AREAS[area.id] || []
+                const relatedObjectives = sprintObjectives.filter(o => sprintAreas.includes(o.area))
+                return (
+                  <div key={area.id} className="text-xs border-l-2 border-amber-500/30 pl-3 py-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-sm">{area.label}</span>
+                      <span className="font-black">{area.nota}/10</span>
+                    </div>
+                    <div className="space-y-1 text-muted-foreground">
+                      {pbMetrics.length > 0 && (
+                        <div className="flex items-start gap-1.5">
+                          <Crosshair className="h-3 w-3 mt-0.5 text-amber-500 flex-shrink-0" />
+                          <span>
+                            <strong>Point B:</strong>{' '}
+                            {pbMetrics.map(m => `${m.metric_name} → ${m.target_value} ${m.unit} (ahora ${m.current_value})`).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      {relatedObjectives.length > 0 && (
+                        <div className="flex items-start gap-1.5">
+                          <Target className="h-3 w-3 mt-0.5 text-blue-500 flex-shrink-0" />
+                          <span>
+                            <strong>Sprint {activeSprint?.name}:</strong>{' '}
+                            {relatedObjectives.map(o => `${o.title} (${o.current_value}/${o.target_value} ${o.unit})`).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-1.5">
+                        <TrendingUp className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                        <span>
+                          <strong>Ahora:</strong> Score base {area.nota}/10 — la consistencia diaria mueve este número
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
         </Card>
 
         {/* Wheel of Life Areas */}
@@ -241,7 +322,7 @@ export default function PuntoPartida() {
           <p className="text-xs text-muted-foreground mt-4 max-w-md mx-auto leading-relaxed">
             <ArrowRight className="w-3 h-3 inline" /> A partir de ahora, estos scores se actualizarán solos según tus datos reales:
             gym completado, horas de estudio, tareas hechas, hábitos cumplidos. Cada decisión diaria mueve la aguja en
-            Hoy, Semana, Mes, Trimestre y Año.
+            Hoy, Semana, Mes, Trimestre, Año y Sprint.
           </p>
         </div>
       </div>

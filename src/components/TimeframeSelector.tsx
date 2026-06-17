@@ -1,4 +1,5 @@
 import { useTimeframe, Timeframe } from "@/contexts/TimeframeContext"
+import { useSprints } from "@/hooks/useSprints"
 
 const OPTIONS: { value: Timeframe; label: string }[] = [
   { value: "today", label: "Hoy" },
@@ -10,9 +11,15 @@ const OPTIONS: { value: Timeframe; label: string }[] = [
 
 export function TimeframeSelector() {
   const { timeframe, setTimeframe } = useTimeframe()
+  const { activeSprint } = useSprints()
+
+  const allOptions = activeSprint
+    ? [...OPTIONS, { value: "sprint" as Timeframe, label: activeSprint.name }]
+    : OPTIONS
+
   return (
     <div className="flex items-center justify-center gap-1">
-      {OPTIONS.map((opt) => (
+      {allOptions.map((opt) => (
         <button
           key={opt.value}
           onClick={() => setTimeframe(opt.value)}
