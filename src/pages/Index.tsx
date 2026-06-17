@@ -184,6 +184,12 @@ export default function Index() {
               <span className="text-xs">Estadísticas</span>
             </Button>
           </Link>
+          <Link to="/punto-partida" className="block">
+            <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2 hover:bg-foreground hover:text-background transition-colors">
+              <Activity className="w-5 h-5" />
+              <span className="text-xs">Punto Partida</span>
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
