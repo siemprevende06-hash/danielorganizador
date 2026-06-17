@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass, Bell, Activity } from "lucide-react";
 import { QuickDaySummary } from "@/components/today/QuickDaySummary";
+import { WheelOfLife } from "@/components/WheelOfLife";
+import { HombreTopWheel } from "@/components/HombreTopWheel";
 import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
 import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
 import { DailyMotivation } from "@/components/today/DailyMotivation";
@@ -23,6 +25,10 @@ import { QuickStatsGrid } from "@/components/dashboard/QuickStatsGrid";
 import { SostenSection } from "@/components/dashboard/SostenSection";
 import { MiniHabitsSection } from "@/components/dashboard/MiniHabitsSection";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useTimeframe } from "@/contexts/TimeframeContext";
+import { useWheelScores } from "@/hooks/useWheelScores";
+import { useHombreTopScores } from "@/hooks/useHombreTopScores";
+import { TimeframeSelector } from "@/components/TimeframeSelector";
 import { useEffect, useState } from "react";
 
 function ClockWidget() {
@@ -45,6 +51,9 @@ function ClockWidget() {
 export default function Index() {
   const { pillars, secondaryGoals, overallScore, loading: pillarsLoading } = usePillarProgress();
   const { requestPermission } = useNotifications();
+  const { timeframe } = useTimeframe();
+  const { scores: wheelScores, average: wheelAvg, loading: wheelLoading } = useWheelScores(timeframe);
+  const { scores: hommeScores, average: hommeAvg, loading: hommeLoading } = useHombreTopScores(timeframe);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -57,6 +66,30 @@ export default function Index() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header con fecha y hora grande */}
         <ClockWidget />
+
+        {/* Timeframe Selector */}
+        <TimeframeSelector />
+
+        {/* Wheel of Life — Rueda de las 6 áreas */}
+        <Card className="p-4">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">RUEDA DE LA VIDA</h2>
+          <WheelOfLife
+            values={wheelScores.map((s) => Math.round(s.value / 10))}
+            average={Math.round(wheelAvg / 10)}
+            loading={wheelLoading}
+          />
+        </Card>
+
+        {/* Hombre Top — 8 áreas que una mujer busca */}
+        <Card className="p-4">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">HOMBRE TOP</h2>
+          <p className="text-xs text-muted-foreground text-center mb-3">Lo que una mujer busca en un hombre</p>
+          <HombreTopWheel
+            values={hommeScores.map((s) => s.value)}
+            average={hommeAvg}
+            loading={hommeLoading}
+          />
+        </Card>
 
         {/* Score del día + Ver mi día completo */}
         <QuickDaySummary />

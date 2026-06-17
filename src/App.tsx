@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navigation } from "./components/Navigation";
 import { OfflineProvider } from "./providers/OfflineProvider";
 import { useAutoTheme } from "./hooks/useAutoTheme";
+import { TimeframeProvider } from "./contexts/TimeframeContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ControlRoom from "./pages/ControlRoom";
@@ -122,7 +123,9 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AppContent />
+          <TimeframeProvider>
+            <AppContent />
+          </TimeframeProvider>
         </BrowserRouter>
       </OfflineProvider>
     </TooltipProvider>
