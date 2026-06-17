@@ -1,5 +1,4 @@
 import { useMultiConsistencyScores } from "./useConsistencyScores"
-import { usePuntoPartida } from "./usePuntoPartida"
 import type { Timeframe } from "@/contexts/TimeframeContext"
 
 export const WHEEL_AREAS = [
@@ -11,7 +10,7 @@ export const WHEEL_AREAS = [
   { id: "proposito", label: "PROPÓSITO / ESPIRITUAL", areaIds: [] },
 ]
 
-// Hardcoded baseline notas — usadas cuando no hay datos en Supabase ni tracking real
+// Baseline: se usará cuando no haya datos reales de tracking
 const WHEEL_BASELINE_NOTAS: Record<string, number> = {
   salud: 4,
   mente: 7,
@@ -27,17 +26,11 @@ export function useWheelScores(timeframe: Timeframe) {
     groups[area.id] = area.areaIds
   }
 
-  const { scores: realScores, loading: realLoading, refresh } = useMultiConsistencyScores(groups, timeframe)
-  const { entries: baselineEntries, loading: baseLoading } = usePuntoPartida()
-
-  const loading = realLoading || baseLoading
+  const { scores: realScores, loading, refresh } = useMultiConsistencyScores(groups, timeframe)
 
   const wheelScores = WHEEL_AREAS.map((area) => {
     const real = realScores[area.id] ?? 0
     if (real > 0) return { id: area.id, label: area.label, value: real }
-    // Fallback: try Supabase baseline, then hardcoded
-    const baseFromDB = baselineEntries[area.id]?.nota
-    if (baseFromDB !== undefined) return { id: area.id, label: area.label, value: Math.round(baseFromDB * 10) }
     return { id: area.id, label: area.label, value: (WHEEL_BASELINE_NOTAS[area.id] ?? 0) * 10 }
   })
 
