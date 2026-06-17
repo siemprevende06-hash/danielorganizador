@@ -18,7 +18,7 @@ export const useMidnightReset = (callback: () => void) => {
   useEffect(() => {
     const schedule = () => {
       const now = new Date();
-      const localOffset = -now.getTimezoneOffset();
+      const localOffset = now.getTimezoneOffset();
       const cubaOffset = getCubaOffsetMinutes(now);
       const diffMs = (localOffset - cubaOffset) * 60000;
       const cubaNow = new Date(now.getTime() + diffMs);
@@ -26,7 +26,8 @@ export const useMidnightReset = (callback: () => void) => {
       cubaMidnight.setDate(cubaMidnight.getDate() + 1);
       cubaMidnight.setHours(0, 0, 0, 0);
       const localMidnight = new Date(cubaMidnight.getTime() - diffMs);
-      const ms = localMidnight.getTime() - now.getTime();
+      let ms = localMidnight.getTime() - now.getTime();
+      if (ms < 0) ms += 86400000;
       return setTimeout(() => {
         callback();
         schedule();
