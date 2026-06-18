@@ -3,70 +3,72 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { getCached, setCache } from "@/lib/offlineCache";
-import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
-import { Briefcase, FolderKanban, CheckSquare, Target, GraduationCap } from "lucide-react";
+import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subMonths, subWeeks } from "date-fns";
+import { Briefcase, FolderKanban, CheckSquare, Target, GraduationCap, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Timeframe } from "@/contexts/TimeframeContext";
 
-interface GeneralTasks {
+interface Props {
+  timeframe: Timeframe;
+}
+
+interface CategoryStats {
   total: number;
-  pending: number;
-  completedToday: number;
-  overdue: number;
-  highPriority: number;
-  weekCompleted: number;
-  weekTotal: number;
+  completed: number;
+  pct: number;
+  minutes: number;
+  label: string;
   hasData: boolean;
+  sparkData: number[];
 }
 
-interface EntrepreneurshipData {
-  tasksTotal: number;
-  tasksCompleted: number;
-  todayMinutes: number;
-  hasTasks: boolean;
-  hasTime: boolean;
-  weekSpark: number[];
+const LABELS: Record<string, string> = {
+  today: 'Hoy',
+  week: 'Semana',
+  month: 'Mes',
+  quarter: 'Trimestre',
+  year: 'Año',
+  sprint: 'Sprint',
+};
+
+function useDateRange(timeframe: Timeframe) {
+  const now = new Date();
+  switch (timeframe) {
+    case 'today':
+      return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd'), daysBack: 0 };
+    case 'week':
+      return { start: format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'), end: format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'), daysBack: 6 };
+    case 'month':
+      return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd'), daysBack: 29 };
+    case 'quarter':
+      return { start: format(startOfQuarter(now), 'yyyy-MM-dd'), end: format(endOfQuarter(now), 'yyyy-MM-dd'), daysBack: 89 };
+    case 'year':
+      return { start: format(new Date(now.getFullYear(), 0, 1), 'yyyy-MM-dd'), end: format(new Date(now.getFullYear(), 11, 31), 'yyyy-MM-dd'), daysBack: 364 };
+    case 'sprint':
+      return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd'), daysBack: 29 };
+    default:
+      return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd'), daysBack: 0 };
+  }
 }
 
-interface UniversityData {
-  tasksTotal: number;
-  tasksCompleted: number;
-  todayMinutes: number;
-  subjectCount: number;
-  mainSubject: string;
-  hasTasks: boolean;
-  hasTime: boolean;
-  weekSpark: number[];
-}
-
-interface ProjectsData {
-  projectCount: number;
-  activeProject: { id: string; name: string; tasks: any[] } | null;
-  taskCompleted: number;
-  taskTotal: number;
-  hasData: boolean;
-  weekSpark: number[];
-}
-
-const semaphore = (value: number, min: number, max: number, hasData: boolean) => {
+function semaphore(value: number, min: number, max: number, hasData: boolean) {
   if (!hasData) return { ring: "ring-muted/40", bg: "bg-muted/5", text: "text-muted-foreground", label: "Sin datos" };
   if (value >= max) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Completado" };
   if (value >= min) return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "En progreso" };
   return { ring: "ring-red-500/60", bg: "bg-red-500/5", text: "text-red-500", label: "Pendiente" };
-};
-
-const todayKey = () => new Date().toISOString().split("T")[0];
+}
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   const max = Math.max(1, ...data);
   return (
-    <div className="flex items-end gap-0.5 h-6 mt-1">
+    <div className="flex items-end gap-[1px] h-6 mt-1">
       {data.map((v, i) => (
         <div
           key={i}
           className="flex-1 rounded-sm"
           style={{
             height: `${Math.max(4, (v / max) * 100)}%`,
-            backgroundColor: i === 6 ? color : `${color}40`,
+            backgroundColor: i === data.length - 1 ? color : `${color}40`,
           }}
         />
       ))}
@@ -74,19 +76,18 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   );
 }
 
-export function QuickStatsGrid() {
-  const [generalTasks, setGeneralTasks] = useState<GeneralTasks | null>(null);
-  const [entrepreneurship, setEntrepreneurship] = useState<EntrepreneurshipData | null>(null);
-  const [university, setUniversity] = useState<UniversityData | null>(null);
-  const [projects, setProjects] = useState<ProjectsData | null>(null);
+export function QuickStatsGrid({ timeframe }: Props) {
+  const [university, setUniversity] = useState<CategoryStats | null>(null);
+  const [entrepreneurship, setEntrepreneurship] = useState<CategoryStats | null>(null);
+  const [projects, setProjects] = useState<CategoryStats | null>(null);
+  const [general, setGeneral] = useState<CategoryStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const today = todayKey();
-      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-      const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-      const start7 = format(subDays(new Date(), 6), "yyyy-MM-dd");
+      const { start, end, daysBack } = useDateRange(timeframe);
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const sparkStart = format(subDays(new Date(), daysBack || 6), 'yyyy-MM-dd');
 
       try {
         const [tasksR, entTasksR, uniTasksR, subjectsR, trackingR, weekTrackingR] = await Promise.all([
@@ -95,305 +96,243 @@ export function QuickStatsGrid() {
           supabase.from("tasks").select("*").eq("source", "university"),
           supabase.from("university_subjects").select("id,name").order("created_at"),
           supabase.from("daily_systems_tracking").select("time_data").eq("tracking_date", today).maybeSingle(),
-          supabase.from("daily_systems_tracking").select("tracking_date,time_data").gte("tracking_date", start7).lte("tracking_date", today).order("tracking_date", { ascending: true }),
+          supabase.from("daily_systems_tracking").select("tracking_date,time_data")
+            .gte("tracking_date", sparkStart).lte("tracking_date", today).order("tracking_date", { ascending: true }),
         ]);
 
-        await setCache("quickstats", `full_${today}`, {
-          tasks: tasksR.data,
-          entTasks: entTasksR.data,
-          uniTasks: uniTasksR.data,
-          subjects: subjectsR.data,
-          timeData: trackingR.data?.time_data,
-          weekRows: weekTrackingR.data,
+        const sparkByKey = (key: string) => {
+          const arr: number[] = [];
+          for (let i = (daysBack || 6); i >= 0; i--) {
+            const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+            const row = (weekTrackingR.data || []).find((r: any) => r.tracking_date === d);
+            arr.push(Number((row?.time_data as any)?.[key]) || 0);
+          }
+          return arr;
+        };
+
+        // University
+        const uniTasks = (uniTasksR.data || []).filter((t: any) => t.due_date >= start && t.due_date <= end);
+        const subjList = subjectsR.data || [];
+        setUniversity({
+          total: uniTasks.length,
+          completed: uniTasks.filter((t: any) => t.completed).length,
+          pct: uniTasks.length > 0 ? Math.round(uniTasks.filter((t: any) => t.completed).length / uniTasks.length * 100) : 0,
+          minutes: (trackingR.data?.time_data as any)?.universidad || 0,
+          label: subjList.length > 0 ? subjList[0].name : '—',
+          hasData: uniTasks.length > 0,
+          sparkData: sparkByKey("universidad"),
         });
 
-        processData(tasksR.data || [], entTasksR.data || [], uniTasksR.data || [], subjectsR.data || [], trackingR.data?.time_data as Record<string, number> || {}, weekTrackingR.data || [], today, weekStart);
+        // Entrepreneurship
+        const entTasks = (entTasksR.data || []).filter((t: any) => t.due_date >= start && t.due_date <= end);
+        setEntrepreneurship({
+          total: entTasks.length,
+          completed: entTasks.filter((t: any) => t.completed).length,
+          pct: entTasks.length > 0 ? Math.round(entTasks.filter((t: any) => t.completed).length / entTasks.length * 100) : 0,
+          minutes: (trackingR.data?.time_data as any)?.emprendimiento || 0,
+          label: 'Emprendimiento',
+          hasData: entTasks.length > 0,
+          sparkData: sparkByKey("emprendimiento"),
+        });
+
+        // General tasks (non-uni, non-entrepreneurship, non-project)
+        const generalTasks = (tasksR.data || []).filter((t: any) => {
+          if (t.source === "university" || t.source === "entrepreneurship" || t.source === "project") return false;
+          if (t.area_id === "universidad" || t.area_id === "emprendimiento" || t.area_id === "proyectos") return false;
+          return t.due_date >= start && t.due_date <= end;
+        });
+        setGeneral({
+          total: generalTasks.length,
+          completed: generalTasks.filter((t: any) => t.completed).length,
+          pct: generalTasks.length > 0 ? Math.round(generalTasks.filter((t: any) => t.completed).length / generalTasks.length * 100) : 0,
+          minutes: 0,
+          label: 'Generales',
+          hasData: generalTasks.length > 0,
+          sparkData: [],
+        });
+
+        // Projects
+        loadProjects(setProjects);
       } catch {
-        const cached = await getCached<any>("quickstats", `full_${today}`);
-        if (cached) {
-          processData(cached.tasks || [], cached.entTasks || [], cached.uniTasks || [], cached.subjects || [], cached.timeData || {}, cached.weekRows || [], today, weekStart);
-        } else {
-          setDefaults();
-        }
+        setDefaults(setUniversity, setEntrepreneurship, setProjects, setGeneral);
       }
       setLoading(false);
     })();
-  }, []);
+  }, [timeframe]);
 
-  function processData(tasksData: any[], entTasksData: any[], uniTasksData: any[], subjects: any[], timeData: Record<string, number>, weekRows: any[], today: string, weekStart: string) {
-    const sparkByKey = (key: string) => {
-      const arr: number[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-        const row = weekRows.find((r: any) => r.tracking_date === d);
-        arr.push(Number((row?.time_data as any)?.[key]) || 0);
-      }
-      return arr;
-    };
-
-    // --- General Tasks ---
-    const allRawTasks = tasksData || [];
-    const allTasks = allRawTasks.filter((t: any) => {
-      if (t.source === "university" || t.source === "entrepreneurship" || t.source === "project") return false;
-      if (t.area_id === "universidad" || t.area_id === "emprendimiento" || t.area_id === "proyectos") return false;
-      return true;
-    });
-    const todayStr = today;
-    const completedToday = allTasks.filter((t: any) => t.completed && t.updated_at?.startsWith(todayStr)).length;
-    const overdue = allTasks.filter((t: any) => !t.completed && t.due_date && t.due_date < todayStr).length;
-    const highPriority = allTasks.filter((t: any) => !t.completed && t.priority === "high").length;
-    const weekTasks = allTasks.filter((t: any) => t.created_at?.startsWith(weekStart) || t.updated_at?.startsWith(weekStart));
-    const weekCompleted = weekTasks.filter((t: any) => t.completed).length;
-
-    setGeneralTasks({
-      total: allTasks.length,
-      pending: allTasks.filter(t => !t.completed).length,
-      completedToday,
-      overdue,
-      highPriority,
-      weekCompleted,
-      weekTotal: weekTasks.length || allTasks.length,
-      hasData: allTasks.length > 0,
-    });
-
-    // --- Entrepreneurship ---
-    const entTasks = entTasksData || [];
-    setEntrepreneurship({
-      tasksTotal: entTasks.length,
-      tasksCompleted: entTasks.filter((t: any) => t.completed).length,
-      todayMinutes: timeData["emprendimiento"] || 0,
-      hasTasks: entTasks.length > 0,
-      hasTime: (timeData["emprendimiento"] || 0) > 0,
-      weekSpark: sparkByKey("emprendimiento"),
-    });
-
-    // --- University ---
-    const uniTasks = uniTasksData || [];
-    const subjList = subjects || [];
-    const mainSubject = subjList.length > 0 ? subjList[0].name : "";
-    setUniversity({
-      tasksTotal: uniTasks.length,
-      tasksCompleted: uniTasks.filter((t: any) => t.completed).length,
-      todayMinutes: timeData["universidad"] || 0,
-      subjectCount: subjList.length,
-      mainSubject,
-      hasTasks: uniTasks.length > 0,
-      hasTime: (timeData["universidad"] || 0) > 0,
-      weekSpark: sparkByKey("universidad"),
-    });
-
-    // --- Projects ---
-    loadProjects();
+  if (loading || !university || !entrepreneurship || !projects || !general) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
   }
 
-  function loadProjects() {
-    try {
-      const stored = localStorage.getItem("userProjects");
-      const selectedId = localStorage.getItem("selectedProjectId");
-      if (stored) {
-        const parsed: any[] = JSON.parse(stored);
-        const selected = selectedId ? parsed.find((p: any) => p.id === selectedId) : parsed[0];
-        const active = selected || null;
-        const taskCompleted = active ? active.tasks.filter((t: any) => t.completed).length : 0;
-        const taskTotal = active ? active.tasks.length : 0;
-
-        const projSpark: number[] = [];
-        for (let i = 6; i >= 0; i--) {
-          const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-          const dayTasks = parsed.flatMap((p: any) =>
-            p.tasks.filter((t: any) => t.completed && t.dueDate === d)
-          );
-          projSpark.push(dayTasks.length);
-        }
-
-        setProjects({
-          projectCount: parsed.length,
-          activeProject: active ? { id: active.id, name: active.name, tasks: active.tasks } : null,
-          taskCompleted,
-          taskTotal,
-          hasData: parsed.length > 0,
-          weekSpark: projSpark,
-        });
-      } else {
-        setDefaults();
-      }
-    } catch {
-      setDefaults();
-    }
-  }
-
-  function setDefaults() {
-    setGeneralTasks({ total: 0, pending: 0, completedToday: 0, overdue: 0, highPriority: 0, weekCompleted: 0, weekTotal: 0, hasData: false });
-    setEntrepreneurship({ tasksTotal: 0, tasksCompleted: 0, todayMinutes: 0, hasTasks: false, hasTime: false, weekSpark: [] });
-    setUniversity({ tasksTotal: 0, tasksCompleted: 0, todayMinutes: 0, subjectCount: 0, mainSubject: "", hasTasks: false, hasTime: false, weekSpark: [] });
-    setProjects({ projectCount: 0, activeProject: null, taskCompleted: 0, taskTotal: 0, hasData: false, weekSpark: [] });
-  }
-
-  if (loading || !generalTasks || !entrepreneurship || !university || !projects) {
-    return null;
-  }
-
-  const uniTaskPct = university.tasksTotal > 0 ? Math.round((university.tasksCompleted / university.tasksTotal) * 100) : 0;
-  const entTaskPct = entrepreneurship.tasksTotal > 0 ? Math.round((entrepreneurship.tasksCompleted / entrepreneurship.tasksTotal) * 100) : 0;
-  const projTaskPct = projects.taskTotal > 0 ? Math.round((projects.taskCompleted / projects.taskTotal) * 100) : 0;
-  const weekPct = generalTasks.weekTotal > 0 ? Math.round((generalTasks.weekCompleted / generalTasks.weekTotal) * 100) : 0;
-
-  const uniSem = semaphore(university.todayMinutes + university.tasksCompleted, 30, 120, university.hasTasks || university.hasTime);
-  const entSem = semaphore(entrepreneurship.todayMinutes + entrepreneurship.tasksCompleted, 30, 120, entrepreneurship.hasTasks || entrepreneurship.hasTime);
+  const uniSem = semaphore(university.minutes + university.completed, 30, 120, university.hasData);
+  const entSem = semaphore(entrepreneurship.minutes + entrepreneurship.completed, 30, 120, entrepreneurship.hasData);
   const projSem = projects.hasData
-    ? semaphore(projects.taskCompleted, 1, projects.taskTotal, projects.taskTotal > 0)
+    ? semaphore(projects.completed, 1, Math.max(1, projects.total), true)
     : { ring: "ring-muted/40", bg: "bg-muted/5", text: "text-muted-foreground", label: "Inactivo" };
-  const tasksSem = generalTasks.hasData
-    ? semaphore(generalTasks.completedToday, 1, Math.max(1, generalTasks.pending), true)
+  const genSem = general.hasData
+    ? semaphore(general.completed, 1, Math.max(1, general.total), true)
     : { ring: "ring-muted/40", bg: "bg-muted/5", text: "text-muted-foreground", label: "Sin tareas" };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* UNIVERSITY CARD */}
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 mb-2">
+        <CalendarDays className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          FOCUS · {LABELS[timeframe] || 'Hoy'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
         <Card className={cn("overflow-hidden ring-2 transition-all", uniSem.ring, uniSem.bg)}>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Universidad</CardTitle>
-            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="p-2 pb-0 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-medium text-muted-foreground">Universidad</CardTitle>
+            <GraduationCap className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div>
-              <p className="text-xs text-muted-foreground">Materia del día</p>
-              <p className={cn("text-base font-bold truncate", university.hasTasks ? "" : "text-muted-foreground")}>
-                {university.mainSubject || "—"}
-              </p>
-            </div>
+          <CardContent className="p-2 space-y-1">
+            <p className={cn("text-xs font-semibold truncate", university.hasData ? "" : "text-muted-foreground")}>
+              {university.label || '—'}
+            </p>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold">{university.todayMinutes}</span>
-              <span className="text-sm text-muted-foreground">min hoy</span>
+              <span className="text-lg font-bold">{university.minutes}</span>
+              <span className="text-[9px] text-muted-foreground">min</span>
               {university.hasData && (
-                <span className={cn("text-xs font-semibold ml-auto", uniSem.text)}>{uniSem.label}</span>
+                <span className={cn("text-[8px] font-semibold ml-auto", uniSem.text)}>{uniSem.label}</span>
               )}
             </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Tareas: {university.tasksCompleted}/{university.tasksTotal}</span>
-              <span>{university.subjectCount} materias</span>
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>{university.completed}/{university.total} tareas</span>
             </div>
-            {university.tasksTotal > 0 && <Progress value={uniTaskPct} className="h-1.5" />}
-            {university.weekSpark.length > 0 && <Sparkline data={university.weekSpark} color="hsl(var(--primary))" />}
+            {university.total > 0 && <Progress value={university.pct} className="h-1" />}
+            {university.sparkData.length > 0 && <Sparkline data={university.sparkData} color="hsl(var(--primary))" />}
           </CardContent>
         </Card>
 
-        {/* ENTREPRENEURSHIP CARD */}
         <Card className={cn("overflow-hidden ring-2 transition-all", entSem.ring, entSem.bg)}>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Emprendimiento</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="p-2 pb-0 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-medium text-muted-foreground">Emprendimiento</CardTitle>
+            <Briefcase className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="p-2 space-y-1">
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold">{entrepreneurship.todayMinutes}</span>
-              <span className="text-sm text-muted-foreground">min hoy</span>
-              {entrepreneurship.hasTasks && (
-                <span className={cn("text-xs font-semibold ml-auto", entSem.text)}>{entSem.label}</span>
+              <span className="text-lg font-bold">{entrepreneurship.minutes}</span>
+              <span className="text-[9px] text-muted-foreground">min</span>
+              {entrepreneurship.hasData && (
+                <span className={cn("text-[8px] font-semibold ml-auto", entSem.text)}>{entSem.label}</span>
               )}
             </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Tareas: {entrepreneurship.tasksCompleted}/{entrepreneurship.tasksTotal}</span>
-              <span>completadas</span>
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>{entrepreneurship.completed}/{entrepreneurship.total} tareas</span>
             </div>
-            {entrepreneurship.tasksTotal > 0 && <Progress value={entTaskPct} className="h-1.5" />}
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Target className="h-3 w-3" />
+            {entrepreneurship.total > 0 && <Progress value={entrepreneurship.pct} className="h-1" />}
+            <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+              <Target className="h-2.5 w-2.5" />
               <span>Meta: 120 min/día</span>
             </div>
-            {entrepreneurship.weekSpark.length > 0 && <Sparkline data={entrepreneurship.weekSpark} color="hsl(var(--primary))" />}
+            {entrepreneurship.sparkData.length > 0 && <Sparkline data={entrepreneurship.sparkData} color="hsl(var(--primary))" />}
           </CardContent>
         </Card>
 
-        {/* PROJECTS CARD */}
         <Card className={cn("overflow-hidden ring-2 transition-all", projSem.ring, projSem.bg)}>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Proyectos</CardTitle>
-            <FolderKanban className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="p-2 pb-0 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-medium text-muted-foreground">Proyectos</CardTitle>
+            <FolderKanban className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="p-2 space-y-1">
             {projects.hasData ? (
               <>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">{projects.projectCount}</span>
-                  <span className="text-sm text-muted-foreground">proyectos</span>
-                  {projects.taskTotal > 0 && (
-                    <span className={cn("text-xs font-semibold ml-auto", projSem.text)}>{projSem.label}</span>
-                  )}
+                  <span className="text-lg font-bold">{projects.total}</span>
+                  <span className="text-[9px] text-muted-foreground">tareas</span>
+                  <span className={cn("text-[8px] font-semibold ml-auto", projSem.text)}>{projSem.label}</span>
                 </div>
-                {projects.activeProject && (
-                  <p className="text-xs text-muted-foreground truncate">Activo: {projects.activeProject.name}</p>
-                )}
-                {projects.taskTotal > 0 && (
-                  <>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Tareas: {projects.taskCompleted}/{projects.taskTotal}</span>
-                    </div>
-                    <Progress value={projTaskPct} className="h-1.5" />
-                  </>
-                )}
-                {projects.weekSpark.length > 0 && <Sparkline data={projects.weekSpark} color="hsl(var(--primary))" />}
+                <div className="flex justify-between text-[9px] text-muted-foreground">
+                  <span>{projects.completed} completadas</span>
+                </div>
+                {projects.total > 0 && <Progress value={projects.pct} className="h-1" />}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
-                <FolderKanban className="h-8 w-8 mb-2 opacity-40" />
-                <p className="text-xs">Selecciona un proyecto</p>
-                <p className="text-[10px]">en la página Proyectos</p>
+              <div className="flex flex-col items-center py-2 text-muted-foreground">
+                <FolderKanban className="h-5 w-5 mb-1 opacity-40" />
+                <p className="text-[9px]">Sin proyectos</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className={cn("overflow-hidden ring-2 transition-all", genSem.ring, genSem.bg)}>
+          <CardHeader className="p-2 pb-0 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-[10px] font-medium text-muted-foreground">Tareas</CardTitle>
+            <CheckSquare className="h-3 w-3 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="p-2 space-y-1">
+            {general.hasData ? (
+              <>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg font-bold">{general.total - general.completed}</span>
+                  <span className="text-[9px] text-muted-foreground">pendientes</span>
+                  <span className={cn("text-[8px] font-semibold ml-auto", genSem.text)}>{genSem.label}</span>
+                </div>
+                <div className="flex justify-between text-[9px] text-muted-foreground">
+                  <span>{general.completed}/{general.total} completadas</span>
+                </div>
+                {general.total > 0 && <Progress value={general.pct} className="h-1" />}
+              </>
+            ) : (
+              <div className="flex flex-col items-center py-2 text-muted-foreground">
+                <CheckSquare className="h-5 w-5 mb-1 opacity-40" />
+                <p className="text-[9px]">Sin tareas</p>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      {/* TASKS CARD (full width) */}
-      <Card className={cn("overflow-hidden ring-2 transition-all", tasksSem.ring, tasksSem.bg)}>
-        <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Tareas Generales</CardTitle>
-          <CheckSquare className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          {generalTasks.hasData ? (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Pendientes</p>
-                  <p className="text-2xl font-bold">{generalTasks.pending}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Completadas hoy</p>
-                  <p className="text-2xl font-bold text-green-500">{generalTasks.completedToday}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Vencidas</p>
-                  <p className={cn("text-2xl font-bold", generalTasks.overdue > 0 ? "text-red-500" : "text-muted-foreground")}>
-                    {generalTasks.overdue}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Alta prioridad</p>
-                  <p className={cn("text-2xl font-bold", generalTasks.highPriority > 0 ? "text-yellow-500" : "text-muted-foreground")}>
-                    {generalTasks.highPriority}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-muted-foreground">Completadas esta semana</span>
-                  <span className="font-medium">{generalTasks.weekCompleted}/{generalTasks.weekTotal}</span>
-                </div>
-                <Progress value={weekPct} className="h-2" />
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-              <CheckSquare className="h-8 w-8 mb-2 opacity-40" />
-              <p className="text-sm">Sin tareas generales</p>
-              <p className="text-xs">Agrega tareas en la página Tareas</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
+}
+
+function loadProjects(setProjects: React.Dispatch<React.SetStateAction<CategoryStats | null>>) {
+  try {
+    const stored = localStorage.getItem("userProjects");
+    const selectedId = localStorage.getItem("selectedProjectId");
+    if (stored) {
+      const parsed: any[] = JSON.parse(stored);
+      const selected = selectedId ? parsed.find((p: any) => p.id === selectedId) : parsed[0];
+      const active = selected || null;
+      const taskCompleted = active ? active.tasks.filter((t: any) => t.completed).length : 0;
+      const taskTotal = active ? active.tasks.length : 0;
+      setProjects({
+        total: taskTotal,
+        completed: taskCompleted,
+        pct: taskTotal > 0 ? Math.round(taskCompleted / taskTotal * 100) : 0,
+        minutes: 0,
+        label: active?.name || '—',
+        hasData: parsed.length > 0,
+        sparkData: [],
+      });
+    } else {
+      setDefaultsProjects(setProjects);
+    }
+  } catch {
+    setDefaultsProjects(setProjects);
+  }
+}
+
+function setDefaultsProjects(setProjects: React.Dispatch<React.SetStateAction<CategoryStats | null>>) {
+  setProjects({ total: 0, completed: 0, pct: 0, minutes: 0, label: '', hasData: false, sparkData: [] });
+}
+
+function setDefaults(
+  setU: React.Dispatch<React.SetStateAction<CategoryStats | null>>,
+  setE: React.Dispatch<React.SetStateAction<CategoryStats | null>>,
+  setP: React.Dispatch<React.SetStateAction<CategoryStats | null>>,
+  setG: React.Dispatch<React.SetStateAction<CategoryStats | null>>,
+) {
+  setU({ total: 0, completed: 0, pct: 0, minutes: 0, label: '', hasData: false, sparkData: [] });
+  setE({ total: 0, completed: 0, pct: 0, minutes: 0, label: '', hasData: false, sparkData: [] });
+  setP({ total: 0, completed: 0, pct: 0, minutes: 0, label: '', hasData: false, sparkData: [] });
+  setG({ total: 0, completed: 0, pct: 0, minutes: 0, label: '', hasData: false, sparkData: [] });
 }

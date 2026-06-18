@@ -274,8 +274,21 @@ export default function Focus() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 pt-24 pb-24">
+    <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground uppercase tracking-tight">FOCUS</h1>
+            <p className="text-sm text-muted-foreground">Temporizador Pomodoro para bloques de trabajo profundo</p>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>Hoy: {todayStats.totalMinutes} min ({todayStats.sessionsCount} sesiones)</span>
+            <span className="hidden sm:inline">·</span>
+            <span className="hidden sm:inline">Semana: {weeklyStats.totalHours}h</span>
+          </div>
+        </div>
+
         {/* Task Selection */}
         <Card>
           <CardHeader>
@@ -485,24 +498,14 @@ export default function Focus() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <BarChart3 className="w-4 h-4" />
-                  Estadísticas de Focus
+                  Resumen
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Hoy</span>
-                  <span className="font-semibold">{todayStats.totalMinutes} min ({todayStats.sessionsCount} sesiones)</span>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-xs text-muted-foreground">Sesión más larga</span>
+                  <span className="text-sm font-semibold">{weeklyStats.longestSession > 0 ? `${weeklyStats.longestSession} min` : '—'}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Esta semana</span>
-                  <span className="font-semibold">{weeklyStats.totalHours}h</span>
-                </div>
-                {weeklyStats.longestSession > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Sesión más larga</span>
-                    <span className="font-semibold">{weeklyStats.longestSession} min</span>
-                  </div>
-                )}
               </CardContent>
             </Card>
 

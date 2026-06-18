@@ -26,6 +26,7 @@ import { useWheelScores } from "@/hooks/useWheelScores";
 import { useHombreTopScores } from "@/hooks/useHombreTopScores";
 import { useTimeframe } from "@/contexts/TimeframeContext";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 function ClockWidget() {
   const [time, setTime] = useState(new Date());
@@ -88,18 +89,14 @@ export default function Index() {
           loading={!blocksLoaded}
         />
 
-        {/* Compact indicators grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="scale-[0.97] origin-top-left">
-            <RealStatsDashboard />
+        {/* Indicators responsive to timeframe */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+          <div className="lg:col-span-3">
+            <RealStatsDashboard timeframe={timeframe} />
           </div>
-          <Card className="p-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Focus className="h-3.5 w-3.5 text-primary" />
-              <h3 className="text-[10px] font-bold uppercase tracking-wide">FOCUS</h3>
-            </div>
-            <QuickStatsGrid />
-          </Card>
+          <div className="lg:col-span-2">
+            <QuickStatsGrid timeframe={timeframe} />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
