@@ -11,21 +11,25 @@ export function useIdentitySystems() {
   const today = new Date().toISOString().split('T')[0];
 
   const loadData = useCallback(async () => {
-    const [sysRes, dailyRes] = await Promise.all([
-      supabase.from('identity_systems').select('*').order('sort_order'),
-      supabase.from('identity_systems_daily').select('*').eq('tracking_date', today),
-    ]);
+    try {
+      const [sysRes, dailyRes] = await Promise.all([
+        supabase.from('identity_systems').select('*').order('sort_order'),
+        supabase.from('identity_systems_daily').select('*').eq('tracking_date', today),
+      ]);
 
-    if (sysRes.data) {
-      setSystems(sysRes.data as unknown as IdentitySystem[]);
-    }
-
-    if (dailyRes.data) {
-      const mapped: Record<string, Record<string, boolean>> = {};
-      for (const row of dailyRes.data) {
-        mapped[row.system_id] = row.task_states as Record<string, boolean>;
+      if (sysRes.data) {
+        setSystems(sysRes.data as unknown as IdentitySystem[]);
       }
-      setDailyStates(mapped);
+
+      if (dailyRes.data) {
+        const mapped: Record<string, Record<string, boolean>> = {};
+        for (const row of dailyRes.data) {
+          mapped[row.system_id] = row.task_states as Record<string, boolean>;
+        }
+        setDailyStates(mapped);
+      }
+    } catch (e) {
+      console.error('useIdentitySystems loadData error:', e);
     }
 
     setLoading(false);

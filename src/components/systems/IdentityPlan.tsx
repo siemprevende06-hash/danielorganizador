@@ -75,11 +75,11 @@ export function IdentityPlan() {
 
   useEffect(() => {
     loadData();
-    const timeout = setTimeout(() => setLoading(false), 8000);
-    return () => clearTimeout(timeout);
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const { data, error: err } = await supabase.from("identity_plan").select("*").order("created_at");
       if (err) throw err;
@@ -87,7 +87,10 @@ export function IdentityPlan() {
         setItems(data as IdentityItem[]);
       } else {
         const seeds = DEFAULT_AREAS.map(a => ({
-          ...a,
+          area_id: a.area_id,
+          area_label: a.area_label,
+          icon: a.icon,
+          color: a.color,
           point_a: "",
           point_b: "",
           progress_percentage: 0,
@@ -100,7 +103,8 @@ export function IdentityPlan() {
         setItems((inserted as IdentityItem[]) || []);
       }
     } catch (err: any) {
-      setError(err.message || "Error al cargar datos");
+      console.error("IdentityPlan load error:", err);
+      setError(err?.message || "Error al cargar datos");
       setItems(DEFAULT_AREAS.map((a, i) => ({
         id: `seed-${i}`,
         area_id: a.area_id,
@@ -148,20 +152,20 @@ export function IdentityPlan() {
         tasks: dialogTasks,
       });
     } else {
-      await createSystem(dialogAreaId, dialogName);
-      await updateSystem(
-        (await supabase
-          .from("identity_systems")
-          .select("id")
-          .eq("area_id", dialogAreaId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single())?.data?.id || "",
-        {
+      const created = await createSystem(dialogAreaId, dialogName);
+      const { data: fresh } = await supabase
+        .from("identity_systems")
+        .select("id")
+        .eq("area_id", dialogAreaId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (fresh?.id) {
+        await updateSystem(fresh.id, {
           description: dialogDescription,
           tasks: dialogTasks,
-        } as Partial<IdentitySystem>,
-      );
+        } as Partial<IdentitySystem>);
+      }
     }
 
     await refetchSystems();
