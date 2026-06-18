@@ -1,15 +1,16 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun
 } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { useState, useEffect } from 'react';
 import { useOffline } from '@/providers/OfflineProvider';
+import { useSidebar } from '@/contexts/SidebarContext';
+import { useAutoTheme } from '@/hooks/useAutoTheme';
 
 interface SidebarItem {
   path?: string;
@@ -118,46 +119,29 @@ function getPageTitle(pathname: string): string {
   return 'Organizador';
 }
 
+function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
+  const { toggleTheme, isDark } = useAutoTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      className={cn(
+        "p-1.5 rounded-md transition-colors hover:bg-accent",
+        isDark ? "text-amber-400" : "text-muted-foreground hover:text-foreground",
+        collapsed && "mx-auto"
+      )}
+      title={isDark ? 'Modo claro' : 'Modo oscuro'}
+    >
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  );
+}
+
 export const Navigation = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggleCollapse: sidebarToggle } = useSidebar();
   const { isOnline, pendingMutations } = useOffline();
-
-  useEffect(() => {
-    const stored = localStorage.getItem('sidebarCollapsed');
-    if (stored) setCollapsed(stored === 'true');
-  }, []);
-
-  const toggleCollapse = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem('sidebarCollapsed', String(next));
-  };
-
-  const OfflineBadge = () => {
-    if (!isOnline) {
-      return (
-        <span className="flex items-center gap-1 text-[10px] text-amber-500 font-medium">
-          <WifiOff className="h-3 w-3" />
-          {pendingMutations > 0 && <span>{pendingMutations}</span>}
-        </span>
-      );
-    }
-    if (pendingMutations > 0) {
-      return (
-        <span className="flex items-center gap-1 text-[10px] text-foreground/50 font-medium">
-          <CloudOff className="h-3 w-3 animate-pulse" />
-          {pendingMutations}
-        </span>
-      );
-    }
-    return (
-      <span className="flex items-center gap-1 text-[10px] text-green-500">
-        <Wifi className="h-3 w-3" />
-      </span>
-    );
-  };
+  const { toggleTheme, isDark } = useAutoTheme();
 
   const renderSidebarItem = (item: SidebarItem) => {
     if (item.submenu) {
@@ -233,16 +217,22 @@ export const Navigation = () => {
           </button>
           <span className="font-medium text-sm">{currentPage}</span>
         </div>
-        <OfflineBadge />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
+        </div>
       </header>
 
       {/* Mobile Sheet */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetContent side="left" className="w-64 p-0 flex flex-col h-full max-h-screen bg-secondary">
-          <div className="h-12 flex items-center gap-2 px-4 border-b shrink-0"
+          <div className="h-12 flex items-center justify-between px-4 border-b shrink-0"
             style={{ paddingTop: 'env(safe-area-inset-top)', marginTop: 0 }}>
-            <h1 className="text-sm font-semibold">Organizador</h1>
-            <OfflineBadge />
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-semibold">Organizador</h1>
+              <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
+            </div>
+            <ThemeToggle />
           </div>
           <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
             {sidebarGroups.map((group, gi) => (
@@ -268,23 +258,26 @@ export const Navigation = () => {
         collapsed ? "w-14" : "w-56"
       )}
         style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        {/* Logo + collapse */}
+        {/* Logo + collapse + theme */}
         <div className={cn(
           "h-12 flex items-center border-b shrink-0",
-          collapsed ? "justify-center px-2" : "justify-between px-4"
+          collapsed ? "justify-center px-2 gap-2 flex-col h-auto py-2" : "justify-between px-4"
         )}>
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
               <h1 className="text-sm font-semibold truncate">Organizador</h1>
-              <OfflineBadge />
+              <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
             </div>
           )}
-          <button
-            onClick={toggleCollapse}
-            className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0"
-          >
-            {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </button>
+          <div className={cn("flex items-center gap-1", collapsed && "flex-col")}>
+            <ThemeToggle collapsed={collapsed} />
+            <button
+              onClick={sidebarToggle}
+              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0"
+            >
+              {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
         {/* Nav items */}
@@ -307,3 +300,27 @@ export const Navigation = () => {
     </>
   );
 };
+
+function OfflineBadge({ isOnline, pendingMutations }: { isOnline: boolean; pendingMutations: number }) {
+  if (!isOnline) {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-amber-500 font-medium">
+        <WifiOff className="h-3 w-3" />
+        {pendingMutations > 0 && <span>{pendingMutations}</span>}
+      </span>
+    );
+  }
+  if (pendingMutations > 0) {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-foreground/50 font-medium">
+        <CloudOff className="h-3 w-3 animate-pulse" />
+        {pendingMutations}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1 text-[10px] text-green-500">
+      <Wifi className="h-3 w-3" />
+    </span>
+  );
+}

@@ -3,10 +3,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { Navigation } from "./components/Navigation";
 import { OfflineProvider } from "./providers/OfflineProvider";
 import { useAutoTheme } from "./hooks/useAutoTheme";
 import { TimeframeProvider } from "./contexts/TimeframeContext";
+import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ControlRoom from "./pages/ControlRoom";
@@ -59,9 +61,10 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   useAutoTheme();
+  const { collapsed } = useSidebar();
 
   return (
-    <div className="lg:ml-56 pt-12 lg:pt-0 min-h-screen">
+    <div className={cn("pt-12 lg:pt-0 min-h-screen transition-all duration-200", collapsed ? "lg:ml-14" : "lg:ml-56")}>
       <Navigation />
       <Routes>
         <Route path="/" element={<Index />} />
@@ -126,7 +129,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <TimeframeProvider>
-            <AppContent />
+            <SidebarProvider>
+              <AppContent />
+            </SidebarProvider>
           </TimeframeProvider>
         </BrowserRouter>
       </OfflineProvider>
