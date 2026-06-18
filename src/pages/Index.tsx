@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
@@ -17,8 +17,11 @@ import { TimeframeSelector } from "@/components/TimeframeSelector";
 import { DayProgressHeader } from "@/components/today/DayProgressHeader";
 import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
 import { TaskPoolPanel } from "@/components/today/TaskPoolPanel";
+import { RoutineConfigBar } from "@/components/today/RoutineConfigBar";
+import { CurrentBlockCard } from "@/components/today/CurrentBlockCard";
 import { useDailyPlanData } from "@/hooks/useDailyPlanData";
 import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
+import { useRoutineConfig } from "@/hooks/useRoutineConfig";
 import { useWheelScores } from "@/hooks/useWheelScores";
 import { useHombreTopScores } from "@/hooks/useHombreTopScores";
 import { useTimeframe } from "@/contexts/TimeframeContext";
@@ -43,7 +46,7 @@ function ClockWidget() {
 
 export default function Index() {
   const {
-    blocks, blocksLoaded,
+    blocks: rawBlocks, blocksLoaded,
     tasksByBlock, unassignedTasks,
     assignTaskToBlock, removeTaskFromBlock, refreshTasks,
     toggleBlockComplete, isBlockCompleted,
@@ -51,7 +54,16 @@ export default function Index() {
     tasks,
   } = useDailyPlanData();
 
-  const { getCurrentBlock, getBlockProgress } = useRoutineBlocksDB();
+  const {
+    adjustedBlocks,
+    wakeTime, setWakeTime,
+    focusBlock, setFocusBlock,
+    sleepTime, setSleepTime,
+    lateWake, setLateWake,
+    presetName,
+  } = useRoutineConfig();
+
+  const { getCurrentBlock, getBlockProgress, updateBlockFocus } = useRoutineBlocksDB();
   const currentBlock = getCurrentBlock();
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
@@ -62,11 +74,10 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-7xl mx-auto space-y-4">
-        {/* Header */}
         <ClockWidget />
         <TimeframeSelector />
         <DayProgressHeader
-          blocksTotal={blocks.length}
+          blocksTotal={adjustedBlocks.length}
           blocksCompleted={completedBlocks.length}
           tasksTotal={tasks.length}
           tasksCompleted={completedTasks.length}
@@ -96,15 +107,34 @@ export default function Index() {
           <MiniHabitsSection />
         </div>
 
-        {/* Timeline + Task Pool */}
+        {/* Routine config + Current block + Timeline + Task Pool */}
+        <RoutineConfigBar
+          wakeTime={wakeTime}
+          onWakeChange={setWakeTime}
+          focusBlock={focusBlock}
+          onFocusChange={setFocusBlock}
+          sleepTime={sleepTime}
+          onSleepChange={setSleepTime}
+          lateWake={lateWake}
+          onLateWakeChange={setLateWake}
+          presetName={presetName}
+        />
+
+        <CurrentBlockCard
+          currentBlock={currentBlock}
+          blockProgress={currentProgress}
+          tasksByBlock={tasksByBlock}
+        />
+
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           <DailyTimelinePlanner
-            blocks={blocks}
+            blocks={adjustedBlocks}
             tasksByBlock={tasksByBlock}
             onToggleBlock={toggleBlockComplete}
             isBlockCompleted={isBlockCompleted}
             onDropTask={assignTaskToBlock}
             onRemoveTask={removeTaskFromBlock}
+            onUpdateFocus={updateBlockFocus}
           />
           <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
             <TaskPoolPanel
@@ -114,7 +144,7 @@ export default function Index() {
           </div>
         </div>
 
-        {/* Wheel of Life + Hombre Top side by side */}
+        {/* Wheel of Life + Hombre Top */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="p-3">
             <h2 className="text-[10px] font-bold uppercase tracking-wide text-center mb-1">RUEDA DE LA VIDA</h2>

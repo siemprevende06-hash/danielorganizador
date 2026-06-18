@@ -2,16 +2,20 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { format, isToday } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Clock, BookOpen, Briefcase, FolderKanban, Dumbbell, Sun, Moon, Coffee,
-  Languages, Target, Music, Book, ChevronDown, ChevronUp, GripVertical, X
+  Languages, Target, Music, Book, ChevronDown, GripVertical, X
 } from 'lucide-react';
 import { parseTime } from '@/hooks/useRoutineBlocksDB';
-import type { RoutineBlock, BlockFocus } from '@/hooks/useRoutineBlocksDB';
+import type { RoutineBlock } from '@/hooks/useRoutineBlocksDB';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
+import { useWorkoutTracking } from '@/hooks/useWorkoutTracking';
+import { useReadingLibrary } from '@/hooks/useReadingLibrary';
+import { useMusicRepertoire } from '@/hooks/useMusicRepertoire';
 
 interface Props {
   blocks: RoutineBlock[];
@@ -20,12 +24,27 @@ interface Props {
   isBlockCompleted: (blockId: string) => boolean;
   onDropTask: (taskId: string, blockId: string) => void;
   onRemoveTask: (taskId: string) => void;
+  onUpdateFocus?: (blockId: string, focus: string) => void;
 }
+
+const FOCUS_OPTIONS = [
+  { value: 'universidad', label: '🎓 Universidad', color: 'text-blue-500' },
+  { value: 'emprendimiento', label: '💼 Emprendimiento', color: 'text-purple-500' },
+  { value: 'descanso', label: '🛌 Descanso', color: 'text-slate-500' },
+  { value: 'proyectos', label: '💻 Proyectos', color: 'text-emerald-500' },
+  { value: 'lectura', label: '📖 Lectura', color: 'text-indigo-500' },
+  { value: 'musica', label: '🎵 Música', color: 'text-pink-500' },
+  { value: 'entretenimiento', label: '🎮 Entretenimiento', color: 'text-orange-500' },
+];
 
 const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; label: string }> = {
   universidad: { border: 'border-l-blue-500', bg: 'bg-blue-500/10', dot: 'bg-blue-500', label: 'Universidad' },
   emprendimiento: { border: 'border-l-purple-500', bg: 'bg-purple-500/10', dot: 'bg-purple-500', label: 'Emprendimiento' },
   proyectos: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/10', dot: 'bg-emerald-500', label: 'Proyectos' },
+  descanso: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', dot: 'bg-slate-500', label: 'Descanso' },
+  lectura: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Lectura' },
+  musica: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Música' },
+  entretenimiento: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Entretenimiento' },
   gym: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Gym' },
   estructural: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Estructural' },
   alimentacion: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500', label: 'Alimentación' },
@@ -41,7 +60,20 @@ const SOURCE_STYLES: Record<string, { icon: React.ReactNode; color: string }> = 
   general: { icon: <Target className="h-3 w-3" />, color: 'bg-muted text-muted-foreground border-border' },
 };
 
-const getBlockFocus = (block: RoutineBlock): string => {
+function isDeepWork(title: string): boolean {
+  const t = title.toLowerCase();
+  return t.includes('deep work') || t.includes('work-') || t.includes('trabajo') || (t.includes('bloque') && !t.includes('alistamiento'));
+}
+
+function identifyBlockType(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes('gym') || t.includes('entreno')) return 'gym';
+  if (t.includes('lectura') || t.includes('podcast')) return 'lectura';
+  if (t.includes('música') || t.includes('piano') || t.includes('guitarra')) return 'musica';
+  return 'other';
+}
+
+function getBlockFocus(block: RoutineBlock): string {
   const focus = block.currentFocus || block.defaultFocus;
   if (focus && focus !== 'none') return focus;
   const title = block.title.toLowerCase();
@@ -52,14 +84,18 @@ const getBlockFocus = (block: RoutineBlock): string => {
   if (title.includes('ocio')) return 'ocio';
   if (title.includes('idiomas')) return 'hobbys';
   return 'default';
-};
+}
 
-const getBlockIcon = (block: RoutineBlock) => {
+function getBlockIcon(block: RoutineBlock) {
   const focus = getBlockFocus(block);
   switch (focus) {
     case 'universidad': return <BookOpen className="h-4 w-4 text-blue-500" />;
     case 'emprendimiento': return <Briefcase className="h-4 w-4 text-purple-500" />;
     case 'proyectos': return <FolderKanban className="h-4 w-4 text-emerald-500" />;
+    case 'descanso': return <Moon className="h-4 w-4 text-slate-500" />;
+    case 'lectura': return <Book className="h-4 w-4 text-indigo-500" />;
+    case 'musica': return <Music className="h-4 w-4 text-pink-500" />;
+    case 'entretenimiento': return <Target className="h-4 w-4 text-orange-500" />;
     case 'gym': return <Dumbbell className="h-4 w-4 text-orange-500" />;
     case 'estructural': return <Sun className="h-4 w-4 text-indigo-500" />;
     case 'alimentacion': return <Coffee className="h-4 w-4 text-amber-500" />;
@@ -67,7 +103,7 @@ const getBlockIcon = (block: RoutineBlock) => {
     case 'ocio': return <Moon className="h-4 w-4 text-slate-400" />;
     default: return <Clock className="h-4 w-4 text-muted-foreground" />;
   }
-};
+}
 
 function formatTime(time: string) {
   const [h, m] = time.split(':').map(Number);
@@ -83,12 +119,21 @@ export function DailyTimelinePlanner({
   isBlockCompleted,
   onDropTask,
   onRemoveTask,
+  onUpdateFocus,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
   });
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
+
+  const { exercises, getTodayWorkout } = useWorkoutTracking();
+  const { getCurrentlyReading } = useReadingLibrary();
+  const { getSongsByStatus } = useMusicRepertoire();
+
+  const todayWorkout = getTodayWorkout();
+  const currentBook = getCurrentlyReading();
+  const learningSongs = getSongsByStatus('learning');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -161,6 +206,12 @@ export function DailyTimelinePlanner({
           const isPast = endM <= currentMinutes;
           const isDragOver = dragOverBlockId === blockId;
           const tasks = tasksByBlock[blockId] || [];
+          const isDW = isDeepWork(block.title);
+          const blockType = identifyBlockType(block.title);
+
+          const todayMuscleGroups = todayWorkout?.isWorkoutDay
+            ? exercises.filter(e => e.day_of_week === todayWorkout.dayName.toLowerCase()).map(e => e.muscle_group || e.name).filter(Boolean)
+            : [];
 
           return (
             <div
@@ -204,6 +255,25 @@ export function DailyTimelinePlanner({
                         <span className="text-[9px] text-muted-foreground hidden sm:inline font-mono">
                           {formatTime(block.endTime)}
                         </span>
+
+                        {/* Deep Work focus selector */}
+                        {isDW && onUpdateFocus && (
+                          <Select
+                            value={block.currentFocus || block.defaultFocus || ''}
+                            onValueChange={(v) => onUpdateFocus(blockId, v)}
+                          >
+                            <SelectTrigger className="h-5 w-[90px] text-[9px] border-0 bg-muted/50 hover:bg-muted">
+                              <SelectValue placeholder="Objetivo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FOCUS_OPTIONS.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {isCurrent && (
@@ -216,12 +286,36 @@ export function DailyTimelinePlanner({
                             {tasks.length}
                           </Badge>
                         )}
-                        {focusKey !== 'default' && (
-                          <span className={cn("w-1.5 h-1.5 rounded-full", colors.dot)} />
-                        )}
                       </div>
                     </div>
 
+                    {/* System info row */}
+                    {blockType === 'gym' && todayMuscleGroups.length > 0 && (
+                      <div className="mt-1 ml-6 flex items-center gap-1.5">
+                        <Dumbbell className="h-2.5 w-2.5 text-orange-500" />
+                        <span className="text-[9px] text-muted-foreground">
+                          {todayMuscleGroups.slice(0, 3).join(' · ')}
+                        </span>
+                      </div>
+                    )}
+                    {blockType === 'lectura' && currentBook && (
+                      <div className="mt-1 ml-6 flex items-center gap-1.5">
+                        <Book className="h-2.5 w-2.5 text-indigo-500" />
+                        <span className="text-[9px] text-muted-foreground truncate max-w-[200px]">
+                          {currentBook.title}
+                        </span>
+                      </div>
+                    )}
+                    {blockType === 'musica' && learningSongs.length > 0 && (
+                      <div className="mt-1 ml-6 flex items-center gap-1.5">
+                        <Music className="h-2.5 w-2.5 text-pink-500" />
+                        <span className="text-[9px] text-muted-foreground">
+                          {learningSongs[0].instrument === 'piano' ? '🎹' : '🎸'} {learningSongs[0].title}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Tasks */}
                     {tasks.length > 0 && (
                       <div className="mt-1.5 ml-6 space-y-0.5">
                         {tasks.map(task => (
@@ -231,10 +325,7 @@ export function DailyTimelinePlanner({
                           >
                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
                               <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", task.completed ? "bg-green-500" : colors.dot)} />
-                              <span className={cn(
-                                "text-[11px] truncate",
-                                task.completed && "line-through text-muted-foreground"
-                              )}>
+                              <span className={cn("text-[11px] truncate", task.completed && "line-through text-muted-foreground")}>
                                 {task.title}
                               </span>
                               {task.source && SOURCE_STYLES[task.source] && (
@@ -265,14 +356,16 @@ export function DailyTimelinePlanner({
         })}
       </div>
 
-      <div className="mt-2 flex items-center gap-1.5 text-[9px] text-muted-foreground">
+      <div className="mt-2 flex items-center gap-1.5 text-[9px] text-muted-foreground flex-wrap">
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.universidad.dot)} /> Uni
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.emprendimiento.dot)} /> Emp
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.proyectos.dot)} /> Proy
+        <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.descanso.dot)} /> Desc
+        <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.lectura.dot)} /> Lec
+        <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.musica.dot)} /> Mus
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.gym.dot)} /> Gym
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.estructural.dot)} /> Est
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.alimentacion.dot)} /> Ali
-        <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.hobbys.dot)} /> Hob
       </div>
     </Card>
   );
