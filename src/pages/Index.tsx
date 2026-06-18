@@ -1,34 +1,22 @@
 import { Link } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass, Bell, Activity } from "lucide-react";
-import { QuickDaySummary } from "@/components/today/QuickDaySummary";
-import { WheelOfLife } from "@/components/WheelOfLife";
-import { HombreTopWheel } from "@/components/HombreTopWheel";
-import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
-import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
+import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass, Activity } from "lucide-react";
 import { DailyMotivation } from "@/components/today/DailyMotivation";
-import { WeekContext } from "@/components/today/WeekContext";
-import { usePillarProgress } from "@/hooks/usePillarProgress";
-import { GoalPredictions } from "@/components/dashboard/GoalPredictions";
-import { WeekComparisonCard } from "@/components/dashboard/WeekComparisonCard";
-import { ProductivityPatterns } from "@/components/dashboard/ProductivityPatterns";
-import { AchievementsDisplay } from "@/components/dashboard/AchievementsDisplay";
-import { WeeklySummaryCard } from "@/components/dashboard/WeeklySummaryCard";
-import { ExportDataButton } from "@/components/dashboard/ExportDataButton";
 import { RealStatsDashboard } from "@/components/dashboard/RealStatsDashboard";
 import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
 import { QuickStatsGrid } from "@/components/dashboard/QuickStatsGrid";
 import { SostenSection } from "@/components/dashboard/SostenSection";
 import { MiniHabitsSection } from "@/components/dashboard/MiniHabitsSection";
-import { useNotifications } from "@/hooks/useNotifications";
-import { useTimeframe } from "@/contexts/TimeframeContext";
-import { useWheelScores } from "@/hooks/useWheelScores";
-import { useHombreTopScores } from "@/hooks/useHombreTopScores";
 import { TimeframeSelector } from "@/components/TimeframeSelector";
+import { DayProgressHeader } from "@/components/today/DayProgressHeader";
+import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
+import { TaskPoolPanel } from "@/components/today/TaskPoolPanel";
+import { useDailyPlanData } from "@/hooks/useDailyPlanData";
+import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
 import { useEffect, useState } from "react";
 
 function ClockWidget() {
@@ -49,50 +37,57 @@ function ClockWidget() {
 }
 
 export default function Index() {
-  const { pillars, secondaryGoals, overallScore, loading: pillarsLoading } = usePillarProgress();
-  const { requestPermission } = useNotifications();
-  const { timeframe } = useTimeframe();
-  const { scores: wheelScores, average: wheelAvg, loading: wheelLoading } = useWheelScores(timeframe);
-  const { scores: hommeScores, average: hommeAvg, loading: hommeLoading } = useHombreTopScores(timeframe);
+  const {
+    blocks, blocksLoaded,
+    tasksByBlock, unassignedTasks,
+    assignTaskToBlock, removeTaskFromBlock, refreshTasks,
+    toggleBlockComplete, isBlockCompleted,
+    completedBlocks, completedTasks, dayScore,
+    tasks,
+  } = useDailyPlanData();
 
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      requestPermission();
-    }
-  }, [requestPermission]);
+  const { getCurrentBlock, getBlockProgress } = useRoutineBlocksDB();
+  const currentBlock = getCurrentBlock();
+  const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header con fecha y hora grande */}
         <ClockWidget />
 
         {/* Timeframe Selector */}
         <TimeframeSelector />
 
-        {/* Wheel of Life — Rueda de las 6 áreas */}
-        <Card className="p-4">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">RUEDA DE LA VIDA</h2>
-          <WheelOfLife
-            values={wheelScores.map((s) => Math.round(s.value / 10))}
-            average={Math.round(wheelAvg / 10)}
-            loading={wheelLoading}
-          />
-        </Card>
+        {/* Day Progress Header */}
+        <DayProgressHeader
+          blocksTotal={blocks.length}
+          blocksCompleted={completedBlocks.length}
+          tasksTotal={tasks.length}
+          tasksCompleted={completedTasks.length}
+          dayScore={dayScore}
+          currentBlockName={currentBlock?.title}
+          currentBlockProgress={currentProgress}
+          loading={!blocksLoaded}
+        />
 
-        {/* Hombre Top — 8 áreas que una mujer busca */}
-        <Card className="p-4">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">HOMBRE TOP</h2>
-          <p className="text-xs text-muted-foreground text-center mb-3">Lo que una mujer busca en un hombre</p>
-          <HombreTopWheel
-            values={hommeScores.map((s) => s.value)}
-            average={hommeAvg}
-            loading={hommeLoading}
+        {/* Two-column layout: Timeline + Task Pool */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+          <DailyTimelinePlanner
+            blocks={blocks}
+            tasksByBlock={tasksByBlock}
+            onToggleBlock={toggleBlockComplete}
+            isBlockCompleted={isBlockCompleted}
+            onDropTask={assignTaskToBlock}
+            onRemoveTask={removeTaskFromBlock}
           />
-        </Card>
-
-        {/* Score del día + Ver mi día completo */}
-        <QuickDaySummary />
+          <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
+            <TaskPoolPanel
+              unassignedTasks={unassignedTasks}
+              onTaskCreated={refreshTasks}
+            />
+          </div>
+        </div>
 
         {/* REAL STATS — día, semana, mes, trimestre */}
         <RealStatsDashboard />
@@ -116,38 +111,6 @@ export default function Index() {
         <MiniHabitsSection />
 
         <Separator />
-
-        {/* Pillar Progress Grid */}
-        <Card>
-          <CardContent className="pt-6">
-            <PillarProgressGrid pillars={pillars} overallScore={overallScore} loading={pillarsLoading} />
-          </CardContent>
-        </Card>
-
-        {/* Secondary Goals */}
-        <Card>
-          <CardContent className="pt-6">
-            <SecondaryGoalsProgress goals={secondaryGoals} loading={pillarsLoading} />
-          </CardContent>
-        </Card>
-
-        {/* Analytics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <GoalPredictions />
-          <WeekComparisonCard />
-        </div>
-
-        {/* Patterns + Achievements */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ProductivityPatterns />
-          <AchievementsDisplay />
-        </div>
-
-        {/* Weekly AI Summary */}
-        <WeeklySummaryCard />
-
-        {/* Week Context */}
-        <WeekContext />
 
         {/* Daily Motivation */}
         <DailyMotivation />
