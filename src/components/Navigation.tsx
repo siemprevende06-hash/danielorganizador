@@ -151,7 +151,7 @@ export const Navigation = () => {
         <div key={item.label} className="space-y-0.5">
           <div className={cn(
             "flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-            isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+            isActive ? "bg-accent text-accent-foreground" : "text-foreground/80 hover:text-foreground hover:bg-accent/50",
             collapsed && "justify-center px-2"
           )}>
             <Icon className="h-4 w-4 shrink-0" />
@@ -172,7 +172,7 @@ export const Navigation = () => {
                   "flex items-center gap-2.5 px-3 py-1 rounded-md text-sm transition-colors ml-6",
                   isSubActive
                     ? "text-foreground font-medium bg-accent"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                    : "text-foreground/70 hover:text-foreground hover:bg-accent/50"
                 )}
               >
                 <span className="w-1 h-1 rounded-full bg-current shrink-0" />
@@ -195,7 +195,7 @@ export const Navigation = () => {
           collapsed && "justify-center px-2",
           isActive
             ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            : "text-foreground/80 hover:text-foreground hover:bg-accent/50"
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
