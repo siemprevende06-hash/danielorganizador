@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { useWorkoutTracking } from "@/hooks/useWorkoutTracking";
 import { Check, ChevronRight, Minus, Plus, Timer, Dumbbell, Play, SkipForward, Trophy, ChevronDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -42,10 +43,36 @@ const DAY_LABELS: Record<string, string> = {
 
 export default function Gym() {
   const {
-    routine, exercises, isLoading,
+    routine, exercises, logs, isLoading,
     createRoutine, addExercise, removeExercise, logWorkout,
     getTodayWorkout, getExercisesByDay, reload, DAY_NAMES
   } = useWorkoutTracking();
+  const [editingLog, setEditingLog] = useState<string | null>(null);
+  const [editWeight, setEditWeight] = useState("");
+  const [editReps, setEditReps] = useState("");
+
+  const updateLogEntry = async (logId: string, weight: number | null, reps: number[]) => {
+    const { error } = await supabase
+      .from('exercise_logs')
+      .update({ weight_kg: weight, reps_per_set: reps })
+      .eq('id', logId);
+    if (!error) {
+      toast({ title: "Progreso actualizado" });
+      reload();
+    }
+    setEditingLog(null);
+  };
+
+  const deleteLogEntry = async (logId: string) => {
+    const { error } = await supabase
+      .from('exercise_logs')
+      .delete()
+      .eq('id', logId);
+    if (!error) {
+      toast({ title: "Entrada eliminada" });
+      reload();
+    }
+  };
 
   const [activeExercise, setActiveExercise] = useState(0);
   const [sessionSets, setSessionSets] = useState<SetData[][]>([]);
@@ -306,12 +333,107 @@ export default function Gym() {
         </div>
 
         <Tabs defaultValue="workout">
-          <TabsList className="grid grid-cols-2">
+          <TabsList className="grid grid-cols-3">
             <TabsTrigger value="workout">Entrenamiento</TabsTrigger>
+            <TabsTrigger value="progress">Progreso</TabsTrigger>
             <TabsTrigger value="stats">Estadísticas</TabsTrigger>
           </TabsList>
           <TabsContent value="stats" className="mt-3">
             <GymStatsView />
+          </TabsContent>
+          <TabsContent value="progress" className="mt-3">
+            <div className="space-y-4">
+              <Card className="p-4">
+                <h3 className="text-sm font-bold mb-3">📊 Progreso por Ejercicio</h3>
+                {exercises.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No hay ejercicios en tu rutina</p>
+                ) : (
+                  exercises.map(ex => {
+                    const exLogs = logs.filter(l => l.exercise_id === ex.id).sort((a, b) => a.log_date.localeCompare(b.log_date));
+                    if (exLogs.length === 0) return null;
+                    return (
+                      <div key={ex.id} className="mb-4 last:mb-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-semibold">{ex.name}</span>
+                          <Badge variant="outline" className="text-[9px]">{ex.target_sets}×{ex.target_reps}</Badge>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[10px]">
+                            <thead>
+                              <tr className="text-muted-foreground border-b">
+                                <th className="text-left py-1 pr-2">Fecha</th>
+                                <th className="text-center py-1 px-2">Peso</th>
+                                <th className="text-center py-1 px-2">Reps</th>
+                                <th className="text-center py-1 px-2">Series</th>
+                                <th className="text-center py-1 px-2 w-12"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {exLogs.slice(-15).map(log => (
+                                <tr key={log.id} className="border-b border-muted/30 hover:bg-muted/20 transition-colors group">
+                                  <td className="py-1 pr-2 text-muted-foreground">{log.log_date.slice(5)}</td>
+                                  {editingLog === log.id ? (
+                                    <>
+                                      <td className="text-center py-1 px-2">
+                                        <Input
+                                          type="number"
+                                          value={editWeight}
+                                          onChange={e => setEditWeight(e.target.value)}
+                                          className="h-6 w-16 text-[10px] text-center mx-auto"
+                                          autoFocus
+                                        />
+                                      </td>
+                                      <td className="text-center py-1 px-2">
+                                        <Input
+                                          type="text"
+                                          value={editReps}
+                                          onChange={e => setEditReps(e.target.value)}
+                                          className="h-6 w-20 text-[10px] text-center mx-auto"
+                                          placeholder="8,8,7"
+                                        />
+                                      </td>
+                                      <td className="text-center py-1 px-2">{log.sets_completed || log.reps_per_set?.length || '—'}</td>
+                                      <td className="text-center py-1 px-2">
+                                        <div className="flex gap-0.5 justify-center">
+                                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
+                                            const w = parseFloat(editWeight);
+                                            const r = editReps.split(',').map(Number).filter(n => !isNaN(n));
+                                            updateLogEntry(log.id, isNaN(w) ? null : w, r.length > 0 ? r : log.reps_per_set);
+                                          }}><Check className="h-3 w-3 text-green-500" /></Button>
+                                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => deleteLogEntry(log.id)}><Minus className="h-3 w-3 text-red-500" /></Button>
+                                        </div>
+                                      </td>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td className="text-center py-1 px-2 font-medium cursor-pointer" onClick={() => { setEditingLog(log.id); setEditWeight(String(log.weight_kg || '')); setEditReps((log.reps_per_set || []).join(',')); }}>
+                                        {log.weight_kg || '—'} kg
+                                      </td>
+                                      <td className="text-center py-1 px-2 cursor-pointer" onClick={() => { setEditingLog(log.id); setEditWeight(String(log.weight_kg || '')); setEditReps((log.reps_per_set || []).join(',')); }}>
+                                        {log.reps_per_set?.join(', ') || '—'}
+                                      </td>
+                                      <td className="text-center py-1 px-2">{log.sets_completed || log.reps_per_set?.length || '—'}</td>
+                                      <td className="text-center py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { setEditingLog(log.id); setEditWeight(String(log.weight_kg || '')); setEditReps((log.reps_per_set || []).join(',')); }}>
+                                          <ChevronRight className="h-3 w-3" />
+                                        </Button>
+                                      </td>
+                                    </>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                {logs.length === 0 && exercises.length > 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">Aún no hay entrenos registrados. ¡Empieza a entrenar!</p>
+                )}
+              </Card>
+            </div>
           </TabsContent>
           <TabsContent value="workout" className="mt-3 space-y-4">
 

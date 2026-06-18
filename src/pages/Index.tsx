@@ -75,7 +75,7 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="max-w-7xl mx-auto space-y-6">
         <ClockWidget />
         <TimeframeSelector />
         <DayProgressHeader
@@ -90,7 +90,7 @@ export default function Index() {
         />
 
         {/* Indicators responsive to timeframe */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-3">
             <RealStatsDashboard timeframe={timeframe} />
           </div>
@@ -99,7 +99,7 @@ export default function Index() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MySystemsSection />
           <SostenSection />
           <MiniHabitsSection />

@@ -228,11 +228,10 @@ export const Navigation = () => {
         <SheetContent side="left" className="w-64 p-0 flex flex-col h-full max-h-screen bg-secondary">
           <div className="h-12 flex items-center justify-between px-4 border-b shrink-0"
             style={{ paddingTop: 'env(safe-area-inset-top)', marginTop: 0 }}>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold">Organizador</h1>
-              <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
-            </div>
-            <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm font-semibold">Organizador</h1>
+            <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
+          </div>
           </div>
           <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
             {sidebarGroups.map((group, gi) => (
@@ -269,15 +268,12 @@ export const Navigation = () => {
               <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
             </div>
           )}
-          <div className={cn("flex items-center gap-1", collapsed && "flex-col")}>
-            <ThemeToggle collapsed={collapsed} />
-            <button
-              onClick={sidebarToggle}
-              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0"
-            >
-              {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            </button>
-          </div>
+          <button
+            onClick={sidebarToggle}
+            className={cn("p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0", collapsed && "mx-auto")}
+          >
+            {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
         </div>
 
         {/* Nav items */}

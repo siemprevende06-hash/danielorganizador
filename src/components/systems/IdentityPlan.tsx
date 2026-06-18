@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
-  ArrowRight, Edit2, Check, Settings2, Plus, Trash2, GripVertical,
+  ArrowRight, Edit2, Check, Settings2, Plus, Trash2, GripVertical, AlertCircle,
 } from "lucide-react";
 import { useIdentitySystems } from "@/hooks/useIdentitySystems";
 import type { IdentitySystem, IdentitySystemTask } from "@/lib/definitions";
@@ -53,6 +53,7 @@ export function IdentityPlan() {
   const [items, setItems] = useState<IdentityItem[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     dailyStates,
@@ -74,24 +75,42 @@ export function IdentityPlan() {
 
   useEffect(() => {
     loadData();
+    const timeout = setTimeout(() => setLoading(false), 8000);
+    return () => clearTimeout(timeout);
   }, []);
 
   const loadData = async () => {
-    const { data } = await supabase.from("identity_plan").select("*").order("created_at");
-    if (data && data.length > 0) {
-      setItems(data as IdentityItem[]);
-    } else {
-      const seeds = DEFAULT_AREAS.map(a => ({
-        ...a,
+    try {
+      const { data, error: err } = await supabase.from("identity_plan").select("*").order("created_at");
+      if (err) throw err;
+      if (data && data.length > 0) {
+        setItems(data as IdentityItem[]);
+      } else {
+        const seeds = DEFAULT_AREAS.map(a => ({
+          ...a,
+          point_a: "",
+          point_b: "",
+          progress_percentage: 0,
+        }));
+        const { data: inserted, error: insertErr } = await supabase
+          .from("identity_plan")
+          .upsert(seeds, { onConflict: "area_id" })
+          .select("*");
+        if (insertErr) throw insertErr;
+        setItems((inserted as IdentityItem[]) || []);
+      }
+    } catch (err: any) {
+      setError(err.message || "Error al cargar datos");
+      setItems(DEFAULT_AREAS.map((a, i) => ({
+        id: `seed-${i}`,
+        area_id: a.area_id,
+        area_label: a.area_label,
         point_a: "",
         point_b: "",
         progress_percentage: 0,
-      }));
-      const { data: inserted } = await supabase
-        .from("identity_plan")
-        .upsert(seeds, { onConflict: "area_id" })
-        .select("*");
-      setItems((inserted as IdentityItem[]) || []);
+        icon: a.icon,
+        color: a.color,
+      })));
     }
     setLoading(false);
   };
@@ -166,7 +185,8 @@ export function IdentityPlan() {
     setDialogTasks(prev => prev.filter(t => t.id !== taskId));
   };
 
-  if (loading) return null;
+  if (loading) return <Card className="p-8 text-center text-muted-foreground"><div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" /><p className="text-xs">Cargando plan de identidad...</p></Card>;
+  if (error) return <Card className="p-8 text-center"><AlertCircle className="h-6 w-6 text-amber-500 mx-auto mb-2" /><p className="text-xs text-muted-foreground">{error}</p><Button variant="outline" size="sm" className="mt-2" onClick={() => { setLoading(true); setError(null); loadData(); }}>Reintentar</Button></Card>;
 
   return (
     <>

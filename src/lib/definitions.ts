@@ -114,6 +114,7 @@ export interface DistributionBag {
   percentage: number;
   icon: string;
   color: string;
+  balance?: number;
 }
 
 export interface Transaction {

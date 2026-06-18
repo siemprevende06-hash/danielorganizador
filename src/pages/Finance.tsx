@@ -108,6 +108,7 @@ const bagSchema = z.object({
   description: z.string().optional(),
   icon: z.string().min(1, 'Selecciona un icono.'),
   color: z.string().min(1, 'Selecciona un color.'),
+  balance: z.coerce.number().optional(),
 });
 
 const CurrencyDisplay = ({ usd, exchangeRate }: { usd: number, exchangeRate: number }) => {
@@ -256,6 +257,7 @@ export default function Finance() {
       description: '',
       icon: 'Target',
       color: 'blue',
+      balance: 0,
     },
   });
 
@@ -533,8 +535,9 @@ export default function Finance() {
   }
 
   const onBagSubmit = (values: z.infer<typeof bagSchema>) => {
+    const balance = values.balance !== undefined ? values.balance / (bagForm.getValues('currency') === 'CUP' ? exchangeRate : 1) : 0;
     if (editingBag) {
-      setDistributionBags(prev => prev.map(b => b.id === editingBag.id ? { ...b, name: values.name, percentage: values.percentage, description: values.description || '', icon: values.icon, color: values.color } : b));
+      setDistributionBags(prev => prev.map(b => b.id === editingBag.id ? { ...b, name: values.name, percentage: values.percentage, description: values.description || '', icon: values.icon, color: values.color, balance } : b));
       toast({ title: "Bolsa actualizada", description: `${values.name} ha sido modificada.` });
     } else {
       const newBag: DistributionBag = {
@@ -544,6 +547,7 @@ export default function Finance() {
         description: values.description || '',
         icon: values.icon,
         color: values.color,
+        balance: 0,
       };
       setDistributionBags(prev => [...prev, newBag]);
       toast({ title: "Bolsa agregada", description: `${values.name} ha sido añadida.` });
@@ -562,9 +566,14 @@ export default function Finance() {
 
   const handleConfirmDistribution = () => {
     const incomeIds = undistributedIncomes.map(t => t.id);
+    const total = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
+    const totalPct = distributionBags.reduce((acc, b) => acc + b.percentage, 0) || 100;
+    setDistributionBags(prev => prev.map(b => ({
+      ...b,
+      balance: (b.balance || 0) + total * (b.percentage / totalPct),
+    })));
     setTransactions(prev => prev.map(t => incomeIds.includes(t.id) ? { ...t, distributed: true } : t));
     setIsDistributeIncomeDialogOpen(false);
-    const total = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
     toast({ title: "Ingresos distribuidos", description: `${(total * exchangeRate).toLocaleString('es-ES', { maximumFractionDigits: 0 })} CUP distribuidos en tus bolsas.` });
   };
 
@@ -959,7 +968,6 @@ export default function Finance() {
                 {distributionBags.map(bag => {
                   const IconComponent = iconMap[bag.icon] || WalletIcon;
                   const color = bagColorMap[bag.color] || bagColorMap.blue;
-                  const amount = monthlyIncome * (bag.percentage / 100);
                   return (
                     <Card key={bag.id}>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -981,7 +989,7 @@ export default function Finance() {
                       <CardContent>
                         <div className="flex items-baseline justify-between mb-1">
                           <Badge className={`${color.badge} text-white`}>{bag.percentage}%</Badge>
-                          <CurrencyDisplay usd={amount} exchangeRate={exchangeRate} />
+                          <CurrencyDisplay usd={bag.balance || 0} exchangeRate={exchangeRate} />
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">{bag.description}</p>
                       </CardContent>
@@ -1298,6 +1306,11 @@ export default function Finance() {
                 <FormField control={bagForm.control} name="description" render={({ field }) => (
                   <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input {...field} placeholder="Breve descripción" /></FormControl><FormMessage /></FormItem>
                 )} />
+                {editingBag && (
+                  <FormField control={bagForm.control} name="balance" render={({ field }) => (
+                    <FormItem><FormLabel>Saldo Actual (CUP)</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={bagForm.control} name="icon" render={({ field }) => (
                     <FormItem><FormLabel>Icono</FormLabel>

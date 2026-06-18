@@ -136,7 +136,7 @@ export function TaskPoolPanel({ unassignedTasks, onTaskCreated }: Props) {
       </div>
 
       <ScrollArea className="flex-1 min-h-[200px]">
-        <div className="p-2 space-y-1">
+        <div className="p-2 space-y-3">
           {filteredTasks.length === 0 && (
             <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
               <AlertCircle className="h-6 w-6 mb-2 opacity-50" />
@@ -145,27 +145,38 @@ export function TaskPoolPanel({ unassignedTasks, onTaskCreated }: Props) {
               </p>
             </div>
           )}
-          {filteredTasks.map(task => {
-            const cfg = SOURCE_CONFIG[task.source] || SOURCE_CONFIG.general;
+          {(['university', 'entrepreneurship', 'project', 'general'] as const).map(section => {
+            const sectionTasks = filteredTasks.filter(t => t.source === section);
+            if (sectionTasks.length === 0) return null;
+            const cfg = SOURCE_CONFIG[section];
             return (
-              <div
-                key={task.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, task.id)}
-                className="flex items-center gap-2 p-2 rounded-md border cursor-grab active:cursor-grabbing transition-all hover:bg-muted/50 group"
-              >
-                <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{task.title}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Badge variant="outline" className={cn("text-[8px] px-1 py-0 h-3.5", cfg.color)}>
-                      {cfg.icon}
-                      <span className="ml-0.5">{task.sourceName || cfg.label}</span>
-                    </Badge>
-                    {task.priority === 'high' && (
-                      <Badge variant="destructive" className="text-[8px] px-1 py-0 h-3.5">Alta</Badge>
-                    )}
-                  </div>
+              <div key={section}>
+                <div className="flex items-center gap-1.5 px-1 py-1">
+                  {cfg.icon}
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    {cfg.label}
+                  </span>
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 ml-auto">
+                    {sectionTasks.length}
+                  </Badge>
+                </div>
+                <div className="space-y-0.5">
+                  {sectionTasks.map(task => (
+                    <div
+                      key={task.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, task.id)}
+                      className="flex items-center gap-2 p-2 rounded-md border cursor-grab active:cursor-grabbing transition-all hover:bg-muted/50 group"
+                    >
+                      <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{task.title}</p>
+                        {task.priority === 'high' && (
+                          <Badge variant="destructive" className="text-[8px] px-1 py-0 h-3.5 mt-0.5">Alta</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
