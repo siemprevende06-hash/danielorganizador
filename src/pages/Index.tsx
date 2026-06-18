@@ -4,21 +4,28 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass, Bell, Activity } from "lucide-react";
+import { Focus, CalendarPlus, ClipboardCheck, BarChart3, Compass, Activity } from "lucide-react";
 import { QuickDaySummary } from "@/components/today/QuickDaySummary";
+import { DayProgressHeader } from "@/components/today/DayProgressHeader";
 import { WheelOfLife } from "@/components/WheelOfLife";
 import { HombreTopWheel } from "@/components/HombreTopWheel";
 import { PillarProgressGrid } from "@/components/pillars/PillarProgressGrid";
 import { SecondaryGoalsProgress } from "@/components/pillars/SecondaryGoalsProgress";
 import { DailyMotivation } from "@/components/today/DailyMotivation";
 import { WeekContext } from "@/components/today/WeekContext";
+import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
+import { TaskPoolPanel } from "@/components/today/TaskPoolPanel";
+import { RoutineConfigBar } from "@/components/today/RoutineConfigBar";
+import { CurrentBlockCard } from "@/components/today/CurrentBlockCard";
 import { usePillarProgress } from "@/hooks/usePillarProgress";
+import { useDailyPlanData } from "@/hooks/useDailyPlanData";
+import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
+import { useRoutineConfig } from "@/hooks/useRoutineConfig";
 import { GoalPredictions } from "@/components/dashboard/GoalPredictions";
 import { WeekComparisonCard } from "@/components/dashboard/WeekComparisonCard";
 import { ProductivityPatterns } from "@/components/dashboard/ProductivityPatterns";
 import { AchievementsDisplay } from "@/components/dashboard/AchievementsDisplay";
 import { WeeklySummaryCard } from "@/components/dashboard/WeeklySummaryCard";
-import { ExportDataButton } from "@/components/dashboard/ExportDataButton";
 import { RealStatsDashboard } from "@/components/dashboard/RealStatsDashboard";
 import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
 import { QuickStatsGrid } from "@/components/dashboard/QuickStatsGrid";
@@ -29,6 +36,7 @@ import { useTimeframe } from "@/contexts/TimeframeContext";
 import { useAreaScores } from "@/hooks/useAreaScores";
 import { useHombreTopScores } from "@/hooks/useHombreTopScores";
 import { TimeframeSelector } from "@/components/TimeframeSelector";
+import NotionCalendar from "@/components/calendar/NotionCalendar";
 import { useEffect, useState } from "react";
 
 function ClockWidget() {
@@ -61,6 +69,29 @@ export default function Index() {
     loading: hommeLoading,
   } = useHombreTopScores(timeframe, view);
 
+  const {
+    blocks: rawBlocks, blocksLoaded,
+    tasksByBlock, unassignedTasks,
+    assignTaskToBlock, removeTaskFromBlock, refreshTasks,
+    toggleBlockComplete, isBlockCompleted,
+    completedBlocks, completedTasks, dayScore,
+    tasks,
+  } = useDailyPlanData();
+
+  const {
+    adjustedBlocks,
+    wakeTime, setWakeTime,
+    focusBlock, setFocusBlock,
+    sleepTime, setSleepTime,
+    lateWake, setLateWake,
+    musicInstrument, setMusicInstrument,
+    presetName,
+  } = useRoutineConfig();
+
+  const { getCurrentBlock, getBlockProgress, updateBlockFocus } = useRoutineBlocksDB();
+  const currentBlock = getCurrentBlock();
+  const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
+
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       requestPermission();
@@ -82,32 +113,43 @@ export default function Index() {
 
         <TimeframeSelector />
 
-        {/* Wheel of Life — 10 áreas */}
-        <Card className="p-4">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">RUEDA DE LA VIDA — 10 ÁREAS</h2>
-          <WheelOfLife
-            values={wheelValues}
-            values2={wheelValues2}
-            average={wheelAvg}
-            average2={wheelAvg2}
-            view={view}
-            loading={areaLoading}
-          />
-        </Card>
+        <DayProgressHeader
+          blocksTotal={adjustedBlocks.length}
+          blocksCompleted={completedBlocks.length}
+          tasksTotal={tasks.length}
+          tasksCompleted={completedTasks.length}
+          dayScore={dayScore}
+          currentBlockName={currentBlock?.title}
+          currentBlockProgress={currentProgress}
+          loading={!blocksLoaded}
+        />
 
-        {/* Hombre Top — 8 áreas que una mujer busca */}
-        <Card className="p-4">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">HOMBRE TOP</h2>
-          <p className="text-xs text-muted-foreground text-center mb-3">Lo que una mujer busca en un hombre</p>
-          <HombreTopWheel
-            values={hommeValues}
-            values2={hommeValues2}
-            average={esfuerzoAverage}
-            average2={resultadosAverage}
-            view={view}
-            loading={hommeLoading}
-          />
-        </Card>
+        {/* Wheels */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-4">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">RUEDA DE LA VIDA — 10 ÁREAS</h2>
+            <WheelOfLife
+              values={wheelValues}
+              values2={wheelValues2}
+              average={wheelAvg}
+              average2={wheelAvg2}
+              view={view}
+              loading={areaLoading}
+            />
+          </Card>
+          <Card className="p-4">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">HOMBRE TOP</h2>
+            <p className="text-xs text-muted-foreground text-center mb-3">Lo que una mujer busca en un hombre</p>
+            <HombreTopWheel
+              values={hommeValues}
+              values2={hommeValues2}
+              average={esfuerzoAverage}
+              average2={resultadosAverage}
+              view={view}
+              loading={hommeLoading}
+            />
+          </Card>
+        </div>
 
         <QuickDaySummary />
 
@@ -126,6 +168,47 @@ export default function Index() {
         <SostenSection />
 
         <MiniHabitsSection />
+
+        <Separator />
+
+        {/* Daily Schedule — Routine Config + Current Block + Timeline + Task Pool */}
+        <RoutineConfigBar
+          wakeTime={wakeTime}
+          onWakeChange={setWakeTime}
+          focusBlock={focusBlock}
+          onFocusChange={setFocusBlock}
+          sleepTime={sleepTime}
+          onSleepChange={setSleepTime}
+          lateWake={lateWake}
+          onLateWakeChange={setLateWake}
+          musicInstrument={musicInstrument}
+          onMusicInstrumentChange={setMusicInstrument}
+          presetName={presetName}
+        />
+
+        <CurrentBlockCard
+          currentBlock={currentBlock}
+          blockProgress={currentProgress}
+          tasksByBlock={tasksByBlock}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+          <DailyTimelinePlanner
+            blocks={adjustedBlocks}
+            tasksByBlock={tasksByBlock}
+            onToggleBlock={toggleBlockComplete}
+            isBlockCompleted={isBlockCompleted}
+            onDropTask={assignTaskToBlock}
+            onRemoveTask={removeTaskFromBlock}
+            onUpdateFocus={updateBlockFocus}
+          />
+          <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
+            <TaskPoolPanel
+              unassignedTasks={unassignedTasks}
+              onTaskCreated={refreshTasks}
+            />
+          </div>
+        </div>
 
         <Separator />
 
@@ -154,6 +237,17 @@ export default function Index() {
         <WeeklySummaryCard />
 
         <WeekContext />
+
+        {/* Notion-style Monthly Calendar */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-wide">CALENDARIO MENSUAL</h2>
+            <Link to="/monthly" className="text-[9px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2">
+              Ver detalle →
+            </Link>
+          </div>
+          <NotionCalendar />
+        </div>
 
         <DailyMotivation />
 
