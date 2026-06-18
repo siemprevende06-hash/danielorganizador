@@ -1,150 +1,139 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useState } from 'react';
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart
+} from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { useState, useEffect } from 'react';
 import { useOffline } from '@/providers/OfflineProvider';
 
-const navItems = [
-  { path: '/', label: 'Inicio', icon: Home },
-  { path: '/goal-alignment', label: 'Conexión Total', icon: Compass },
-  { path: '/life-alignment', label: 'Alineación', icon: Compass },
-  { path: '/confidence-steps', label: 'Escalones', icon: Target },
-  { path: '/focus', label: 'Focus', icon: Focus },
-  { path: '/routine-day', label: 'Rutina del Día', icon: LayoutList },
-  { path: '/control-room', label: 'Control', icon: Gauge },
-  { path: '/habits', label: 'Hábitos', icon: CheckSquare },
-  { path: '/tasks', label: 'Tareas', icon: ListTodo },
-  { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
-  { 
-    label: 'Planificación Anual', 
-    icon: Target,
-    submenu: [
-      { path: '/weeks', label: 'Semanas' },
-      { path: '/goal-alignment', label: 'Conexión Total' },
+interface SidebarItem {
+  path?: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  submenu?: { path: string; label: string }[];
+}
+
+const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
+  {
+    label: null,
+    items: [
+      { path: '/', label: 'Inicio', icon: Home },
+      { path: '/control-room', label: 'Control Room', icon: Gauge },
+      { path: '/focus', label: 'Focus', icon: Focus },
+      { path: '/routine-day', label: 'Rutina del Día', icon: LayoutList },
     ]
   },
   {
-    label: 'Línea de Tiempo',
-    icon: CalendarRange,
-    submenu: [
-      { path: '/daily', label: 'Hoy' },
-      { path: '/weekly', label: 'Semana' },
-      { path: '/monthly', label: 'Mes' },
-      { path: '/12-week-year', label: '3 Meses' },
+    label: 'SEGUIMIENTO',
+    items: [
+      { path: '/habits', label: 'Hábitos', icon: CheckSquare },
+      { path: '/tasks', label: 'Tareas', icon: ListTodo },
+      { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
+      { path: '/goals', label: 'Metas', icon: Goal },
+      { path: '/projects', label: 'Proyectos', icon: Target },
+      { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
+      { path: '/journaling', label: 'Diario', icon: BookOpen },
     ]
   },
-  { path: '/goals', label: 'Metas', icon: Goal },
-  { path: '/projects', label: 'Proyectos', icon: Target },
-  { path: '/entrepreneurship', label: 'Emprendimiento', icon: Briefcase },
-  { path: '/university', label: 'Universidad', icon: GraduationCap },
-  { path: '/languages-dashboard', label: 'Idiomas', icon: BookOpen },
-  { path: '/reading-library', label: 'Biblioteca', icon: BookOpen },
-  { path: '/music-dashboard', label: 'Música', icon: BookOpen },
-  { path: '/journaling', label: 'Diario', icon: BookOpen },
-  { path: '/tools', label: 'Herramientas', icon: Wrench },
-  { path: '/reminders', label: 'Recordatorios', icon: Bell },
-  { 
-    label: 'Rutina', 
-    icon: Calendar,
-    submenu: [
-      { path: '/daily-routine', label: 'Rutina Diaria' },
-      { path: '/activation-routine', label: 'Activación' },
-      { path: '/morning-prep', label: 'Alistamiento y Desayuno' },
-      { path: '/deactivation-routine', label: 'Desactivación' },
+  {
+    label: 'RUTINAS',
+    items: [
+      { path: '/daily-routine', label: 'Rutina Diaria', icon: Calendar },
+      { path: '/activation-routine', label: 'Activación', icon: Zap },
+      { path: '/morning-prep', label: 'Alistamiento', icon: Shirt },
+      { path: '/deactivation-routine', label: 'Desactivación', icon: Moon },
     ]
   },
-  { path: '/finance', label: 'Finanzas', icon: DollarSign },
-  { path: '/vida-daniel', label: 'Vida Daniel', icon: BarChart3 },
-  { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
-  { path: '/systems', label: 'Sistemas', icon: Brain },
-  { path: '/sprint', label: 'Sprint', icon: Target },
-  { path: '/vision', label: 'Point B', icon: Eye },
-  { path: '/plan-identidad', label: 'Plan Identidad', icon: Compass },
-  { path: '/alimentacion', label: 'Alimentación', icon: Utensils },
-  { path: '/gym', label: 'Gimnasio', icon: Dumbbell },
-  { path: '/shopping-list', label: 'Lista Compra', icon: ShoppingCart },
-  { path: '/punto-partida', label: 'Punto Partida', icon: Activity },
-  { path: '/chess', label: 'Ajedrez', icon: Crown },
-  { path: '/settings', label: 'Configuración', icon: Settings },
+  {
+    label: 'LÍNEA DE TIEMPO',
+    items: [
+      { path: '/daily', label: 'Hoy', icon: CalendarDays },
+      { path: '/weekly', label: 'Semana', icon: CalendarRange },
+      { path: '/monthly', label: 'Mes', icon: Calendar },
+      { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
+      { path: '/weeks', label: 'Semanas', icon: CalendarDays },
+    ]
+  },
+  {
+    label: 'ÁREAS',
+    items: [
+      { path: '/entrepreneurship', label: 'Emprendimiento', icon: Briefcase },
+      { path: '/university', label: 'Universidad', icon: GraduationCap },
+      { path: '/languages-dashboard', label: 'Idiomas', icon: BookOpen },
+      { path: '/reading-library', label: 'Biblioteca', icon: BookOpen },
+      { path: '/music-dashboard', label: 'Música', icon: BookOpen },
+      { path: '/finance', label: 'Finanzas', icon: DollarSign },
+    ]
+  },
+  {
+    label: 'CUERPO Y MENTE',
+    items: [
+      { path: '/alimentacion', label: 'Alimentación', icon: Utensils },
+      { path: '/gym', label: 'Gimnasio', icon: Dumbbell },
+      { path: '/chess', label: 'Ajedrez', icon: Crown },
+      { path: '/shopping-list', label: 'Lista Compra', icon: ShoppingCart },
+    ]
+  },
+  {
+    label: 'HERRAMIENTAS',
+    items: [
+      { path: '/systems', label: 'Sistemas', icon: Brain },
+      { path: '/vision', label: 'Point B', icon: Eye },
+      { path: '/plan-identidad', label: 'Plan Identidad', icon: Compass },
+      { path: '/punto-partida', label: 'Punto Partida', icon: Activity },
+      { path: '/goal-alignment', label: 'Conexión Total', icon: Compass },
+      { path: '/life-alignment', label: 'Alineación', icon: Heart },
+      { path: '/confidence-steps', label: 'Escalones', icon: Target },
+      { path: '/sprint', label: 'Sprint', icon: Target },
+      { path: '/vida-daniel', label: 'Estadísticas', icon: BarChart3 },
+      { path: '/periodic-review', label: 'Revisión Periódica', icon: Sparkles },
+      { path: '/performance-modes', label: 'Modos', icon: Zap },
+      { path: '/tools', label: 'Herramientas', icon: Wrench },
+      { path: '/reminders', label: 'Recordatorios', icon: Bell },
+    ]
+  },
+  {
+    label: null,
+    items: [
+      { path: '/settings', label: 'Configuración', icon: Settings },
+    ]
+  },
 ];
+
+const allNavItems = sidebarGroups.flatMap(g => g.items);
+
+function getPageTitle(pathname: string): string {
+  for (const item of allNavItems) {
+    if (item.path === pathname) return item.label;
+    if (item.submenu) {
+      const sub = item.submenu.find(s => s.path === pathname);
+      if (sub) return sub.label;
+    }
+  }
+  return 'Organizador';
+}
 
 export const Navigation = () => {
   const location = useLocation();
-  const isRoutineActive = location.pathname.includes('routine');
   const [isOpen, setIsOpen] = useState(false);
-
-  const visibleItemsCount = 8;
-  const visibleItems = navItems.slice(0, visibleItemsCount);
-  const hiddenItems = navItems.slice(visibleItemsCount);
-
-  const renderNavItem = (item: typeof navItems[0], isMobile = false) => {
-    if ('submenu' in item) {
-      const Icon = item.icon;
-      return (
-        <DropdownMenu key={item.label}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap w-full justify-start",
-                isRoutineActive && "bg-primary text-primary-foreground hover:bg-primary/90"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{item.label}</span>
-              <ChevronDown className="h-3 w-3 ml-auto" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-background">
-            {item.submenu.map((subItem) => (
-              <DropdownMenuItem key={subItem.path} asChild>
-                <Link
-                  to={subItem.path}
-                  className={cn(
-                    "cursor-pointer",
-                    location.pathname === subItem.path && "bg-muted"
-                  )}
-                  onClick={() => isMobile && setIsOpen(false)}
-                >
-                  {subItem.label}
-                </Link>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    }
-
-    const Icon = item.icon;
-    const isActive = location.pathname === item.path;
-    return (
-      <Link
-        key={item.path}
-        to={item.path}
-        onClick={() => isMobile && setIsOpen(false)}
-        className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
-          isMobile && "w-full justify-start",
-          isActive
-            ? "bg-primary text-primary-foreground"
-            : "hover:bg-accent hover:text-accent-foreground"
-        )}
-      >
-        <Icon className="h-4 w-4" />
-        <span>{isMobile ? item.label : ''}<span className="hidden sm:inline">{!isMobile && item.label}</span></span>
-      </Link>
-    );
-  };
-
+  const [collapsed, setCollapsed] = useState(false);
   const { isOnline, pendingMutations } = useOffline();
+
+  useEffect(() => {
+    const stored = localStorage.getItem('sidebarCollapsed');
+    if (stored) setCollapsed(stored === 'true');
+  }, []);
+
+  const toggleCollapse = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem('sidebarCollapsed', String(next));
+  };
 
   const OfflineBadge = () => {
     if (!isOnline) {
@@ -157,7 +146,7 @@ export const Navigation = () => {
     }
     if (pendingMutations > 0) {
       return (
-        <span className="flex items-center gap-1 text-[10px] text-primary font-medium">
+        <span className="flex items-center gap-1 text-[10px] text-foreground/50 font-medium">
           <CloudOff className="h-3 w-3 animate-pulse" />
           {pendingMutations}
         </span>
@@ -170,84 +159,151 @@ export const Navigation = () => {
     );
   };
 
-  return (
-    <nav 
-      className="fixed top-0 left-0 right-0 z-50 border-b"
-      style={{ 
-        paddingTop: 'env(safe-area-inset-top)',
-        background: 'hsl(var(--background))'
-      }}
-    >
-      <div className="container mx-auto px-4">
-        <div className="flex items-center h-16 justify-between">
-          <div className="flex items-center gap-2 mr-4 flex-shrink-0">
-            <h1 className="text-xl font-headline font-bold">Organizador</h1>
-            <OfflineBadge />
-          </div>
-          
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-1 flex-nowrap">
-            {visibleItems.map((item) => renderNavItem(item))}
-            
-            {hiddenItems.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Menu className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-background">
-                  {hiddenItems.map((item) => {
-                    if ('submenu' in item) {
-                      return (
-                        <DropdownMenu key={item.label}>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="w-full justify-start">
-                              <item.icon className="h-4 w-4 mr-2" />
-                              {item.label}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="right">
-                            {item.submenu.map((subItem) => (
-                              <DropdownMenuItem key={subItem.path} asChild>
-                                <Link to={subItem.path}>{subItem.label}</Link>
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      );
-                    }
-                    return (
-                      <DropdownMenuItem key={item.path} asChild>
-                        <Link to={item.path} className="flex items-center">
-                          <item.icon className="h-4 w-4 mr-2" />
-                          {item.label}
-                        </Link>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
+  const renderSidebarItem = (item: SidebarItem) => {
+    if (item.submenu) {
+      const Icon = item.icon;
+      const isActive = item.submenu.some(s => location.pathname === s.path);
+      return (
+        <div key={item.label} className="space-y-0.5">
+          <div className={cn(
+            "flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+            isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+            collapsed && "justify-center px-2"
+          )}>
+            <Icon className="h-4 w-4 shrink-0" />
+            {!collapsed && (
+              <>
+                <span>{item.label}</span>
+                <ChevronDown className="h-3 w-3 ml-auto opacity-50" />
+              </>
             )}
           </div>
+          {!collapsed && item.submenu.map(sub => {
+            const isSubActive = location.pathname === sub.path;
+            return (
+              <Link
+                key={sub.path}
+                to={sub.path}
+                className={cn(
+                  "flex items-center gap-2.5 px-3 py-1 rounded-md text-sm transition-colors ml-6",
+                  isSubActive
+                    ? "text-foreground font-medium bg-accent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                )}
+              >
+                <span className="w-1 h-1 rounded-full bg-current shrink-0" />
+                {sub.label}
+              </Link>
+            );
+          })}
+        </div>
+      );
+    }
 
-          {/* Mobile Hamburger Menu */}
-          <Sheet open={isOpen} onOpenChange={setIsOpen}>
-            <SheetTrigger asChild className="lg:hidden">
-              <Button variant="ghost" size="icon">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-64 p-0 flex flex-col h-full max-h-screen">
-              <div className="flex-1 overflow-y-auto py-4 pt-10 px-4">
-                <div className="flex flex-col gap-1 pb-24">
-                  {navItems.map((item) => renderNavItem(item, true))}
+    const Icon = item.icon;
+    const isActive = item.path ? location.pathname === item.path : false;
+    return (
+      <Link
+        key={item.path}
+        to={item.path!}
+        className={cn(
+          "flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+          collapsed && "justify-center px-2",
+          isActive
+            ? "bg-accent text-accent-foreground"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {!collapsed && <span>{item.label}</span>}
+      </Link>
+    );
+  };
+
+  const currentPage = getPageTitle(location.pathname);
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <header className="fixed top-0 left-0 right-0 z-40 h-12 border-b bg-background flex items-center justify-between px-4 lg:hidden"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setIsOpen(true)} className="p-1 -ml-1 rounded-md hover:bg-accent">
+            <Menu className="h-5 w-5" />
+          </button>
+          <span className="font-medium text-sm">{currentPage}</span>
+        </div>
+        <OfflineBadge />
+      </header>
+
+      {/* Mobile Sheet */}
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetContent side="left" className="w-64 p-0 flex flex-col h-full max-h-screen bg-secondary">
+          <div className="h-12 flex items-center gap-2 px-4 border-b shrink-0"
+            style={{ paddingTop: 'env(safe-area-inset-top)', marginTop: 0 }}>
+            <h1 className="text-sm font-semibold">Organizador</h1>
+            <OfflineBadge />
+          </div>
+          <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
+            {sidebarGroups.map((group, gi) => (
+              <div key={gi}>
+                {group.label && (
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-3 pb-1">
+                    {group.label}
+                  </p>
+                )}
+                <div className="space-y-0.5">
+                  {group.items.map(item => renderSidebarItem(item))}
                 </div>
               </div>
-            </SheetContent>
-          </Sheet>
+            ))}
+            <div className="pb-8" />
+          </nav>
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop sidebar */}
+      <aside className={cn(
+        "fixed top-0 left-0 z-30 h-full border-r bg-secondary hidden lg:flex flex-col transition-all duration-200",
+        collapsed ? "w-14" : "w-56"
+      )}
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        {/* Logo + collapse */}
+        <div className={cn(
+          "h-12 flex items-center border-b shrink-0",
+          collapsed ? "justify-center px-2" : "justify-between px-4"
+        )}>
+          {!collapsed && (
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-sm font-semibold truncate">Organizador</h1>
+              <OfflineBadge />
+            </div>
+          )}
+          <button
+            onClick={toggleCollapse}
+            className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0"
+          >
+            {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
         </div>
-      </div>
-    </nav>
+
+        {/* Nav items */}
+        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
+          {sidebarGroups.map((group, gi) => (
+            <div key={gi}>
+              {group.label && !collapsed && (
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-3 pb-1">
+                  {group.label}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {group.items.map(item => renderSidebarItem(item))}
+              </div>
+            </div>
+          ))}
+          <div className="pb-8" />
+        </nav>
+      </aside>
+    </>
   );
 };

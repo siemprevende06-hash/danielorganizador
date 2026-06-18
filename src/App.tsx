@@ -59,9 +59,9 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   useAutoTheme();
-  
+
   return (
-    <>
+    <div className="lg:ml-56 pt-12 lg:pt-0 min-h-screen">
       <Navigation />
       <Routes>
         <Route path="/" element={<Index />} />
@@ -114,7 +114,7 @@ function AppContent() {
         <Route path="/punto-partida" element={<PuntoPartida />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </>
+    </div>
   );
 }
 
