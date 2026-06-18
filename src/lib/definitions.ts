@@ -163,3 +163,21 @@ export interface IdentitySystem {
   is_active: boolean;
   sort_order: number;
 }
+
+export interface PointBSubAxis {
+  id: string
+  label: string
+  start: number
+  target: number
+  unit: string
+  trackingIds: string[]
+}
+
+export interface PointBArea {
+  id: string
+  label: string
+  group: "cimientos" | "construccion" | "recompensas"
+  icon: string
+  effortTrackingIds: string[]
+  sub: PointBSubAxis[]
+}
