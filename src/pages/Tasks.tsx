@@ -15,10 +15,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { 
   PlusCircle, Trash2, Calendar, Clock, Pencil, 
   CheckCircle2, Circle, AlertTriangle, Target,
-  ListTodo, ArrowUpDown, LayoutGrid, List, Zap, Play
+  ListTodo, ArrowUpDown, LayoutGrid, List, Zap, Play,
+  BookOpen, Briefcase, FolderKanban, Sparkles,
+  TrendingUp, BarChart3, Layers, ChevronRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format, isToday, isTomorrow, isPast, isThisWeek } from 'date-fns';
+import { format, isToday, isTomorrow, isPast, isThisWeek, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cachedQuery, cachedMutation, clearCacheForTable } from '@/lib/supabaseCache';
@@ -28,6 +30,7 @@ import { flattenAreas } from '@/lib/utils';
 import { BlockSelector } from '@/components/BlockSelector';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useRoutineBlocks } from '@/hooks/useRoutineBlocks';
+import NotionCalendar from '@/components/calendar/NotionCalendar';
 
 const taskSchema = z.object({
   title: z.string().trim().min(1, "El título es requerido").max(200),
@@ -57,6 +60,91 @@ const categorize = (t: { areaId?: string; source?: string }): Exclude<Category, 
   if (t.areaId === 'proyectos' || t.source === 'projects') return 'proyectos';
   return 'tareas';
 };
+
+const AREA_CONFIG: Record<string, { icon: React.ReactNode; gradient: string; lightBg: string }> = {
+  universidad: {
+    icon: <BookOpen className="w-4 h-4" />,
+    gradient: 'from-blue-600 to-blue-400',
+    lightBg: 'bg-blue-500/10',
+  },
+  emprendimiento: {
+    icon: <Briefcase className="w-4 h-4" />,
+    gradient: 'from-purple-600 to-purple-400',
+    lightBg: 'bg-purple-500/10',
+  },
+  proyectos: {
+    icon: <FolderKanban className="w-4 h-4" />,
+    gradient: 'from-amber-600 to-amber-400',
+    lightBg: 'bg-amber-500/10',
+  },
+  tareas: {
+    icon: <ListTodo className="w-4 h-4" />,
+    gradient: 'from-emerald-600 to-emerald-400',
+    lightBg: 'bg-emerald-500/10',
+  },
+};
+
+function TimeStatCard({ label, completed, total, pct, icon, gradient }: { label: string; completed: number; total: number; pct: number; icon: React.ReactNode; gradient: string }) {
+  return (
+    <Card className="overflow-hidden border-0 shadow-sm">
+      <div className={`h-1.5 bg-gradient-to-r ${gradient}`} />
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
+            <p className="text-2xl font-bold mt-0.5 tabular-nums">{pct}%</p>
+          </div>
+          <div className={`p-2 rounded-lg ${gradient.replace('from-', 'bg-').replace('to-', '/20')} bg-opacity-20`}>
+            {icon}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground">{completed}</span>
+          <span>de</span>
+          <span className="font-medium text-foreground">{total}</span>
+          <span>tareas</span>
+        </div>
+        <Progress value={pct} className="h-1 mt-2" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function AreaCard({ category, active, counts, onClick }: { category: Category; active: boolean; counts: { pending: number; total: number; done: number }; onClick: () => void }) {
+  const config = category === 'all' 
+    ? { icon: <Sparkles className="w-4 h-4" />, gradient: 'from-primary to-primary/60', lightBg: 'bg-primary/10', label: 'Todas' }
+    : { ...AREA_CONFIG[category], label: category.charAt(0).toUpperCase() + category.slice(1) };
+  const pct = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
+
+  return (
+    <button onClick={onClick} className="text-left w-full">
+      <Card className={`transition-all duration-200 hover:shadow-md ${active ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+        <CardContent className="p-3.5">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${config.lightBg}`}>
+              {config.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">{config.label}</p>
+                <Badge variant={active ? 'default' : 'outline'} className="text-[10px] h-4 px-1.5">
+                  {counts.pending} pend.
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                <span>{counts.done}/{counts.total} completadas</span>
+                <span>·</span>
+                <span className={pct >= 70 ? 'text-green-500' : pct >= 40 ? 'text-amber-500' : 'text-muted-foreground'}>{pct}%</span>
+              </div>
+              <Progress value={pct} className="h-1 mt-1.5" />
+            </div>
+            <ChevronRight className={`w-4 h-4 shrink-0 transition-opacity ${active ? 'opacity-100 text-primary' : 'opacity-30'}`} />
+          </div>
+        </CardContent>
+      </Card>
+    </button>
+  );
+}
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -228,7 +316,25 @@ export default function TasksPage() {
     }
   };
 
-  // Stats
+  // === STATS ===
+  const now = new Date();
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const monthStartDate = startOfMonth(now);
+  const monthEndDate = endOfMonth(now);
+  const quarterStart = startOfQuarter(now);
+  const quarterEnd = endOfQuarter(now);
+
+  const tasksInRange = (start: Date, end: Date) => {
+    const pending = tasks.filter(t => !t.completed && t.dueDate && isWithinInterval(t.dueDate, { start, end }));
+    const done = tasks.filter(t => t.completed && t.dueDate && isWithinInterval(t.dueDate, { start, end }));
+    return { pending: pending.length, done: done.length, total: pending.length + done.length };
+  };
+
+  const weeklyStats = tasksInRange(weekStart, weekEnd);
+  const monthlyStats = tasksInRange(monthStartDate, monthEndDate);
+  const quarterlyStats = tasksInRange(quarterStart, quarterEnd);
+
   const pendingTasks = tasks.filter(t => !t.completed);
   const completedTasks = tasks.filter(t => t.completed);
   const highPriority = pendingTasks.filter(t => t.priority === 'high').length;
@@ -236,7 +342,28 @@ export default function TasksPage() {
   const overdueTasks = pendingTasks.filter(t => t.dueDate && isPast(t.dueDate) && !isToday(t.dueDate)).length;
   const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
-  // Filtered + sorted — combina categoría con estado
+  // === AREAS ===
+  const areaStats = useMemo(() => {
+    const cats: Category[] = ['universidad', 'emprendimiento', 'proyectos', 'tareas'];
+    const stats: Record<string, { pending: number; total: number; done: number }> = {};
+    cats.forEach(c => {
+      const catTasks = tasks.filter(t => categorize(t) === c);
+      stats[c] = {
+        pending: catTasks.filter(t => !t.completed).length,
+        total: catTasks.length,
+        done: catTasks.filter(t => t.completed).length,
+      };
+    });
+    return stats;
+  }, [tasks]);
+
+  const categoryCounts = useMemo(() => {
+    const c: Record<string, number> = { universidad: 0, emprendimiento: 0, proyectos: 0, tareas: 0 };
+    tasks.filter(t => !t.completed).forEach(t => { c[categorize(t)]++; });
+    return c;
+  }, [tasks]);
+
+  // === FILTERED TASKS ===
   const filteredTasks = useMemo(() => {
     const byCat = activeCategory === 'all' ? tasks : tasks.filter(t => categorize(t) === activeCategory);
     const pending = byCat.filter(t => !t.completed);
@@ -261,13 +388,6 @@ export default function TasksPage() {
     return list;
   }, [tasks, activeTab, activeCategory, sortBy]);
 
-  const categoryCounts = useMemo(() => {
-    const c: Record<string, number> = { universidad: 0, emprendimiento: 0, proyectos: 0, tareas: 0 };
-    tasks.filter(t => !t.completed).forEach(t => { c[categorize(t)]++; });
-    return c;
-  }, [tasks]);
-
-  // Grouped by area
   const groupedByArea = useMemo(() => {
     const groups: Record<string, TaskItem[]> = { 'Sin área': [] };
     filteredTasks.forEach(t => {
@@ -279,6 +399,7 @@ export default function TasksPage() {
     return Object.entries(groups).filter(([, tasks]) => tasks.length > 0);
   }, [filteredTasks, allAreas]);
 
+  // === RENDER HELPERS ===
   const getDateLabel = (date?: Date) => {
     if (!date) return null;
     if (isToday(date)) return 'Hoy';
@@ -358,7 +479,6 @@ export default function TasksPage() {
   };
 
   const sendToFocus = async (task: TaskItem) => {
-    // Assign to current block if not assigned, then navigate to focus
     if (!task.routineBlockId && currentBlock) {
       await supabase.from('tasks').update({ routine_block_id: currentBlock.id }).eq('id', task.id);
     }
@@ -470,13 +590,15 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-24 space-y-5 max-w-3xl">
+    <div className="container mx-auto px-4 py-24 space-y-6 max-w-4xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tareas</h1>
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+            Tareas
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {pendingTasks.length} pendientes · {completedTasks.length} completadas
+            {pendingTasks.length} pendientes · {completedTasks.length} completadas · {completionRate}% éxito
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -495,71 +617,56 @@ export default function TasksPage() {
         </Dialog>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-3">
-        <Card className="border-0 shadow-none bg-muted/50">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold">{pendingTasks.length}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pendientes</p>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-none bg-muted/50">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-destructive">{overdueTasks + highPriority}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Urgentes</p>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-none bg-muted/50">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold">{todayTasks}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Hoy</p>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-none bg-muted/50">
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-success">{completionRate}%</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Completado</p>
-          </CardContent>
-        </Card>
+      {/* Weekly / Monthly / Quarterly Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <TimeStatCard
+          label="Esta Semana"
+          completed={weeklyStats.done}
+          total={weeklyStats.total}
+          pct={weeklyStats.total > 0 ? Math.round((weeklyStats.done / weeklyStats.total) * 100) : 0}
+          icon={<Layers className="w-4 h-4 text-blue-500" />}
+          gradient="from-blue-500 to-cyan-400"
+        />
+        <TimeStatCard
+          label="Este Mes"
+          completed={monthlyStats.done}
+          total={monthlyStats.total}
+          pct={monthlyStats.total > 0 ? Math.round((monthlyStats.done / monthlyStats.total) * 100) : 0}
+          icon={<BarChart3 className="w-4 h-4 text-purple-500" />}
+          gradient="from-purple-500 to-pink-400"
+        />
+        <TimeStatCard
+          label="Este Trimestre"
+          completed={quarterlyStats.done}
+          total={quarterlyStats.total}
+          pct={quarterlyStats.total > 0 ? Math.round((quarterlyStats.done / quarterlyStats.total) * 100) : 0}
+          icon={<TrendingUp className="w-4 h-4 text-amber-500" />}
+          gradient="from-amber-500 to-orange-400"
+        />
       </div>
 
-      {/* Progress bar */}
-      <Progress value={completionRate} className="h-1.5" />
-
-      {/* Category tabs (área) */}
-      <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
-
-        {([
-          { id: 'all', label: 'Todas', icon: ListTodo },
-          { id: 'universidad', label: 'Universidad', icon: Target },
-          { id: 'emprendimiento', label: 'Emprendimiento', icon: Target },
-          { id: 'proyectos', label: 'Proyectos', icon: Target },
-          { id: 'tareas', label: 'Tareas', icon: Target },
-        ] as const).map(cat => {
-          const count = cat.id === 'all'
-            ? tasks.filter(t => !t.completed).length
-            : (categoryCounts[cat.id] || 0);
-          const active = activeCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id as Category)}
-              className={`shrink-0 px-3 h-8 text-xs rounded-full border transition flex items-center gap-1.5 ${
-                active
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card hover:bg-muted border-border text-foreground'
-              }`}
-            >
-              <span>{cat.label}</span>
-              <span className={`text-[10px] px-1.5 rounded ${active ? 'bg-primary-foreground/20' : 'bg-muted'}`}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
+      {/* Area Cards */}
+      <div>
+        <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">ÁREAS</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          {(['all', 'universidad', 'emprendimiento', 'proyectos'] as Category[]).map(cat => {
+            const counts = cat === 'all'
+              ? { pending: pendingTasks.length, total: tasks.length, done: completedTasks.length }
+              : areaStats[cat] || { pending: 0, total: 0, done: 0 };
+            return (
+              <AreaCard
+                key={cat}
+                category={cat}
+                active={activeCategory === cat}
+                counts={counts}
+                onClick={() => setActiveCategory(cat)}
+              />
+            );
+          })}
+        </div>
       </div>
 
-      {/* Filter tabs + controls */}
+      {/* Filters + Task List */}
       <div className="flex items-center justify-between gap-2">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
           <TabsList className="h-8 p-0.5">
@@ -640,6 +747,14 @@ export default function TasksPage() {
           {filteredTasks.map(renderTask)}
         </div>
       )}
+
+      {/* Monthly Events Calendar */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">CALENDARIO DE EVENTOS</h2>
+        </div>
+        <NotionCalendar />
+      </div>
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={open => {
