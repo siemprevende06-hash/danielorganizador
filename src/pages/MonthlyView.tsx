@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Calendar, C
 import { Button } from '@/components/ui/button';
 import { MonthlyAreaGoals } from '@/components/monthly/MonthlyAreaGoals';
 import { MonthlySystemsStats } from '@/components/systems/MonthlySystemsStats';
+import NotionCalendar from '@/components/calendar/NotionCalendar';
 
 interface DayData {
   date: Date;
@@ -195,8 +196,9 @@ export default function MonthlyView() {
       </div>
 
       <Tabs defaultValue="calendar" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="calendar">Calendario</TabsTrigger>
+          <TabsTrigger value="events">Eventos</TabsTrigger>
           <TabsTrigger value="weeks">Semanas</TabsTrigger>
           <TabsTrigger value="areas">Áreas</TabsTrigger>
           <TabsTrigger value="goals">Metas</TabsTrigger>
@@ -258,6 +260,11 @@ export default function MonthlyView() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Events tab */}
+        <TabsContent value="events">
+          <NotionCalendar />
         </TabsContent>
 
         {/* Weeks tab */}

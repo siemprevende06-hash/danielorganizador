@@ -24,6 +24,7 @@ import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
 import { useRoutineConfig } from "@/hooks/useRoutineConfig";
 import { useWheelScores } from "@/hooks/useWheelScores";
 import { useHombreTopScores } from "@/hooks/useHombreTopScores";
+import NotionCalendar from "@/components/calendar/NotionCalendar";
 import { useTimeframe } from "@/contexts/TimeframeContext";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -163,6 +164,19 @@ export default function Index() {
               loading={hommeLoading}
             />
           </Card>
+        </div>
+
+        <Separator />
+
+        {/* Notion-style Monthly Calendar */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-wide">Calendario Mensual</h2>
+            <Link to="/monthly" className="text-[9px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2">
+              Ver detalle →
+            </Link>
+          </div>
+          <NotionCalendar />
         </div>
 
         <Separator />
