@@ -2,10 +2,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Clock, Sun, Moon, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Sun, Moon, Zap, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import type { WakeOption, SleepOption } from '@/hooks/useRoutineConfig';
+import type { WakeOption, SleepOption, MusicInstrument } from '@/hooks/useRoutineConfig';
 
 interface Props {
   wakeTime: WakeOption;
@@ -16,6 +16,8 @@ interface Props {
   onSleepChange: (s: SleepOption) => void;
   lateWake: string | null;
   onLateWakeChange: (t: string | null) => void;
+  musicInstrument: MusicInstrument;
+  onMusicInstrumentChange: (i: MusicInstrument) => void;
   presetName: string;
 }
 
@@ -24,6 +26,7 @@ export function RoutineConfigBar({
   focusBlock, onFocusChange,
   sleepTime, onSleepChange,
   lateWake, onLateWakeChange,
+  musicInstrument, onMusicInstrumentChange,
   presetName,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -92,6 +95,24 @@ export function RoutineConfigBar({
             <Clock className="h-3 w-3" />
             {lateWake ? `Desperté ${lateWake}` : '😴 Tardío'}
           </button>
+
+          <Music className="h-3.5 w-3.5 text-pink-500 ml-1" />
+          <div className="flex gap-1">
+            <button
+              onClick={() => onMusicInstrumentChange('piano')}
+              className={cn(
+                'px-2 py-0.5 text-[10px] font-medium rounded transition-colors',
+                musicInstrument === 'piano' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              )}
+            >🎹 Piano</button>
+            <button
+              onClick={() => onMusicInstrumentChange('guitar')}
+              className={cn(
+                'px-2 py-0.5 text-[10px] font-medium rounded transition-colors',
+                musicInstrument === 'guitar' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              )}
+            >🎸 Guitarra</button>
+          </div>
         </div>
 
         <Badge variant="outline" className="text-[9px] font-normal shrink-0 hidden sm:inline-flex">

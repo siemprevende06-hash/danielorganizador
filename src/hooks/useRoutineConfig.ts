@@ -1,20 +1,21 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRoutineBlocksDB, parseTime, type RoutineBlock } from '@/hooks/useRoutineBlocksDB';
-import { format } from 'date-fns';
 
 export type WakeOption = '05:00' | '06:30';
 export type SleepOption = '21:00' | '22:30';
+export type MusicInstrument = 'piano' | 'guitar';
 
-export interface RoutineConfig {
-  wakeTime: WakeOption;
-  focusBlock: boolean;
-  sleepTime: SleepOption;
-  lateWake: string | null;
+interface ScheduleEntry {
+  title: string;
+  start: string;
+  end: string;
+  type: string;
 }
 
 const STORAGE_KEY = 'routineConfig';
+const MUSIC_KEY = 'musicInstrument';
 
-function loadConfig(): RoutineConfig {
+function loadConfig() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return JSON.parse(stored);
@@ -22,148 +23,147 @@ function loadConfig(): RoutineConfig {
   return { wakeTime: '05:00', focusBlock: true, sleepTime: '22:30', lateWake: null };
 }
 
-function identifyBlock(title: string): 'activation' | 'focus' | 'gym' | 'alistamiento' | 'lectura' | 'deepwork' | 'almuerzo' | 'ocio' | 'musica' | 'desactivacion' | 'dormir' | 'other' {
-  const t = title.toLowerCase();
-  if (t.includes('activación') || t.includes('despertar')) return 'activation';
-  if (t.includes('focus') && (t.includes('bloque') || t.includes('deep'))) return 'focus';
-  if (t.includes('gym') || t.includes('entreno')) return 'gym';
-  if (t.includes('alistamiento') || t.includes('bañ') || t.includes('skincare') || t.includes('desayuno')) return 'alistamiento';
-  if (t.includes('lectura') || t.includes('podcast')) return 'lectura';
-  if (t.includes('deep work') || t.includes('trabajo') || t.includes('work-')) return 'deepwork';
-  if (t.includes('almuerzo') || t.includes('ajedrez') || t.includes('gaming')) return 'almuerzo';
-  if (t.includes('ocio')) return 'ocio';
-  if (t.includes('música') || t.includes('piano') || t.includes('guitarra')) return 'musica';
-  if (t.includes('desactivación') || t.includes('dormir')) return 'desactivacion';
-  return 'other';
+function loadMusicInstrument(): MusicInstrument {
+  try {
+    const stored = localStorage.getItem(MUSIC_KEY);
+    if (stored === 'piano' || stored === 'guitar') return stored;
+  } catch {}
+  return 'piano';
+}
+
+function findDbBlock(baseBlocks: RoutineBlock[], title: string): RoutineBlock | undefined {
+  const words = title.toLowerCase().split(' ');
+  return baseBlocks.find(b => {
+    const t = b.title.toLowerCase();
+    return words.some(w => w.length > 2 && t.includes(w));
+  });
+}
+
+function buildSchedule(wakeTime: string, focusBlock: boolean, sleepTime: string): ScheduleEntry[] {
+  const s: ScheduleEntry[] = [];
+
+  if (wakeTime === '05:00') {
+    s.push({ title: 'Rutina de Activación', start: '05:00', end: '05:30', type: 'fijo' });
+    if (focusBlock) {
+      s.push({ title: 'Bloque Focus', start: '05:30', end: '07:00', type: 'deep' });
+    }
+    s.push({ title: 'Gym', start: '07:00', end: '08:00', type: 'fijo' });
+    s.push({ title: 'Alistamiento y Desayuno', start: '08:00', end: '08:30', type: 'fijo' });
+    s.push({ title: 'Lectura o Podcast', start: '08:30', end: '09:00', type: 'fijo' });
+  } else {
+    s.push({ title: 'Rutina de Activación', start: '06:30', end: '07:00', type: 'fijo' });
+    s.push({ title: 'Gym', start: '07:00', end: '08:00', type: 'fijo' });
+    s.push({ title: 'Alistamiento y Desayuno', start: '08:00', end: '08:30', type: 'fijo' });
+    s.push({ title: 'Lectura o Podcast', start: '08:30', end: '09:00', type: 'fijo' });
+  }
+
+  s.push({ title: 'Deep Work 1', start: '09:00', end: '10:30', type: 'deep' });
+  s.push({ title: 'Deep Work 2', start: '10:30', end: '12:00', type: 'deep' });
+  s.push({ title: 'Deep Work 3', start: '12:00', end: '13:20', type: 'deep' });
+  s.push({ title: 'Almuerzo + Ajedrez + Gaming', start: '13:20', end: '14:00', type: 'fijo' });
+  s.push({ title: 'Deep Work 4', start: '14:00', end: '15:30', type: 'deep' });
+  s.push({ title: 'Deep Work 5', start: '15:30', end: '16:50', type: 'deep' });
+  s.push({ title: 'Rutina de Llegada', start: '16:50', end: '17:00', type: 'fijo' });
+  s.push({ title: 'Bloque', start: '17:00', end: '18:30', type: 'deep' });
+
+  if (sleepTime === '21:00') {
+    s.push({ title: 'Ocio', start: '18:30', end: '20:00', type: 'ocio' });
+    s.push({ title: 'Música', start: '20:00', end: '20:30', type: 'musica' });
+    s.push({ title: 'Rutina de Desactivación', start: '20:30', end: '21:00', type: 'fijo' });
+  } else {
+    s.push({ title: 'Bloque', start: '18:30', end: '20:00', type: 'deep' });
+    s.push({ title: 'Ocio', start: '20:00', end: '21:30', type: 'ocio' });
+    s.push({ title: 'Música', start: '21:30', end: '22:00', type: 'musica' });
+    s.push({ title: 'Rutina de Desactivación', start: '22:00', end: '22:30', type: 'fijo' });
+  }
+
+  return s;
+}
+
+function applyLateWake(schedule: ScheduleEntry[], lateWake: string): ScheduleEntry[] {
+  const [lateH, lateM] = lateWake.split(':').map(Number);
+  const lateMin = lateH * 60 + lateM;
+  const protectedTitles = ['Rutina de Activación', 'Gym', 'Alistamiento y Desayuno', 'Lectura o Podcast'];
+  const result: ScheduleEntry[] = [];
+  let cursor = lateMin;
+
+  for (const block of schedule) {
+    const isProtected = protectedTitles.includes(block.title);
+    const isMorningDeep = block.type === 'deep' && parseTime(block.start) < parseTime('14:00');
+
+    if (isProtected) {
+      const dur = parseTime(block.end) - parseTime(block.start);
+      const f = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      result.push({ ...block, start: f(cursor), end: f(cursor + dur) });
+      cursor += dur;
+    } else if (isMorningDeep) {
+      const blockStart = parseTime(block.start);
+      if (blockStart < cursor) continue;
+      result.push(block);
+    } else {
+      result.push(block);
+    }
+  }
+
+  return result;
+}
+
+function toRoutineBlock(entry: ScheduleEntry, i: number, baseBlocks: RoutineBlock[]): RoutineBlock {
+  const match = findDbBlock(baseBlocks, entry.title);
+  return {
+    id: match?.id || `gen-${i}`,
+    title: entry.title,
+    startTime: entry.start,
+    endTime: entry.end,
+    tasks: match?.tasks || [],
+    isFocusBlock: entry.type === 'deep',
+    order: i,
+    blockType: (entry.type === 'deep' ? 'configurable' : 'fijo') as any,
+    defaultFocus: (match?.defaultFocus || 'none') as any,
+    currentFocus: match?.currentFocus as any,
+    canSubdivide: entry.type === 'deep',
+    emergencyOnly: false,
+    subBlocks: match?.subBlocks || [],
+    notes: match?.notes || undefined,
+  };
 }
 
 export function useRoutineConfig() {
-  const { blocks: baseBlocks, isLoaded, saveBlocks } = useRoutineBlocksDB();
-  const [config, setConfig] = useState<RoutineConfig>(loadConfig);
+  const { blocks: baseBlocks, isLoaded } = useRoutineBlocksDB();
+  const [config, setConfig] = useState(loadConfig);
+  const [musicInstrument, setMusicInstrumentState] = useState<MusicInstrument>(loadMusicInstrument);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-  }, [config]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); }, [config]);
+  useEffect(() => { localStorage.setItem(MUSIC_KEY, musicInstrument); }, [musicInstrument]);
 
-  // Reset late wake at midnight
   useEffect(() => {
     if (!config.lateWake) return;
     const now = new Date();
-    const msToMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
-    const timer = setTimeout(() => {
-      setConfig(prev => ({ ...prev, lateWake: null }));
-    }, msToMidnight);
-    return () => clearTimeout(timer);
+    const ms = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+    const t = setTimeout(() => setConfig(prev => ({ ...prev, lateWake: null })), ms);
+    return () => clearTimeout(t);
   }, [config.lateWake]);
 
-  const wakeTime = config.wakeTime;
-  const sleepTime = config.sleepTime;
-  const focusBlock = config.focusBlock;
-  const lateWake = config.lateWake;
+  const { wakeTime, focusBlock, sleepTime, lateWake } = config;
+  const setWakeTime = useCallback((w: WakeOption) => setConfig(p => ({ ...p, wakeTime: w })), []);
+  const setFocusBlock = useCallback((f: boolean) => setConfig(p => ({ ...p, focusBlock: f })), []);
+  const setSleepTime = useCallback((s: SleepOption) => setConfig(p => ({ ...p, sleepTime: s })), []);
+  const setLateWake = useCallback((t: string | null) => setConfig(p => ({ ...p, lateWake: t })), []);
+  const setMusicInstrument = useCallback((i: MusicInstrument) => setMusicInstrumentState(i), []);
 
-  const setWakeTime = useCallback((w: WakeOption) => {
-    setConfig(prev => ({ ...prev, wakeTime: w }));
-  }, []);
-
-  const setFocusBlock = useCallback((f: boolean) => {
-    setConfig(prev => ({ ...prev, focusBlock: f }));
-  }, []);
-
-  const setSleepTime = useCallback((s: SleepOption) => {
-    setConfig(prev => ({ ...prev, sleepTime: s }));
-  }, []);
-
-  const setLateWake = useCallback((t: string | null) => {
-    setConfig(prev => ({ ...prev, lateWake: t }));
-  }, []);
-
-  const adjustedBlocks = useMemo(() => {
-    if (!isLoaded || baseBlocks.length === 0) return baseBlocks;
-
-    let adjusted = baseBlocks.map(b => ({ ...b }));
-
-    // Apply wake time adjustments
-    if (wakeTime === '06:30') {
-      // Remove Focus block
-      adjusted = adjusted.filter(b => identifyBlock(b.title) !== 'focus');
-      // Shift Activation block to 6:30-7:00
-      adjusted = adjusted.map(b => {
-        if (identifyBlock(b.title) === 'activation') {
-          return { ...b, startTime: '06:30', endTime: '07:00' };
-        }
-        return b;
-      });
-    }
-
-    // Apply sleep time adjustments
-    if (sleepTime === '21:00') {
-      // Find evening blocks by title
-      const ocioBlock = adjusted.find(b => identifyBlock(b.title) === 'ocio');
-      const musicaBlock = adjusted.find(b => identifyBlock(b.title) === 'musica');
-      const desactivacionBlock = adjusted.find(b => identifyBlock(b.title) === 'desactivacion');
-
-      adjusted = adjusted.map(b => {
-        const type = identifyBlock(b.title);
-        if (type === 'ocio' && ocioBlock) {
-          return { ...b, startTime: '18:30', endTime: '20:00' };
-        }
-        if (type === 'musica' && musicaBlock) {
-          return { ...b, startTime: '20:00', endTime: '20:30' };
-        }
-        if (type === 'desactivacion' && desactivacionBlock) {
-          return { ...b, startTime: '20:30', endTime: '21:00' };
-        }
-        return b;
-      });
-    }
-
-    // Apply late wake
-    if (lateWake) {
-      const [lateH, lateM] = lateWake.split(':').map(Number);
-      const lateMinutes = lateH * 60 + lateM;
-
-      const protectedTypes: string[] = ['activation', 'gym', 'alistamiento', 'lectura'];
-      const deepWorkIds = new Set<string>();
-
-      // Find deep work blocks to potentially remove
-      adjusted = adjusted.filter(b => {
-        const type = identifyBlock(b.title);
-        if (type === 'deepwork') {
-          const blockStart = parseTime(b.startTime);
-          if (blockStart < lateMinutes) {
-            deepWorkIds.add(b.id);
-            return false;
-          }
-        }
-        return true;
-      });
-
-      // Shift protected blocks starting from late wake
-      let cursor = lateMinutes;
-      adjusted = adjusted.map(b => {
-        const type = identifyBlock(b.title);
-        if (protectedTypes.includes(type)) {
-          const duration = parseTime(b.endTime) - parseTime(b.startTime);
-          const newStart = formatTime(cursor);
-          const newEnd = formatTime(cursor + duration);
-          cursor += duration;
-          return { ...b, startTime: newStart, endTime: newEnd };
-        }
-        return b;
-      });
-    }
-
-    return adjusted;
-  }, [baseBlocks, isLoaded, wakeTime, sleepTime, lateWake]);
+  const adjustedBlocks = useMemo((): RoutineBlock[] => {
+    let schedule = buildSchedule(wakeTime, focusBlock, sleepTime);
+    if (lateWake) schedule = applyLateWake(schedule, lateWake);
+    return schedule.map((entry, i) => toRoutineBlock(entry, i, baseBlocks));
+  }, [baseBlocks, isLoaded, wakeTime, focusBlock, sleepTime, lateWake]);
 
   const presetName = useMemo(() => {
     const parts: string[] = [];
     parts.push(wakeTime === '05:00' ? '5AM' : '6:30AM');
-    if (wakeTime === '05:00' && !focusBlock) parts.push('sin Focus');
-    else if (wakeTime === '05:00' && focusBlock) parts.push('+Focus');
+    if (wakeTime === '05:00') parts.push(focusBlock ? '+Focus' : 'sin Focus');
     parts.push(sleepTime === '21:00' ? 'Acuesto 9PM' : 'Acuesto 10:30PM');
-    if (lateWake) parts.push(`(desperté ${lateWake})`);
-    return parts.join(' · ');
+    if (lateWake) parts.push('(despert\u00E9 ' + lateWake + ')');
+    return parts.join(' \u00B7 ');
   }, [wakeTime, focusBlock, sleepTime, lateWake]);
 
   return {
@@ -172,13 +172,8 @@ export function useRoutineConfig() {
     focusBlock, setFocusBlock,
     sleepTime, setSleepTime,
     lateWake, setLateWake,
+    musicInstrument, setMusicInstrument,
     presetName,
     isLoaded,
   };
-}
-
-function formatTime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }

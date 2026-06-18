@@ -60,6 +60,7 @@ export default function Index() {
     focusBlock, setFocusBlock,
     sleepTime, setSleepTime,
     lateWake, setLateWake,
+    musicInstrument, setMusicInstrument,
     presetName,
   } = useRoutineConfig();
 
@@ -117,6 +118,8 @@ export default function Index() {
           onSleepChange={setSleepTime}
           lateWake={lateWake}
           onLateWakeChange={setLateWake}
+          musicInstrument={musicInstrument}
+          onMusicInstrumentChange={setMusicInstrument}
           presetName={presetName}
         />
 
