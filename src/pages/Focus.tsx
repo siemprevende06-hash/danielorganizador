@@ -9,6 +9,7 @@ import { useFocusSessions } from "@/hooks/useFocusSessions";
 import { supabase } from "@/integrations/supabase/client";
 import { Play, Pause, RotateCcw, Target, Clock, CheckCircle2, Brain, Coffee, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
+import { useSearchParams, useLocation } from "react-router-dom";
 
 interface AvailableTask {
   id: string;
@@ -37,6 +38,8 @@ const formatTime = (seconds: number) => {
 export default function Focus() {
   const { isLoaded, getCurrentBlock } = useRoutineBlocks();
   const { startSession, endSession, getTodayStats, getWeekStats } = useFocusSessions();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   const todayStats = getTodayStats();
   const weeklyStats = getWeekStats();
@@ -66,6 +69,17 @@ export default function Focus() {
         ...((etr?.data || []).map((t: any) => ({ id: t.id, title: t.title, source: "entrepreneurship", routine_block_id: t.routine_block_id || undefined }))),
       ];
       setAvailableTasks(tasks);
+
+      // Leer tarea entrante desde query params o location state
+      const incomingTaskId = searchParams.get("taskId") || (location.state as any)?.taskId;
+      const incomingTitle = searchParams.get("title") || (location.state as any)?.taskTitle;
+      if (incomingTaskId && tasks.find(t => t.id === incomingTaskId)) {
+        setSelectedTaskId(incomingTaskId);
+        setShowTaskPicker(false);
+      } else if (incomingTitle) {
+        setTaskTitle(incomingTitle);
+        setShowTaskPicker(false);
+      }
     })();
   }, []);
 

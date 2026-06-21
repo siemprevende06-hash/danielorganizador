@@ -482,7 +482,7 @@ export default function TasksPage() {
     if (!task.routineBlockId && currentBlock) {
       await supabase.from('tasks').update({ routine_block_id: currentBlock.id }).eq('id', task.id);
     }
-    navigate('/focus');
+    navigate(`/focus?taskId=${task.id}&title=${encodeURIComponent(task.title)}`);
   };
 
   const renderTask = (task: TaskItem) => {
