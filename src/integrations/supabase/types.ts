@@ -666,6 +666,45 @@ export type Database = {
         }
         Relationships: []
       }
+      distribution_bags: {
+        Row: {
+          balance: number | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          percentage: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          balance?: number | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          percentage?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          balance?: number | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          percentage?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       entrepreneurship_income: {
         Row: {
           amount: number
@@ -899,6 +938,7 @@ export type Database = {
           start_time: string
           task_area: string | null
           task_id: string | null
+          task_ids: string[] | null
           task_title: string
           user_id: string | null
         }
@@ -913,6 +953,7 @@ export type Database = {
           start_time: string
           task_area?: string | null
           task_id?: string | null
+          task_ids?: string[] | null
           task_title: string
           user_id?: string | null
         }
@@ -927,6 +968,7 @@ export type Database = {
           start_time?: string
           task_area?: string | null
           task_id?: string | null
+          task_ids?: string[] | null
           task_title?: string
           user_id?: string | null
         }
