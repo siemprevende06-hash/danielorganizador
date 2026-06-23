@@ -6,6 +6,7 @@ export interface FocusSession {
   id: string;
   user_id: string | null;
   task_id: string | null;
+  task_ids: string[] | null;
   task_title: string;
   task_area: string | null;
   block_id: string | null;
@@ -34,7 +35,6 @@ export const useFocusSessions = () => {
       if (error) throw error;
       setSessions((data as FocusSession[]) || []);
       
-      // Check for active session
       const active = data?.find(s => !s.end_time);
       if (active) setActiveSession(active as FocusSession);
     } catch (error) {
@@ -48,13 +48,20 @@ export const useFocusSessions = () => {
     fetchSessions();
   }, []);
 
-  const startSession = async (taskTitle: string, taskId?: string, taskArea?: string, blockId?: string) => {
+  const startSession = async (
+    taskTitle: string,
+    taskId?: string,
+    taskArea?: string,
+    blockId?: string,
+    taskIds?: string[],
+  ) => {
     try {
       const { data, error } = await supabase
         .from('focus_sessions')
         .insert({
           task_title: taskTitle,
           task_id: taskId || null,
+          task_ids: taskIds && taskIds.length > 0 ? taskIds : null,
           task_area: taskArea || null,
           block_id: blockId || null,
           start_time: new Date().toISOString(),
@@ -87,7 +94,7 @@ export const useFocusSessions = () => {
     }
   };
 
-  const endSession = async (sessionId: string, completed: boolean = true, notes?: string) => {
+  const endSession = async (sessionId: string, completed: boolean = true, notes?: string, areaId?: string) => {
     try {
       const session = sessions.find(s => s.id === sessionId);
       if (!session) return;
@@ -96,7 +103,7 @@ export const useFocusSessions = () => {
       const startTime = new Date(session.start_time);
       const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
-      const { error } = await supabase
+      await supabase
         .from('focus_sessions')
         .update({
           end_time: endTime.toISOString(),
@@ -105,8 +112,6 @@ export const useFocusSessions = () => {
           notes: notes || null,
         })
         .eq('id', sessionId);
-
-      if (error) throw error;
 
       setActiveSession(null);
       setSessions(prev => prev.map(s => 
@@ -117,7 +122,7 @@ export const useFocusSessions = () => {
 
       toast({
         title: completed ? "¡Sesión completada!" : "Sesión terminada",
-        description: `Duración: ${durationMinutes} minutos`,
+        description: `Duración: ${durationMinutes} minutos${areaId ? ` · ${areaId}` : ''}`,
       });
     } catch (error) {
       console.error('Error ending focus session:', error);
