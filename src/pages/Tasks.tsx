@@ -16,7 +16,7 @@ import {
   PlusCircle, Trash2, Calendar, Clock, Pencil, 
   CheckCircle2, Circle, AlertTriangle, Target,
   ListTodo, ArrowUpDown, LayoutGrid, List, Zap, Play,
-  BookOpen, Briefcase, FolderKanban, Sparkles,
+  BookOpen, Briefcase, FolderKanban, Sparkles, Languages,
   TrendingUp, BarChart3, Layers, ChevronRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -52,12 +52,13 @@ interface TaskItem {
   createdAt: Date;
 }
 
-type Category = 'all' | 'universidad' | 'emprendimiento' | 'proyectos' | 'tareas';
+type Category = 'all' | 'universidad' | 'emprendimiento' | 'proyectos' | 'idiomas' | 'tareas';
 
 const categorize = (t: { areaId?: string; source?: string }): Exclude<Category, 'all'> => {
   if (t.areaId === 'universidad' || t.source === 'university') return 'universidad';
   if (t.areaId === 'emprendimiento' || t.source === 'entrepreneurship') return 'emprendimiento';
   if (t.areaId === 'proyectos' || t.source === 'projects') return 'proyectos';
+  if (t.areaId === 'idiomas') return 'idiomas';
   return 'tareas';
 };
 
@@ -81,6 +82,11 @@ const AREA_CONFIG: Record<string, { icon: React.ReactNode; gradient: string; lig
     icon: <ListTodo className="w-4 h-4" />,
     gradient: 'from-emerald-600 to-emerald-400',
     lightBg: 'bg-emerald-500/10',
+  },
+  idiomas: {
+    icon: <Languages className="w-4 h-4" />,
+    gradient: 'from-teal-600 to-teal-400',
+    lightBg: 'bg-teal-500/10',
   },
 };
 
