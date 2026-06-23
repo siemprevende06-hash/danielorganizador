@@ -94,6 +94,23 @@ export function usePuntoPartida() {
     [entries]
   )
 
+  const updateSubScore = useCallback(
+    async (areaId: string, subId: string, value: number) => {
+      const existing = entries[areaId]
+      const updated = {
+        area_id: areaId,
+        area_type: (existing?.area_type ?? "wheel") as "wheel" | "hombre",
+        nota: existing?.nota ?? 5,
+        sub_scores: { ...(existing?.sub_scores ?? {}), [subId]: value },
+        respuestas: existing?.respuestas ?? {},
+        hechos: existing?.hechos ?? {},
+      }
+      const ok = await saveEntry(updated)
+      return ok
+    },
+    [entries, saveEntry]
+  )
+
   return {
     entries,
     loading,
@@ -101,5 +118,6 @@ export function usePuntoPartida() {
     saveEntry,
     saveAll,
     getNota,
+    updateSubScore,
   }
 }
