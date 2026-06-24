@@ -56,6 +56,9 @@ import ShoppingList from "./pages/ShoppingList";
 import PlanIdentidad from "./pages/PlanIdentidad";
 import MorningPrep from "./pages/MorningPrep";
 import PuntoPartida from "./pages/PuntoPartida";
+import BoxeoPage from "./pages/BoxeoPage";
+import VidaSocial from "./pages/VidaSocial";
+import MisNecesidades from "./pages/MisNecesidades";
 
 const queryClient = new QueryClient();
 
@@ -115,6 +118,9 @@ function AppContent() {
         <Route path="/plan-identidad" element={<PlanIdentidad />} />
         <Route path="/morning-prep" element={<MorningPrep />} />
         <Route path="/punto-partida" element={<PuntoPartida />} />
+        <Route path="/boxeo" element={<BoxeoPage />} />
+        <Route path="/vida-social" element={<VidaSocial />} />
+        <Route path="/mis-necesidades" element={<MisNecesidades />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

@@ -6,10 +6,11 @@ export const POINT_B_AREAS: PointBArea[] = [
     label: "Salud y Bienestar",
     group: "cimientos",
     icon: "🩺",
-    effortTrackingIds: ["gym"],
+    effortTrackingIds: ["gym", "boxeo"],
     sub: [
       { id: "nutricion", label: "Nutrición", start: 3, target: 8, unit: "/10", trackingIds: [] },
       { id: "ejercicio", label: "Ejercicio", start: 51, target: 65, unit: "kg", trackingIds: ["gym"] },
+      { id: "boxeo", label: "Boxeo", start: 0, target: 80, unit: "% dominio", trackingIds: ["boxeo"] },
       { id: "sueno", label: "Sueño", start: 6.5, target: 8, unit: "horas", trackingIds: [] },
       { id: "energia", label: "Energía", start: 3, target: 7, unit: "/10", trackingIds: [] },
       { id: "agua", label: "Agua / Hidratación", start: 3, target: 8, unit: "/10", trackingIds: [] },
@@ -113,6 +114,7 @@ export const POINT_B_AREAS: PointBArea[] = [
       { id: "familia", label: "Familia", start: 6, target: 9, unit: "/10", trackingIds: [] },
       { id: "amistades", label: "Amistades profundas", start: 1, target: 3, unit: "personas", trackingIds: [] },
       { id: "red-social", label: "Red social / Eventos", start: 2, target: 6, unit: "/10", trackingIds: [] },
+      { id: "experiencias-grupales", label: "Experiencias grupales", start: 0, target: 6, unit: "/10", trackingIds: ["eventos_sociales"] },
     ],
   },
   {
@@ -124,6 +126,7 @@ export const POINT_B_AREAS: PointBArea[] = [
     sub: [
       { id: "seduccion", label: "Seducción / Acción", start: 0, target: 10, unit: "citas/año", trackingIds: [] },
       { id: "conexion", label: "Conexión emocional", start: 1, target: 6, unit: "/10", trackingIds: [] },
+      { id: "intimidad", label: "Intimidad / Sexo", start: 1, target: 7, unit: "/10", trackingIds: ["intimidad_tracking"] },
       { id: "experiencia", label: "Experiencia romántica", start: 1, target: 5, unit: "/10", trackingIds: [] },
       { id: "habilidades-sociales", label: "Habilidades sociales", start: 4, target: 7, unit: "/10", trackingIds: [] },
     ],

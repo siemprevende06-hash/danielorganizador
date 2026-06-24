@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users
 } from 'lucide-react';
 import {
   Sheet,
@@ -27,6 +27,14 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/control-room', label: 'Control Room', icon: Gauge },
       { path: '/focus', label: 'Focus', icon: Focus },
       { path: '/routine-day', label: 'Rutina del Día', icon: LayoutList },
+    ]
+  },
+  {
+    label: 'NECESIDADES',
+    items: [
+      { path: '/mis-necesidades', label: 'Mis Necesidades', icon: Flame },
+      { path: '/vida-social', label: 'Vida Social', icon: Heart },
+      { path: '/boxeo', label: 'Boxeo', icon: Target },
     ]
   },
   {

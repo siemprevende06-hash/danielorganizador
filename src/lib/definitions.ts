@@ -164,6 +164,65 @@ export interface IdentitySystem {
   sort_order: number;
 }
 
+export interface Necesidad {
+  id: string
+  necesidad_id: string
+  titulo: string
+  descripcion: string
+  icono: string
+  progreso: number
+  area_referencia: string
+  orden: number
+}
+
+export interface BoxeoTecnica {
+  id: string
+  nombre: string
+  descripcion: string
+  categoria: 'basico' | 'intermedio' | 'avanzado'
+  nivel_requerido: number
+  nivel_dominio: number
+}
+
+export interface BoxeoSesion {
+  id: string
+  fecha: string
+  tipo: 'saco' | 'sombra' | 'sparring' | 'bolsa' | 'otros'
+  duracion_minutos: number
+  rounds: number
+  intensidad: 'baja' | 'media' | 'alta'
+  tecnicas_practicadas: string[]
+  notas: string
+}
+
+export interface EventoSocial {
+  id: string
+  fecha: string
+  tipo: 'amigos' | 'hotel' | 'fiesta' | 'experiencia' | 'otros'
+  con_quien: string[]
+  descripcion: string
+  gasto: number
+  rating: number
+  notas: string
+}
+
+export interface Cita {
+  id: string
+  fecha: string
+  persona: string
+  lugar: string
+  rating: number
+  notas: string
+}
+
+export interface IntimidadEntry {
+  id: string
+  fecha: string
+  calidad: number
+  posiciones: string[]
+  notas: string
+}
+
 export interface PointBSubAxis {
   id: string
   label: string
