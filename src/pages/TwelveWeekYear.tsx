@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +14,10 @@ import {
   GraduationCap, Rocket, FolderKanban, Dumbbell, Languages, 
   Piano, Guitar, BookOpen, Plus, Target, Calendar, TrendingUp, 
   ChevronRight, Flame, Trophy, Trash2, Edit3, ChevronDown, ChevronUp,
-  Zap, BarChart3
+  Zap, BarChart3, Sparkles
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface TwelveWeekGoal {
   id: string;
@@ -172,39 +173,36 @@ export default function TwelveWeekYear() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 pt-20 pb-8 flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-muted" />
+          <div className="h-4 w-28 bg-muted rounded" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 pt-20 pb-24 space-y-5" style={{ paddingTop: 'max(5rem, calc(env(safe-area-inset-top) + 4rem))' }}>
-      {/* Header */}
-      <header className="space-y-3">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
+      <div className="max-w-4xl mx-auto space-y-5">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Target className="h-7 w-7 text-primary" />
-              3 Meses
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Semana {weekInQ}/12 • {12 - weekInQ} semanas restantes
+            <h1 className="text-2xl font-bold tracking-tight">3 Meses</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Semana {weekInQ}/12 · {12 - weekInQ} semanas restantes
             </p>
           </div>
           <div className="flex gap-2">
             <Link to="/weeks">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Semanas</span>
-                <ChevronRight className="h-3 w-3" />
+              <Button variant="outline" size="sm" className="h-8 text-xs rounded-full gap-1.5">
+                <Calendar className="h-3.5 w-3.5" /> Semanas
               </Button>
             </Link>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-1.5">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Meta</span>
+                <Button size="sm" className="h-8 text-xs rounded-full gap-1.5">
+                  <Plus className="h-3.5 w-3.5" /> Meta
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -236,250 +234,198 @@ export default function TwelveWeekYear() {
           </div>
         </div>
 
-        {/* Quarter Selector */}
-        <div className="grid grid-cols-4 gap-2">
+        {/* Quarter Selector — glass cards */}
+        <div className="grid grid-cols-4 gap-2.5">
           {QUARTERS.map(q => {
             const isActive = selectedQuarter === q.id;
             const qGoals = goals.filter(g => g.quarter === q.id);
             const qAvg = qGoals.length > 0 ? Math.round(qGoals.reduce((s, g) => s + g.progress_percentage, 0) / qGoals.length) : 0;
             return (
-              <button
-                key={q.id}
-                onClick={() => setSelectedQuarter(q.id)}
-                className={`relative overflow-hidden rounded-xl p-3 text-left transition-all ${
-                  isActive 
-                    ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]' 
-                    : 'bg-card border border-border hover:border-primary/50'
-                }`}
-              >
+              <button key={q.id} onClick={() => setSelectedQuarter(q.id)}
+                className={cn(
+                  "relative rounded-2xl p-3.5 text-left transition-all border-0 backdrop-blur-xl",
+                  isActive ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]" : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                )}>
                 <div className="text-lg font-bold">{q.name}</div>
-                <div className={`text-xs ${isActive ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{q.dates}</div>
-                <div className={`text-xs mt-1 font-medium ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                  {qAvg}%
-                </div>
-                <div className={`absolute bottom-0 left-0 h-1 transition-all ${isActive ? 'bg-primary-foreground/30' : 'bg-primary/20'}`} style={{ width: `${qAvg}%` }} />
+                <div className={cn("text-[10px] mt-0.5", isActive ? "text-primary-foreground/70" : "text-muted-foreground")}>{q.dates}</div>
+                <div className={cn("text-xs mt-2 font-semibold", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>{qAvg}%</div>
+                <div className={cn("absolute bottom-0 left-0 h-1 rounded-full transition-all", isActive ? "bg-primary-foreground/30" : "bg-primary/20")} style={{ width: `${qAvg}%` }} />
               </button>
             );
           })}
         </div>
-      </header>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-3">
-        <Card className="bg-card border-border">
-          <CardContent className="p-3 text-center">
-            <Zap className="h-5 w-5 mx-auto text-primary mb-1" />
-            <div className="text-xl font-bold text-foreground">{weekInQ}</div>
-            <div className="text-[10px] text-muted-foreground">Semana</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-3 text-center">
-            <BarChart3 className="h-5 w-5 mx-auto text-primary mb-1" />
-            <div className="text-xl font-bold text-foreground">{avgProgress}%</div>
-            <div className="text-[10px] text-muted-foreground">Promedio</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-3 text-center">
-            <Trophy className="h-5 w-5 mx-auto text-yellow-500 mb-1" />
-            <div className="text-xl font-bold text-foreground">{completedCount}</div>
-            <div className="text-[10px] text-muted-foreground">Logradas</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-3 text-center">
-            <Flame className="h-5 w-5 mx-auto text-orange-500 mb-1" />
-            <div className="text-xl font-bold text-foreground">{activeCount}</div>
-            <div className="text-[10px] text-muted-foreground">En progreso</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Time Progress */}
-      <Card className="bg-card border-border">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-foreground">Tiempo del trimestre</span>
-            <span className="text-sm font-bold text-primary">{Math.round(weekProgress)}%</span>
-          </div>
-          <Progress value={weekProgress} className="h-2.5" />
-          <div className="flex justify-between mt-1.5">
-            <span className="text-[10px] text-muted-foreground">Sem 1</span>
-            <span className="text-[10px] text-muted-foreground">Sem 6</span>
-            <span className="text-[10px] text-muted-foreground">Sem 12</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {goals.length === 0 && (
-        <Card className="border-dashed border-border">
-          <CardContent className="flex flex-col items-center justify-center py-10">
-            <Target className="h-10 w-10 text-muted-foreground mb-3" />
-            <h3 className="font-medium mb-1">Sin metas configuradas</h3>
-            <p className="text-sm text-muted-foreground text-center mb-4">Inicializa tus metas del 2026</p>
-            <Button onClick={initializeDefaultGoals}>Inicializar Metas</Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Main Goals */}
-      {mainGoals.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Metas Principales ({mainGoals.length})
-          </h2>
-          <div className="space-y-2">
-            {mainGoals.map(goal => {
-              const cat = getCategoryInfo(goal.category);
-              const Icon = cat.icon;
-              const isExpanded = expandedGoal === goal.id;
-              const isCompleted = goal.progress_percentage >= 100;
-              return (
-                <Card key={goal.id} className={`border-border transition-all ${isCompleted ? 'opacity-75' : ''}`}>
-                  <CardContent className="p-0">
-                    <div 
-                      className="flex items-center gap-3 p-4 cursor-pointer"
-                      onClick={() => setExpandedGoal(isExpanded ? null : goal.id)}
-                    >
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${cat.color}20` }}>
-                        <Icon className="h-5 w-5" style={{ color: cat.color }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium text-sm truncate ${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                            {goal.title}
-                          </span>
-                          {isCompleted && <Trophy className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Progress value={goal.progress_percentage} className="flex-1 h-1.5" />
-                          <span className="text-xs font-semibold text-muted-foreground w-8 text-right">
-                            {goal.progress_percentage}%
-                          </span>
-                        </div>
-                      </div>
-                      {goal.target_value && (
-                        <Badge variant="secondary" className="text-[10px] flex-shrink-0 hidden sm:flex">
-                          {goal.target_value}
-                        </Badge>
-                      )}
-                      {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                    </div>
-
-                    {isExpanded && (
-                      <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
-                        {goal.description && (
-                          <p className="text-sm text-muted-foreground">{goal.description}</p>
-                        )}
-                        {goal.target_value && (
-                          <div className="flex items-center gap-2">
-                            <Target className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">Meta:</span>
-                            <Badge variant="outline" className="text-xs">{goal.target_value}</Badge>
-                          </div>
-                        )}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">Progreso</span>
-                            <span className="text-sm font-bold text-foreground">{goal.progress_percentage}%</span>
-                          </div>
-                          <Slider
-                            value={[goal.progress_percentage]}
-                            max={100}
-                            step={5}
-                            onValueCommit={(v) => updateProgress(goal.id, v[0])}
-                            className="w-full"
-                          />
-                          <div className="flex justify-between text-[10px] text-muted-foreground">
-                            <span>0%</span><span>50%</span><span>100%</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <Button variant="outline" size="sm" className="gap-1 text-xs flex-1" onClick={() => setEditingGoal(goal)}>
-                            <Edit3 className="h-3 w-3" /> Editar
-                          </Button>
-                          <Button variant="destructive" size="sm" className="gap-1 text-xs" onClick={() => deleteGoal(goal.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+        {/* Glass stats row */}
+        <div className="grid grid-cols-4 gap-2.5">
+          {[
+            { icon: <Zap className="h-4 w-4 text-blue-500" />, label: "Semana", value: weekInQ, gradient: "from-blue-500 to-cyan-400" },
+            { icon: <BarChart3 className="h-4 w-4 text-purple-500" />, label: "Promedio", value: `${avgProgress}%`, gradient: "from-purple-500 to-pink-400" },
+            { icon: <Trophy className="h-4 w-4 text-yellow-500" />, label: "Logradas", value: completedCount, gradient: "from-amber-500 to-orange-400" },
+            { icon: <Flame className="h-4 w-4 text-red-500" />, label: "En progreso", value: activeCount, gradient: "from-red-500 to-rose-400" },
+          ].map((s, i) => (
+            <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <div className={cn("h-1 bg-gradient-to-r", s.gradient)} />
+              <CardContent className="p-3.5 text-center space-y-1">
+                <div className="flex justify-center">{s.icon}</div>
+                <div className="text-xl font-bold tabular-nums">{s.value}</div>
+                <div className="text-[10px] text-muted-foreground">{s.label}</div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      )}
 
-      {/* Additional Goals */}
-      {additionalGoals.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Metas Adicionales ({additionalGoals.length})
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {additionalGoals.map(goal => {
-              const cat = getCategoryInfo(goal.category);
-              const Icon = cat.icon;
-              const isCompleted = goal.progress_percentage >= 100;
-              return (
-                <Card key={goal.id} className={`border-border ${isCompleted ? 'opacity-75' : ''}`}>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${cat.color}20` }}>
-                          <Icon className="h-3.5 w-3.5" style={{ color: cat.color }} />
-                        </div>
-                        <span className="text-xs font-medium text-foreground">{cat.name}</span>
-                      </div>
-                      {isCompleted && <Trophy className="h-3 w-3 text-yellow-500" />}
-                    </div>
-                    <p className={`text-xs ${isCompleted ? 'line-through text-muted-foreground' : 'text-muted-foreground'}`}>{goal.title}</p>
-                    <div className="flex items-center gap-2">
-                      <Progress value={goal.progress_percentage} className="flex-1 h-1.5" />
-                      <span className="text-[10px] font-semibold text-muted-foreground">{goal.progress_percentage}%</span>
-                    </div>
-                    <Slider
-                      value={[goal.progress_percentage]}
-                      max={100}
-                      step={5}
-                      onValueCommit={(v) => updateProgress(goal.id, v[0])}
-                      className="w-full"
-                    />
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" className="h-6 text-[10px] flex-1" onClick={() => setEditingGoal(goal)}>
-                        <Edit3 className="h-2.5 w-2.5 mr-1" /> Editar
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive" onClick={() => deleteGoal(goal.id)}>
-                        <Trash2 className="h-2.5 w-2.5" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Edit Dialog */}
-      <Dialog open={!!editingGoal} onOpenChange={(open) => !open && setEditingGoal(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Editar Meta</DialogTitle></DialogHeader>
-          {editingGoal && (
-            <div className="space-y-3 mt-3">
-              <Input value={editingGoal.title} onChange={e => setEditingGoal({ ...editingGoal, title: e.target.value })} />
-              <Textarea value={editingGoal.description || ""} onChange={e => setEditingGoal({ ...editingGoal, description: e.target.value })} rows={2} />
-              <Input value={editingGoal.target_value || ""} onChange={e => setEditingGoal({ ...editingGoal, target_value: e.target.value })} placeholder="Meta objetivo" />
-              <Button onClick={saveEdit} className="w-full">Guardar</Button>
+        {/* Time Progress */}
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">Tiempo del trimestre</span>
+              <span className="text-sm font-bold tabular-nums">{Math.round(weekProgress)}%</span>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <Progress value={weekProgress} className="h-1.5" />
+            <div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground/60">
+              <span>Sem 1</span><span>Sem 6</span><span>Sem 12</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {goals.length === 0 && (
+          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Target className="h-10 w-10 text-muted-foreground mb-3" />
+              <p className="font-medium mb-1">Sin metas configuradas</p>
+              <p className="text-xs text-muted-foreground text-center mb-4">Inicializa tus metas del 2026</p>
+              <Button onClick={initializeDefaultGoals} className="rounded-full">Inicializar Metas</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Main Goals */}
+        {mainGoals.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <TrendingUp className="h-3.5 w-3.5" /> Metas Principales ({mainGoals.length})
+            </div>
+            <div className="space-y-2">
+              {mainGoals.map(goal => {
+                const cat = getCategoryInfo(goal.category);
+                const Icon = cat.icon;
+                const isExpanded = expandedGoal === goal.id;
+                const isCompleted = goal.progress_percentage >= 100;
+                return (
+                  <Card key={goal.id} className={cn("border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all", isCompleted && "opacity-70")}>
+                    <CardContent className="p-0">
+                      <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpandedGoal(isExpanded ? null : goal.id)}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${cat.color}15` }}>
+                          <Icon className="h-5 w-5" style={{ color: cat.color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("font-medium text-sm truncate", isCompleted && "line-through text-muted-foreground")}>{goal.title}</span>
+                            {isCompleted && <Trophy className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Progress value={goal.progress_percentage} className="flex-1 h-1" />
+                            <span className="text-[11px] font-semibold text-muted-foreground w-8 text-right tabular-nums">{goal.progress_percentage}%</span>
+                          </div>
+                        </div>
+                        {goal.target_value && <Badge variant="outline" className="text-[10px] shrink-0 hidden sm:flex rounded-full">{goal.target_value}</Badge>}
+                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+                      </div>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 space-y-3 border-t pt-3">
+                          {goal.description && <p className="text-xs text-muted-foreground">{goal.description}</p>}
+                          {goal.target_value && (
+                            <div className="flex items-center gap-2">
+                              <Target className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-[10px] text-muted-foreground">Meta:</span>
+                              <Badge variant="outline" className="text-[10px] rounded-full">{goal.target_value}</Badge>
+                            </div>
+                          )}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-muted-foreground">Progreso</span>
+                              <span className="text-xs font-bold">{goal.progress_percentage}%</span>
+                            </div>
+                            <Slider value={[goal.progress_percentage]} max={100} step={5} onValueCommit={(v) => updateProgress(goal.id, v[0])} />
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <Button variant="outline" size="sm" className="h-7 text-[10px] rounded-full gap-1 flex-1" onClick={() => setEditingGoal(goal)}>
+                              <Edit3 className="h-3 w-3" /> Editar
+                            </Button>
+                            <Button variant="destructive" size="sm" className="h-7 text-[10px] rounded-full gap-1" onClick={() => deleteGoal(goal.id)}>
+                              <Trash2 className="h-3 w-3" /> Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Additional Goals */}
+        {additionalGoals.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <Sparkles className="h-3.5 w-3.5" /> Metas Adicionales ({additionalGoals.length})
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {additionalGoals.map(goal => {
+                const cat = getCategoryInfo(goal.category);
+                const Icon = cat.icon;
+                const isCompleted = goal.progress_percentage >= 100;
+                return (
+                  <Card key={goal.id} className={cn("border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden", isCompleted && "opacity-70")}>
+                    <CardContent className="p-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${cat.color}15` }}>
+                            <Icon className="h-3.5 w-3.5" style={{ color: cat.color }} />
+                          </div>
+                          <span className="text-xs font-medium">{cat.name}</span>
+                        </div>
+                        {isCompleted && <Trophy className="h-3 w-3 text-yellow-500" />}
+                      </div>
+                      <p className={cn("text-xs", isCompleted ? "line-through text-muted-foreground" : "text-muted-foreground")}>{goal.title}</p>
+                      <div className="flex items-center gap-2">
+                        <Progress value={goal.progress_percentage} className="flex-1 h-1" />
+                        <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">{goal.progress_percentage}%</span>
+                      </div>
+                      <Slider value={[goal.progress_percentage]} max={100} step={5} onValueCommit={(v) => updateProgress(goal.id, v[0])} />
+                      <div className="flex gap-1 pt-1">
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] rounded-full flex-1" onClick={() => setEditingGoal(goal)}>
+                          <Edit3 className="h-2.5 w-2.5 mr-1" /> Editar
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] rounded-full text-destructive" onClick={() => deleteGoal(goal.id)}>
+                          <Trash2 className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <Dialog open={!!editingGoal} onOpenChange={(open) => !open && setEditingGoal(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Editar Meta</DialogTitle></DialogHeader>
+            {editingGoal && (
+              <div className="space-y-3 mt-3">
+                <Input value={editingGoal.title} onChange={e => setEditingGoal({ ...editingGoal, title: e.target.value })} />
+                <Textarea value={editingGoal.description || ""} onChange={e => setEditingGoal({ ...editingGoal, description: e.target.value })} rows={2} />
+                <Input value={editingGoal.target_value || ""} onChange={e => setEditingGoal({ ...editingGoal, target_value: e.target.value })} placeholder="Meta objetivo" />
+                <Button onClick={saveEdit} className="w-full">Guardar</Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

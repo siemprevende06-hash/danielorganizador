@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { getCached, setCache } from "@/lib/offlineCache";
+import { getCached } from "@/lib/offlineCache";
 import { cachedMutation } from "@/lib/supabaseCache";
-import { Dumbbell, Moon, Zap, Droplet, Target, Shirt, GraduationCap, Code, Briefcase, Book, Music, Gamepad2, Globe, Crown, Plus, Trash2, Sparkles } from "lucide-react";
+import { Dumbbell, Moon, Zap, Droplet, Target, Shirt, GraduationCap, Code, Briefcase, Book, Music, Globe, Crown, Plus, Trash2, Sparkles, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +79,7 @@ export default function HabitsPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newEmoji, setNewEmoji] = useState("⭐");
+  const [todayScore, setTodayScore] = useState(0);
 
   useEffect(() => {
     setMiniDefs(loadMiniDefs());
@@ -100,6 +101,14 @@ export default function HabitsPage() {
       }
     })();
   }, []);
+
+  const allHabits = [...STRUCTURAL_HABITS, ...FOCUS_HABITS, ...HOBBY_HABITS];
+  useEffect(() => {
+    const miniDone = miniDefs.filter(d => completions[d.id]).length;
+    const structDone = allHabits.filter(h => completions[h.id]).length;
+    const total = miniDefs.length + allHabits.length;
+    setTodayScore(total > 0 ? Math.round(((miniDone + structDone) / total) * 100) : 0);
+  }, [completions, miniDefs]);
 
   const toggleMini = async (id: string) => {
     const next = { ...completions, [id]: !completions[id] };
@@ -133,125 +142,140 @@ export default function HabitsPage() {
   const doneCount = miniDefs.filter(d => completions[d.id]).length;
 
   return (
-    <div className="container mx-auto px-4 py-24 space-y-6">
-      <header>
-        <h1 className="text-3xl font-headline font-bold">Hábitos</h1>
-        <p className="text-muted-foreground">Administra todos tus hábitos en un solo lugar</p>
-      </header>
-
-      <Tabs defaultValue="mini">
-        <TabsList className="grid grid-cols-3 w-full">
-          <TabsTrigger value="mini">Mini Hábitos</TabsTrigger>
-          <TabsTrigger value="categorias">Estructurales</TabsTrigger>
-          <TabsTrigger value="hobbys">Hobbies</TabsTrigger>
-        </TabsList>
-
-        {/* === MINI HÁBITOS (CRUD) === */}
-        <TabsContent value="mini" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Sparkles className="h-4 w-4" /> Mini Hábitos
-                  <Badge variant="outline">{doneCount}/{miniDefs.length}</Badge>
-                </CardTitle>
-              </div>
-              <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="h-3 w-3 mr-1" />Añadir</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Nuevo Mini Hábito</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-3 py-2">
-                    <div>
-                      <label className="text-sm font-medium">Nombre</label>
-                      <Input
-                        value={newLabel}
-                        onChange={e => setNewLabel(e.target.value)}
-                        placeholder="Ej: No FAP"
-                        onKeyDown={e => e.key === "Enter" && addMini()}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Emoji</label>
-                      <div className="flex gap-2 mt-1">
-                        {["🚫", "📵", "⭐", "💪", "🧠", "🎯", "🔥", "⏰", "📚", "🎮"].map(e => (
-                          <button
-                            key={e}
-                            onClick={() => setNewEmoji(e)}
-                            className={cn(
-                              "text-xl w-9 h-9 rounded flex items-center justify-center transition-all",
-                              newEmoji === e ? "bg-primary/20 ring-2 ring-primary" : "bg-muted hover:bg-muted/70"
-                            )}
-                          >
-                            {e}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
+      <div className="max-w-4xl mx-auto space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Hábitos</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
+            </p>
+          </div>
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-8 text-xs rounded-full gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> Mini Hábito
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Nuevo Mini Hábito</DialogTitle></DialogHeader>
+              <div className="space-y-3 py-2">
+                <div>
+                  <label className="text-sm font-medium">Nombre</label>
+                  <Input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Ej: No FAP" onKeyDown={e => e.key === "Enter" && addMini()} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Emoji</label>
+                  <div className="flex gap-2 mt-1 flex-wrap">
+                    {["🚫", "📵", "⭐", "💪", "🧠", "🎯", "🔥", "⏰", "📚", "🎮", "🎵", "💧", "🌙", "☀️"].map(e => (
+                      <button key={e} onClick={() => setNewEmoji(e)}
+                        className={cn("text-xl w-9 h-9 rounded-lg flex items-center justify-center transition-all",
+                          newEmoji === e ? "bg-primary/20 ring-2 ring-primary" : "bg-muted hover:bg-muted/70"
+                        )}>
+                        {e}
+                      </button>
+                    ))}
                   </div>
-                  <DialogFooter>
-                    <Button onClick={addMini}>Crear</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </CardHeader>
-            <CardContent>
-              {miniDefs.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">No tienes mini hábitos</p>
-                  <p className="text-xs">Crea tu primer mini hábito para empezar</p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {miniDefs.map(d => {
-                    const done = !!completions[d.id];
-                    return (
-                      <div
-                        key={d.id}
-                        className={cn(
-                          "flex items-center gap-2 p-2.5 rounded-lg transition-all ring-1",
-                          done
-                            ? "bg-green-500/10 ring-green-500/50"
-                            : "bg-muted/40 ring-muted/30"
-                        )}
-                      >
-                        <button
-                          onClick={() => toggleMini(d.id)}
-                          className="flex items-center gap-2 flex-1 text-left"
-                        >
-                          <span className="text-lg">{d.emoji}</span>
-                          <span className={cn("text-sm flex-1", done && "text-green-600 font-medium line-through")}>
-                            {d.label}
-                          </span>
-                          {done && <span className="text-green-600 text-sm">✓</span>}
-                        </button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMini(d.id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                <Button onClick={addMini} className="w-full rounded-full">Crear</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
 
-        {/* === ESTRUCTURALES === */}
-        <TabsContent value="categorias" className="mt-4 space-y-4">
-          <StructuralCard title="🏗️ Estructurales (Base)" habits={STRUCTURAL_HABITS} completions={completions} onToggle={toggleMini} />
-          <StructuralCard title="🎯 Áreas de Enfoque" habits={FOCUS_HABITS} completions={completions} onToggle={toggleMini} />
-        </TabsContent>
+        {/* Today's Score */}
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400" />
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">Progreso de hoy</span>
+              <span className="text-sm font-bold">{todayScore}%</span>
+            </div>
+            <Progress value={todayScore} className="h-1.5" indicatorClassName="bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400" />
+          </CardContent>
+        </Card>
 
-        {/* === HOBBIES === */}
-        <TabsContent value="hobbys" className="mt-4 space-y-4">
-          <StructuralCard title="🎨 Hobbies" habits={HOBBY_HABITS} completions={completions} onToggle={toggleMini} />
-        </TabsContent>
-      </Tabs>
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { label: "Mini Hábitos", value: `${doneCount}/${miniDefs.length}`, color: "from-purple-500 to-pink-400" },
+            { label: "Estructurales", value: `${STRUCTURAL_HABITS.filter(h => completions[h.id]).length}/${STRUCTURAL_HABITS.length}`, color: "from-blue-500 to-cyan-400" },
+            { label: "Hobbies", value: `${HOBBY_HABITS.filter(h => completions[h.id]).length}/${HOBBY_HABITS.length}`, color: "from-amber-500 to-orange-400" },
+          ].map((s, i) => (
+            <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <div className={cn("h-1 bg-gradient-to-r", s.color)} />
+              <CardContent className="p-3.5 text-center space-y-1">
+                <div className="text-lg font-bold tabular-nums">{s.value}</div>
+                <div className="text-[10px] text-muted-foreground">{s.label}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="mini" className="space-y-4">
+          <TabsList className="grid grid-cols-3 w-full rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl p-1 h-auto">
+            <TabsTrigger value="mini" className="rounded-full text-xs py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Mini Hábitos</TabsTrigger>
+            <TabsTrigger value="categorias" className="rounded-full text-xs py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Estructurales</TabsTrigger>
+            <TabsTrigger value="hobbys" className="rounded-full text-xs py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Hobbies</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="mini" className="space-y-2 mt-0">
+            {miniDefs.length === 0 ? (
+              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Sparkles className="h-10 w-10 text-muted-foreground mb-3" />
+                  <p className="font-medium mb-1">Sin mini hábitos</p>
+                  <p className="text-xs text-muted-foreground text-center">Crea tu primer mini hábito para empezar</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {miniDefs.map(d => {
+                  const done = !!completions[d.id];
+                  return (
+                    <Card key={d.id} className={cn(
+                      "border-0 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all",
+                      done ? "bg-white/80 dark:bg-zinc-900/80" : "bg-white/50 dark:bg-zinc-900/50"
+                    )}>
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => toggleMini(d.id)}
+                            className={cn(
+                              "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all",
+                              done ? "bg-green-500/15 text-green-500" : "bg-muted/50 text-muted-foreground"
+                            )}>
+                            <span className="text-lg">{d.emoji}</span>
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <span className={cn("text-sm font-medium block truncate", done && "text-green-600 dark:text-green-400")}>
+                              {d.label}
+                            </span>
+                            {done && <span className="text-[10px] text-green-500 font-medium">Completado ✓</span>}
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => deleteMini(d.id)}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="categorias" className="space-y-3 mt-0">
+            <StructuralCard title="Estructurales (Base)" habits={STRUCTURAL_HABITS} completions={completions} onToggle={toggleMini} />
+            <StructuralCard title="Áreas de Enfoque" habits={FOCUS_HABITS} completions={completions} onToggle={toggleMini} />
+          </TabsContent>
+
+          <TabsContent value="hobbys" className="space-y-3 mt-0">
+            <StructuralCard title="Hobbies" habits={HOBBY_HABITS} completions={completions} onToggle={toggleMini} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
@@ -266,32 +290,35 @@ function StructuralCard({
 }) {
   const done = habits.filter(h => completions[h.id]).length;
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-          {title}
-          <Badge variant={done === habits.length ? "default" : "secondary"}>{done}/{habits.length}</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
+    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
+      <CardContent className="p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</span>
+          <Badge variant="outline" className={cn("text-[10px] rounded-full", done === habits.length && "bg-green-500/10 text-green-500 border-green-500/30")}>
+            {done}/{habits.length}
+          </Badge>
+        </div>
+        <div className="space-y-1">
           {habits.map(habit => {
             const completed = !!completions[habit.id];
             const Icon = habit.icon;
             return (
-              <button
-                key={habit.id}
-                onClick={() => onToggle(habit.id)}
+              <button key={habit.id} onClick={() => onToggle(habit.id)}
                 className={cn(
-                  "w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left",
-                  completed ? "bg-primary/10" : "bg-muted/30 hover:bg-muted/50"
-                )}
-              >
-                <Icon className={cn("w-4 h-4", completed ? "text-primary" : "text-muted-foreground")} />
-                <span className={cn("text-sm flex-1", completed ? "text-foreground font-medium" : "text-muted-foreground")}>
+                  "w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left",
+                  completed ? "bg-green-500/10" : "bg-muted/30 hover:bg-muted/50"
+                )}>
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all",
+                  completed ? "bg-green-500/15 text-green-500" : "bg-muted/50 text-muted-foreground"
+                )}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <span className={cn("text-sm flex-1", completed && "text-green-600 dark:text-green-400 font-medium")}>
                   {habit.title}
                 </span>
-                {completed && <Badge variant="default" className="text-xs">✓</Badge>}
+                {completed && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
               </button>
             );
           })}
