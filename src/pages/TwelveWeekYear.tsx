@@ -3,18 +3,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { 
-  GraduationCap, Rocket, FolderKanban, Dumbbell, Languages, 
-  Piano, Guitar, BookOpen, Plus, Target, Calendar, TrendingUp, 
-  ChevronRight, Flame, Trophy, Trash2, Edit3, ChevronDown, ChevronUp,
-  Zap, BarChart3, Sparkles
+import {
+  GraduationCap, Rocket, FolderKanban, Dumbbell, Languages,
+  Piano, Guitar, BookOpen, Plus, Target, Calendar, TrendingUp,
+  Flame, Trophy, Trash2, Edit3, Zap, BarChart3, Sparkles
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -32,6 +31,7 @@ interface TwelveWeekGoal {
   weekly_actions: unknown;
   connected_blocks: string[] | null;
   status: string;
+  month: number | null;
 }
 
 const CATEGORIES = [
@@ -51,6 +51,15 @@ const QUARTERS = [
   { id: 3, name: "Q3", dates: "Jul – Sep", startMonth: 6 },
   { id: 4, name: "Q4", dates: "Oct – Dic", startMonth: 9 },
 ];
+
+const MONTHS = [
+  { id: 1, label: "Mes 1", subtitle: "Sem 1-4" },
+  { id: 2, label: "Mes 2", subtitle: "Sem 5-8" },
+  { id: 3, label: "Mes 3", subtitle: "Sem 9-12" },
+];
+
+const MAIN_AREA_IDS = ["universidad", "emprendimiento", "proyectos", "gym", "idiomas"];
+const EXTRA_AREA_IDS = ["piano", "guitarra", "lectura"];
 
 const DEFAULT_GOALS = [
   { category: "universidad", title: "Aprobar exámenes con nota 4+", target_value: "Nota 4", description: "Aprobar todos los exámenes con calificación mínima de 4" },
@@ -72,28 +81,48 @@ export default function TwelveWeekYear() {
     const month = new Date().getMonth();
     return Math.floor(month / 3) + 1;
   });
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingGoal, setEditingGoal] = useState<TwelveWeekGoal | null>(null);
   const [expandedGoal, setExpandedGoal] = useState<string | null>(null);
-  const [newGoal, setNewGoal] = useState({ title: "", description: "", category: "", target_value: "", quarter: 1 });
+  const [editingGoal, setEditingGoal] = useState<TwelveWeekGoal | null>(null);
+
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addCategory, setAddCategory] = useState("");
+  const [addMonth, setAddMonth] = useState<number | null>(null);
+  const [addTitle, setAddTitle] = useState("");
+  const [addDescription, setAddDescription] = useState("");
+  const [addTarget, setAddTarget] = useState("");
 
   useEffect(() => { fetchGoals(); }, []);
 
   const fetchGoals = async () => {
     try {
       const { data, error } = await supabase
-        .from("twelve_week_goals").select("*").eq("year", 2026).order("quarter");
+        .from("twelve_week_goals")
+        .select("*")
+        .eq("year", 2026)
+        .order("category")
+        .order("month");
       if (error) throw error;
       setGoals(data || []);
     } catch { toast.error("Error al cargar metas"); }
     finally { setLoading(false); }
   };
 
+  const assignMonth = async (goalId: string, month: number) => {
+    try {
+      const { error } = await supabase
+        .from("twelve_week_goals")
+        .update({ month })
+        .eq("id", goalId);
+      if (error) throw error;
+      setGoals(prev => prev.map(g => g.id === goalId ? { ...g, month } : g));
+    } catch { toast.error("Error al asignar mes"); }
+  };
+
   const initializeDefaultGoals = async () => {
     try {
       const goalsToInsert = DEFAULT_GOALS.map(g => ({
         ...g, quarter: 1, year: 2026, progress_percentage: 0,
-        weekly_actions: [], connected_blocks: [], status: "active",
+        weekly_actions: [], connected_blocks: [], status: "active", month: null,
       }));
       const { error } = await supabase.from("twelve_week_goals").insert(goalsToInsert);
       if (error) throw error;
@@ -102,18 +131,27 @@ export default function TwelveWeekYear() {
     } catch { toast.error("Error al inicializar"); }
   };
 
+  const openAddDialog = (category: string, month: number | null) => {
+    setAddCategory(category);
+    setAddMonth(month);
+    setAddTitle("");
+    setAddDescription("");
+    setAddTarget("");
+    setAddDialogOpen(true);
+  };
+
   const addGoal = async () => {
-    if (!newGoal.title || !newGoal.category) { toast.error("Completa los campos"); return; }
+    if (!addTitle || !addCategory) { toast.error("Completa los campos"); return; }
     try {
       const { error } = await supabase.from("twelve_week_goals").insert({
-        title: newGoal.title, description: newGoal.description, category: newGoal.category,
-        target_value: newGoal.target_value, quarter: newGoal.quarter, year: 2026,
-        progress_percentage: 0, weekly_actions: [], connected_blocks: [], status: "active",
+        title: addTitle, description: addDescription, category: addCategory,
+        target_value: addTarget, quarter: selectedQuarter, year: 2026,
+        month: addMonth, progress_percentage: 0,
+        weekly_actions: [], connected_blocks: [], status: "active",
       });
       if (error) throw error;
       toast.success("Meta agregada");
-      setIsAddDialogOpen(false);
-      setNewGoal({ title: "", description: "", category: "", target_value: "", quarter: 1 });
+      setAddDialogOpen(false);
       fetchGoals();
     } catch { toast.error("Error al agregar"); }
   };
@@ -150,11 +188,8 @@ export default function TwelveWeekYear() {
     } catch { toast.error("Error al actualizar"); }
   };
 
-  const getCategoryInfo = (categoryId: string) => CATEGORIES.find(c => c.id === categoryId) || CATEGORIES[0];
-
-  const quarterGoals = goals.filter(g => g.quarter === selectedQuarter);
-  const mainGoals = quarterGoals.filter(g => ["universidad", "emprendimiento", "proyectos", "gym", "idiomas"].includes(g.category));
-  const additionalGoals = quarterGoals.filter(g => ["piano", "guitarra", "lectura"].includes(g.category));
+  const getCategoryInfo = (categoryId: string) =>
+    CATEGORIES.find(c => c.id === categoryId) || CATEGORIES[0];
 
   const getCurrentWeek = () => {
     const now = new Date();
@@ -165,11 +200,177 @@ export default function TwelveWeekYear() {
   const weekInQ = getWeekInQuarter();
   const weekProgress = (weekInQ / 12) * 100;
 
+  const quarterGoals = goals.filter(g => g.quarter === selectedQuarter);
   const avgProgress = quarterGoals.length > 0
     ? Math.round(quarterGoals.reduce((s, g) => s + g.progress_percentage, 0) / quarterGoals.length)
     : 0;
   const completedCount = quarterGoals.filter(g => g.progress_percentage >= 100).length;
   const activeCount = quarterGoals.filter(g => g.progress_percentage > 0 && g.progress_percentage < 100).length;
+
+  const getGoalsForCell = (areaId: string, monthId: number | null) =>
+    quarterGoals.filter(g => g.category === areaId && g.month === monthId);
+
+  const hasGoalsInSinMes = (areaIds: string[]) =>
+    areaIds.some(aid => getGoalsForCell(aid, null).length > 0);
+
+  const renderGoalCard = (goal: TwelveWeekGoal, showMonthAssign: boolean) => {
+    const cat = getCategoryInfo(goal.category);
+    const Icon = cat.icon;
+    const isExpanded = expandedGoal === goal.id;
+    const isCompleted = goal.progress_percentage >= 100;
+
+    return (
+      <div
+        key={goal.id}
+        className={cn(
+          "rounded-xl border bg-card/50 p-2.5 space-y-1.5 cursor-pointer transition-all hover:shadow-sm",
+          isExpanded && "ring-1 ring-primary/20",
+          isCompleted && "opacity-60"
+        )}
+        onClick={() => setExpandedGoal(isExpanded ? null : goal.id)}
+      >
+        <div className="flex items-center justify-between gap-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: `${cat.color}15` }}>
+              <Icon className="h-3 w-3" style={{ color: cat.color }} />
+            </div>
+            <span className={cn("text-xs font-medium truncate", isCompleted && "line-through text-muted-foreground")}>
+              {goal.title}
+            </span>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            {showMonthAssign && MONTHS.map(m => (
+              <button
+                key={m.id}
+                onClick={e => { e.stopPropagation(); assignMonth(goal.id, m.id); }}
+                className="h-5 w-5 rounded text-[9px] font-bold bg-muted hover:bg-primary hover:text-primary-foreground transition-colors"
+                title={`Mover a ${m.label}`}
+              >
+                {m.id}
+              </button>
+            ))}
+            <button
+              onClick={e => { e.stopPropagation(); setEditingGoal(goal); }}
+              className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Edit3 className="h-2.5 w-2.5" />
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); deleteGoal(goal.id); }}
+              className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <Trash2 className="h-2.5 w-2.5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Progress value={goal.progress_percentage} className="h-1 flex-1" />
+          <span className="text-[10px] font-semibold text-muted-foreground tabular-nums w-7 text-right">{goal.progress_percentage}%</span>
+        </div>
+
+        {isExpanded && (
+          <div className="space-y-2 pt-1.5 border-t mt-1">
+            {goal.description && <p className="text-[10px] text-muted-foreground">{goal.description}</p>}
+            {goal.target_value && (
+              <div className="flex items-center gap-1.5">
+                <Target className="h-2.5 w-2.5 text-muted-foreground" />
+                <Badge variant="outline" className="text-[9px] rounded-full px-2 py-0">{goal.target_value}</Badge>
+              </div>
+            )}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-muted-foreground">Progreso</span>
+                <span className="text-[10px] font-bold">{goal.progress_percentage}%</span>
+              </div>
+              <Slider
+                value={[goal.progress_percentage]} max={100} step={5}
+                onValueCommit={(v) => updateProgress(goal.id, v[0])}
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAreaGrid = (areaIds: string[], title: string, icon: React.ReactNode) => {
+    const showSinMes = hasGoalsInSinMes(areaIds);
+    const columns = showSinMes ? "160px repeat(3,1fr) 140px" : "160px repeat(3,1fr)";
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          {icon} {title}
+        </div>
+        <div className="overflow-x-auto pb-2">
+          <div className="min-w-[650px] space-y-1.5">
+            <div className="grid gap-1.5" style={{ gridTemplateColumns: columns }}>
+              <div />
+              {MONTHS.map(m => (
+                <div key={m.id} className="text-center py-1">
+                  <div className="text-xs font-bold">{m.label}</div>
+                  <div className="text-[9px] text-muted-foreground">{m.subtitle}</div>
+                </div>
+              ))}
+              {showSinMes && (
+                <div className="text-center py-1">
+                  <div className="text-xs font-bold text-muted-foreground">Sin mes</div>
+                </div>
+              )}
+            </div>
+
+            {areaIds.map(aid => {
+              const cat = getCategoryInfo(aid);
+              const Icon = cat.icon;
+              return (
+                <div key={aid} className="grid gap-1.5" style={{ gridTemplateColumns: columns }}>
+                  <div className="flex items-center gap-1.5 py-1 min-w-0">
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${cat.color}15` }}>
+                      <Icon className="h-3.5 w-3.5" style={{ color: cat.color }} />
+                    </div>
+                    <span className="text-xs font-medium truncate">{cat.name}</span>
+                  </div>
+
+                  {MONTHS.map(m => {
+                    const cellGoals = getGoalsForCell(aid, m.id);
+                    return (
+                      <div key={m.id} className="space-y-1 min-h-[60px]">
+                        {cellGoals.map(g => renderGoalCard(g, false))}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full h-6 text-[10px] rounded-full gap-1 text-muted-foreground hover:text-foreground"
+                          onClick={() => openAddDialog(aid, m.id)}
+                        >
+                          <Plus className="h-3 w-3" /> Agregar
+                        </Button>
+                      </div>
+                    );
+                  })}
+
+                  {showSinMes && (
+                    <div className="space-y-1 min-h-[60px]">
+                      {getGoalsForCell(aid, null).map(g => renderGoalCard(g, true))}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full h-6 text-[10px] rounded-full gap-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => openAddDialog(aid, null)}
+                      >
+                        <Plus className="h-3 w-3" /> Agregar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -184,8 +385,7 @@ export default function TwelveWeekYear() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
-      <div className="max-w-4xl mx-auto space-y-5">
-        {/* Header */}
+      <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">3 Meses</h1>
@@ -199,42 +399,12 @@ export default function TwelveWeekYear() {
                 <Calendar className="h-3.5 w-3.5" /> Semanas
               </Button>
             </Link>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="h-8 text-xs rounded-full gap-1.5">
-                  <Plus className="h-3.5 w-3.5" /> Meta
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Nueva Meta</DialogTitle></DialogHeader>
-                <div className="space-y-3 mt-3">
-                  <Input placeholder="Título" value={newGoal.title} onChange={e => setNewGoal({ ...newGoal, title: e.target.value })} />
-                  <Textarea placeholder="Descripción" value={newGoal.description} onChange={e => setNewGoal({ ...newGoal, description: e.target.value })} rows={2} />
-                  <Select value={newGoal.category} onValueChange={v => setNewGoal({ ...newGoal, category: v })}>
-                    <SelectTrigger><SelectValue placeholder="Categoría" /></SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <span className="flex items-center gap-2"><cat.icon className="h-4 w-4" />{cat.name}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input placeholder="Meta objetivo" value={newGoal.target_value} onChange={e => setNewGoal({ ...newGoal, target_value: e.target.value })} />
-                  <Select value={String(newGoal.quarter)} onValueChange={v => setNewGoal({ ...newGoal, quarter: parseInt(v) })}>
-                    <SelectTrigger><SelectValue placeholder="Trimestre" /></SelectTrigger>
-                    <SelectContent>
-                      {QUARTERS.map(q => <SelectItem key={q.id} value={String(q.id)}>{q.name} – {q.dates}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button onClick={addGoal} className="w-full">Agregar</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button size="sm" className="h-8 text-xs rounded-full gap-1.5" onClick={() => openAddDialog("", null)}>
+              <Plus className="h-3.5 w-3.5" /> Meta
+            </Button>
           </div>
         </div>
 
-        {/* Quarter Selector — glass cards */}
         <div className="grid grid-cols-4 gap-2.5">
           {QUARTERS.map(q => {
             const isActive = selectedQuarter === q.id;
@@ -255,7 +425,6 @@ export default function TwelveWeekYear() {
           })}
         </div>
 
-        {/* Glass stats row */}
         <div className="grid grid-cols-4 gap-2.5">
           {[
             { icon: <Zap className="h-4 w-4 text-blue-500" />, label: "Semana", value: weekInQ, gradient: "from-blue-500 to-cyan-400" },
@@ -274,7 +443,6 @@ export default function TwelveWeekYear() {
           ))}
         </div>
 
-        {/* Time Progress */}
         <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
           <CardContent className="p-4">
@@ -289,7 +457,7 @@ export default function TwelveWeekYear() {
           </CardContent>
         </Card>
 
-        {goals.length === 0 && (
+        {quarterGoals.length === 0 && (
           <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Target className="h-10 w-10 text-muted-foreground mb-3" />
@@ -300,117 +468,11 @@ export default function TwelveWeekYear() {
           </Card>
         )}
 
-        {/* Main Goals */}
-        {mainGoals.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              <TrendingUp className="h-3.5 w-3.5" /> Metas Principales ({mainGoals.length})
-            </div>
-            <div className="space-y-2">
-              {mainGoals.map(goal => {
-                const cat = getCategoryInfo(goal.category);
-                const Icon = cat.icon;
-                const isExpanded = expandedGoal === goal.id;
-                const isCompleted = goal.progress_percentage >= 100;
-                return (
-                  <Card key={goal.id} className={cn("border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all", isCompleted && "opacity-70")}>
-                    <CardContent className="p-0">
-                      <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpandedGoal(isExpanded ? null : goal.id)}>
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${cat.color}15` }}>
-                          <Icon className="h-5 w-5" style={{ color: cat.color }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={cn("font-medium text-sm truncate", isCompleted && "line-through text-muted-foreground")}>{goal.title}</span>
-                            {isCompleted && <Trophy className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Progress value={goal.progress_percentage} className="flex-1 h-1" />
-                            <span className="text-[11px] font-semibold text-muted-foreground w-8 text-right tabular-nums">{goal.progress_percentage}%</span>
-                          </div>
-                        </div>
-                        {goal.target_value && <Badge variant="outline" className="text-[10px] shrink-0 hidden sm:flex rounded-full">{goal.target_value}</Badge>}
-                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
-                      </div>
-                      {isExpanded && (
-                        <div className="px-4 pb-4 space-y-3 border-t pt-3">
-                          {goal.description && <p className="text-xs text-muted-foreground">{goal.description}</p>}
-                          {goal.target_value && (
-                            <div className="flex items-center gap-2">
-                              <Target className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-[10px] text-muted-foreground">Meta:</span>
-                              <Badge variant="outline" className="text-[10px] rounded-full">{goal.target_value}</Badge>
-                            </div>
-                          )}
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-muted-foreground">Progreso</span>
-                              <span className="text-xs font-bold">{goal.progress_percentage}%</span>
-                            </div>
-                            <Slider value={[goal.progress_percentage]} max={100} step={5} onValueCommit={(v) => updateProgress(goal.id, v[0])} />
-                          </div>
-                          <div className="flex gap-2 pt-1">
-                            <Button variant="outline" size="sm" className="h-7 text-[10px] rounded-full gap-1 flex-1" onClick={() => setEditingGoal(goal)}>
-                              <Edit3 className="h-3 w-3" /> Editar
-                            </Button>
-                            <Button variant="destructive" size="sm" className="h-7 text-[10px] rounded-full gap-1" onClick={() => deleteGoal(goal.id)}>
-                              <Trash2 className="h-3 w-3" /> Eliminar
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {quarterGoals.length > 0 && renderAreaGrid(MAIN_AREA_IDS, "Metas Principales", <TrendingUp className="h-3.5 w-3.5" />)}
 
-        {/* Additional Goals */}
-        {additionalGoals.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              <Sparkles className="h-3.5 w-3.5" /> Metas Adicionales ({additionalGoals.length})
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {additionalGoals.map(goal => {
-                const cat = getCategoryInfo(goal.category);
-                const Icon = cat.icon;
-                const isCompleted = goal.progress_percentage >= 100;
-                return (
-                  <Card key={goal.id} className={cn("border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden", isCompleted && "opacity-70")}>
-                    <CardContent className="p-3.5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${cat.color}15` }}>
-                            <Icon className="h-3.5 w-3.5" style={{ color: cat.color }} />
-                          </div>
-                          <span className="text-xs font-medium">{cat.name}</span>
-                        </div>
-                        {isCompleted && <Trophy className="h-3 w-3 text-yellow-500" />}
-                      </div>
-                      <p className={cn("text-xs", isCompleted ? "line-through text-muted-foreground" : "text-muted-foreground")}>{goal.title}</p>
-                      <div className="flex items-center gap-2">
-                        <Progress value={goal.progress_percentage} className="flex-1 h-1" />
-                        <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">{goal.progress_percentage}%</span>
-                      </div>
-                      <Slider value={[goal.progress_percentage]} max={100} step={5} onValueCommit={(v) => updateProgress(goal.id, v[0])} />
-                      <div className="flex gap-1 pt-1">
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] rounded-full flex-1" onClick={() => setEditingGoal(goal)}>
-                          <Edit3 className="h-2.5 w-2.5 mr-1" /> Editar
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] rounded-full text-destructive" onClick={() => deleteGoal(goal.id)}>
-                          <Trash2 className="h-2.5 w-2.5" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {quarterGoals.filter(g => EXTRA_AREA_IDS.includes(g.category)).length > 0 &&
+          renderAreaGrid(EXTRA_AREA_IDS, "Metas Adicionales", <Sparkles className="h-3.5 w-3.5" />)
+        }
 
         <Dialog open={!!editingGoal} onOpenChange={(open) => !open && setEditingGoal(null)}>
           <DialogContent>
@@ -423,6 +485,35 @@ export default function TwelveWeekYear() {
                 <Button onClick={saveEdit} className="w-full">Guardar</Button>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Nueva Meta</DialogTitle></DialogHeader>
+            <div className="space-y-3 mt-3">
+              <Input placeholder="Título" value={addTitle} onChange={e => setAddTitle(e.target.value)} />
+              <Textarea placeholder="Descripción" value={addDescription} onChange={e => setAddDescription(e.target.value)} rows={2} />
+              <Select value={addCategory} onValueChange={setAddCategory}>
+                <SelectTrigger><SelectValue placeholder="Categoría" /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <span className="flex items-center gap-2"><cat.icon className="h-4 w-4" />{cat.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input placeholder="Meta objetivo" value={addTarget} onChange={e => setAddTarget(e.target.value)} />
+              <Select value={addMonth !== null ? String(addMonth) : "null"} onValueChange={v => setAddMonth(v === "null" ? null : parseInt(v))}>
+                <SelectTrigger><SelectValue placeholder="Mes" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="null">Sin mes</SelectItem>
+                  {MONTHS.map(m => <SelectItem key={m.id} value={String(m.id)}>{m.label} – {m.subtitle}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button onClick={addGoal} className="w-full">Agregar</Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
