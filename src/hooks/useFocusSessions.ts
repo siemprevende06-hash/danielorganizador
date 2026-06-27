@@ -61,7 +61,6 @@ export const useFocusSessions = () => {
         .insert({
           task_title: taskTitle,
           task_id: taskId || null,
-          task_ids: taskIds && taskIds.length > 0 ? taskIds : null,
           task_area: taskArea || null,
           block_id: blockId || null,
           start_time: new Date().toISOString(),
@@ -74,6 +73,19 @@ export const useFocusSessions = () => {
       if (error) throw error;
       
       const session = data as FocusSession;
+
+      if (taskIds && taskIds.length > 0) {
+        try {
+          await supabase
+            .from('focus_sessions')
+            .update({ task_ids: taskIds })
+            .eq('id', session.id);
+          session.task_ids = taskIds;
+        } catch {
+          // Column task_ids may not exist in DB yet — ignore
+        }
+      }
+
       setActiveSession(session);
       setSessions(prev => [session, ...prev]);
       
@@ -103,7 +115,7 @@ export const useFocusSessions = () => {
       const startTime = new Date(session.start_time);
       const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
-      await supabase
+      const { error } = await supabase
         .from('focus_sessions')
         .update({
           end_time: endTime.toISOString(),
@@ -112,6 +124,8 @@ export const useFocusSessions = () => {
           notes: notes || null,
         })
         .eq('id', sessionId);
+
+      if (error) throw error;
 
       setActiveSession(null);
       setSessions(prev => prev.map(s => 
