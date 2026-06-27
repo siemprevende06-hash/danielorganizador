@@ -12,7 +12,7 @@ import {
   Heart, Brain, Compass, Shirt, Briefcase, DollarSign,
   BookOpen, Users, HeartIcon, Gamepad2, Crown, Music,
   Target, GraduationCap, Star, Sparkles, Anchor,
-  ExternalLink
+  ExternalLink, LayoutDashboard
 } from "lucide-react"
 
 const AREA_LINKS: Record<string, { path: string; label: string }[]> = {
