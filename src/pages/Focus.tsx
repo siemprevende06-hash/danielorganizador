@@ -38,6 +38,7 @@ const POMODORO_OPTIONS = [
 ];
 
 const BREAK_TIME = 10;
+const TASKS_CACHE_KEY = 'focus_tasks_cache';
 
 const formatTime = (seconds: number) => {
   const m = Math.floor(seconds / 60);
@@ -92,10 +93,19 @@ export default function Focus() {
         supabase.from("tasks").select("id,title,priority,source,area_id,routine_block_id").eq("completed", false).order("priority", { ascending: false }).catch(() => null),
         supabase.from("entrepreneurship_tasks").select("id,title,routine_block_id").eq("completed", false).catch(() => null),
       ]);
-      const tasks: AvailableTask[] = [
-        ...((tr?.data || []).map((t: any) => ({ ...t, source: t.source || "general", routine_block_id: t.routine_block_id || undefined }))),
-        ...((etr?.data || []).map((t: any) => ({ id: t.id, title: t.title, source: "entrepreneurship", routine_block_id: t.routine_block_id || undefined }))),
-      ];
+      let tasks: AvailableTask[] = [];
+      if (tr?.data || etr?.data) {
+        tasks = [
+          ...((tr?.data || []).map((t: any) => ({ ...t, source: t.source || "general", routine_block_id: t.routine_block_id || undefined }))),
+          ...((etr?.data || []).map((t: any) => ({ id: t.id, title: t.title, source: "entrepreneurship", routine_block_id: t.routine_block_id || undefined }))),
+        ];
+        try { localStorage.setItem(TASKS_CACHE_KEY, JSON.stringify(tasks)); } catch {}
+      } else {
+        const cached = localStorage.getItem(TASKS_CACHE_KEY);
+        if (cached) {
+          try { tasks = JSON.parse(cached); } catch {}
+        }
+      }
       setAvailableTasks(tasks);
 
       const incomingTaskId = searchParams.get("taskId") || (location.state as any)?.taskId;
@@ -154,7 +164,7 @@ export default function Focus() {
     }
     const aId = selectedAreaRef.current;
     if (activeSessionId) {
-      endSession(activeSessionId, !isBreak);
+      endSession(activeSessionId, !isBreak).catch(() => {});
       setActiveSessionId(null);
     }
     if (aId) addTime(aId as any, Math.round(elapsed));
@@ -212,9 +222,9 @@ export default function Focus() {
     const session = await startSession(title, taskId, selectedArea || undefined, undefined, selectedTaskIds.length > 0 ? selectedTaskIds : undefined);
     if (session) {
       setActiveSessionId(session.id);
-      setIsRunning(true);
-      toast.success(`Enfocado en: ${title}${selectedArea ? ` · ${selectedArea}` : ""}`);
     }
+    setIsRunning(true);
+    toast.success(`Enfocado en: ${title}${selectedArea ? ` · ${selectedArea}` : ""}`);
   };
 
   const handlePause = async () => {
@@ -222,13 +232,13 @@ export default function Focus() {
     const elapsed = (Date.now() - startTimeRef.current) / 1000 / 60;
     const aId = selectedAreaRef.current;
     if (elapsed < 1 && activeSessionId) {
-      endSession(activeSessionId, false);
+      endSession(activeSessionId, false).catch(() => {});
       setActiveSessionId(null);
       toast.error("Sesión demasiado corta (< 1 min) — no se guardó");
       return;
     }
     if (activeSessionId) {
-      await endSession(activeSessionId, false);
+      await endSession(activeSessionId, false).catch(() => {});
       setActiveSessionId(null);
     }
     if (aId && elapsed >= 1) addTime(aId as any, Math.round(elapsed));
@@ -239,7 +249,7 @@ export default function Focus() {
       const elapsed = (Date.now() - startTimeRef.current) / 1000 / 60;
       const aId = selectedAreaRef.current;
       if (elapsed >= 1) {
-        endSession(activeSessionId, false);
+        endSession(activeSessionId, false).catch(() => {});
         if (aId) addTime(aId as any, Math.round(elapsed));
       }
       setActiveSessionId(null);
