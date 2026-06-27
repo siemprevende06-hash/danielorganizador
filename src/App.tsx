@@ -59,6 +59,7 @@ import PuntoPartida from "./pages/PuntoPartida";
 import BoxeoPage from "./pages/BoxeoPage";
 import VidaSocial from "./pages/VidaSocial";
 import MisNecesidades from "./pages/MisNecesidades";
+import AreasDeVida from "./pages/AreasDeVida";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,7 @@ function AppContent() {
         <Route path="/vida-daniel" element={<VidaDanielEstadisticas />} />
         <Route path="/self-review" element={<DailySelfReview />} />
         <Route path="/life-alignment" element={<LifeAlignment />} />
+        <Route path="/areas-de-vida" element={<AreasDeVida />} />
         <Route path="/confidence-steps" element={<ConfidenceSteps />} />
         <Route path="/reading-library" element={<ReadingLibrary />} />
         <Route path="/music-dashboard" element={<MusicDashboard />} />
