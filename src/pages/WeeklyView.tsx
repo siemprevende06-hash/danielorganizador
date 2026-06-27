@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, Target, TrendingUp, Calendar, Flame, CheckCi
 import { WeeklyObjectives } from '@/components/weekly/WeeklyObjectives';
 import { WeeklySystemsStats } from '@/components/systems/WeeklySystemsStats';
 import { useWeeklyObjectives } from '@/hooks/useWeeklyObjectives';
+import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -153,6 +154,7 @@ export default function WeeklyView() {
             <TabsTrigger value="objectives" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Objetivos</TabsTrigger>
             <TabsTrigger value="areas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Áreas</TabsTrigger>
             <TabsTrigger value="sistemas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Sistemas</TabsTrigger>
+            <TabsTrigger value="esfuerzo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Esfuerzo</TabsTrigger>
           </TabsList>
 
           {/* TAB: Overview */}
@@ -268,6 +270,15 @@ export default function WeeklyView() {
             <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl p-4">
               <WeeklySystemsStats weekStart={weekStart} />
             </div>
+          </TabsContent>
+
+          {/* TAB: Esfuerzo y Resultados */}
+          <TabsContent value="esfuerzo">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-4">
+                <AreaEffortResultsPanel periodType="week" periodStart={weekStart} />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

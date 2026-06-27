@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { AreaEffortResultsPanel } from "@/components/areas/AreaEffortResultsPanel";
 
 interface TwelveWeekGoal {
   id: string;
@@ -473,6 +474,21 @@ export default function TwelveWeekYear() {
         {quarterGoals.filter(g => EXTRA_AREA_IDS.includes(g.category)).length > 0 &&
           renderAreaGrid(EXTRA_AREA_IDS, "Metas Adicionales", <Sparkles className="h-3.5 w-3.5" />)
         }
+
+        {/* Esfuerzo y Resultados */}
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
+          <CardContent className="p-4">
+            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Esfuerzo y Resultados — {QUARTERS.find(q => q.id === selectedQuarter)?.name}
+            </h2>
+            <AreaEffortResultsPanel
+              periodType="quarter"
+              periodStart={new Date(2026, (selectedQuarter - 1) * 3, 1)}
+            />
+          </CardContent>
+        </Card>
 
         <Dialog open={!!editingGoal} onOpenChange={(open) => !open && setEditingGoal(null)}>
           <DialogContent>
