@@ -2,10 +2,9 @@ import { useTimeframe } from "@/contexts/TimeframeContext"
 import type { Timeframe } from "@/contexts/TimeframeContext"
 import { useAreaScores } from "@/hooks/useAreaScores"
 import { Card, CardContent } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { Target, Sparkles, Anchor, BarChart3 } from "lucide-react"
+import { BarChart3 } from "lucide-react"
 
 const SECTION_CONFIG = [
   {
@@ -13,21 +12,18 @@ const SECTION_CONFIG = [
     title: "ÁREAS ESTRUCTURALES",
     subtitle: "Cimientos de tu vida",
     color: "from-blue-500/20 to-blue-500/5",
-    progressColor: "bg-blue-500",
   },
   {
     key: "construccion",
     title: "ÁREAS CENTRALES",
     subtitle: "Construcción activa",
     color: "from-amber-500/20 to-amber-500/5",
-    progressColor: "bg-amber-500",
   },
   {
     key: "recompensas",
     title: "ÁREAS DE RECOMPENSA",
     subtitle: "Resultado de tu esfuerzo",
     color: "from-emerald-500/20 to-emerald-500/5",
-    progressColor: "bg-emerald-500",
   },
 ]
 

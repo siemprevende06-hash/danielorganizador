@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Star, FileText } from 'lucide-react'
+import { Star, FileText, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function Paginas() {
@@ -24,10 +24,16 @@ export default function Paginas() {
 
   const [titleDraft, setTitleDraft] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
+  const [mobileView, setMobileView] = useState<'list' | 'editor'>('list')
 
   useEffect(() => {
     if (selectedPage) setTitleDraft(selectedPage.title)
   }, [selectedPage?.id])
+
+  useEffect(() => {
+    if (selectedPage) setMobileView('editor')
+    else setMobileView('list')
+  }, [id, selectedPage])
 
   useEffect(() => {
     if (id && !selectedPage && !loading) {
@@ -60,7 +66,7 @@ export default function Paginas() {
 
   return (
     <div className="h-[calc(100vh-3rem)] lg:h-screen flex overflow-hidden">
-      {/* Sidebar */}
+      {/* Desktop sidebar */}
       <div className="w-64 shrink-0 hidden md:block">
         <PageSidebar
           pages={pages}
@@ -72,12 +78,12 @@ export default function Paginas() {
         />
       </div>
 
-      {/* Mobile sidebar overlay */}
-      <div className="md:hidden">
+      {/* Mobile sidebar */}
+      <div className={cn('md:hidden flex-1', mobileView !== 'list' && 'hidden')}>
         <PageSidebar
           pages={pages}
           selectedId={id || null}
-          onSelect={(pageId) => { handleSelect(pageId) }}
+          onSelect={handleSelect}
           onCreate={handleCreate}
           onDelete={handleDelete}
           onToggleFavorite={toggleFavorite}
@@ -85,14 +91,24 @@ export default function Paginas() {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className={cn(
+        'flex-1 flex flex-col min-w-0 overflow-hidden',
+        'md:flex',
+        mobileView !== 'editor' && 'hidden md:flex'
+      )}>
         {selectedPage ? (
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Page header */}
-            <div className="border-b px-6 py-3 flex items-center gap-3 shrink-0">
+            <div className="border-b px-4 md:px-6 py-3 flex items-center gap-2 shrink-0">
+              <button
+                className="md:hidden p-1 -ml-1 rounded-md hover:bg-muted"
+                onClick={() => navigate('/paginas')}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="text-2xl hover:bg-muted rounded-md p-1 -ml-1 transition-colors">
+                  <button className="text-2xl hover:bg-muted rounded-md p-1 transition-colors">
                     {selectedPage.icon || '📄'}
                   </button>
                 </PopoverTrigger>
@@ -125,7 +141,7 @@ export default function Paginas() {
                 />
               ) : (
                 <h1
-                  className="text-xl font-bold flex-1 cursor-text hover:bg-muted/50 rounded-md px-1 -ml-1 py-1 transition-colors"
+                  className="text-xl font-bold flex-1 cursor-text hover:bg-muted/50 rounded-md px-1 py-1 transition-colors"
                   onClick={() => setEditingTitle(true)}
                 >
                   {selectedPage.title || 'Sin título'}
@@ -146,7 +162,7 @@ export default function Paginas() {
             </div>
 
             {/* Blocks */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
               <div className="max-w-3xl mx-auto">
                 <BlockEditor blocks={blocks} onChange={setBlocks} />
               </div>
