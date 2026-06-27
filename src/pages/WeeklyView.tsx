@@ -11,6 +11,7 @@ import { WeeklyObjectives } from '@/components/weekly/WeeklyObjectives';
 import { WeeklySystemsStats } from '@/components/systems/WeeklySystemsStats';
 import { useWeeklyObjectives } from '@/hooks/useWeeklyObjectives';
 import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
+import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -273,9 +274,20 @@ export default function WeeklyView() {
           </TabsContent>
 
           {/* TAB: Esfuerzo y Resultados */}
-          <TabsContent value="esfuerzo">
+          <TabsContent value="esfuerzo" className="space-y-4">
             <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-              <CardContent className="p-4">
+              <CardContent className="p-4 space-y-4">
+                <LifeAreaScoresPanel periodType="week" />
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border/50" />
+                  </div>
+                  <div className="relative flex justify-center text-[10px]">
+                    <span className="bg-white/80 dark:bg-zinc-900/80 px-3 text-muted-foreground/60">Métricas detalladas</span>
+                  </div>
+                </div>
+
                 <AreaEffortResultsPanel periodType="week" periodStart={weekStart} />
               </CardContent>
             </Card>

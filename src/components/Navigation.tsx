@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star
 } from 'lucide-react';
 import {
   Sheet,
@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { useOffline } from '@/providers/OfflineProvider';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAutoTheme } from '@/hooks/useAutoTheme';
+import { InstallPrompt } from '@/components/InstallPrompt';
 
 interface SidebarItem {
   path?: string;
@@ -62,6 +63,12 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/activation-routine', label: 'Activación', icon: Zap },
       { path: '/morning-prep', label: 'Alistamiento', icon: Shirt },
       { path: '/deactivation-routine', label: 'Desactivación', icon: Moon },
+    ]
+  },
+  {
+    label: 'PÁGINAS',
+    items: [
+      { path: '/paginas', label: 'Todas las Páginas', icon: FileText },
     ]
   },
   {
@@ -124,6 +131,9 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
 const allNavItems = sidebarGroups.flatMap(g => g.items);
 
 function getPageTitle(pathname: string): string {
+  if (pathname.startsWith('/paginas')) {
+    return 'Páginas';
+  }
   for (const item of allNavItems) {
     if (item.path === pathname) return item.label;
     if (item.submenu) {
@@ -157,6 +167,25 @@ export const Navigation = () => {
   const { collapsed, toggleCollapse: sidebarToggle } = useSidebar();
   const { isOnline, pendingMutations } = useOffline();
   const { toggleTheme, isDark } = useAutoTheme();
+  const [favoritePages, setFavoritePages] = useState<{ id: string; title: string; icon: string }[]>([]);
+
+  useEffect(() => {
+    const load = () => {
+      try {
+        const raw = localStorage.getItem('pages_meta');
+        if (raw) {
+          const all = JSON.parse(raw) as any[];
+          setFavoritePages(all.filter((p: any) => p.is_favorite).map((p: any) => ({ id: p.id, title: p.title, icon: p.icon || '📄' })));
+        } else {
+          setFavoritePages([]);
+        }
+      } catch { setFavoritePages([]); }
+    };
+    load();
+    window.addEventListener('storage', load);
+    const interval = setInterval(load, 2000);
+    return () => { window.removeEventListener('storage', load); clearInterval(interval); };
+  }, []);
 
   const renderSidebarItem = (item: SidebarItem) => {
     if (item.submenu) {
@@ -261,8 +290,35 @@ export const Navigation = () => {
                 </div>
               </div>
             ))}
-            <div className="pb-8" />
+            {favoritePages.length > 0 && (
+              <div className="pt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-3 pb-1">
+                  ⭐ Favoritos
+                </p>
+                <div className="space-y-0.5">
+                  {favoritePages.map(p => (
+                    <Link
+                      key={p.id}
+                      to={`/paginas/${p.id}`}
+                      className={cn(
+                        "flex items-center gap-2.5 px-3 py-1 rounded-md text-sm transition-colors",
+                        location.pathname === `/paginas/${p.id}`
+                          ? "text-foreground font-medium bg-accent"
+                          : "text-foreground/70 hover:text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <span className="text-sm">{p.icon}</span>
+                      <span className="truncate">{p.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="pb-2" />
           </nav>
+          <div className="shrink-0 border-t">
+            <InstallPrompt />
+          </div>
         </SheetContent>
       </Sheet>
 
@@ -305,8 +361,35 @@ export const Navigation = () => {
               </div>
             </div>
           ))}
-          <div className="pb-8" />
+          {favoritePages.length > 0 && !collapsed && (
+            <div className="pt-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-3 pb-1">
+                ⭐ Favoritos
+              </p>
+              <div className="space-y-0.5">
+                {favoritePages.map(p => (
+                  <Link
+                    key={p.id}
+                    to={`/paginas/${p.id}`}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-1 rounded-md text-sm transition-colors",
+                      location.pathname === `/paginas/${p.id}`
+                        ? "text-foreground font-medium bg-accent"
+                        : "text-foreground/70 hover:text-foreground hover:bg-accent/50"
+                    )}
+                  >
+                    <span className="text-sm">{p.icon}</span>
+                    <span className="truncate">{p.title}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="pb-2" />
         </nav>
+        <div className="shrink-0 border-t">
+          <InstallPrompt />
+        </div>
       </aside>
     </>
   );

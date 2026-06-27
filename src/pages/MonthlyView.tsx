@@ -13,6 +13,7 @@ import { MonthlyAreaGoals } from '@/components/monthly/MonthlyAreaGoals';
 import { MonthlySystemsStats } from '@/components/systems/MonthlySystemsStats';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
+import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
 
 interface DayData {
   date: Date;
@@ -327,9 +328,20 @@ export default function MonthlyView() {
           <MonthlySystemsStats monthDate={currentMonth} />
         </TabsContent>
 
-        <TabsContent value="esfuerzo">
+        <TabsContent value="esfuerzo" className="space-y-4">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-4">
+              <LifeAreaScoresPanel periodType="month" />
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border/50" />
+                </div>
+                <div className="relative flex justify-center text-[10px]">
+                  <span className="bg-white dark:bg-zinc-900 px-3 text-muted-foreground/60">Métricas detalladas</span>
+                </div>
+              </div>
+
               <AreaEffortResultsPanel periodType="month" periodStart={monthStart} />
             </CardContent>
           </Card>

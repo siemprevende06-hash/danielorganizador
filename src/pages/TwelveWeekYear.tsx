@@ -18,6 +18,7 @@ import {
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AreaEffortResultsPanel } from "@/components/areas/AreaEffortResultsPanel";
+import { LifeAreaScoresPanel } from "@/components/areas/LifeAreaScoresPanel";
 
 interface TwelveWeekGoal {
   id: string;
@@ -478,11 +479,23 @@ export default function TwelveWeekYear() {
         {/* Esfuerzo y Resultados */}
         <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
-          <CardContent className="p-4">
-            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+          <CardContent className="p-4 space-y-5">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" />
               Esfuerzo y Resultados — {QUARTERS.find(q => q.id === selectedQuarter)?.name}
             </h2>
+
+            <LifeAreaScoresPanel periodType="quarter" />
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border/50" />
+              </div>
+              <div className="relative flex justify-center text-[10px]">
+                <span className="bg-white/80 dark:bg-zinc-900/80 px-3 text-muted-foreground/60">Métricas detalladas</span>
+              </div>
+            </div>
+
             <AreaEffortResultsPanel
               periodType="quarter"
               periodStart={new Date(2026, (selectedQuarter - 1) * 3, 1)}

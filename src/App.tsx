@@ -60,7 +60,7 @@ import BoxeoPage from "./pages/BoxeoPage";
 import VidaSocial from "./pages/VidaSocial";
 import MisNecesidades from "./pages/MisNecesidades";
 import AreasDeVida from "./pages/AreasDeVida";
-import Motivos from "./pages/Motivos";
+import Paginas from "./pages/Paginas";
 
 const queryClient = new QueryClient();
 
@@ -125,6 +125,8 @@ function AppContent() {
         <Route path="/vida-social" element={<VidaSocial />} />
         <Route path="/mis-necesidades" element={<MisNecesidades />} />
         <Route path="/motivos" element={<Motivos />} />
+        <Route path="/paginas" element={<Paginas />} />
+        <Route path="/paginas/:id" element={<Paginas />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
