@@ -1,9 +1,9 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { toast } from "sonner";
 
 // === Registro del Service Worker (PWA) ===
-// Se registra en producción y desarrollo, excepto en preview de Lovable / iframes.
 const isInIframe = (() => {
   try {
     return window.self !== window.top;
@@ -15,7 +15,7 @@ const isInIframe = (() => {
 const isPreviewHost =
   window.location.hostname.includes("id-preview--") ||
   window.location.hostname.includes("lovableproject.com") ||
-  window.location.hostname.includes("lovable.app") && window.location.hostname.startsWith("id-preview");
+  (window.location.hostname.includes("lovable.app") && window.location.hostname.startsWith("id-preview"));
 
 if (isPreviewHost || isInIframe) {
   if ("serviceWorker" in navigator) {
@@ -26,16 +26,25 @@ if (isPreviewHost || isInIframe) {
     registerSW({
       immediate: true,
       onNeedRefresh() {
-        if (confirm("Nueva versión disponible. ¿Actualizar?")) {
-          window.location.reload();
-        }
+        const autoReload = setTimeout(() => window.location.reload(), 30_000);
+        toast("Nueva versión disponible", {
+          description: "Actualizando automáticamente en 30 segundos...",
+          duration: Infinity,
+          action: {
+            label: "Actualizar ahora",
+            onClick: () => {
+              clearTimeout(autoReload);
+              window.location.reload();
+            },
+          },
+        });
       },
       onOfflineReady() {
         console.log("[PWA] App lista para usar offline");
       },
       onRegisteredSW(_swUrl, registration) {
         if (registration) {
-          setInterval(() => registration.update().catch(() => {}), 60 * 60 * 1000);
+          setInterval(() => registration.update().catch(() => {}), 5 * 60 * 1000);
         }
       },
     });
