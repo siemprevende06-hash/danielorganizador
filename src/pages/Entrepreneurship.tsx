@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { 
   Briefcase, Plus, Rocket, TrendingUp, CheckCircle2, 
-  ListTodo, DollarSign, Edit3, Trash2 
+  ListTodo, DollarSign, Edit3, Trash2, ImagePlus, Loader2, X
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 interface Entrepreneurship {
   id: string;
@@ -30,6 +31,10 @@ export default function EntrepreneurshipPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadImage, uploading } = useImageUpload();
   const navigate = useNavigate();
 
   useEffect(() => { load(); }, []);
@@ -58,14 +63,26 @@ export default function EntrepreneurshipPage() {
   const save = async () => {
     if (!name.trim()) { toast.error('Nombre requerido'); return; }
     try {
+      let coverUrl = coverImage;
+      if (coverFile) {
+        const url = await uploadImage(coverFile, 'entrepreneurship');
+        if (url) coverUrl = url;
+      }
+
+      const payload: Record<string, any> = {
+        name: name.trim(),
+        description: description.trim() || null,
+        cover_image: coverUrl,
+      };
+
       if (editingId) {
         const { error } = await supabase.from('entrepreneurships')
-          .update({ name: name.trim(), description: description.trim() || null }).eq('id', editingId);
+          .update(payload).eq('id', editingId);
         if (error) throw error;
         toast.success('Emprendimiento actualizado');
       } else {
         const { error } = await supabase.from('entrepreneurships')
-          .insert({ name: name.trim(), description: description.trim() || null });
+          .insert(payload);
         if (error) throw error;
         toast.success('Emprendimiento creado');
       }
@@ -73,6 +90,8 @@ export default function EntrepreneurshipPage() {
       setEditingId(null);
       setName('');
       setDescription('');
+      setCoverImage(null);
+      setCoverFile(null);
       load();
     } catch { toast.error('Error al guardar'); }
   };
@@ -92,6 +111,8 @@ export default function EntrepreneurshipPage() {
     setEditingId(ent.id);
     setName(ent.name);
     setDescription(ent.description || '');
+    setCoverImage(ent.cover_image);
+    setCoverFile(null);
     setDialogOpen(true);
   };
 
@@ -118,7 +139,7 @@ export default function EntrepreneurshipPage() {
           </h1>
           <p className="text-sm text-muted-foreground">{entrepreneurships.length} proyecto{entrepreneurships.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => { setEditingId(null); setName(''); setDescription(''); setDialogOpen(true); }}>
+        <Button size="sm" className="gap-1.5" onClick={() => { setEditingId(null); setName(''); setDescription(''); setCoverImage(null); setCoverFile(null); setDialogOpen(true); }}>
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">Nuevo</span>
         </Button>
@@ -233,7 +254,66 @@ export default function EntrepreneurshipPage() {
           <div className="space-y-3 mt-3">
             <Input placeholder="Nombre" value={name} onChange={e => setName(e.target.value)} />
             <Textarea placeholder="Descripción (opcional)" value={description} onChange={e => setDescription(e.target.value)} rows={2} />
-            <Button onClick={save} className="w-full">{editingId ? 'Guardar' : 'Crear'}</Button>
+            
+            {/* Cover Image Upload */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0 border border-border">
+                  {(coverFile || coverImage) ? (
+                    <img
+                      src={coverFile ? URL.createObjectURL(coverFile) : coverImage!}
+                      alt="Portada"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Briefcase className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setCoverFile(file);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4 mr-1" />
+                    )}
+                    {coverImage || coverFile ? 'Cambiar portada' : 'Subir portada'}
+                  </Button>
+                  {(coverImage || coverFile) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive h-7"
+                      onClick={() => { setCoverImage(null); setCoverFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Eliminar portada
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Button onClick={save} className="w-full" disabled={uploading}>
+              {uploading && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              {editingId ? 'Guardar' : 'Crear'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

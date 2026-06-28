@@ -58,6 +58,7 @@ const ROW_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
 export default function Motivos() {
   const [sections, setSections] = useState<MotivoSection[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const { uploadImage } = useImageUpload();
 
@@ -164,6 +165,30 @@ export default function Motivos() {
           </Button>
         </div>
 
+        {sections.length > 0 && (
+          <Card className="p-2 md:p-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant={selectedSection === null ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedSection(null)}
+              >
+                Todas
+              </Button>
+              {sections.map((s) => (
+                <Button
+                  key={s.id}
+                  variant={selectedSection === s.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedSection(s.id)}
+                >
+                  {s.name}
+                </Button>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {sections.length === 0 && (
           <Card className="p-12 text-center">
             <ImageIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
@@ -177,7 +202,7 @@ export default function Motivos() {
           </Card>
         )}
 
-        {sections.map((section) => (
+        {(selectedSection ? sections.filter((s) => s.id === selectedSection) : sections).map((section) => (
           <Card key={section.id} className="p-4 md:p-5 space-y-4">
             <div className="flex items-center gap-3 flex-wrap">
               <Input
