@@ -61,6 +61,7 @@ import VidaSocial from "./pages/VidaSocial";
 import MisNecesidades from "./pages/MisNecesidades";
 import AreasDeVida from "./pages/AreasDeVida";
 import Paginas from "./pages/Paginas";
+import Motivos from "./pages/Motivos";
 
 const queryClient = new QueryClient();
 
