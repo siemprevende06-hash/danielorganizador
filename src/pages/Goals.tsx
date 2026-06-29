@@ -226,7 +226,13 @@ export default function Goals() {
               const isExpanded = expandedGoal === goal.id;
 
               return (
-                <Card key={goal.id} className="border-l-4 border-l-primary/50">
+                <Card key={goal.id} className={cn("overflow-hidden", !goal.cover_image && "border-l-4 border-l-primary/50")}>
+                  {goal.cover_image && (
+                    <div className="h-28 overflow-hidden">
+                      <img src={goal.cover_image} alt={goal.title} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
                   <CardHeader className="cursor-pointer" onClick={() => setExpandedGoal(isExpanded ? null : goal.id)}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -265,6 +271,12 @@ export default function Goals() {
                           <p className="text-sm">{meta.system}</p>
                         </div>
                       )}
+
+                      {/* Cover image upload */}
+                      <label className="text-xs text-muted-foreground cursor-pointer hover:text-primary transition-colors flex items-center gap-1">
+                        {goal.cover_image ? 'Cambiar portada' : 'Añadir portada'}
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleGoalImageUpload(goal.id, e)} />
+                      </label>
 
                       {/* Tasks by timeline */}
                       <div className="space-y-3">

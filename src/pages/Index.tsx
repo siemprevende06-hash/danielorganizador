@@ -28,9 +28,9 @@ import { AchievementsDisplay } from "@/components/dashboard/AchievementsDisplay"
 import { WeeklySummaryCard } from "@/components/dashboard/WeeklySummaryCard";
 import { RealStatsDashboard } from "@/components/dashboard/RealStatsDashboard";
 import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
-import { QuickStatsGrid } from "@/components/dashboard/QuickStatsGrid";
 import { SostenSection } from "@/components/dashboard/SostenSection";
 import { MiniHabitsSection } from "@/components/dashboard/MiniHabitsSection";
+import { FocusIndicatorsSection } from "@/components/today/FocusIndicatorsSection";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTimeframe } from "@/contexts/TimeframeContext";
 import { useAreaScores } from "@/hooks/useAreaScores";
@@ -155,13 +155,7 @@ export default function Index() {
 
         <RealStatsDashboard />
 
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Focus className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS</h2>
-          </div>
-          <QuickStatsGrid />
-        </Card>
+        <FocusIndicatorsSection />
 
         <MySystemsSection />
 

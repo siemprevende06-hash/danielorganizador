@@ -31,12 +31,43 @@ function loadMusicInstrument(): MusicInstrument {
   return 'piano';
 }
 
-function findDbBlock(baseBlocks: RoutineBlock[], title: string): RoutineBlock | undefined {
-  const words = title.toLowerCase().split(' ');
-  return baseBlocks.find(b => {
-    const t = b.title.toLowerCase();
-    return words.some(w => w.length > 2 && t.includes(w));
-  });
+function buildBlockMatcher(baseBlocks: RoutineBlock[]) {
+  const counter = new Map<string, number>();
+
+  return function matchBlock(title: string, startTime: string, endTime: string): RoutineBlock | undefined {
+    const words = title.toLowerCase().split(' ').filter(w => w.length > 2);
+    if (words.length === 0) return undefined;
+
+    const s1 = parseTime(startTime), e1 = parseTime(endTime);
+
+    const candidates = baseBlocks
+      .map(b => {
+        const t = b.title.toLowerCase();
+        const wordScore = words.filter(w => t.includes(w)).length;
+        const s2 = parseTime(b.startTime), e2 = parseTime(b.endTime);
+        const overlap = Math.max(0, Math.min(e1, e2) - Math.max(s1, s2));
+        return { block: b, wordScore, overlap };
+      })
+      .filter(c => c.wordScore > 0 || c.overlap > 0);
+
+    if (candidates.length === 0) return undefined;
+
+    candidates.sort((a, b) => {
+      if (b.wordScore !== a.wordScore) return b.wordScore - a.wordScore;
+      return b.overlap - a.overlap;
+    });
+
+    const bestScore = candidates[0].wordScore;
+    const bestOverlap = candidates[0].overlap;
+    const bestCandidates = candidates.filter(c => c.wordScore === bestScore && c.overlap === bestOverlap);
+
+    if (bestCandidates.length === 1) return bestCandidates[0].block;
+
+    const key = words.sort().join('::');
+    const idx = counter.get(key) ?? 0;
+    counter.set(key, idx + 1);
+    return bestCandidates[idx % bestCandidates.length].block;
+  };
 }
 
 function buildSchedule(wakeTime: string, focusBlock: boolean, sleepTime: string): ScheduleEntry[] {
@@ -108,8 +139,12 @@ function applyLateWake(schedule: ScheduleEntry[], lateWake: string): ScheduleEnt
   return result;
 }
 
-function toRoutineBlock(entry: ScheduleEntry, i: number, baseBlocks: RoutineBlock[]): RoutineBlock {
-  const match = findDbBlock(baseBlocks, entry.title);
+function toRoutineBlock(
+  entry: ScheduleEntry,
+  i: number,
+  matchBlock: (title: string, startTime: string, endTime: string) => RoutineBlock | undefined
+): RoutineBlock {
+  const match = matchBlock(entry.title, entry.start, entry.end);
   return {
     id: match?.id || `gen-${i}`,
     title: entry.title,
@@ -154,7 +189,8 @@ export function useRoutineConfig() {
   const adjustedBlocks = useMemo((): RoutineBlock[] => {
     let schedule = buildSchedule(wakeTime, focusBlock, sleepTime);
     if (lateWake) schedule = applyLateWake(schedule, lateWake);
-    return schedule.map((entry, i) => toRoutineBlock(entry, i, baseBlocks));
+    const matcher = buildBlockMatcher(baseBlocks);
+    return schedule.map((entry, i) => toRoutineBlock(entry, i, matcher));
   }, [baseBlocks, isLoaded, wakeTime, focusBlock, sleepTime, lateWake]);
 
   const presetName = useMemo(() => {
