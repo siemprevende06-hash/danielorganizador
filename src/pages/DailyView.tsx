@@ -12,8 +12,10 @@ import { DayTimeline } from '@/components/systems/DayTimeline';
 import { HobbyCards } from '@/components/systems/HobbyCards';
 import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
+import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
+import { QuickStatsGrid } from '@/components/dashboard/QuickStatsGrid';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -72,6 +74,8 @@ const MEJORA_GROUPS: SystemGroup[] = [
 
 const ALL_GROUPS = [...SOSTEN_GROUPS, ...MEJORA_GROUPS];
 const TOTAL_HABITS = ALL_GROUPS.reduce((a, g) => a + g.habits.length, 0);
+const WATER_HABIT_IDS = SOSTEN_GROUPS.flatMap(g => g.habits).filter(h => h.hasWater).map(h => h.id);
+const TOTAL_WATER_HABITS = WATER_HABIT_IDS.length;
 
 const AREA_LABELS: Record<string, string> = {
   universidad: "🎓 Universidad",
@@ -100,6 +104,14 @@ export default function DailyView() {
       </div>
     );
   }
+
+  const completedHabits = ALL_GROUPS.reduce((sum, g) => sum + g.habits.filter(h => data.completions?.[h.id]).length, 0);
+  const habitPct = TOTAL_HABITS > 0 ? Math.round((completedHabits / TOTAL_HABITS) * 100) : 0;
+  const waterCompleted = WATER_HABIT_IDS.filter(id => data.completions?.[id]).length;
+  const waterPct = TOTAL_WATER_HABITS > 0 ? Math.round((waterCompleted / TOTAL_WATER_HABITS) * 100) : 0;
+  const totalBlocks = Object.keys(data.workAssignments).filter(id => !id.startsWith('__mode__')).length;
+  const doneBlocks = Object.entries(data.workAssignments).filter(([id, area]) => area && !id.startsWith('__mode__') && data.blockCompletions?.[id]).length;
+  const blockPct = totalBlocks > 0 ? Math.round((doneBlocks / totalBlocks) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-background p-3 md:p-6 pt-20 pb-24">
@@ -131,7 +143,80 @@ export default function DailyView() {
           sleepTime={data.sleepTime}
         />
 
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              Indicadores de Hoy
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium uppercase">Hábitos</span>
+                </div>
+                <p className="text-2xl font-bold">{completedHabits}<span className="text-sm text-muted-foreground">/{TOTAL_HABITS}</span></p>
+                <div className="w-full bg-muted rounded-full h-1.5">
+                  <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${habitPct}%` }} />
+                </div>
+              </div>
+              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Droplets className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium uppercase">Agua</span>
+                </div>
+                <p className="text-2xl font-bold">{waterCompleted}<span className="text-sm text-muted-foreground">/{TOTAL_WATER_HABITS}</span></p>
+                <div className="w-full bg-muted rounded-full h-1.5">
+                  <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${waterPct}%` }} />
+                </div>
+              </div>
+              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Dumbbell className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium uppercase">Ejercicio</span>
+                </div>
+                <p className="text-2xl font-bold">{data.workoutDuration || 0}<span className="text-sm text-muted-foreground"> min</span></p>
+                <p className="text-[10px] text-muted-foreground">Intensidad: {data.workoutIntensity || 0}/10</p>
+              </div>
+              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Moon className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium uppercase">Sueño</span>
+                </div>
+                <p className="text-lg font-bold">{data.wakeTime || '—'}<span className="text-xs text-muted-foreground"> / {data.sleepTime || '—'}</span></p>
+                <p className="text-[10px] text-muted-foreground">Despertar / Dormir</p>
+              </div>
+            </div>
+            {totalBlocks > 0 && (
+              <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <Timer className="h-3.5 w-3.5" />
+                    <span>Bloques de trabajo</span>
+                  </div>
+                  <span className="font-medium">{doneBlocks}/{totalBlocks}</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div className="bg-amber-500 h-2 rounded-full transition-all" style={{ width: `${blockPct}%` }} />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <DailyGuide />
+
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Focus className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS</h2>
+          </div>
+          <QuickStatsGrid />
+        </Card>
+
+        <MySystemsSection />
 
         <Card className="border-blue-500/20">
           <CardHeader className="pb-3">
