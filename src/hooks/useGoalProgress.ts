@@ -9,6 +9,7 @@ export interface Goal {
   target_date: string | null;
   progress_percentage: number;
   status: 'active' | 'completed' | 'paused' | 'abandoned';
+  cover_image: string | null;
   created_at: string;
   updated_at: string;
 }

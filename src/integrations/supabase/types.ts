@@ -1203,6 +1203,7 @@ export type Database = {
       goals: {
         Row: {
           area_id: string | null
+          cover_image: string | null
           created_at: string
           description: string | null
           id: string
@@ -1215,6 +1216,7 @@ export type Database = {
         }
         Insert: {
           area_id?: string | null
+          cover_image?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1227,6 +1229,7 @@ export type Database = {
         }
         Update: {
           area_id?: string | null
+          cover_image?: string | null
           created_at?: string
           description?: string | null
           id?: string

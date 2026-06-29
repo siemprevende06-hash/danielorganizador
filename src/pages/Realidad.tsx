@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { precacheImages } from "@/lib/imageCache";
 import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -66,6 +67,11 @@ export default function Realidad() {
     setSections(load());
   }, []);
 
+  useEffect(() => {
+    const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
+    precacheImages(urls);
+  }, [sections]);
+
   const persist = useCallback((next: RealidadSection[]) => {
     setSections(next);
     save(next);
@@ -113,6 +119,7 @@ export default function Realidad() {
     setUploadingId(cardId);
     const url = await uploadImage(file, "realidad");
     if (url) {
+      precacheImages([url]);
       persist(
         sections.map((s) =>
           s.id === sectionId

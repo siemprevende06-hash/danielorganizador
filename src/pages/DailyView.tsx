@@ -8,14 +8,20 @@ import { TaskAccordion } from '@/components/today/TaskAccordion';
 import { TodayWorkout } from '@/components/today/TodayWorkout';
 import { SystemHabitGroup, type SystemGroup } from '@/components/systems/SystemHabitGroup';
 import { SystemsStatsPanel } from '@/components/systems/SystemsStatsPanel';
-import { DayTimeline } from '@/components/systems/DayTimeline';
 import { HobbyCards } from '@/components/systems/HobbyCards';
 import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
 import { QuickStatsGrid } from '@/components/dashboard/QuickStatsGrid';
+import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
+import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
+import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
+import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
+import { useDailyPlanData } from '@/hooks/useDailyPlanData';
+import { useRoutineConfig } from '@/hooks/useRoutineConfig';
+import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
@@ -78,26 +84,37 @@ const TOTAL_HABITS = ALL_GROUPS.reduce((a, g) => a + g.habits.length, 0);
 const WATER_HABIT_IDS = SOSTEN_GROUPS.flatMap(g => g.habits).filter(h => h.hasWater).map(h => h.id);
 const TOTAL_WATER_HABITS = WATER_HABIT_IDS.length;
 
-const AREA_LABELS: Record<string, string> = {
-  universidad: "🎓 Universidad",
-  emprendimiento: "💼 Emprendimiento",
-  proyectos: "💻 Proyectos",
-  idiomas: "🌐 Idiomas",
-};
-
 export default function DailyView() {
   const today = new Date();
   const formattedDate = format(today, "EEEE, d 'de' MMMM", { locale: es });
   const dayOfYear = Math.ceil((today.getTime() - new Date(today.getFullYear(), 0, 1).getTime()) / 86400000);
   const yearProgress = Math.round((dayOfYear / 365) * 100);
 
-  const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, toggleBlock, setMealPhoto, update } = useSystemsTracking();
+  const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, setMealPhoto, update } = useSystemsTracking();
   const { streak: overallStreak } = useOverallSystemStreak();
 
-  const workBlockLabels: Record<string, string> = {};
-  Object.entries(data.workAssignments).forEach(([blockId, area]) => {
-    if (area) workBlockLabels[blockId] = AREA_LABELS[area] || area;
-  });
+  const {
+    blocks: rawBlocks, blocksLoaded,
+    tasksByBlock, unassignedTasks,
+    assignTaskToBlock, removeTaskFromBlock, refreshTasks,
+    toggleBlockComplete, isBlockCompleted,
+    completedBlocks, completedTasks, dayScore,
+    tasks,
+  } = useDailyPlanData();
+
+  const {
+    adjustedBlocks,
+    wakeTime, setWakeTime,
+    focusBlock, setFocusBlock,
+    sleepTime, setSleepTime,
+    lateWake, setLateWake,
+    musicInstrument, setMusicInstrument,
+    presetName,
+  } = useRoutineConfig();
+
+  const { getCurrentBlock, getBlockProgress, updateBlockFocus } = useRoutineBlocksDB();
+  const currentBlock = getCurrentBlock();
+  const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
   if (loading) {
     return (
@@ -299,15 +316,48 @@ export default function DailyView() {
           </CardContent>
         </Card>
 
-        <Separator className="my-2" />
+        <Separator />
 
-        <DayTimeline
-          workBlockAssignments={workBlockLabels}
-          blockCompletions={data.blockCompletions}
-          onToggleBlock={toggleBlock}
+        {/* Daily Schedule — Routine Config + Current Block + Timeline + Task Pool */}
+        <RoutineConfigBar
+          wakeTime={wakeTime}
+          onWakeChange={setWakeTime}
+          focusBlock={focusBlock}
+          onFocusChange={setFocusBlock}
+          sleepTime={sleepTime}
+          onSleepChange={setSleepTime}
+          lateWake={lateWake}
+          onLateWakeChange={setLateWake}
+          musicInstrument={musicInstrument}
+          onMusicInstrumentChange={setMusicInstrument}
+          presetName={presetName}
         />
 
-        <Separator className="my-2" />
+        <CurrentBlockCard
+          currentBlock={currentBlock}
+          blockProgress={currentProgress}
+          tasksByBlock={tasksByBlock}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+          <DailyTimelinePlanner
+            blocks={adjustedBlocks}
+            tasksByBlock={tasksByBlock}
+            onToggleBlock={toggleBlockComplete}
+            isBlockCompleted={isBlockCompleted}
+            onDropTask={assignTaskToBlock}
+            onRemoveTask={removeTaskFromBlock}
+            onUpdateFocus={updateBlockFocus}
+          />
+          <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
+            <TaskPoolPanel
+              unassignedTasks={unassignedTasks}
+              onTaskCreated={refreshTasks}
+            />
+          </div>
+        </div>
+
+        <Separator />
 
         <TodayWorkout />
 

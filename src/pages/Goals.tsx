@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Target, Trash2, CheckCircle2, Calendar, Heart, ChevronDown, ChevronRight } from "lucide-react";
+import { cn } from '@/lib/utils';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useGoalProgress, Goal, GoalTask } from "@/hooks/useGoalProgress";
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { lifeAreas } from "@/lib/data";
 import { format, addMonths, startOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
@@ -35,6 +37,7 @@ export default function Goals() {
   const [goalTasks, setGoalTasks] = useState<Map<string, GoalTask[]>>(new Map());
   const [expandedGoal, setExpandedGoal] = useState<string | null>(null);
   const { toast } = useToast();
+  const { uploadImage, uploading } = useImageUpload();
   const quarterInfo = getQuarterDates();
 
   const [title, setTitle] = useState("");
@@ -93,6 +96,17 @@ export default function Goals() {
     setGoalTasks(prev => new Map(prev).set(selectedGoalId, tasks));
     await updateGoalProgress(selectedGoalId);
     fetchGoals();
+  };
+
+  const handleGoalImageUpload = async (goalId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const imageUrl = await uploadImage(file, 'goal-covers');
+    if (imageUrl) {
+      await supabase.from('goals').update({ cover_image: imageUrl }).eq('id', goalId);
+      fetchGoals();
+      toast({ title: 'Portada actualizada' });
+    }
   };
 
   const handleToggleTask = async (goalId: string, task: GoalTask) => {
