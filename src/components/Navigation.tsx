@@ -107,7 +107,10 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/systems', label: 'Sistemas', icon: Brain },
       { path: '/vision', label: 'Point B', icon: Eye },
       { path: '/plan-identidad', label: 'Plan Identidad', icon: Compass },
-      { path: '/motivos', label: 'Motivos', icon: Heart },
+      { label: 'Motivos', icon: Heart, submenu: [
+        { path: '/motivos', label: 'Motivos' },
+        { path: '/motivos/realidad', label: 'Realidad' },
+      ]},
       { path: '/punto-partida', label: 'Punto Partida', icon: Activity },
       { path: '/goal-alignment', label: 'Conexión Total', icon: Compass },
       { path: '/life-alignment', label: 'Alineación', icon: Heart },
