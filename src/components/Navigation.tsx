@@ -51,7 +51,6 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/tasks', label: 'Tareas', icon: ListTodo },
       { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
       { path: '/goals', label: 'Metas', icon: Goal },
-      { path: '/projects', label: 'Proyectos', icon: Target },
       { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
       { path: '/journaling', label: 'Diario', icon: BookOpen },
     ]
@@ -86,10 +85,16 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     items: [
       { path: '/entrepreneurship', label: 'Emprendimiento', icon: Briefcase },
       { path: '/university', label: 'Universidad', icon: GraduationCap },
+      { path: '/projects', label: 'Proyectos', icon: Target },
+      { path: '/finance', label: 'Finanzas', icon: DollarSign },
+    ]
+  },
+  {
+    label: 'HOBBIES',
+    items: [
       { path: '/languages-dashboard', label: 'Idiomas', icon: BookOpen },
       { path: '/reading-library', label: 'Biblioteca', icon: BookOpen },
       { path: '/music-dashboard', label: 'Música', icon: BookOpen },
-      { path: '/finance', label: 'Finanzas', icon: DollarSign },
     ]
   },
   {
