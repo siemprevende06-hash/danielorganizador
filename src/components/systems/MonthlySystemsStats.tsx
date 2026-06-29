@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Flame, Trophy } from "lucide-react";
 
 const SYSTEM_NAMES: Record<string, string> = {
   "rutina-activacion": "Activación",
@@ -25,6 +26,7 @@ interface Props {
 
 export function MonthlySystemsStats({ monthDate }: Props) {
   const [data, setData] = useState<any[]>([]);
+  const [streaks, setStreaks] = useState<Record<string, { current: number; best: number }>>({});
 
   const monthStart = startOfMonth(monthDate);
   const monthEnd = endOfMonth(monthDate);
@@ -34,12 +36,22 @@ export function MonthlySystemsStats({ monthDate }: Props) {
 
   useEffect(() => {
     const load = async () => {
-      const { data: rows } = await supabase
-        .from("daily_systems_tracking")
-        .select("tracking_date, completions")
-        .gte("tracking_date", format(monthStart, "yyyy-MM-dd"))
-        .lte("tracking_date", format(monthEnd, "yyyy-MM-dd"));
-      setData(rows || []);
+      const [trackingRes, streaksRes] = await Promise.all([
+        supabase
+          .from("daily_systems_tracking")
+          .select("tracking_date, completions")
+          .gte("tracking_date", format(monthStart, "yyyy-MM-dd"))
+          .lte("tracking_date", format(monthEnd, "yyyy-MM-dd")),
+        supabase
+          .from("system_habit_streaks")
+          .select("habit_id, current_streak, longest_streak"),
+      ]);
+      setData(trackingRes.data || []);
+      const map: Record<string, { current: number; best: number }> = {};
+      (streaksRes.data || []).forEach((s: any) => {
+        map[s.habit_id] = { current: s.current_streak || 0, best: s.longest_streak || 0 };
+      });
+      setStreaks(map);
     };
     load();
   }, [monthDate.toISOString()]);
@@ -52,7 +64,8 @@ export function MonthlySystemsStats({ monthDate }: Props) {
       return !!c[hid];
     }).length;
     const pct = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
-    return { id: hid, name: SYSTEM_NAMES[hid], completedDays, pct };
+    const s = streaks[hid];
+    return { id: hid, name: SYSTEM_NAMES[hid], completedDays, pct, currentStreak: s?.current || 0, bestStreak: s?.best || 0 };
   });
 
   return (
@@ -61,9 +74,21 @@ export function MonthlySystemsStats({ monthDate }: Props) {
       <div className="space-y-2">
         {stats.map(s => (
           <div key={s.id} className="space-y-1">
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between text-xs items-center">
               <span className="text-muted-foreground">{s.name}</span>
-              <span className="font-medium">{s.completedDays}/{totalDays} días ({s.pct}%)</span>
+              <div className="flex items-center gap-2">
+                {s.currentStreak > 0 && (
+                  <span className="flex items-center gap-0.5 text-orange-500 text-[10px] font-medium">
+                    <Flame className="h-3 w-3" />{s.currentStreak}
+                  </span>
+                )}
+                {s.bestStreak > 0 && (
+                  <span className="flex items-center gap-0.5 text-yellow-600 text-[10px] font-medium">
+                    <Trophy className="h-3 w-3" />{s.bestStreak}
+                  </span>
+                )}
+                <span className="font-medium">{s.completedDays}/{totalDays} ({s.pct}%)</span>
+              </div>
             </div>
             <Progress value={s.pct} className="h-1.5" />
           </div>

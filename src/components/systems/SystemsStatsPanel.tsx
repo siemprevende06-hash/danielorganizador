@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { TrendingUp, Droplets, Clock, CheckCircle2, Dumbbell, Moon } from "lucide-react";
+import { TrendingUp, Droplets, Clock, CheckCircle2, Dumbbell, Moon, Flame, Trophy } from "lucide-react";
 
 interface Props {
   completions: Record<string, boolean>;
@@ -12,11 +12,14 @@ interface Props {
   workoutDuration: number;
   wakeTime: string;
   sleepTime: string;
+  currentStreak?: number;
+  longestStreak?: number;
 }
 
 export function SystemsStatsPanel({
   completions, waterData, timeData, totalHabits,
   blockCompletions, workoutDuration, wakeTime, sleepTime,
+  currentStreak, longestStreak,
 }: Props) {
   const completedCount = Object.values(completions).filter(Boolean).length;
   const waterCount = Object.values(waterData).filter(Boolean).length;
@@ -43,11 +46,12 @@ export function SystemsStatsPanel({
     let wake = wh * 60 + wm;
     let sleep = sh * 60 + sm;
     if (wake > sleep) {
-      // sleep was previous day
       return ((24 * 60 - sleep) + wake) / 60;
     }
     return (wake - sleep + 24 * 60) / 60;
   };
+
+  const showStreak = currentStreak !== undefined && longestStreak !== undefined;
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -100,6 +104,22 @@ export function SystemsStatsPanel({
         <p className="text-2xl font-bold text-primary">{combinedPercent}%</p>
         <p className="text-[10px] text-muted-foreground">Puntuación Total</p>
       </Card>
+
+      {showStreak && (
+        <Card className="p-3 text-center col-span-1">
+          <Flame className="h-5 w-5 text-orange-500 mx-auto mb-0.5" />
+          <p className="text-xl font-bold">{currentStreak}</p>
+          <p className="text-[10px] text-muted-foreground">Racha actual</p>
+        </Card>
+      )}
+
+      {showStreak && (
+        <Card className="p-3 text-center col-span-1">
+          <Trophy className="h-5 w-5 text-yellow-600 mx-auto mb-0.5" />
+          <p className="text-xl font-bold">{longestStreak}</p>
+          <p className="text-[10px] text-muted-foreground">Mejor racha</p>
+        </Card>
+      )}
     </div>
   );
 }

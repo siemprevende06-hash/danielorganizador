@@ -15,6 +15,7 @@ import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
 
 const AREAS = [
   { id: 'universidad', label: 'Universidad', icon: '🎓', color: 'bg-blue-500' },
@@ -44,6 +45,7 @@ function StatCard({ icon, label, value, sub, gradient }: { icon: React.ReactNode
 
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const { streak: overallStreak } = useOverallSystemStreak();
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -141,12 +143,13 @@ export default function WeeklyView() {
         </div>
 
         {/* Stat cards — glassmorphism */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2.5">
           <StatCard icon={<CheckCircle2 className="w-4 h-4 text-green-500" />} label="Tareas completadas" value={`${weekStats.tasks}/${weekStats.totalTasks}`} gradient="bg-gradient-to-r from-green-500 to-emerald-400" />
           <StatCard icon={<Clock className="w-4 h-4 text-blue-500" />} label="Horas de foco" value={`${weekStats.focusHours}h`} gradient="bg-gradient-to-r from-blue-500 to-cyan-400" />
           <StatCard icon={<BarChart3 className="w-4 h-4 text-purple-500" />} label="Score promedio" value={`${weekStats.avgScore}%`} gradient="bg-gradient-to-r from-purple-500 to-pink-400" />
           <StatCard icon={<Target className="w-4 h-4 text-amber-500" />} label="Progreso objetivos" value={`${overallProgress}%`} gradient="bg-gradient-to-r from-amber-500 to-orange-400" />
           <StatCard icon={<Flame className="w-4 h-4 text-red-500" />} label="Mejor racha" value={`${weekStats.bestStreak}d`} gradient="bg-gradient-to-r from-red-500 to-rose-400" />
+          <StatCard icon={<Flame className="w-4 h-4 text-orange-500" />} label="Racha global" value={`${overallStreak.current}d`} sub={overallStreak.longest > 0 ? `Mejor: ${overallStreak.longest}d` : undefined} gradient="bg-gradient-to-r from-orange-500 to-amber-400" />
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">

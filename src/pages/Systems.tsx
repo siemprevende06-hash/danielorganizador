@@ -21,6 +21,7 @@ import { VisionAntiVisionPanel } from "@/components/systems/VisionAntiVisionPane
 import { DetailedStatsPanel } from "@/components/systems/DetailedStatsPanel";
 import { ConfidenceFromFacts } from "@/components/systems/ConfidenceFromFacts";
 import { useSystemsTracking } from "@/hooks/useSystemsTracking";
+import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import { HobbyCards } from "@/components/systems/HobbyCards";
 import { LanguageSkillCards } from "@/components/systems/LanguageSkillCards";
 import { WorkoutVisual } from "@/components/systems/WorkoutVisual";
@@ -120,6 +121,7 @@ export default function Systems() {
     toggleCompletion, setTimeValue, setCountValue, toggleWater,
     setWorkAssignment, toggleBlock, setMealPhoto, update,
   } = useSystemsTracking();
+  const { streak: overallStreak } = useOverallSystemStreak();
 
   if (loading) {
     return (
@@ -207,6 +209,8 @@ export default function Systems() {
           workoutDuration={data.workoutDuration}
           wakeTime={data.wakeTime}
           sleepTime={data.sleepTime}
+          currentStreak={overallStreak.current}
+          longestStreak={overallStreak.longest}
         />
 
         {/* Switch para estadísticas detalladas */}

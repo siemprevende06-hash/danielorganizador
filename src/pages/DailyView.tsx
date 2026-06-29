@@ -15,6 +15,7 @@ import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
 import { QuickStatsGrid } from '@/components/dashboard/QuickStatsGrid';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
+import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
 import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
@@ -91,6 +92,7 @@ export default function DailyView() {
   const yearProgress = Math.round((dayOfYear / 365) * 100);
 
   const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, toggleBlock, setMealPhoto, update } = useSystemsTracking();
+  const { streak: overallStreak } = useOverallSystemStreak();
 
   const workBlockLabels: Record<string, string> = {};
   Object.entries(data.workAssignments).forEach(([blockId, area]) => {
@@ -141,6 +143,8 @@ export default function DailyView() {
           workoutDuration={data.workoutDuration}
           wakeTime={data.wakeTime}
           sleepTime={data.sleepTime}
+          currentStreak={overallStreak.current}
+          longestStreak={overallStreak.longest}
         />
 
         <Card>

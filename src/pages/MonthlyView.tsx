@@ -7,13 +7,14 @@ import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, startOf
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Calendar, CheckCircle2, Target, Flame, Clock, BarChart3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Calendar, CheckCircle2, Target, Flame, Clock, BarChart3, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MonthlyAreaGoals } from '@/components/monthly/MonthlyAreaGoals';
 import { MonthlySystemsStats } from '@/components/systems/MonthlySystemsStats';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
 import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
+import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
 
 interface DayData {
   date: Date;
@@ -39,6 +40,7 @@ const AREAS_META: Record<string, { icon: string; color: string }> = {
 export default function MonthlyView() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [daysData, setDaysData] = useState<DayData[]>([]);
+  const { streak: overallStreak } = useOverallSystemStreak();
   const [rawTasks, setRawTasks] = useState<any[]>([]);
   const [focusSessions, setFocusSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,7 +188,7 @@ export default function MonthlyView() {
       </header>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <MiniStat icon={<BarChart3 className="w-4 h-4" />} label="Score prom." value={`${stats.avg}%`}
           extra={stats.trend === 'up' ? <TrendingUp className="w-3 h-3 text-green-500" /> : stats.trend === 'down' ? <TrendingDown className="w-3 h-3 text-destructive" /> : <Minus className="w-3 h-3 text-muted-foreground" />} />
         <MiniStat icon={<CheckCircle2 className="w-4 h-4" />} label="Tareas" value={`${stats.totalCompleted}/${stats.totalTasks}`} />
@@ -195,6 +197,9 @@ export default function MonthlyView() {
         <MiniStat icon={<Target className="w-4 h-4" />} label="Mejor día"
           value={stats.best ? `${stats.best.score}%` : '–'}
           extra={stats.best ? <span className="text-[9px] text-muted-foreground">{format(stats.best.date, 'd MMM', { locale: es })}</span> : null} />
+        <MiniStat icon={<Flame className="w-4 h-4 text-orange-500" />} label="Racha"
+          value={`${overallStreak.current}d`}
+          extra={overallStreak.longest > 0 ? <span className="flex items-center gap-0.5 text-[9px] text-yellow-600"><Trophy className="h-2.5 w-2.5" />{overallStreak.longest}</span> : null} />
       </div>
 
       <Tabs defaultValue="calendar" className="space-y-4">

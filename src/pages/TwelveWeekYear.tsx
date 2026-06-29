@@ -19,6 +19,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AreaEffortResultsPanel } from "@/components/areas/AreaEffortResultsPanel";
 import { LifeAreaScoresPanel } from "@/components/areas/LifeAreaScoresPanel";
+import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 
 interface TwelveWeekGoal {
   id: string;
@@ -79,6 +80,7 @@ const DEFAULT_GOALS = [
 export default function TwelveWeekYear() {
   const [goals, setGoals] = useState<TwelveWeekGoal[]>([]);
   const [loading, setLoading] = useState(true);
+  const { streak: overallStreak } = useOverallSystemStreak();
   const [selectedQuarter, setSelectedQuarter] = useState(() => {
     const month = new Date().getMonth();
     return Math.floor(month / 3) + 1;
@@ -427,12 +429,13 @@ export default function TwelveWeekYear() {
           })}
         </div>
 
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-5 gap-2.5">
           {[
             { icon: <Zap className="h-4 w-4 text-blue-500" />, label: "Semana", value: weekInQ, gradient: "from-blue-500 to-cyan-400" },
             { icon: <BarChart3 className="h-4 w-4 text-purple-500" />, label: "Promedio", value: `${avgProgress}%`, gradient: "from-purple-500 to-pink-400" },
             { icon: <Trophy className="h-4 w-4 text-yellow-500" />, label: "Logradas", value: completedCount, gradient: "from-amber-500 to-orange-400" },
             { icon: <Flame className="h-4 w-4 text-red-500" />, label: "En progreso", value: activeCount, gradient: "from-red-500 to-rose-400" },
+            { icon: <Flame className="h-4 w-4 text-orange-500" />, label: `Racha ${overallStreak.current}d`, value: overallStreak.longest > 0 ? `🏆${overallStreak.longest}` : `${overallStreak.current}d`, gradient: "from-orange-500 to-amber-400" },
           ].map((s, i) => (
             <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className={cn("h-1 bg-gradient-to-r", s.gradient)} />
