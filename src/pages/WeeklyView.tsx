@@ -9,6 +9,9 @@ import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Target, TrendingUp, Calendar, Flame, CheckCircle2, Clock, BarChart3, Zap, Brain, Sparkles } from 'lucide-react';
 import { WeeklyObjectives } from '@/components/weekly/WeeklyObjectives';
 import { WeeklySystemsStats } from '@/components/systems/WeeklySystemsStats';
+import { WeeklyGoals } from '@/components/weekly/WeeklyGoals';
+import { WeeklyTimeBreakdown } from '@/components/weekly/WeeklyTimeBreakdown';
+import { WeeklyTasks } from '@/components/weekly/WeeklyTasks';
 import { useWeeklyObjectives } from '@/hooks/useWeeklyObjectives';
 import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
 import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
@@ -153,12 +156,15 @@ export default function WeeklyView() {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="bg-muted/50 backdrop-blur-sm p-0.5 rounded-xl">
-            <TabsTrigger value="overview" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Resumen</TabsTrigger>
-            <TabsTrigger value="objectives" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Objetivos</TabsTrigger>
-            <TabsTrigger value="areas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Áreas</TabsTrigger>
-            <TabsTrigger value="sistemas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Sistemas</TabsTrigger>
-            <TabsTrigger value="esfuerzo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800">Esfuerzo</TabsTrigger>
+          <TabsList className="bg-muted/50 backdrop-blur-sm p-0.5 rounded-xl overflow-x-auto flex-nowrap">
+            <TabsTrigger value="overview" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Resumen</TabsTrigger>
+            <TabsTrigger value="metas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">🎯 Metas</TabsTrigger>
+            <TabsTrigger value="tiempo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">⏱ Tiempo</TabsTrigger>
+            <TabsTrigger value="tareas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">✅ Tareas</TabsTrigger>
+            <TabsTrigger value="objectives" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Objetivos</TabsTrigger>
+            <TabsTrigger value="areas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Áreas</TabsTrigger>
+            <TabsTrigger value="sistemas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Sistemas</TabsTrigger>
+            <TabsTrigger value="esfuerzo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Esfuerzo</TabsTrigger>
           </TabsList>
 
           {/* TAB: Overview */}
@@ -234,6 +240,21 @@ export default function WeeklyView() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* TAB: Metas */}
+          <TabsContent value="metas">
+            <WeeklyGoals weekStart={weekStart} weekEnd={weekEnd} />
+          </TabsContent>
+
+          {/* TAB: Tiempo */}
+          <TabsContent value="tiempo">
+            <WeeklyTimeBreakdown weekStart={weekStart} weekEnd={weekEnd} />
+          </TabsContent>
+
+          {/* TAB: Tareas */}
+          <TabsContent value="tareas">
+            <WeeklyTasks weekStart={weekStart} weekEnd={weekEnd} />
           </TabsContent>
 
           {/* TAB: Objectives */}
