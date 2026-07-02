@@ -14,8 +14,8 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('sidebarCollapsed');
-    if (stored) setCollapsed(stored === 'true');
+    localStorage.removeItem('sidebarCollapsed');
+    setCollapsed(false);
   }, []);
 
   const toggleCollapse = () => {
