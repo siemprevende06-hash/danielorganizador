@@ -2,35 +2,13 @@ import { useState, useEffect } from "react";
 import { RoutineBlockCard } from "@/components/RoutineBlockCard";
 import { RoutineStreakCard } from "@/components/routine/RoutineStreakCard";
 import { DailyPlanChecklist } from "@/components/routine/DailyPlanChecklist";
-import { EmergencyModeToggle } from "@/components/routine/EmergencyModeToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { CheckCircle2, Battery, Dumbbell, Briefcase, Settings2, GraduationCap, FolderKanban, Clock } from "lucide-react";
+import { CheckCircle2, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { useRoutineBlocksDB, type RoutineBlock as DBRoutineBlock } from "@/hooks/useRoutineBlocksDB";
-
-interface RoutineBlock {
-  id: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  specificTask?: string;
-  genericTasks?: string[];
-  currentStreak: number;
-  maxStreak: number;
-  weeklyCompletion: boolean[];
-  coverImage?: string;
-  isHalfTime?: boolean;
-  blockType?: string;
-  defaultFocus?: string;
-  currentFocus?: string;
-  canSubdivide?: boolean;
-  emergencyOnly?: boolean;
-  notes?: string;
-}
+import { useRoutineBlocks, type RoutineBlock, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
 
 interface TaskItem {
   id: string;
@@ -44,25 +22,43 @@ interface TaskItem {
   routine_block_id?: string;
 }
 
-type EnergyMode = "normal" | "lowEnergy" | "gymHalf" | "entrepreneurshipHalf";
-
 const ROUTINE_STREAK_KEY = "routineStreakData";
 const DAILY_PLAN_KEY = "dailyPlanTasks";
 
+const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string; glow: string }> = {
+  disciplina: {
+    active: "bg-orange-500/20 border-orange-500/60 text-orange-500 shadow-lg shadow-orange-500/10",
+    inactive: "border-orange-500/20 text-orange-400/60 hover:border-orange-500/40 hover:text-orange-400/80",
+    glow: "shadow-orange-500/20",
+  },
+  normal: {
+    active: "bg-blue-500/20 border-blue-500/60 text-blue-500 shadow-lg shadow-blue-500/10",
+    inactive: "border-blue-500/20 text-blue-400/60 hover:border-blue-500/40 hover:text-blue-400/80",
+    glow: "shadow-blue-500/20",
+  },
+  super: {
+    active: "bg-purple-500/20 border-purple-500/60 text-purple-500 shadow-lg shadow-purple-500/10",
+    inactive: "border-purple-500/20 text-purple-400/60 hover:border-purple-500/40 hover:text-purple-400/80",
+    glow: "shadow-purple-500/20",
+  },
+  descanso: {
+    active: "bg-green-500/20 border-green-500/60 text-green-500 shadow-lg shadow-green-500/10",
+    inactive: "border-green-500/20 text-green-400/60 hover:border-green-500/40 hover:text-green-400/80",
+    glow: "shadow-green-500/20",
+  },
+};
+
 const DailyRoutine = () => {
-  const { 
-    blocks: dbBlocks, 
-    isLoaded, 
-    emergencyMode, 
-    toggleEmergencyMode, 
-    getHoursByFocus,
-    updateBlock: updateDBBlock 
-  } = useRoutineBlocksDB();
-  
+  const {
+    blocks: rawBlocks,
+    isLoaded,
+    routineType,
+    setRoutineType,
+    updateBlock: updateHookBlock,
+  } = useRoutineBlocks();
+
   const [blocks, setBlocks] = useState<RoutineBlock[]>([]);
-  const [energyMode, setEnergyMode] = useState<EnergyMode>("normal");
-  
-  // Streak state
+
   const [routineStreak, setRoutineStreak] = useState({
     currentStreak: 0,
     maxStreak: 0,
@@ -71,37 +67,20 @@ const DailyRoutine = () => {
     weeklyCompletion: [false, false, false, false, false, false, false],
   });
 
-  // Daily plan state
   const [dailyTasks, setDailyTasks] = useState<TaskItem[]>([]);
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
   const [planDate, setPlanDate] = useState<"today" | "tomorrow">("today");
 
-  // Convert DB blocks to UI blocks when loaded
+  const currentRoutine = ROUTINES.find(r => r.type === routineType) || ROUTINES[0];
+
   useEffect(() => {
-    if (isLoaded && dbBlocks.length > 0) {
-      const uiBlocks = dbBlocks.map(block => ({
-        id: block.id,
-        title: block.title,
-        startTime: block.startTime,
-        endTime: block.endTime,
-        genericTasks: block.tasks,
-        currentStreak: 0,
-        maxStreak: 0,
-        weeklyCompletion: [false, false, false, false, false, false, false],
-        blockType: block.blockType,
-        defaultFocus: block.defaultFocus,
-        currentFocus: block.currentFocus,
-        canSubdivide: block.canSubdivide,
-        emergencyOnly: block.emergencyOnly,
-        notes: block.notes,
-      }));
-      
-      // Load saved streak data for each block
-      const stored = localStorage.getItem('dailyRoutineBlocks');
+    if (isLoaded && rawBlocks.length > 0) {
+      const storageKey = `dailyRoutineBlocks_${routineType}`;
+      const stored = localStorage.getItem(storageKey);
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
-          const merged = uiBlocks.map(block => {
+          const merged = rawBlocks.map(block => {
             const savedBlock = parsed.find((b: RoutineBlock) => b.id === block.id);
             if (savedBlock) {
               return {
@@ -109,23 +88,18 @@ const DailyRoutine = () => {
                 currentStreak: savedBlock.currentStreak || 0,
                 maxStreak: savedBlock.maxStreak || 0,
                 weeklyCompletion: savedBlock.weeklyCompletion || [false, false, false, false, false, false, false],
-                coverImage: savedBlock.coverImage,
-                specificTask: savedBlock.specificTask,
               };
             }
             return block;
           });
           setBlocks(merged);
-        } catch {
-          setBlocks(uiBlocks);
-        }
-      } else {
-        setBlocks(uiBlocks);
+          return;
+        } catch {}
       }
+      setBlocks(rawBlocks);
     }
-  }, [isLoaded, dbBlocks]);
+  }, [isLoaded, rawBlocks, routineType]);
 
-  // Load streak data
   useEffect(() => {
     const stored = localStorage.getItem(ROUTINE_STREAK_KEY);
     if (stored) {
@@ -133,35 +107,29 @@ const DailyRoutine = () => {
         const parsed = JSON.parse(stored);
         const today = new Date().toDateString();
         const lastDate = parsed.lastCompletedDate ? new Date(parsed.lastCompletedDate).toDateString() : "";
-        
+
         if (lastDate && lastDate !== today) {
           const lastDateObj = new Date(parsed.lastCompletedDate);
           const todayObj = new Date();
           const diffDays = Math.floor((todayObj.getTime() - lastDateObj.getTime()) / (1000 * 60 * 60 * 24));
-          
-          if (diffDays > 1) {
-            parsed.currentStreak = 0;
-          }
+          if (diffDays > 1) parsed.currentStreak = 0;
         }
-        
+
         const dayOfWeek = new Date().getDay();
         if (dayOfWeek === 1 && lastDate !== today) {
           parsed.weeklyCompletion = [false, false, false, false, false, false, false];
         }
-        
+
         setRoutineStreak(parsed);
-      } catch {
-        // Use default
-      }
+      } catch {}
     }
   }, []);
 
-  // Load daily plan tasks
   useEffect(() => {
-    const dateKey = planDate === "today" 
+    const dateKey = planDate === "today"
       ? new Date().toISOString().split('T')[0]
       : new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    
+
     const stored = localStorage.getItem(`${DAILY_PLAN_KEY}_${dateKey}`);
     if (stored) {
       try {
@@ -178,13 +146,12 @@ const DailyRoutine = () => {
     }
   }, [planDate]);
 
-  // Save daily plan tasks
   useEffect(() => {
     if (dailyTasks.length > 0 || completedTaskIds.size > 0) {
-      const dateKey = planDate === "today" 
+      const dateKey = planDate === "today"
         ? new Date().toISOString().split('T')[0]
         : new Date(Date.now() + 86400000).toISOString().split('T')[0];
-      
+
       localStorage.setItem(`${DAILY_PLAN_KEY}_${dateKey}`, JSON.stringify({
         tasks: dailyTasks,
         completedIds: Array.from(completedTaskIds),
@@ -192,22 +159,22 @@ const DailyRoutine = () => {
     }
   }, [dailyTasks, completedTaskIds, planDate]);
 
-  // Save streak data
   useEffect(() => {
     localStorage.setItem(ROUTINE_STREAK_KEY, JSON.stringify(routineStreak));
   }, [routineStreak]);
 
-  // Save blocks to localStorage
   useEffect(() => {
     if (blocks.length > 0) {
-      localStorage.setItem('dailyRoutineBlocks', JSON.stringify(blocks));
+      const storageKey = `dailyRoutineBlocks_${routineType}`;
+      localStorage.setItem(storageKey, JSON.stringify(blocks));
     }
-  }, [blocks]);
+  }, [blocks, routineType]);
 
   const updateBlock = (updatedBlock: RoutineBlock) => {
-    setBlocks(blocks.map(block => 
+    setBlocks(blocks.map(block =>
       block.id === updatedBlock.id ? updatedBlock : block
     ));
+    updateHookBlock(updatedBlock);
   };
 
   const completeBlock = (blockId: string) => {
@@ -217,13 +184,13 @@ const DailyRoutine = () => {
         const dayIndex = today === 0 ? 6 : today - 1;
         const newWeekly = [...block.weeklyCompletion];
         newWeekly[dayIndex] = true;
-        
+
         const newStreak = block.currentStreak + 1;
         return {
           ...block,
           currentStreak: newStreak,
           maxStreak: Math.max(block.maxStreak, newStreak),
-          weeklyCompletion: newWeekly
+          weeklyCompletion: newWeekly,
         };
       }
       return block;
@@ -233,16 +200,16 @@ const DailyRoutine = () => {
   const checkAndUpdateRoutineStreak = () => {
     const today = new Date().getDay();
     const dayIndex = today === 0 ? 6 : today - 1;
-    
+
     const allBlocksComplete = blocks.every(b => b.weeklyCompletion[dayIndex]);
-    
+
     if (allBlocksComplete && blocks.length > 0) {
       const todayStr = new Date().toISOString();
-      
+
       if (routineStreak.lastCompletedDate !== new Date().toDateString()) {
         const newWeeklyCompletion = [...routineStreak.weeklyCompletion];
         newWeeklyCompletion[dayIndex] = true;
-        
+
         setRoutineStreak(prev => ({
           currentStreak: prev.currentStreak + 1,
           maxStreak: Math.max(prev.maxStreak, prev.currentStreak + 1),
@@ -258,18 +225,13 @@ const DailyRoutine = () => {
     checkAndUpdateRoutineStreak();
   }, [blocks]);
 
-  const handleTasksChange = (tasks: TaskItem[]) => {
-    setDailyTasks(tasks);
-  };
+  const handleTasksChange = (tasks: TaskItem[]) => setDailyTasks(tasks);
 
   const handleToggleComplete = (taskId: string) => {
     setCompletedTaskIds(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(taskId)) {
-        newSet.delete(taskId);
-      } else {
-        newSet.add(taskId);
-      }
+      if (newSet.has(taskId)) newSet.delete(taskId);
+      else newSet.add(taskId);
       return newSet;
     });
   };
@@ -285,11 +247,8 @@ const DailyRoutine = () => {
 
   const handleAssignTasksToBlock = (blockId: string, taskIds: string[]) => {
     setDailyTasks(prev => prev.map(task => {
-      if (taskIds.includes(task.id)) {
-        return { ...task, routine_block_id: blockId };
-      } else if (task.routine_block_id === blockId) {
-        return { ...task, routine_block_id: undefined };
-      }
+      if (taskIds.includes(task.id)) return { ...task, routine_block_id: blockId };
+      else if (task.routine_block_id === blockId) return { ...task, routine_block_id: undefined };
       return task;
     }));
   };
@@ -306,93 +265,71 @@ const DailyRoutine = () => {
   }).length;
   const progressPercentage = blocks.length > 0 ? (completedBlocks / blocks.length) * 100 : 0;
 
-  const toggleEnergyMode = (mode: EnergyMode) => {
-    if (energyMode === mode) {
-      setEnergyMode("normal");
-      setBlocks(blocks.map(block => ({ ...block, isHalfTime: false })));
-    } else {
-      setEnergyMode(mode);
-      setBlocks(blocks.map(block => {
-        let shouldHalf = false;
-        
-        if (mode === "lowEnergy" && block.title.includes("Idiomas")) {
-          shouldHalf = true;
-        } else if (mode === "gymHalf" && block.title === "Gym") {
-          shouldHalf = true;
-        } else if (mode === "entrepreneurshipHalf" && block.title === "Focus") {
-          shouldHalf = true;
-        }
-        
-        return { ...block, isHalfTime: shouldHalf };
-      }));
-    }
-  };
-
-  // Calculate hours for emergency mode
-  const hours = isLoaded ? getHoursByFocus() : { universidad: 0, emprendimiento: 0, proyectos: 0, otros: 0 };
-  const normalHours = 9; // 5 deep work blocks (7.5h) + 1 focus block (1.5h)
-  const emergencyHours = 12.5; // With all dynamic blocks converted
+  if (!isLoaded) {
+    return (
+      <div className="container mx-auto px-4 pt-20 pb-8 flex items-center justify-center min-h-[60vh]">
+        <p className="text-muted-foreground">Cargando rutina...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 pt-20 pb-8 space-y-6" style={{ paddingTop: 'max(5rem, calc(env(safe-area-inset-top) + 4rem))' }}>
-      <header>
-        <h1 className="text-3xl font-bold text-foreground">
-          Rutina Diaria
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          18 bloques estructurados • Despertar 5:00 AM
-        </p>
-      </header>
-
-      {/* Hours Summary Card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Distribución del Día
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-              <div className="flex items-center gap-2 text-blue-500 mb-1">
-                <GraduationCap className="h-4 w-4" />
-                <span className="text-xs font-medium">Universidad</span>
-              </div>
-              <p className="text-xl font-bold">{hours.universidad.toFixed(1)}h</p>
-            </div>
-            <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
-              <div className="flex items-center gap-2 text-purple-500 mb-1">
-                <Briefcase className="h-4 w-4" />
-                <span className="text-xs font-medium">Emprendimiento</span>
-              </div>
-              <p className="text-xl font-bold">{hours.emprendimiento.toFixed(1)}h</p>
-            </div>
-            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
-              <div className="flex items-center gap-2 text-green-500 mb-1">
-                <FolderKanban className="h-4 w-4" />
-                <span className="text-xs font-medium">Proyectos</span>
-              </div>
-              <p className="text-xl font-bold">{hours.proyectos.toFixed(1)}h</p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted border border-border">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <Clock className="h-4 w-4" />
-                <span className="text-xs font-medium">Otros</span>
-              </div>
-              <p className="text-xl font-bold">{hours.otros.toFixed(1)}h</p>
-            </div>
+      {/* Notion-style Routine Selector */}
+      <div className="space-y-4">
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Rutina Diaria</h1>
+            <p className="text-muted-foreground mt-1">
+              {currentRoutine.totalBlocks} bloques · {currentRoutine.wakeTime} — {currentRoutine.sleepTime}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <Link to="/routine-day">
+            <button className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-accent/50">
+              <Settings2 className="h-3.5 w-3.5" />
+              Editar
+            </button>
+          </Link>
+        </header>
 
-      {/* Emergency Mode Toggle */}
-      <EmergencyModeToggle
-        isActive={emergencyMode}
-        onToggle={toggleEmergencyMode}
-        normalHours={normalHours}
-        emergencyHours={emergencyHours}
-      />
+        {/* iPhone-style Segmented Control */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {ROUTINES.map((r) => {
+            const style = ROUTINE_STYLES[r.type];
+            const isActive = routineType === r.type;
+            return (
+              <button
+                key={r.type}
+                onClick={() => setRoutineType(r.type)}
+                className={cn(
+                  "flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]",
+                  isActive ? style.active : `${style.inactive} bg-transparent`,
+                  isActive && "scale-[1.02]"
+                )}
+              >
+                <span className={cn(
+                  "text-xl leading-none transition-transform duration-300",
+                  isActive && "scale-110"
+                )}>
+                  {r.icon}
+                </span>
+                <span className={cn(
+                  "text-xs font-semibold tracking-tight whitespace-nowrap transition-all",
+                  isActive ? "opacity-100" : "opacity-70"
+                )}>
+                  {r.shortLabel}
+                </span>
+                <span className={cn(
+                  "text-[10px] font-mono tracking-tight transition-all",
+                  isActive ? "opacity-80" : "opacity-40"
+                )}>
+                  {r.wakeTime}—{r.sleepTime}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Streak Card */}
       <RoutineStreakCard
@@ -413,40 +350,7 @@ const DailyRoutine = () => {
         onPlanDateChange={setPlanDate}
       />
 
-      {/* Mode Selection and Energy Mode Buttons */}
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant={energyMode === "lowEnergy" ? "default" : "outline"}
-            onClick={() => toggleEnergyMode("lowEnergy")}
-            className={cn("transition-all")}
-          >
-            <Battery className="h-4 w-4 mr-2" />
-            Mínimo por Energía
-          </Button>
-          <Button
-            variant={energyMode === "gymHalf" ? "default" : "outline"}
-            onClick={() => toggleEnergyMode("gymHalf")}
-          >
-            <Dumbbell className="h-4 w-4 mr-2" />
-            Gym Reducido
-          </Button>
-          <Button
-            variant={energyMode === "entrepreneurshipHalf" ? "default" : "outline"}
-            onClick={() => toggleEnergyMode("entrepreneurshipHalf")}
-          >
-            <Briefcase className="h-4 w-4 mr-2" />
-            Emprendimiento Reducido
-          </Button>
-        </div>
-        <Link to="/routine-day">
-          <Button variant="outline">
-            <Settings2 className="h-4 w-4 mr-2" />
-            Configurar Bloques
-          </Button>
-        </Link>
-      </div>
-
+      {/* Progress Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
