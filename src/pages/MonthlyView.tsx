@@ -9,7 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Calendar, CheckCircle2, Target, Flame, Clock, BarChart3, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MonthlyAreaGoals } from '@/components/monthly/MonthlyAreaGoals';
+import { MonthlyGoals } from '@/components/monthly/MonthlyGoals';
+import { MonthlyTimeBreakdown } from '@/components/monthly/MonthlyTimeBreakdown';
+import { MonthlyTasks } from '@/components/monthly/MonthlyTasks';
 import { MonthlySystemsStats } from '@/components/systems/MonthlySystemsStats';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
@@ -203,14 +205,16 @@ export default function MonthlyView() {
       </div>
 
       <Tabs defaultValue="calendar" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="calendar">Calendario</TabsTrigger>
-          <TabsTrigger value="events">Eventos</TabsTrigger>
-          <TabsTrigger value="weeks">Semanas</TabsTrigger>
-          <TabsTrigger value="areas">Áreas</TabsTrigger>
-          <TabsTrigger value="goals">Metas</TabsTrigger>
-          <TabsTrigger value="esfuerzo">Esfuerzo</TabsTrigger>
-          <TabsTrigger value="sistemas">Sistemas</TabsTrigger>
+        <TabsList className="bg-muted/50 backdrop-blur-sm p-0.5 rounded-xl overflow-x-auto flex-nowrap">
+          <TabsTrigger value="calendar" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Calendario</TabsTrigger>
+          <TabsTrigger value="events" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Eventos</TabsTrigger>
+          <TabsTrigger value="weeks" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Semanas</TabsTrigger>
+          <TabsTrigger value="goals-new" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">🎯 Metas</TabsTrigger>
+          <TabsTrigger value="tiempo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">⏱ Tiempo</TabsTrigger>
+          <TabsTrigger value="tareas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">✅ Tareas</TabsTrigger>
+          <TabsTrigger value="areas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Áreas</TabsTrigger>
+          <TabsTrigger value="esfuerzo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Esfuerzo</TabsTrigger>
+          <TabsTrigger value="sistemas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Sistemas</TabsTrigger>
         </TabsList>
 
         {/* Calendar tab */}
@@ -324,9 +328,19 @@ export default function MonthlyView() {
           ))}
         </TabsContent>
 
-        {/* Goals tab */}
-        <TabsContent value="goals">
-          <MonthlyAreaGoals currentMonth={currentMonth} />
+        {/* Goals tab (enhanced) */}
+        <TabsContent value="goals-new">
+          <MonthlyGoals currentMonth={currentMonth} />
+        </TabsContent>
+
+        {/* Tiempo tab */}
+        <TabsContent value="tiempo">
+          <MonthlyTimeBreakdown currentMonth={currentMonth} />
+        </TabsContent>
+
+        {/* Tareas tab */}
+        <TabsContent value="tareas">
+          <MonthlyTasks currentMonth={currentMonth} />
         </TabsContent>
 
         <TabsContent value="sistemas">
