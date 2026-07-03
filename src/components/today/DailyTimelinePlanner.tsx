@@ -150,7 +150,7 @@ export function DailyTimelinePlanner({
     return [...blocks]
       .filter(b => {
         const startM = parseTime(b.startTime);
-        return startM >= 360;
+        return startM >= 300;
       })
       .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
   }, [blocks]);

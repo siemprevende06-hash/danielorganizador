@@ -16,6 +16,8 @@ export interface RoutineBlock {
   blockType?: string;
   isHalfTime?: boolean;
   order: number;
+  currentFocus?: string;
+  defaultFocus?: string;
 }
 
 export interface RoutineInfo {
@@ -44,7 +46,8 @@ const makeBlock = (
   endTime: string,
   order: number,
   isFocusBlock = false,
-  tasks?: string[]
+  tasks?: string[],
+  defaultFocus?: string
 ): RoutineBlock => ({
   id,
   title,
@@ -56,6 +59,8 @@ const makeBlock = (
   weeklyCompletion: [false, false, false, false, false, false, false],
   isFocusBlock,
   order,
+  defaultFocus: defaultFocus || (isFocusBlock ? 'none' : undefined),
+  currentFocus: undefined,
 });
 
 const DISCIPLINA_BLOCKS: RoutineBlock[] = [
@@ -251,6 +256,13 @@ export const useRoutineBlocks = () => {
     return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
   }, []);
 
+  const updateBlockFocus = useCallback((blockId: string, focus: string) => {
+    const newBlocks = blocks.map(block =>
+      block.id === blockId ? { ...block, currentFocus: focus } : block
+    );
+    saveBlocks(newBlocks);
+  }, [blocks, saveBlocks]);
+
   return {
     blocks,
     isLoaded,
@@ -262,6 +274,7 @@ export const useRoutineBlocks = () => {
     getBlockDurationMinutes,
     getBlockProgress,
     saveBlocks,
+    updateBlockFocus,
     routineInfo: ROUTINES.find(r => r.type === routineType) || ROUTINES[0],
   };
 };

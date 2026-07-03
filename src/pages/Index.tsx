@@ -101,7 +101,7 @@ export default function Index() {
   const currentBlock = getCurrentBlock();
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
-  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType } = useRoutineBlocks();
+  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus } = useRoutineBlocks();
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -228,7 +228,7 @@ export default function Index() {
             isBlockCompleted={isBlockCompleted}
             onDropTask={assignTaskToBlock}
             onRemoveTask={removeTaskFromBlock}
-            onUpdateFocus={updateBlockFocus}
+            onUpdateFocus={updateRoutineBlockFocus}
           />
           <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
             <TaskPoolPanel
