@@ -22,6 +22,8 @@ import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
+import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutineBlocks';
+import { cn } from '@/lib/utils';
 import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
@@ -84,6 +86,13 @@ const TOTAL_HABITS = ALL_GROUPS.reduce((a, g) => a + g.habits.length, 0);
 const WATER_HABIT_IDS = SOSTEN_GROUPS.flatMap(g => g.habits).filter(h => h.hasWater).map(h => h.id);
 const TOTAL_WATER_HABITS = WATER_HABIT_IDS.length;
 
+const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> = {
+  disciplina: { active: "bg-orange-500/20 border-orange-500/60 text-orange-500", inactive: "border-orange-500/20 text-orange-400/60 hover:border-orange-500/40" },
+  normal: { active: "bg-blue-500/20 border-blue-500/60 text-blue-500", inactive: "border-blue-500/20 text-blue-400/60 hover:border-blue-500/40" },
+  super: { active: "bg-purple-500/20 border-purple-500/60 text-purple-500", inactive: "border-purple-500/20 text-purple-400/60 hover:border-purple-500/40" },
+  descanso: { active: "bg-green-500/20 border-green-500/60 text-green-500", inactive: "border-green-500/20 text-green-400/60 hover:border-green-500/40" },
+};
+
 export default function DailyView() {
   const today = new Date();
   const formattedDate = format(today, "EEEE, d 'de' MMMM", { locale: es });
@@ -115,6 +124,8 @@ export default function DailyView() {
   const { getCurrentBlock, getBlockProgress, updateBlockFocus } = useRoutineBlocksDB();
   const currentBlock = getCurrentBlock();
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
+
+  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType } = useRoutineBlocks();
 
   if (loading) {
     return (
@@ -318,6 +329,29 @@ export default function DailyView() {
 
         <Separator />
 
+        {/* Routine Selector - iPhone-style Segmented Control */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {ROUTINES.map((r) => {
+            const style = ROUTINE_STYLES[r.type];
+            const isActive = routineType === r.type;
+            return (
+              <button
+                key={r.type}
+                onClick={() => setRoutineType(r.type)}
+                className={cn(
+                  "flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]",
+                  isActive ? style.active : `${style.inactive} bg-transparent`,
+                  isActive && "scale-[1.02]"
+                )}
+              >
+                <span className="text-xl leading-none transition-transform duration-300">{r.icon}</span>
+                <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", isActive ? "opacity-100" : "opacity-70")}>{r.shortLabel}</span>
+                <span className={cn("text-[10px] font-mono tracking-tight", isActive ? "opacity-80" : "opacity-40")}>{r.wakeTime}—{r.sleepTime}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Daily Schedule — Routine Config + Current Block + Timeline + Task Pool */}
         <RoutineConfigBar
           wakeTime={wakeTime}
@@ -341,7 +375,7 @@ export default function DailyView() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           <DailyTimelinePlanner
-            blocks={adjustedBlocks}
+            blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks}
             tasksByBlock={tasksByBlock}
             onToggleBlock={toggleBlockComplete}
             isBlockCompleted={isBlockCompleted}

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export type BlockType = 'fijo' | 'dinamico' | 'configurable' | 'evitar';
-export type BlockFocus = 'universidad' | 'emprendimiento' | 'proyectos' | 'none';
+export type BlockFocus = 'universidad' | 'emprendimiento' | 'proyectos' | 'idiomas' | 'musica' | 'lectura' | 'descanso' | 'ocio' | 'none';
 
 export interface SubBlock {
   id: string;

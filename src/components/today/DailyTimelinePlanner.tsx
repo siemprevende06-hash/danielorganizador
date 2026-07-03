@@ -30,10 +30,12 @@ interface Props {
 const FOCUS_OPTIONS = [
   { value: 'universidad', label: '🎓 Universidad', color: 'text-blue-500' },
   { value: 'emprendimiento', label: '💼 Emprendimiento', color: 'text-purple-500' },
-  { value: 'descanso', label: '🛌 Descanso', color: 'text-slate-500' },
   { value: 'proyectos', label: '💻 Proyectos', color: 'text-emerald-500' },
-  { value: 'lectura', label: '📖 Lectura', color: 'text-indigo-500' },
+  { value: 'idiomas', label: '🗣️ Idiomas', color: 'text-teal-500' },
   { value: 'musica', label: '🎵 Música', color: 'text-pink-500' },
+  { value: 'lectura', label: '📖 Lectura', color: 'text-indigo-500' },
+  { value: 'descanso', label: '🛌 Descanso', color: 'text-slate-500' },
+  { value: 'ocio', label: '☕ Ocio', color: 'text-orange-500' },
   { value: 'entretenimiento', label: '🎮 Entretenimiento', color: 'text-orange-500' },
 ];
 
@@ -41,15 +43,16 @@ const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; la
   universidad: { border: 'border-l-blue-500', bg: 'bg-blue-500/10', dot: 'bg-blue-500', label: 'Universidad' },
   emprendimiento: { border: 'border-l-purple-500', bg: 'bg-purple-500/10', dot: 'bg-purple-500', label: 'Emprendimiento' },
   proyectos: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/10', dot: 'bg-emerald-500', label: 'Proyectos' },
-  descanso: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', dot: 'bg-slate-500', label: 'Descanso' },
-  lectura: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Lectura' },
+  idiomas: { border: 'border-l-teal-500', bg: 'bg-teal-500/10', dot: 'bg-teal-500', label: 'Idiomas' },
   musica: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Música' },
+  lectura: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Lectura' },
+  descanso: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', dot: 'bg-slate-500', label: 'Descanso' },
+  ocio: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Ocio' },
   entretenimiento: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Entretenimiento' },
   gym: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Gym' },
   estructural: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Estructural' },
   alimentacion: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500', label: 'Alimentación' },
   hobbys: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Hobbys' },
-  ocio: { border: 'border-l-slate-400', bg: 'bg-slate-400/10', dot: 'bg-slate-400', label: 'Ocio' },
   default: { border: 'border-l-muted-foreground/30', bg: 'bg-muted/30', dot: 'bg-muted-foreground', label: 'Otros' },
 };
 
