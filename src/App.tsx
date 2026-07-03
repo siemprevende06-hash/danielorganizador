@@ -60,6 +60,7 @@ import BoxeoPage from "./pages/BoxeoPage";
 import VidaSocial from "./pages/VidaSocial";
 import MisNecesidades from "./pages/MisNecesidades";
 import AreasDeVida from "./pages/AreasDeVida";
+import Recompensas from "./pages/Recompensas";
 import Paginas from "./pages/Paginas";
 import Motivos from "./pages/Motivos";
 import Realidad from "./pages/Realidad";
@@ -109,6 +110,7 @@ function AppContent() {
         <Route path="/self-review" element={<DailySelfReview />} />
         <Route path="/life-alignment" element={<LifeAlignment />} />
         <Route path="/areas-de-vida" element={<AreasDeVida />} />
+        <Route path="/recompensas" element={<Recompensas />} />
         <Route path="/confidence-steps" element={<ConfidenceSteps />} />
         <Route path="/reading-library" element={<ReadingLibrary />} />
         <Route path="/music-dashboard" element={<MusicDashboard />} />

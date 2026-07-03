@@ -25,6 +25,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     label: 'RUEDA DE LA VIDA',
     items: [
       { path: '/areas-de-vida', label: 'Áreas de Vida', icon: LayoutDashboard },
+      { path: '/recompensas', label: 'Recompensas', icon: Sparkles },
     ]
   },
   {
