@@ -16,6 +16,7 @@ export interface Recipe {
   photo_url?: string | null;
   instructions?: string | null;
   servings?: number | null;
+  category?: string | null;
   ingredients?: RecipeIngredient[];
 }
 
