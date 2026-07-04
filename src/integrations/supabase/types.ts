@@ -1158,6 +1158,7 @@ export type Database = {
       goals: {
         Row: {
           area_id: string | null
+          cover_image: string | null
           created_at: string
           description: string | null
           id: string
@@ -1170,6 +1171,7 @@ export type Database = {
         }
         Insert: {
           area_id?: string | null
+          cover_image?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1182,6 +1184,7 @@ export type Database = {
         }
         Update: {
           area_id?: string | null
+          cover_image?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1831,6 +1834,45 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           youtube_url?: string | null
+        }
+        Relationships: []
+      }
+      necesidades: {
+        Row: {
+          area_referencia: string | null
+          created_at: string
+          descripcion: string | null
+          icono: string | null
+          id: string
+          necesidad_id: string
+          orden: number
+          progreso: number
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          area_referencia?: string | null
+          created_at?: string
+          descripcion?: string | null
+          icono?: string | null
+          id?: string
+          necesidad_id: string
+          orden?: number
+          progreso?: number
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          area_referencia?: string | null
+          created_at?: string
+          descripcion?: string | null
+          icono?: string | null
+          id?: string
+          necesidad_id?: string
+          orden?: number
+          progreso?: number
+          titulo?: string
+          updated_at?: string
         }
         Relationships: []
       }
