@@ -245,7 +245,7 @@ export default function DailyView() {
             <Focus className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS</h2>
           </div>
-          <QuickStatsGrid />
+          <QuickStatsGrid timeframe="today" />
         </Card>
 
         <MySystemsSection />
