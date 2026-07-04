@@ -60,7 +60,7 @@ export function useBoxeo() {
     const { data, error } = await supabase.from('boxeo_sesiones').insert(sesion).select().single();
     if (error) { toast.error('Error al registrar sesión'); return null; }
     toast.success('Sesión registrada 💪');
-    setSesiones(prev => [data, ...prev]);
+    setSesiones(prev => [data as any, ...prev]);
     return data;
   };
 
