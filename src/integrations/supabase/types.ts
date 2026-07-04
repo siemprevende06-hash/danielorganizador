@@ -443,6 +443,39 @@ export type Database = {
         }
         Relationships: []
       }
+      citas: {
+        Row: {
+          created_at: string
+          fecha: string
+          id: string
+          lugar: string | null
+          notas: string | null
+          persona: string
+          rating: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          lugar?: string | null
+          notas?: string | null
+          persona: string
+          rating?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          lugar?: string | null
+          notas?: string | null
+          persona?: string
+          rating?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       confidence_steps: {
         Row: {
           area: string
@@ -915,6 +948,45 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      eventos_sociales: {
+        Row: {
+          con_quien: Json
+          created_at: string
+          descripcion: string | null
+          fecha: string
+          gasto: number
+          id: string
+          notas: string | null
+          rating: number
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          con_quien?: Json
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          gasto?: number
+          id?: string
+          notas?: string | null
+          rating?: number
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          con_quien?: Json
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          gasto?: number
+          id?: string
+          notas?: string | null
+          rating?: number
+          tipo?: string
           updated_at?: string
         }
         Relationships: []
@@ -1399,6 +1471,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      intimidad_tracking: {
+        Row: {
+          calidad: number
+          created_at: string
+          fecha: string
+          id: string
+          notas: string | null
+          posiciones: Json
+          updated_at: string
+        }
+        Insert: {
+          calidad?: number
+          created_at?: string
+          fecha?: string
+          id?: string
+          notas?: string | null
+          posiciones?: Json
+          updated_at?: string
+        }
+        Update: {
+          calidad?: number
+          created_at?: string
+          fecha?: string
+          id?: string
+          notas?: string | null
+          posiciones?: Json
+          updated_at?: string
+        }
+        Relationships: []
       }
       journal_entries: {
         Row: {
@@ -2202,6 +2304,42 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      punto_partida: {
+        Row: {
+          area_id: string
+          area_type: string
+          created_at: string
+          hechos: Json
+          id: string
+          nota: number
+          respuestas: Json
+          sub_scores: Json
+          updated_at: string
+        }
+        Insert: {
+          area_id: string
+          area_type?: string
+          created_at?: string
+          hechos?: Json
+          id?: string
+          nota?: number
+          respuestas?: Json
+          sub_scores?: Json
+          updated_at?: string
+        }
+        Update: {
+          area_id?: string
+          area_type?: string
+          created_at?: string
+          hechos?: Json
+          id?: string
+          nota?: number
+          respuestas?: Json
+          sub_scores?: Json
+          updated_at?: string
         }
         Relationships: []
       }
