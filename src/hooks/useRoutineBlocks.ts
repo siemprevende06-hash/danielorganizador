@@ -9,9 +9,9 @@ export interface RoutineBlock {
   endTime: string;
   tasks?: string[];
   genericTasks?: string[];
-  currentStreak?: number;
-  maxStreak?: number;
-  weeklyCompletion?: boolean[];
+  currentStreak: number;
+  maxStreak: number;
+  weeklyCompletion: boolean[];
   isFocusBlock?: boolean;
   blockType?: string;
   isHalfTime?: boolean;
