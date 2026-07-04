@@ -27,6 +27,12 @@ import { LanguageSkillCards } from "@/components/systems/LanguageSkillCards";
 import { WorkoutVisual } from "@/components/systems/WorkoutVisual";
 import { OfflineIndicator } from "@/components/systems/OfflineIndicator";
 import { PresetSchedulePicker } from "@/components/routine/PresetSchedulePicker";
+import { WheelOfLife } from "@/components/WheelOfLife";
+import { HombreTopWheel } from "@/components/HombreTopWheel";
+import { TimeframeSelector } from "@/components/TimeframeSelector";
+import { useTimeframe } from "@/contexts/TimeframeContext";
+import { useAreaScores } from "@/hooks/useAreaScores";
+import { useHombreTopScores } from "@/hooks/useHombreTopScores";
 
 // === HÁBITOS DE SOSTÉN (te mantienen) ===
 const SOSTEN_GROUPS: SystemGroup[] = [
