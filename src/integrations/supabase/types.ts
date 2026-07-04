@@ -2656,6 +2656,33 @@ export type Database = {
         }
         Relationships: []
       }
+      system_overall_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          id: number
+          last_date: string | null
+          longest_streak: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          id?: number
+          last_date?: string | null
+          longest_streak?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          id?: number
+          last_date?: string | null
+          longest_streak?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           area_id: string | null
