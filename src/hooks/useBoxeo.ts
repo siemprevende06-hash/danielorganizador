@@ -30,8 +30,8 @@ export function useBoxeo() {
         supabase.from('boxeo_tecnicas').select('*').order('nivel_requerido'),
         supabase.from('boxeo_sesiones').select('*').order('fecha', { ascending: false }),
       ]);
-      if (tecRes.data) setTecnicas(tecRes.data);
-      if (sesRes.data) setSesiones(sesRes.data);
+      if (tecRes.data) setTecnicas(tecRes.data as any);
+      if (sesRes.data) setSesiones(sesRes.data as any);
     } catch (err) {
       console.error('Error loading boxing data:', err);
     } finally {
