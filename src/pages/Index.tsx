@@ -164,7 +164,7 @@ export default function Index() {
 
         <QuickDaySummary />
 
-        <RealStatsDashboard />
+        <RealStatsDashboard timeframe="today" />
 
         <FocusIndicatorsSection />
 
