@@ -375,7 +375,7 @@ export default function DailyView() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           <DailyTimelinePlanner
-            blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks}
+            blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
             tasksByBlock={tasksByBlock}
             onToggleBlock={toggleBlockComplete}
             isBlockCompleted={isBlockCompleted}
