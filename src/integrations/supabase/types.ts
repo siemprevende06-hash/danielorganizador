@@ -224,6 +224,111 @@ export type Database = {
         }
         Relationships: []
       }
+      boxeo_sesiones: {
+        Row: {
+          created_at: string
+          duracion_minutos: number
+          fecha: string
+          id: string
+          intensidad: string
+          notas: string | null
+          rounds: number
+          tecnicas_practicadas: Json
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duracion_minutos?: number
+          fecha?: string
+          id?: string
+          intensidad?: string
+          notas?: string | null
+          rounds?: number
+          tecnicas_practicadas?: Json
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duracion_minutos?: number
+          fecha?: string
+          id?: string
+          intensidad?: string
+          notas?: string | null
+          rounds?: number
+          tecnicas_practicadas?: Json
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      boxeo_tecnicas: {
+        Row: {
+          categoria: string
+          created_at: string
+          descripcion: string | null
+          id: string
+          nivel_dominio: number
+          nivel_requerido: number
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nivel_dominio?: number
+          nivel_requerido?: number
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nivel_dominio?: number
+          nivel_requerido?: number
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      calendar_events: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          event_date: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          event_date: string
+          id?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       challenge_90_days: {
         Row: {
           created_at: string
