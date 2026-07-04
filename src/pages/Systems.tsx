@@ -27,6 +27,12 @@ import { LanguageSkillCards } from "@/components/systems/LanguageSkillCards";
 import { WorkoutVisual } from "@/components/systems/WorkoutVisual";
 import { OfflineIndicator } from "@/components/systems/OfflineIndicator";
 import { PresetSchedulePicker } from "@/components/routine/PresetSchedulePicker";
+import { WheelOfLife } from "@/components/WheelOfLife";
+import { HombreTopWheel } from "@/components/HombreTopWheel";
+import { TimeframeSelector } from "@/components/TimeframeSelector";
+import { useTimeframe } from "@/contexts/TimeframeContext";
+import { useAreaScores } from "@/hooks/useAreaScores";
+import { useHombreTopScores } from "@/hooks/useHombreTopScores";
 
 // === HÁBITOS DE SOSTÉN (te mantienen) ===
 const SOSTEN_GROUPS: SystemGroup[] = [
@@ -122,6 +128,21 @@ export default function Systems() {
     setWorkAssignment, toggleBlock, setMealPhoto, update,
   } = useSystemsTracking();
   const { streak: overallStreak } = useOverallSystemStreak();
+  const { timeframe, view } = useTimeframe();
+  const { scores: areaScores, averages, loading: areaLoading } = useAreaScores(timeframe, view);
+  const {
+    scores: hommeScores,
+    esfuerzoAverage,
+    resultadosAverage,
+    loading: hommeLoading,
+  } = useHombreTopScores(timeframe, view);
+
+  const wheelValues = areaScores.map((s) => Math.round(s.esfuerzo / 10));
+  const wheelValues2 = areaScores.map((s) => Math.round(s.resultados / 10));
+  const wheelAvg = Math.round(averages.esfuerzo / 10);
+  const wheelAvg2 = Math.round(averages.resultados / 10);
+  const hommeValues = hommeScores.map((s) => s.esfuerzo);
+  const hommeValues2 = hommeScores.map((s) => s.resultados);
 
   if (loading) {
     return (
@@ -179,6 +200,35 @@ export default function Systems() {
 
         {/* Selector de rutina del día (presets) */}
         <PresetSchedulePicker />
+
+        {/* Indicadores de esfuerzo: Rueda de la Vida + Hombre Top */}
+        <TimeframeSelector />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-4">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">RUEDA DE LA VIDA — 10 ÁREAS</h2>
+            <WheelOfLife
+              values={wheelValues}
+              values2={wheelValues2}
+              average={wheelAvg}
+              average2={wheelAvg2}
+              view={view}
+              loading={areaLoading}
+            />
+          </Card>
+          <Card className="p-4">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">HOMBRE TOP</h2>
+            <p className="text-xs text-muted-foreground text-center mb-3">Lo que una mujer busca en un hombre</p>
+            <HombreTopWheel
+              values={hommeValues}
+              values2={hommeValues2}
+              average={esfuerzoAverage}
+              average2={resultadosAverage}
+              view={view}
+              loading={hommeLoading}
+            />
+          </Card>
+        </div>
+
 
         {/* Circles overview */}
         <SystemCirclesOverview
