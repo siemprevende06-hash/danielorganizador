@@ -8,7 +8,7 @@ export interface PerformanceMode {
   wakeTime: string;
   icon: string;
   color: string;
-  blocks: RoutineBlock[];
+  blocks: Omit<RoutineBlock, 'currentStreak' | 'maxStreak' | 'weeklyCompletion'>[];
 }
 
 // Default modes
