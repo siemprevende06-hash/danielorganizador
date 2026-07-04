@@ -771,6 +771,42 @@ export type Database = {
         }
         Relationships: []
       }
+      distribution_bags: {
+        Row: {
+          balance: number
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          percentage: number
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          percentage?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       entrepreneurship_income: {
         Row: {
           amount: number
@@ -1004,6 +1040,7 @@ export type Database = {
           start_time: string
           task_area: string | null
           task_id: string | null
+          task_ids: Json | null
           task_title: string
           user_id: string | null
         }
@@ -1018,6 +1055,7 @@ export type Database = {
           start_time: string
           task_area?: string | null
           task_id?: string | null
+          task_ids?: Json | null
           task_title: string
           user_id?: string | null
         }
@@ -1032,6 +1070,7 @@ export type Database = {
           start_time?: string
           task_area?: string | null
           task_id?: string | null
+          task_ids?: Json | null
           task_title?: string
           user_id?: string | null
         }
@@ -2857,6 +2896,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string
+          distributed: boolean
           id: string
           loan_id: string | null
           transaction_date: string
@@ -2870,6 +2910,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description: string
+          distributed?: boolean
           id?: string
           loan_id?: string | null
           transaction_date?: string
@@ -2883,6 +2924,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string
+          distributed?: boolean
           id?: string
           loan_id?: string | null
           transaction_date?: string
