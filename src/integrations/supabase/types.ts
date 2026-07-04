@@ -3131,6 +3131,7 @@ export type Database = {
           current_value: string | null
           description: string | null
           id: string
+          month: number | null
           progress_percentage: number | null
           quarter: number
           status: string
@@ -3148,6 +3149,7 @@ export type Database = {
           current_value?: string | null
           description?: string | null
           id?: string
+          month?: number | null
           progress_percentage?: number | null
           quarter: number
           status?: string
@@ -3165,6 +3167,7 @@ export type Database = {
           current_value?: string | null
           description?: string | null
           id?: string
+          month?: number | null
           progress_percentage?: number | null
           quarter?: number
           status?: string
