@@ -201,6 +201,35 @@ export default function Systems() {
         {/* Selector de rutina del día (presets) */}
         <PresetSchedulePicker />
 
+        {/* Indicadores de esfuerzo: Rueda de la Vida + Hombre Top */}
+        <TimeframeSelector />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-4">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">RUEDA DE LA VIDA — 10 ÁREAS</h2>
+            <WheelOfLife
+              values={wheelValues}
+              values2={wheelValues2}
+              average={wheelAvg}
+              average2={wheelAvg2}
+              view={view}
+              loading={areaLoading}
+            />
+          </Card>
+          <Card className="p-4">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">HOMBRE TOP</h2>
+            <p className="text-xs text-muted-foreground text-center mb-3">Lo que una mujer busca en un hombre</p>
+            <HombreTopWheel
+              values={hommeValues}
+              values2={hommeValues2}
+              average={esfuerzoAverage}
+              average2={resultadosAverage}
+              view={view}
+              loading={hommeLoading}
+            />
+          </Card>
+        </div>
+
+
         {/* Circles overview */}
         <SystemCirclesOverview
           groups={ALL_GROUPS}
