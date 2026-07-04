@@ -16,7 +16,7 @@ export interface Canje {
   fecha: string
 }
 
-export const RECOMPENSAS: Recompensa[] = [
+export const RECOMPENSAS_DEFAULT: Recompensa[] = [
   {
     id: "gaming-1h",
     nombre: "1 hora de gaming",
@@ -139,9 +139,9 @@ export const RECOMPENSAS: Recompensa[] = [
   },
 ]
 
-export const CATEGORIAS: { key: string; label: string; icono: string }[] = [
-  { key: "ocio", label: "Ocio", icono: "🎮" },
-  { key: "experiencia", label: "Experiencias", icono: "🌟" },
-  { key: "capricho", label: "Caprichos", icono: "✨" },
-  { key: "salud", label: "Salud", icono: "💚" },
+export const CATEGORIAS: { key: string; label: string; icono: string; color: string }[] = [
+  { key: "ocio", label: "Ocio", icono: "🎮", color: "text-purple-500" },
+  { key: "experiencia", label: "Experiencias", icono: "🌟", color: "text-blue-500" },
+  { key: "capricho", label: "Caprichos", icono: "✨", color: "text-pink-500" },
+  { key: "salud", label: "Salud", icono: "💚", color: "text-green-500" },
 ]

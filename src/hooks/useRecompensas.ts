@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAreaScores } from "./useAreaScores"
 import { useTimeframe } from "@/contexts/TimeframeContext"
-import { RECOMPENSAS, type Canje } from "@/data/recompensas"
+import { RECOMPENSAS_DEFAULT, type Recompensa, type Canje } from "@/data/recompensas"
 
 const STORAGE_BALANCE_KEY = "recompensas_balance"
 const STORAGE_CANJES_KEY = "recompensas_canjes"
 const STORAGE_LAST_EARNED_KEY = "recompensas_last_earned"
+const STORAGE_CATALOGO_KEY = "recompensas_catalogo"
 
 interface DailyEarning {
   date: string
@@ -51,8 +52,28 @@ function saveLastEarned(earning: DailyEarning) {
   localStorage.setItem(STORAGE_LAST_EARNED_KEY, JSON.stringify(earning))
 }
 
+function loadCatalogo(): Recompensa[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_CATALOGO_KEY)
+    if (raw) return JSON.parse(raw)
+    saveCatalogo(RECOMPENSAS_DEFAULT)
+    return RECOMPENSAS_DEFAULT
+  } catch {
+    saveCatalogo(RECOMPENSAS_DEFAULT)
+    return RECOMPENSAS_DEFAULT
+  }
+}
+
+function saveCatalogo(catalogo: Recompensa[]) {
+  localStorage.setItem(STORAGE_CATALOGO_KEY, JSON.stringify(catalogo))
+}
+
 function todayKey(): string {
   return new Date().toISOString().split("T")[0]
+}
+
+function generarId(): string {
+  return `r_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
 export function useRecompensas() {
@@ -61,6 +82,7 @@ export function useRecompensas() {
   const [balance, setBalance] = useState(loadBalance)
   const [canjes, setCanjes] = useState<Canje[]>(loadCanjes)
   const [lastEarned, setLastEarned] = useState<DailyEarning | null>(loadLastEarned)
+  const [catalogo, setCatalogo] = useState<Recompensa[]>(loadCatalogo)
 
   const puntosHoy = lastEarned?.date === todayKey() ? lastEarned.points : 0
   const puntosPosibles = scoresLoading ? 0 : averages.esfuerzo
@@ -83,7 +105,7 @@ export function useRecompensas() {
   }, [scoresLoading, puntosPosibles])
 
   const canjearRecompensa = useCallback((recompensaId: string): boolean => {
-    const recompensa = RECOMPENSAS.find((r) => r.id === recompensaId)
+    const recompensa = catalogo.find((r) => r.id === recompensaId)
     if (!recompensa) return false
     if (balance < recompensa.costo) return false
 
@@ -105,7 +127,34 @@ export function useRecompensas() {
     saveBalance(nuevoBalance)
 
     return true
-  }, [balance, canjes])
+  }, [balance, canjes, catalogo])
+
+  const agregarRecompensa = useCallback((data: Omit<Recompensa, "id">): Recompensa => {
+    const nueva: Recompensa = { id: generarId(), ...data }
+    const nuevoCatalogo = [...catalogo, nueva]
+    setCatalogo(nuevoCatalogo)
+    saveCatalogo(nuevoCatalogo)
+    return nueva
+  }, [catalogo])
+
+  const editarRecompensa = useCallback((id: string, data: Partial<Omit<Recompensa, "id">>): boolean => {
+    const idx = catalogo.findIndex((r) => r.id === id)
+    if (idx === -1) return false
+    const nuevoCatalogo = [...catalogo]
+    nuevoCatalogo[idx] = { ...nuevoCatalogo[idx], ...data }
+    setCatalogo(nuevoCatalogo)
+    saveCatalogo(nuevoCatalogo)
+    return true
+  }, [catalogo])
+
+  const eliminarRecompensa = useCallback((id: string): boolean => {
+    const idx = catalogo.findIndex((r) => r.id === id)
+    if (idx === -1) return false
+    const nuevoCatalogo = catalogo.filter((r) => r.id !== id)
+    setCatalogo(nuevoCatalogo)
+    saveCatalogo(nuevoCatalogo)
+    return true
+  }, [catalogo])
 
   const puntosGanadosHoy = puntosHoy
   const puntosGastadosHoy = canjes
@@ -117,9 +166,13 @@ export function useRecompensas() {
     canjes,
     scores,
     scoresLoading,
+    catalogo,
     puntosPosibles,
     puntosGanadosHoy,
     puntosGastadosHoy,
     canjearRecompensa,
+    agregarRecompensa,
+    editarRecompensa,
+    eliminarRecompensa,
   }
 }

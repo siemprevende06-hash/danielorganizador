@@ -1,41 +1,102 @@
 import { useState } from "react"
 import { useRecompensas } from "@/hooks/useRecompensas"
-import { RECOMPENSAS, CATEGORIAS } from "@/data/recompensas"
+import { CATEGORIAS, type Recompensa } from "@/data/recompensas"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { useTimeframe } from "@/contexts/TimeframeContext"
 import { TimeframeSelector } from "@/components/TimeframeSelector"
 import {
   Sparkles, ShoppingCart, History, Trophy, TrendingUp,
-  Gamepad2, Star, Gift, ScrollText, Coins,
+  Gift, ScrollText, Coins, Plus, Pencil, Trash2,
 } from "lucide-react"
+
+type FormData = {
+  nombre: string
+  descripcion: string
+  icono: string
+  costo: number
+  categoria: string
+}
+
+const emptyForm: FormData = { nombre: "", descripcion: "", icono: "🎁", costo: 0, categoria: "ocio" }
 
 export default function Recompensas() {
   const { timeframe, view } = useTimeframe()
   const {
-    balance, canjes, scores, scoresLoading,
-    puntosGanadosHoy, puntosGastadosHoy, canjearRecompensa,
+    balance, canjes, scores, scoresLoading, catalogo,
+    puntosGanadosHoy, puntosGastadosHoy,
+    canjearRecompensa, agregarRecompensa, editarRecompensa, eliminarRecompensa,
   } = useRecompensas()
   const [filtro, setFiltro] = useState<string | null>(null)
   const [mostrarCanjes, setMostrarCanjes] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [form, setForm] = useState<FormData>(emptyForm)
 
   const recompensasFiltradas = filtro
-    ? RECOMPENSAS.filter((r) => r.categoria === filtro)
-    : RECOMPENSAS
+    ? catalogo.filter((r) => r.categoria === filtro)
+    : catalogo
 
   const totalGastado = canjes.reduce((sum, c) => sum + c.costo, 0)
+
+  function abrirNueva() {
+    setEditandoId(null)
+    setForm(emptyForm)
+    setDialogOpen(true)
+  }
+
+  function abrirEditar(r: Recompensa) {
+    setEditandoId(r.id)
+    setForm({ nombre: r.nombre, descripcion: r.descripcion, icono: r.icono, costo: r.costo, categoria: r.categoria })
+    setDialogOpen(true)
+  }
+
+  function guardar() {
+    if (!form.nombre.trim()) {
+      toast({ title: "El nombre es obligatorio", variant: "destructive" })
+      return
+    }
+    if (form.costo <= 0) {
+      toast({ title: "El costo debe ser mayor a 0", variant: "destructive" })
+      return
+    }
+
+    if (editandoId) {
+      editarRecompensa(editandoId, form as Partial<Omit<Recompensa, "id">>)
+      toast({ title: "Recompensa actualizada" })
+    } else {
+      agregarRecompensa(form as Omit<Recompensa, "id">)
+      toast({ title: "Recompensa creada" })
+    }
+    setDialogOpen(false)
+  }
+
+  function confirmarEliminar(id: string, nombre: string) {
+    if (window.confirm(`¿Eliminar "${nombre}"?`)) {
+      eliminarRecompensa(id)
+      toast({ title: "Recompensa eliminada" })
+    }
+  }
 
   const handleCanjear = (id: string) => {
     const exito = canjearRecompensa(id)
     if (exito) {
-      toast({ title: "🎉 Recompensa canjeada", description: "¡Disfrútala! Te lo has ganado." })
+      toast({ title: "Recompensa canjeada", description: "¡Disfrútala! Te lo has ganado." })
     } else {
-      toast({ title: "❌ Puntos insuficientes", description: "Sigue esforzándote para ganar más puntos.", variant: "destructive" })
+      toast({ title: "Puntos insuficientes", description: "Sigue esforzándote para ganar más puntos.", variant: "destructive" })
     }
   }
 
@@ -150,8 +211,8 @@ export default function Recompensas() {
         </CardContent>
       </Card>
 
-      {/* Category Filter */}
-      <div className="flex flex-wrap gap-2">
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-2 items-center">
         <Button
           variant={filtro === null ? "default" : "outline"}
           size="sm"
@@ -177,10 +238,14 @@ export default function Recompensas() {
           variant={mostrarCanjes ? "default" : "outline"}
           size="sm"
           onClick={() => setMostrarCanjes(!mostrarCanjes)}
-          className="gap-1.5 ml-auto"
+          className="gap-1.5"
         >
           <ScrollText className="h-4 w-4" />
           Historial
+        </Button>
+        <Button size="sm" onClick={abrirNueva} className="gap-1.5 ml-auto">
+          <Plus className="h-4 w-4" />
+          Nueva
         </Button>
       </div>
 
@@ -245,10 +310,29 @@ export default function Recompensas() {
                       <Card
                         key={recompensa.id}
                         className={cn(
-                          "transition-all hover:shadow-md",
+                          "transition-all hover:shadow-md relative group",
                           puedeCanjear ? "border-amber-500/20" : "opacity-60"
                         )}
                       >
+                        {/* Edit/Delete buttons */}
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => abrirEditar(recompensa)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-600"
+                            onClick={() => confirmarEliminar(recompensa.id, recompensa.nombre)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                         <CardContent className="p-5 space-y-3">
                           <div className="flex items-start justify-between">
                             <span className="text-3xl">{recompensa.icono}</span>
@@ -295,6 +379,81 @@ export default function Recompensas() {
           <Sparkles className="h-3 w-3" />
         </div>
       </div>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editandoId ? "Editar recompensa" : "Nueva recompensa"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="nombre">Nombre</Label>
+              <Input
+                id="nombre"
+                value={form.nombre}
+                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                placeholder="Ej: 1 hora de gaming"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="descripcion">Descripción</Label>
+              <Textarea
+                id="descripcion"
+                value={form.descripcion}
+                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                placeholder="Describe la recompensa..."
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="icono">Icono (emoji)</Label>
+                <Input
+                  id="icono"
+                  value={form.icono}
+                  onChange={(e) => setForm({ ...form, icono: e.target.value })}
+                  placeholder="🎮"
+                  maxLength={4}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="costo">Costo (puntos)</Label>
+                <Input
+                  id="costo"
+                  type="number"
+                  min={1}
+                  value={form.costo}
+                  onChange={(e) => setForm({ ...form, costo: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="categoria">Categoría</Label>
+              <Select
+                value={form.categoria}
+                onValueChange={(v) => setForm({ ...form, categoria: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIAS.map((cat) => (
+                    <SelectItem key={cat.key} value={cat.key}>
+                      {cat.icono} {cat.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="otro">🌍 Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={guardar}>{editandoId ? "Guardar cambios" : "Crear"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
