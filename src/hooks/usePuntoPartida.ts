@@ -31,11 +31,11 @@ export function usePuntoPartida() {
       for (const row of data || []) {
         map[row.area_id] = {
           area_id: row.area_id,
-          area_type: row.area_type,
-          nota: row.nota,
-          sub_scores: row.sub_scores || {},
-          respuestas: row.respuestas || {},
-          hechos: row.hechos || {},
+          area_type: (row as any).area_type as "wheel" | "hombre",
+          nota: (row as any).nota,
+          sub_scores: ((row as any).sub_scores || {}) as Record<string, number>,
+          respuestas: ((row as any).respuestas || {}) as Record<string, string>,
+          hechos: ((row as any).hechos || {}) as Record<string, string>,
         }
       }
       setEntries(map)

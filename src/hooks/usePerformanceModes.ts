@@ -12,7 +12,7 @@ export interface PerformanceMode {
 }
 
 // Default modes
-const DEFAULT_MODES: PerformanceMode[] = [
+const DEFAULT_MODES: PerformanceMode[] = ([
   {
     id: "alto-rendimiento",
     name: "Alto Rendimiento",
@@ -121,7 +121,7 @@ const DEFAULT_MODES: PerformanceMode[] = [
       { id: "rm-13", title: "Sueño Reparador", startTime: "22:30", endTime: "08:00", tasks: ["Descanso completo de 9.5 horas"], order: 12 },
     ],
   },
-];
+] as any) as PerformanceMode[];
 
 const MODES_STORAGE_KEY = 'performanceModes';
 const SELECTED_MODE_KEY = 'selectedPerformanceMode';

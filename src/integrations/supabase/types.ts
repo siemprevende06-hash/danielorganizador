@@ -224,6 +224,111 @@ export type Database = {
         }
         Relationships: []
       }
+      boxeo_sesiones: {
+        Row: {
+          created_at: string
+          duracion_minutos: number
+          fecha: string
+          id: string
+          intensidad: string
+          notas: string | null
+          rounds: number
+          tecnicas_practicadas: Json
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duracion_minutos?: number
+          fecha?: string
+          id?: string
+          intensidad?: string
+          notas?: string | null
+          rounds?: number
+          tecnicas_practicadas?: Json
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duracion_minutos?: number
+          fecha?: string
+          id?: string
+          intensidad?: string
+          notas?: string | null
+          rounds?: number
+          tecnicas_practicadas?: Json
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      boxeo_tecnicas: {
+        Row: {
+          categoria: string
+          created_at: string
+          descripcion: string | null
+          id: string
+          nivel_dominio: number
+          nivel_requerido: number
+          nombre: string
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nivel_dominio?: number
+          nivel_requerido?: number
+          nombre: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nivel_dominio?: number
+          nivel_requerido?: number
+          nombre?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      calendar_events: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          event_date: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          event_date: string
+          id?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       challenge_90_days: {
         Row: {
           created_at: string
@@ -335,6 +440,39 @@ export type Database = {
           platform?: string | null
           session_date?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      citas: {
+        Row: {
+          created_at: string
+          fecha: string
+          id: string
+          lugar: string | null
+          notas: string | null
+          persona: string
+          rating: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          lugar?: string | null
+          notas?: string | null
+          persona: string
+          rating?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          id?: string
+          lugar?: string | null
+          notas?: string | null
+          persona?: string
+          rating?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -666,6 +804,42 @@ export type Database = {
         }
         Relationships: []
       }
+      distribution_bags: {
+        Row: {
+          balance: number
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          percentage: number
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          percentage?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       entrepreneurship_income: {
         Row: {
           amount: number
@@ -774,6 +948,45 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      eventos_sociales: {
+        Row: {
+          con_quien: Json
+          created_at: string
+          descripcion: string | null
+          fecha: string
+          gasto: number
+          id: string
+          notas: string | null
+          rating: number
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          con_quien?: Json
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          gasto?: number
+          id?: string
+          notas?: string | null
+          rating?: number
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          con_quien?: Json
+          created_at?: string
+          descripcion?: string | null
+          fecha?: string
+          gasto?: number
+          id?: string
+          notas?: string | null
+          rating?: number
+          tipo?: string
           updated_at?: string
         }
         Relationships: []
@@ -899,6 +1112,7 @@ export type Database = {
           start_time: string
           task_area: string | null
           task_id: string | null
+          task_ids: Json | null
           task_title: string
           user_id: string | null
         }
@@ -913,6 +1127,7 @@ export type Database = {
           start_time: string
           task_area?: string | null
           task_id?: string | null
+          task_ids?: Json | null
           task_title: string
           user_id?: string | null
         }
@@ -927,6 +1142,7 @@ export type Database = {
           start_time?: string
           task_area?: string | null
           task_id?: string | null
+          task_ids?: Json | null
           task_title?: string
           user_id?: string | null
         }
@@ -1014,6 +1230,7 @@ export type Database = {
       goals: {
         Row: {
           area_id: string | null
+          cover_image: string | null
           created_at: string
           description: string | null
           id: string
@@ -1026,6 +1243,7 @@ export type Database = {
         }
         Insert: {
           area_id?: string | null
+          cover_image?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1038,6 +1256,7 @@ export type Database = {
         }
         Update: {
           area_id?: string | null
+          cover_image?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1252,6 +1471,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      intimidad_tracking: {
+        Row: {
+          calidad: number
+          created_at: string
+          fecha: string
+          id: string
+          notas: string | null
+          posiciones: Json
+          updated_at: string
+        }
+        Insert: {
+          calidad?: number
+          created_at?: string
+          fecha?: string
+          id?: string
+          notas?: string | null
+          posiciones?: Json
+          updated_at?: string
+        }
+        Update: {
+          calidad?: number
+          created_at?: string
+          fecha?: string
+          id?: string
+          notas?: string | null
+          posiciones?: Json
+          updated_at?: string
+        }
+        Relationships: []
       }
       journal_entries: {
         Row: {
@@ -1690,6 +1939,45 @@ export type Database = {
         }
         Relationships: []
       }
+      necesidades: {
+        Row: {
+          area_referencia: string | null
+          created_at: string
+          descripcion: string | null
+          icono: string | null
+          id: string
+          necesidad_id: string
+          orden: number
+          progreso: number
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          area_referencia?: string | null
+          created_at?: string
+          descripcion?: string | null
+          icono?: string | null
+          id?: string
+          necesidad_id: string
+          orden?: number
+          progreso?: number
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          area_referencia?: string | null
+          created_at?: string
+          descripcion?: string | null
+          icono?: string | null
+          id?: string
+          necesidad_id?: string
+          orden?: number
+          progreso?: number
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       partial_exam_topics: {
         Row: {
           created_at: string | null
@@ -2016,6 +2304,42 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      punto_partida: {
+        Row: {
+          area_id: string
+          area_type: string
+          created_at: string
+          hechos: Json
+          id: string
+          nota: number
+          respuestas: Json
+          sub_scores: Json
+          updated_at: string
+        }
+        Insert: {
+          area_id: string
+          area_type?: string
+          created_at?: string
+          hechos?: Json
+          id?: string
+          nota?: number
+          respuestas?: Json
+          sub_scores?: Json
+          updated_at?: string
+        }
+        Update: {
+          area_id?: string
+          area_type?: string
+          created_at?: string
+          hechos?: Json
+          id?: string
+          nota?: number
+          respuestas?: Json
+          sub_scores?: Json
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2752,6 +3076,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string
+          distributed: boolean
           id: string
           loan_id: string | null
           transaction_date: string
@@ -2765,6 +3090,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description: string
+          distributed?: boolean
           id?: string
           loan_id?: string | null
           transaction_date?: string
@@ -2778,6 +3104,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string
+          distributed?: boolean
           id?: string
           loan_id?: string | null
           transaction_date?: string
@@ -2804,6 +3131,7 @@ export type Database = {
           current_value: string | null
           description: string | null
           id: string
+          month: number | null
           progress_percentage: number | null
           quarter: number
           status: string
@@ -2821,6 +3149,7 @@ export type Database = {
           current_value?: string | null
           description?: string | null
           id?: string
+          month?: number | null
           progress_percentage?: number | null
           quarter: number
           status?: string
@@ -2838,6 +3167,7 @@ export type Database = {
           current_value?: string | null
           description?: string | null
           id?: string
+          month?: number | null
           progress_percentage?: number | null
           quarter?: number
           status?: string

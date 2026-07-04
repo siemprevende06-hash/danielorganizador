@@ -50,7 +50,7 @@ export async function cachedMutation(
 
   try {
     const supabase = (await import("@/integrations/supabase/client")).supabase;
-    const builder: any = supabase.from(table);
+    const builder: any = supabase.from(table as any);
     let result;
 
     if (op === "insert") {

@@ -245,7 +245,7 @@ export default function DailyView() {
             <Focus className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS</h2>
           </div>
-          <QuickStatsGrid />
+          <QuickStatsGrid timeframe="today" />
         </Card>
 
         <MySystemsSection />
@@ -375,7 +375,7 @@ export default function DailyView() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           <DailyTimelinePlanner
-            blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks}
+            blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
             tasksByBlock={tasksByBlock}
             onToggleBlock={toggleBlockComplete}
             isBlockCompleted={isBlockCompleted}

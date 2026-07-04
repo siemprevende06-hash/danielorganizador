@@ -90,8 +90,8 @@ export default function Focus() {
   useEffect(() => {
     (async () => {
       const [tr, etr] = await Promise.all([
-        supabase.from("tasks").select("id,title,priority,source,area_id,routine_block_id").eq("completed", false).order("priority", { ascending: false }).catch(() => null),
-        supabase.from("entrepreneurship_tasks").select("id,title,routine_block_id").eq("completed", false).catch(() => null),
+        (supabase.from("tasks").select("id,title,priority,source,area_id,routine_block_id").eq("completed", false).order("priority", { ascending: false }) as any).then((r: any) => r).catch(() => null),
+        (supabase.from("entrepreneurship_tasks").select("id,title,routine_block_id").eq("completed", false) as any).then((r: any) => r).catch(() => null),
       ]);
       let tasks: AvailableTask[] = [];
       if (tr?.data || etr?.data) {

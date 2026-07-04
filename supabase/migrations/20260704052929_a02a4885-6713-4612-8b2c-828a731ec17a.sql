@@ -1,0 +1,1 @@
+ALTER TABLE public.twelve_week_goals ADD COLUMN IF NOT EXISTS month INTEGER;
