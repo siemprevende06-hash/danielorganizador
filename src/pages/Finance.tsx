@@ -535,7 +535,7 @@ export default function Finance() {
   }
 
   const onBagSubmit = (values: z.infer<typeof bagSchema>) => {
-    const balance = values.balance !== undefined ? values.balance / (bagForm.getValues('currency') === 'CUP' ? exchangeRate : 1) : 0;
+    const balance = values.balance !== undefined ? values.balance / ((bagForm.getValues as any)('currency') === 'CUP' ? exchangeRate : 1) : 0;
     if (editingBag) {
       setDistributionBags(prev => prev.map(b => b.id === editingBag.id ? { ...b, name: values.name, percentage: values.percentage, description: values.description || '', icon: values.icon, color: values.color, balance } : b));
       toast({ title: "Bolsa actualizada", description: `${values.name} ha sido modificada.` });
