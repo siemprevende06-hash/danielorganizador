@@ -17,9 +17,9 @@ export function useVidaSocial() {
         supabase.from('citas').select('*').order('fecha', { ascending: false }),
         supabase.from('intimidad_tracking').select('*').order('fecha', { ascending: false }),
       ]);
-      if (evRes.data) setEventos(evRes.data);
-      if (citRes.data) setCitas(citRes.data);
-      if (intRes.data) setIntimidad(intRes.data);
+      if (evRes.data) setEventos(evRes.data as any);
+      if (citRes.data) setCitas(citRes.data as any);
+      if (intRes.data) setIntimidad(intRes.data as any);
     } catch (err) {
       console.error('Error loading social data:', err);
     } finally {
@@ -33,7 +33,7 @@ export function useVidaSocial() {
     const { data, error } = await supabase.from('eventos_sociales').insert(evento).select().single();
     if (error) { toast.error('Error al registrar evento'); return null; }
     toast.success('Experiencia registrada 🎉');
-    setEventos(prev => [data, ...prev]);
+    setEventos(prev => [data as any, ...prev]);
     return data;
   };
 
@@ -47,7 +47,7 @@ export function useVidaSocial() {
     const { data, error } = await supabase.from('citas').insert(cita).select().single();
     if (error) { toast.error('Error al registrar cita'); return null; }
     toast.success('Cita registrada ❤️');
-    setCitas(prev => [data, ...prev]);
+    setCitas(prev => [data as any, ...prev]);
     return data;
   };
 
@@ -61,7 +61,7 @@ export function useVidaSocial() {
     const { data, error } = await supabase.from('intimidad_tracking').insert(entry).select().single();
     if (error) { toast.error('Error al registrar'); return null; }
     toast.success('Registrado 🔥');
-    setIntimidad(prev => [data, ...prev]);
+    setIntimidad(prev => [data as any, ...prev]);
     return data;
   };
 
