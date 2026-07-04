@@ -128,6 +128,21 @@ export default function Systems() {
     setWorkAssignment, toggleBlock, setMealPhoto, update,
   } = useSystemsTracking();
   const { streak: overallStreak } = useOverallSystemStreak();
+  const { timeframe, view } = useTimeframe();
+  const { scores: areaScores, averages, loading: areaLoading } = useAreaScores(timeframe, view);
+  const {
+    scores: hommeScores,
+    esfuerzoAverage,
+    resultadosAverage,
+    loading: hommeLoading,
+  } = useHombreTopScores(timeframe, view);
+
+  const wheelValues = areaScores.map((s) => Math.round(s.esfuerzo / 10));
+  const wheelValues2 = areaScores.map((s) => Math.round(s.resultados / 10));
+  const wheelAvg = Math.round(averages.esfuerzo / 10);
+  const wheelAvg2 = Math.round(averages.resultados / 10);
+  const hommeValues = hommeScores.map((s) => s.esfuerzo);
+  const hommeValues2 = hommeScores.map((s) => s.resultados);
 
   if (loading) {
     return (
