@@ -120,7 +120,7 @@ export default function PerformanceModes() {
         endTime: newBlock.endTime,
         tasks: [],
         order: mode?.blocks.length || 0,
-      });
+      } as any);
       setNewBlock({ title: '', startTime: '', endTime: '' });
       setShowAddBlock(null);
       toast({ title: "Bloque agregado" });
