@@ -82,7 +82,7 @@ export default function EntrepreneurshipPage() {
         toast.success('Emprendimiento actualizado');
       } else {
         const { error } = await supabase.from('entrepreneurships')
-          .insert(payload);
+          .insert(payload as any);
         if (error) throw error;
         toast.success('Emprendimiento creado');
       }
