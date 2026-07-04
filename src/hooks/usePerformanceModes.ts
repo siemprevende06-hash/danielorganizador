@@ -12,7 +12,7 @@ export interface PerformanceMode {
 }
 
 // Default modes
-const DEFAULT_MODES: PerformanceMode[] = [
+const DEFAULT_MODES: PerformanceMode[] = ([
   {
     id: "alto-rendimiento",
     name: "Alto Rendimiento",
