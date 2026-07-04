@@ -43,6 +43,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/mis-necesidades', label: 'Mis Necesidades', icon: Flame },
       { path: '/vida-social', label: 'Vida Social', icon: Heart },
       { path: '/boxeo', label: 'Boxeo', icon: Target },
+      { path: '/habilidades-valiosas', label: 'Habilidades', icon: Star },
     ]
   },
   {

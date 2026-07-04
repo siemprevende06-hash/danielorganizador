@@ -64,6 +64,7 @@ import Recompensas from "./pages/Recompensas";
 import Paginas from "./pages/Paginas";
 import Motivos from "./pages/Motivos";
 import Realidad from "./pages/Realidad";
+import HabilidadesValiosas from "./pages/HabilidadesValiosas";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +133,7 @@ function AppContent() {
         <Route path="/motivos/realidad" element={<Realidad />} />
         <Route path="/paginas" element={<Paginas />} />
         <Route path="/paginas/:id" element={<Paginas />} />
+        <Route path="/habilidades-valiosas" element={<HabilidadesValiosas />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
