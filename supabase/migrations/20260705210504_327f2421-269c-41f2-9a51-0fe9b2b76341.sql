@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_plans ADD COLUMN IF NOT EXISTS routine_type text; ALTER TABLE public.daily_plans ADD COLUMN IF NOT EXISTS block_assignments jsonb DEFAULT '{}'::jsonb;
