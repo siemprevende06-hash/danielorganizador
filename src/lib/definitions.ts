@@ -148,6 +148,19 @@ export interface Loan {
   status: 'outstanding' | 'paid';
 }
 
+export interface Debt {
+  id: string;
+  person: string;
+  description: string;
+  totalAmount: number;
+  paidAmount: number;
+  walletId: string;
+  date: Date;
+  dueDate?: Date;
+  interestRate?: number;
+  status: 'outstanding' | 'paid';
+}
+
 export interface IdentitySystemTask {
   id: string;
   description: string;

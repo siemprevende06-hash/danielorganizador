@@ -46,7 +46,7 @@
     --focus: 265 80% 55%;
     --focus-foreground: 0 0% 100%;
 
-    --radius: 0.375rem;
+    --radius: 0.75rem;
   }
 
   .dark {
@@ -127,32 +127,68 @@
     --ios-blue-2: 244 71% 64%;
     --ios-mint: 192 100% 50%;
     --ios-green: 142 71% 49%;
+    --ios-orange: 30 100% 50%;
+    --ios-red: 0 100% 60%;
     --ios-bg: 240 11% 96%;
   }
-  .ios-systems .ios-card {
+
+  .apple-card {
     border-radius: 16px;
-    border: 1px solid hsl(var(--border) / 0.6);
-    box-shadow: 0 4px 14px hsla(0 0% 0% / 0.06);
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+    border: 1px solid hsl(var(--border) / 0.5);
+    box-shadow: 0 2px 8px hsla(0 0% 0% / 0.04);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     background: hsl(var(--card));
   }
-  .ios-systems .ios-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px hsla(211 100% 50% / 0.12);
+  .apple-card:hover {
+    box-shadow: 0 8px 24px hsla(0 0% 0% / 0.08);
   }
-  .ios-systems .ios-grad-header {
-    background: linear-gradient(135deg, hsl(var(--ios-blue)), hsl(var(--ios-mint)));
+  .dark .apple-card:hover {
+    box-shadow: 0 8px 24px hsla(0 0% 0% / 0.3);
   }
-  .ios-systems .ios-btn-primary {
-    background: linear-gradient(135deg, hsl(var(--ios-blue)), hsl(var(--ios-mint)));
-    color: white;
-    border-radius: 999px;
-    transition: transform 0.15s ease;
+
+  .apple-glass {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--border) / 0.3);
   }
-  .ios-systems .ios-btn-primary:active { transform: scale(0.95); }
-  .ios-systems .ios-fade-in { animation: ios-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+  .notion-block {
+    border-radius: 4px;
+    transition: background 0.15s ease;
+  }
+  .notion-block:hover {
+    background: hsl(var(--accent));
+  }
+
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-up {
+    animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .animate-scale-in {
+    animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
   @keyframes ios-fade-in {
     from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+  .ios-fade-in { animation: ios-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+  .stagger-6 { animation-delay: 0.3s; }
+  .stagger-7 { animation-delay: 0.35s; }
+  .stagger-8 { animation-delay: 0.4s; }
 }

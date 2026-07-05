@@ -68,6 +68,8 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        apple: "16px",
+        notion: "4px",
       },
       keyframes: {
         "accordion-down": {
@@ -81,6 +83,14 @@ export default {
         "fade-in": {
           "0%": { opacity: "0", transform: "translateY(4px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "scale-in": {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
         },
         wiggle: {
           "0%,100%": { transform: "translateX(0)" },
@@ -96,6 +106,8 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.4s ease-out both",
+        "slide-up": "slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "scale-in": "scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both",
         wiggle: "wiggle 0.4s ease-in-out",
         sparkle: "sparkle 1.6s ease-in-out infinite",
       },
