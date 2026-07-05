@@ -633,6 +633,7 @@ export type Database = {
       }
       daily_plans: {
         Row: {
+          block_assignments: Json | null
           created_at: string
           excluded_blocks: string[] | null
           id: string
@@ -640,12 +641,14 @@ export type Database = {
           notes: string | null
           plan_date: string
           preset_id: string | null
+          routine_type: string | null
           sleep_time: string | null
           updated_at: string
           user_id: string | null
           wake_time: string | null
         }
         Insert: {
+          block_assignments?: Json | null
           created_at?: string
           excluded_blocks?: string[] | null
           id?: string
@@ -653,12 +656,14 @@ export type Database = {
           notes?: string | null
           plan_date: string
           preset_id?: string | null
+          routine_type?: string | null
           sleep_time?: string | null
           updated_at?: string
           user_id?: string | null
           wake_time?: string | null
         }
         Update: {
+          block_assignments?: Json | null
           created_at?: string
           excluded_blocks?: string[] | null
           id?: string
@@ -666,6 +671,7 @@ export type Database = {
           notes?: string | null
           plan_date?: string
           preset_id?: string | null
+          routine_type?: string | null
           sleep_time?: string | null
           updated_at?: string
           user_id?: string | null
