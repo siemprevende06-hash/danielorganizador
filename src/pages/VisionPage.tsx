@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { usePointBMetrics } from '@/hooks/usePointBMetrics'
 import { usePuntoPartida } from '@/hooks/usePuntoPartida'
-import { useIdentitySystems } from '@/hooks/useIdentitySystems'
+import { useSystemsTracking } from '@/hooks/useSystemsTracking'
 import { POINT_B_AREAS } from '@/data/pointB2027'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,6 @@ import { toast } from 'sonner'
 import { EditMetricDialog } from '@/components/vision/EditMetricDialog'
 import { AreaSystemsAndGoals } from '@/components/vision/AreaSystemsAndGoals'
 import type { PointBMetric } from '@/hooks/usePointBMetrics'
-import type { IdentitySystem } from '@/lib/definitions'
 
 const GROUP_LABELS: Record<string, { label: string; icon: string; desc: string }> = {
   cimientos: { label: 'CIMIENTOS', icon: '🏗️', desc: 'Estructura y Hábitos' },
@@ -39,11 +38,6 @@ const HOMBRE_LABELS = [
 const HOMBRE_NOTAS: Record<string, number> = {
   liderazgo: 6, seguridad: 4, estatus: 5, provision: 5,
   fortaleza: 3, ie: 5, carisma: 8, lealtad: 5,
-}
-
-function getPointBAreaEffortIds(pbAreaId: string): string[] {
-  const area = POINT_B_AREAS.find(a => a.id === pbAreaId)
-  return area?.effortTrackingIds || []
 }
 
 function getProgressColor(pct: number) {
@@ -73,14 +67,10 @@ function getRemainingText(current: number, target: number, unit: string): string
 export default function VisionPage() {
   const { entries, loading: ppLoading, updateSubScore } = usePuntoPartida()
   const { metrics, groupedByPointBArea: customMetricsByPB, loading: metricsLoading, addMetric, updateMetric, deleteMetric } = usePointBMetrics()
-
   const {
-    systems,
-    dailyStates,
-    toggleTaskState,
-    toggleActive,
-    getSystemsByArea,
-  } = useIdentitySystems()
+    data: sysData, loading: sysLoading,
+    toggleCompletion, setTimeValue, setCountValue,
+  } = useSystemsTracking()
 
   const [showEdit, setShowEdit] = useState(false)
   const [editingMetric, setEditingMetric] = useState<PointBMetric | null>(null)
@@ -166,7 +156,7 @@ export default function VisionPage() {
     return count > 0 ? Math.round(total / count) : 0
   }, [entries])
 
-  const loading = ppLoading || metricsLoading
+  const loading = ppLoading || metricsLoading || sysLoading
 
   if (loading) {
     return (
@@ -191,9 +181,9 @@ export default function VisionPage() {
               De Punto A → Point B · Cada sub-eje es un tramo del camino
             </p>
           </div>
-          <Link to="/plan-identidad">
+          <Link to="/systems">
             <Button variant="outline" size="sm" className="gap-2">
-              <ExternalLink className="h-4 w-4" /> Gestionar sistemas
+              <ExternalLink className="h-4 w-4" /> Ir a Sistemas
             </Button>
           </Link>
         </div>
@@ -258,9 +248,6 @@ export default function VisionPage() {
 
               {areas.map(area => {
                 const res = areaResultados(area)
-                const effortIds = getPointBAreaEffortIds(area.id)
-                const areaSystems: IdentitySystem[] = effortIds.flatMap(id => getSystemsByArea(id))
-                const uniqueSystems = areaSystems.filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)
                 const areaMetrics = customMetricsByPB[area.id] || []
                 return (
                   <Card key={area.id} className="overflow-hidden border-l-4" style={{ borderLeftColor: res >= 80 ? '#22c55e' : res >= 40 ? '#f59e0b' : '#6b7280' }}>
@@ -377,14 +364,16 @@ export default function VisionPage() {
 
                       {/* Systems + Goals */}
                       <AreaSystemsAndGoals
+                        pbAreaId={area.id}
                         areaName={area.label}
                         areaIcon={area.icon}
-                        systems={uniqueSystems}
-                        dailyStates={dailyStates}
+                        completions={sysData.completions}
+                        timeData={sysData.timeData}
+                        countData={sysData.countData}
                         metrics={areaMetrics}
-                        onToggleTask={toggleTaskState}
-                        onToggleActive={toggleActive}
-                        onEditSystem={() => {}}
+                        onToggleCompletion={toggleCompletion}
+                        onSetTimeValue={setTimeValue}
+                        onSetCountValue={setCountValue}
                         onAddMetric={() => { setEditingMetric(null); setShowEdit(true) }}
                         onEditMetric={(m) => { setEditingMetric(m); setShowEdit(true) }}
                         onDeleteMetric={async (id) => {

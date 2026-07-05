@@ -88,7 +88,7 @@ const MEJORA_GROUPS: SystemGroup[] = [
       { id: "lectura", name: "Lectura", hasTime: true },
       { id: "musica", name: "Música", hasTime: true },
       { id: "ajedrez", name: "Ajedrez", hasTime: true, hasCount: true, countLabel: "partidas" },
-      { id: "gaming", name: "Gaming", hasTime: true },
+      { id: "game", name: "Game", hasTime: true },
     ],
   },
 ];
@@ -369,14 +369,14 @@ export default function Systems() {
                   <Input
                     type="number"
                     min={0}
-                    value={data.timeData["gaming"] || ""}
-                    onChange={e => setTimeValue("gaming", parseInt(e.target.value) || 0)}
+                    value={data.timeData["game"] || ""}
+                    onChange={e => setTimeValue("game", parseInt(e.target.value) || 0)}
                     placeholder="min"
                     className="w-16 h-7 text-xs text-center"
                   />
                 </div>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Horario: 1:20 - 2:00 PM</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Tiempo diario para aprender seducción</p>
             </Card>
           </div>
 

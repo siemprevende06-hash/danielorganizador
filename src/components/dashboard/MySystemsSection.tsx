@@ -109,7 +109,7 @@ export function MySystemsSection() {
       gymSpark.push(row?.workout_duration || 0);
     }
     const ajedrezSpark = minutesByDay("ajedrez");
-    const gamingSpark = minutesByDay("gaming");
+    const gameSpark = minutesByDay("game");
     const musicaSpark = minutesByDay("musica");
 
     const gymToday = rows.find((r: any) => r.tracking_date === today);
@@ -131,11 +131,11 @@ export function MySystemsSection() {
         weekTotal: sum(ajedrezSpark), streak: streaks.ajedrez || 0, spark: ajedrezSpark,
       },
       {
-        id: "gaming", label: "Gaming", icon: Gamepad2, route: "/systems",
+        id: "game", label: "Game (Seducción)", icon: Gamepad2, route: "/systems",
         schedule: "1:20 - 2:00 PM",
-        todayValue: last(gamingSpark), unit: "min",
+        todayValue: last(gameSpark), unit: "min",
         minThreshold: 10, maxThreshold: 20,
-        weekTotal: sum(gamingSpark), streak: streaks.gaming || 0, spark: gamingSpark,
+        weekTotal: sum(gameSpark), streak: streaks.game || 0, spark: gameSpark,
       },
       {
         id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard",
