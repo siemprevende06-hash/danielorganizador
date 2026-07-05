@@ -23,6 +23,7 @@ import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutineBlocks';
+import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer } from 'lucide-react';
 
@@ -109,7 +110,8 @@ export default function DailyView() {
     toggleBlockComplete, isBlockCompleted,
     completedBlocks, completedTasks, dayScore,
     tasks,
-  } = useDailyPlanData();
+    planRoutineType,
+  } = useDailyPlanData(new Date());
 
   const {
     adjustedBlocks,
@@ -126,6 +128,13 @@ export default function DailyView() {
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
   const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus } = useRoutineBlocks();
+
+  // Apply plan's routine type when a plan exists for today
+  useEffect(() => {
+    if (planRoutineType) {
+      setRoutineType(planRoutineType as RoutineType);
+    }
+  }, [planRoutineType, setRoutineType]);
 
   if (loading) {
     return (

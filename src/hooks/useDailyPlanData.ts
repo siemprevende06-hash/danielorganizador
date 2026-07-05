@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRoutineBlocksDB, type RoutineBlock } from '@/hooks/useRoutineBlocksDB';
 import { useBlockCompletions } from '@/hooks/useBlockCompletions';
+import { format } from 'date-fns';
 
 export interface TaskItem {
   id: string;
@@ -16,16 +17,45 @@ export interface TaskItem {
   routine_block_id?: string;
 }
 
-export function useDailyPlanData() {
+export function useDailyPlanData(date?: Date) {
   const { blocks, isLoaded: blocksLoaded } = useRoutineBlocksDB();
   const { completions: blockCompletions, isLoading: completionsLoading, toggleBlockComplete, isBlockCompleted } = useBlockCompletions();
-  
+
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
+  const [planAssignments, setPlanAssignments] = useState<Record<string, string[]> | null>(null);
+  const [planRoutineType, setPlanRoutineType] = useState<string | null>(null);
+  const [planLoaded, setPlanLoaded] = useState(false);
+
+  const targetDate = date || new Date();
+  const dateStr = format(targetDate, 'yyyy-MM-dd');
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   useEffect(() => {
     loadTasks();
-  }, []);
+    loadPlanForDate();
+  }, [dateStr]);
+
+  const loadPlanForDate = async () => {
+    setPlanLoaded(false);
+    try {
+      const { data: plan } = await supabase.from('daily_plans').select('routine_type, block_assignments').eq('plan_date', dateStr).maybeSingle();
+
+      if (plan && plan.block_assignments) {
+        setPlanAssignments(plan.block_assignments as Record<string, string[]>);
+        setPlanRoutineType(plan.routine_type);
+      } else {
+        setPlanAssignments(null);
+        setPlanRoutineType(null);
+      }
+    } catch (error) {
+      console.error('Error loading plan for date:', error);
+      setPlanAssignments(null);
+      setPlanRoutineType(null);
+    } finally {
+      setPlanLoaded(true);
+    }
+  };
 
   const loadTasks = async () => {
     setTasksLoading(true);
@@ -52,24 +82,82 @@ export function useDailyPlanData() {
     }
   };
 
+  // Derive tasksByBlock: prefer plan assignments, fallback to routine_block_id
   const tasksByBlock = useMemo(() => {
     const grouped: Record<string, TaskItem[]> = {};
-    tasks.forEach(task => {
-      if (task.routine_block_id) {
-        if (!grouped[task.routine_block_id]) grouped[task.routine_block_id] = [];
-        grouped[task.routine_block_id].push(task);
+
+    if (planAssignments && dateStr === todayStr) {
+      // Use plan assignments when viewing today's plan
+      for (const [blockId, taskIds] of Object.entries(planAssignments)) {
+        grouped[blockId] = taskIds
+          .map(id => tasks.find(t => t.id === id))
+          .filter(Boolean) as TaskItem[];
       }
-    });
+    } else if (planAssignments) {
+      // For non-today dates, also use plan assignments
+      for (const [blockId, taskIds] of Object.entries(planAssignments)) {
+        grouped[blockId] = taskIds
+          .map(id => tasks.find(t => t.id === id))
+          .filter(Boolean) as TaskItem[];
+      }
+    } else {
+      // Fallback: group by routine_block_id
+      tasks.forEach(task => {
+        if (task.routine_block_id) {
+          if (!grouped[task.routine_block_id]) grouped[task.routine_block_id] = [];
+          grouped[task.routine_block_id].push(task);
+        }
+      });
+    }
     return grouped;
-  }, [tasks]);
+  }, [tasks, planAssignments, dateStr, todayStr]);
 
   const unassignedTasks = useMemo(() => {
-    return tasks.filter(t => !t.routine_block_id);
-  }, [tasks]);
+    if (planAssignments) {
+      // For a planned day, unassigned = tasks not in any plan assignment
+      const allPlannedIds = new Set(Object.values(planAssignments).flat());
+      return tasks.filter(t => !allPlannedIds.has(t.id) && !t.completed);
+    }
+    return tasks.filter(t => !t.routine_block_id && !t.completed);
+  }, [tasks, planAssignments]);
 
-  const allAssignedIds = useMemo(() => new Set(tasks.filter(t => t.routine_block_id).map(t => t.id)), [tasks]);
+  const allAssignedIds = useMemo(() => {
+    if (planAssignments) {
+      return new Set(Object.values(planAssignments).flat());
+    }
+    return new Set(tasks.filter(t => t.routine_block_id).map(t => t.id));
+  }, [tasks, planAssignments]);
 
   const assignTaskToBlock = useCallback(async (taskId: string, blockId: string) => {
+    if (planAssignments) {
+      // For planned day, update plan assignments in local state
+      setPlanAssignments(prev => {
+        const next = { ...prev };
+        // Remove from any current block
+        for (const bId of Object.keys(next)) {
+          next[bId] = next[bId].filter(id => id !== taskId);
+        }
+        // Add to new block
+        if (!next[blockId]) next[blockId] = [];
+        next[blockId].push(taskId);
+        return next;
+      });
+
+      // If today, also update routine_block_id directly
+      if (dateStr === todayStr) {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        const table = task.source === 'entrepreneurship' ? 'entrepreneurship_tasks' : 'tasks';
+        try {
+          await supabase.from(table as any).update({ routine_block_id: blockId }).eq('id', taskId);
+        } catch (error) {
+          console.error('Error assigning task:', error);
+        }
+      }
+      return;
+    }
+
+    // Legacy: direct routine_block_id update
     const currentTasks = tasks;
     const task = currentTasks.find(t => t.id === taskId);
     if (!task) return;
@@ -81,12 +169,33 @@ export function useDailyPlanData() {
     } catch (error) {
       console.error('Error assigning task:', error);
     }
-  }, [tasks]);
+  }, [tasks, planAssignments, dateStr, todayStr]);
 
   const removeTaskFromBlock = useCallback(async (taskId: string) => {
+    if (planAssignments) {
+      setPlanAssignments(prev => {
+        const next = { ...prev };
+        for (const bId of Object.keys(next)) {
+          next[bId] = next[bId].filter(id => id !== taskId);
+        }
+        return next;
+      });
+
+      if (dateStr === todayStr) {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        const table = task.source === 'entrepreneurship' ? 'entrepreneurship_tasks' : 'tasks';
+        try {
+          await supabase.from(table as any).update({ routine_block_id: null }).eq('id', taskId);
+        } catch (error) {
+          console.error('Error removing task:', error);
+        }
+      }
+      return;
+    }
+
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-
     const table = task.source === 'entrepreneurship' ? 'entrepreneurship_tasks' : 'tasks';
     try {
       await supabase.from(table as any).update({ routine_block_id: null }).eq('id', taskId);
@@ -94,7 +203,7 @@ export function useDailyPlanData() {
     } catch (error) {
       console.error('Error removing task:', error);
     }
-  }, [tasks]);
+  }, [tasks, planAssignments, dateStr, todayStr]);
 
   const completedBlocks = useMemo(() => {
     return blocks.filter(b => isBlockCompleted(b.id));
@@ -128,5 +237,8 @@ export function useDailyPlanData() {
     completedBlocks,
     completedTasks,
     dayScore,
+    planAssignments,
+    planRoutineType,
+    planLoaded,
   };
 }

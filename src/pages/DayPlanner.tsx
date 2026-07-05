@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,7 +12,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useRoutineBlocksDB } from "@/hooks/useRoutineBlocksDB";
+import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
 import { useRoutinePresets } from "@/hooks/useRoutinePresets";
 import { usePerformanceModes } from "@/hooks/usePerformanceModes";
 import { QuickDateSelector } from "@/components/routine/QuickDateSelector";
@@ -68,6 +67,13 @@ const AREAS = [
   { id: 'proyectos', name: 'Proyectos', source: 'project' },
 ];
 
+const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> = {
+  disciplina: { active: "bg-orange-500/20 border-orange-500/60 text-orange-500", inactive: "border-orange-500/20 text-orange-400/60 hover:border-orange-500/40" },
+  normal: { active: "bg-blue-500/20 border-blue-500/60 text-blue-500", inactive: "border-blue-500/20 text-blue-400/60 hover:border-blue-500/40" },
+  super: { active: "bg-purple-500/20 border-purple-500/60 text-purple-500", inactive: "border-purple-500/20 text-purple-400/60 hover:border-purple-500/40" },
+  descanso: { active: "bg-green-500/20 border-green-500/60 text-green-500", inactive: "border-green-500/20 text-green-400/60 hover:border-green-500/40" },
+};
+
 export default function DayPlanner() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [mode, setMode] = useState<string>('normal');
@@ -80,6 +86,7 @@ export default function DayPlanner() {
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
+  const [planRoutineType, setPlanRoutineType] = useState<RoutineType>('normal');
 
   // Quick task creation
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -91,22 +98,20 @@ export default function DayPlanner() {
   const [wakeTime, setWakeTime] = useState('06:30');
   const [sleepTime, setSleepTime] = useState('22:30');
 
-  const { blocks, isLoaded: blocksLoaded } = useRoutineBlocksDB();
+  const { blocks: routineBlocks, isLoaded: blocksLoaded, routineType, setRoutineType } = useRoutineBlocks();
   const { presets, isLoading: presetsLoading } = useRoutinePresets();
   const { modes, selectMode } = usePerformanceModes();
   const { toast } = useToast();
 
   // Sort blocks by time
   const sortedBlocks = useMemo(() => {
-    return [...blocks]
+    return [...routineBlocks]
       .filter(block => {
         const startMinutes = parseTimeToMinutes(block.startTime);
-        // Nueva rutina: 06:30 (390) hasta 22:30 (1350)
-        return startMinutes >= 390 && startMinutes <= 1350;
+        return startMinutes >= 300;
       })
-      .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime))
-      .filter((block, index, self) => index === self.findIndex(b => b.id === block.id));
-  }, [blocks]);
+      .sort((a, b) => a.order - b.order);
+  }, [routineBlocks]);
 
   // Calculate sleep hours
   const sleepHours = useMemo(() => {
@@ -165,23 +170,21 @@ export default function DayPlanner() {
         if (plan.preset_id) setSelectedPresetId(plan.preset_id);
         if (plan.wake_time) setWakeTime(plan.wake_time);
         if (plan.sleep_time) setSleepTime(plan.sleep_time);
+        if (plan.routine_type) {
+          setPlanRoutineType(plan.routine_type as RoutineType);
+          setRoutineType(plan.routine_type as RoutineType);
+        }
+        if (plan.block_assignments) {
+          setTaskAssignments(plan.block_assignments as Record<string, string[]>);
+        } else {
+          setTaskAssignments({});
+        }
       } else {
         setMode('normal');
         setNotes('');
+        setPlanRoutineType(routineType);
+        setTaskAssignments({});
       }
-
-      // Load task assignments from routine_block_id
-      const { data: tasksWithBlocks } = await supabase.from('tasks').select('id, routine_block_id').not('routine_block_id', 'is', null);
-      const { data: entTasksWithBlocks } = await supabase.from('entrepreneurship_tasks').select('id, routine_block_id').not('routine_block_id', 'is', null);
-      
-      const assignments: Record<string, string[]> = {};
-      [...(tasksWithBlocks || []), ...(entTasksWithBlocks || [])].forEach(t => {
-        if (t.routine_block_id) {
-          if (!assignments[t.routine_block_id]) assignments[t.routine_block_id] = [];
-          assignments[t.routine_block_id].push(t.id);
-        }
-      });
-      setTaskAssignments(assignments);
     } catch (error) {
       console.error('Error loading plan:', error);
     }
@@ -269,28 +272,32 @@ export default function DayPlanner() {
         plan_date: dateStr, mode, notes,
         preset_id: selectedPresetId,
         wake_time: wakeTime, sleep_time: sleepTime,
+        routine_type: planRoutineType,
+        block_assignments: taskAssignments,
       }, { onConflict: 'plan_date' });
 
-      // Save block assignments
-      for (const [blockId, taskIds] of Object.entries(taskAssignments)) {
-        for (const taskId of taskIds) {
-          const task = allTasks.find(t => t.id === taskId);
-          if (task?.source === 'entrepreneurship') {
-            await supabase.from('entrepreneurship_tasks').update({ routine_block_id: blockId }).eq('id', taskId);
-          } else {
-            await supabase.from('tasks').update({ routine_block_id: blockId }).eq('id', taskId);
+      // Also update routine_block_id on tasks directly for TODAY only,
+      // so the current hoy/inicio view (without plan support) still works
+      if (dateStr === format(new Date(), 'yyyy-MM-dd')) {
+        for (const [blockId, taskIds] of Object.entries(taskAssignments)) {
+          for (const taskId of taskIds) {
+            const task = allTasks.find(t => t.id === taskId);
+            if (task?.source === 'entrepreneurship') {
+              await supabase.from('entrepreneurship_tasks').update({ routine_block_id: blockId }).eq('id', taskId);
+            } else {
+              await supabase.from('tasks').update({ routine_block_id: blockId }).eq('id', taskId);
+            }
           }
         }
-      }
 
-      // Clear unassigned tasks' block IDs
-      const allAssigned = Object.values(taskAssignments).flat();
-      const toUnassign = allTasks.filter(t => !allAssigned.includes(t.id));
-      for (const task of toUnassign) {
-        if (task.source === 'entrepreneurship') {
-          await supabase.from('entrepreneurship_tasks').update({ routine_block_id: null }).eq('id', task.id);
-        } else {
-          await supabase.from('tasks').update({ routine_block_id: null }).eq('id', task.id);
+        const allAssigned = Object.values(taskAssignments).flat();
+        const toUnassign = allTasks.filter(t => !allAssigned.includes(t.id));
+        for (const task of toUnassign) {
+          if (task.source === 'entrepreneurship') {
+            await supabase.from('entrepreneurship_tasks').update({ routine_block_id: null }).eq('id', task.id);
+          } else {
+            await supabase.from('tasks').update({ routine_block_id: null }).eq('id', task.id);
+          }
         }
       }
 
@@ -344,6 +351,32 @@ export default function DayPlanner() {
           <Badge variant="outline" className={cn("gap-1 py-1", sleepHours >= 8 ? 'text-green-500' : sleepHours >= 7 ? 'text-yellow-500' : 'text-red-500')}>
             <Moon className="h-3 w-3" /> {sleepHours.toFixed(1)}h sueño
           </Badge>
+        </div>
+
+        {/* Routine Selector - same 4 routines as Inicio */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {ROUTINES.map((r) => {
+            const style = ROUTINE_STYLES[r.type];
+            const isActive = planRoutineType === r.type;
+            return (
+              <button
+                key={r.type}
+                onClick={() => {
+                  setPlanRoutineType(r.type);
+                  setRoutineType(r.type);
+                }}
+                className={cn(
+                  "flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]",
+                  isActive ? style.active : `${style.inactive} bg-transparent`,
+                  isActive && "scale-[1.02]"
+                )}
+              >
+                <span className="text-xl leading-none transition-transform duration-300">{r.icon}</span>
+                <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", isActive ? "opacity-100" : "opacity-70")}>{r.shortLabel}</span>
+                <span className={cn("text-[10px] font-mono tracking-tight", isActive ? "opacity-80" : "opacity-40")}>{r.wakeTime}—{r.sleepTime}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Settings Collapsible */}

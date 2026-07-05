@@ -85,7 +85,8 @@ export default function Index() {
     toggleBlockComplete, isBlockCompleted,
     completedBlocks, completedTasks, dayScore,
     tasks,
-  } = useDailyPlanData();
+    planRoutineType,
+  } = useDailyPlanData(new Date());
 
   const {
     adjustedBlocks,
@@ -108,6 +109,13 @@ export default function Index() {
       requestPermission();
     }
   }, [requestPermission]);
+
+  // Apply plan's routine type when a plan exists for today
+  useEffect(() => {
+    if (planRoutineType) {
+      setRoutineType(planRoutineType as RoutineType);
+    }
+  }, [planRoutineType, setRoutineType]);
 
   const wheelValues = areaScores.map((s) => Math.round(s.esfuerzo / 10))
   const wheelValues2 = areaScores.map((s) => Math.round(s.resultados / 10))
