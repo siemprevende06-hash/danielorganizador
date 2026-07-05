@@ -9,6 +9,11 @@ export interface PillarProgress {
   tasksTotal: number;
   streak: number;
   status: "pending" | "in_progress" | "completed";
+  route?: string;
+  coverUrl?: string | null;
+  effort?: number;
+  results?: number;
+  hoursToday?: number;
 }
 
 export interface SecondaryGoal {
