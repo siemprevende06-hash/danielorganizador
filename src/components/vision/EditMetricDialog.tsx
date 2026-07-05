@@ -5,23 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { PointBMetric } from '@/hooks/usePointBMetrics';
+import { POINT_B_AREAS } from '@/data/pointB2027';
 
-const AREAS = [
-  'universidad', 'emprendimiento', 'proyectos', 'gym',
-  'idiomas', 'musica', 'lectura', 'finanzas', 'apariencia',
-];
-
-const AREA_LABELS: Record<string, string> = {
-  universidad: '🎓 Universidad',
-  emprendimiento: '💼 Emprendimiento',
-  proyectos: '🚀 Proyectos',
-  gym: '💪 Gym',
-  idiomas: '🌍 Idiomas',
-  musica: '🎵 Música',
-  lectura: '📖 Lectura',
-  finanzas: '💰 Finanzas',
-  apariencia: '✨ Apariencia',
+const GROUP_LABELS: Record<string, string> = {
+  cimientos: '🏗️ Cimientos',
+  construccion: '🔨 Construcción',
+  recompensas: '🎁 Recompensas',
 };
+
+const POINT_B_AREA_OPTIONS = POINT_B_AREAS.map(a => ({
+  id: a.id,
+  label: `${a.icon} ${a.label}`,
+  group: a.group,
+}));
 
 interface Props {
   open: boolean;
@@ -31,7 +27,7 @@ interface Props {
 }
 
 export function EditMetricDialog({ open, onOpenChange, metric, onSave }: Props) {
-  const [area, setArea] = useState(metric?.area || AREAS[0]);
+  const [area, setArea] = useState(metric?.area || POINT_B_AREA_OPTIONS[0]?.id || '');
   const [metricName, setMetricName] = useState(metric?.metric_name || '');
   const [currentValue, setCurrentValue] = useState(metric?.current_value?.toString() || '0');
   const [targetValue, setTargetValue] = useState(metric?.target_value?.toString() || '100');
@@ -60,6 +56,7 @@ export function EditMetricDialog({ open, onOpenChange, metric, onSave }: Props) 
         unit,
         icon: null,
         sort_order: 0,
+        point_b_area_id: area,
       });
       onOpenChange(false);
     } catch (error) {
@@ -69,6 +66,8 @@ export function EditMetricDialog({ open, onOpenChange, metric, onSave }: Props) 
     }
   };
 
+  const groups = ['cimientos', 'construccion', 'recompensas'] as const;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -77,14 +76,23 @@ export function EditMetricDialog({ open, onOpenChange, metric, onSave }: Props) 
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Área</Label>
+            <Label>Área de Point B</Label>
             <Select value={area} onValueChange={setArea}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {AREAS.map(a => (
-                  <SelectItem key={a} value={a}>{AREA_LABELS[a] || a}</SelectItem>
+                {groups.map(group => (
+                  <div key={group}>
+                    <div className="px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      {GROUP_LABELS[group]}
+                    </div>
+                    {POINT_B_AREA_OPTIONS
+                      .filter(a => a.group === group)
+                      .map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                      ))}
+                  </div>
                 ))}
               </SelectContent>
             </Select>

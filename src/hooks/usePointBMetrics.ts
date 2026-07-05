@@ -10,19 +10,26 @@ export interface PointBMetric {
   unit: string;
   icon: string | null;
   sort_order: number;
+  point_b_area_id: string | null;
 }
 
-const AREA_ICONS: Record<string, string> = {
-  universidad: '🎓',
-  emprendimiento: '💼',
-  proyectos: '🚀',
-  gym: '💪',
-  idiomas: '🌍',
-  musica: '🎵',
-  lectura: '📖',
-  finanzas: '💰',
-  apariencia: '✨',
-};
+export function mapAreaToPointBArea(area: string): string {
+  const mapping: Record<string, string> = {
+    universidad: 'profesional',
+    emprendimiento: 'profesional',
+    proyectos: 'profesional',
+    gym: 'salud',
+    idiomas: 'desarrollo',
+    musica: 'desarrollo',
+    lectura: 'desarrollo',
+    finanzas: 'finanzas',
+    apariencia: 'apariencia',
+    piano: 'desarrollo',
+    guitarra: 'desarrollo',
+    ajedrez: 'ocio',
+  };
+  return mapping[area] || area;
+}
 
 export function usePointBMetrics() {
   const [metrics, setMetrics] = useState<PointBMetric[]>([]);
@@ -44,6 +51,7 @@ export function usePointBMetrics() {
         unit: m.unit,
         icon: m.icon,
         sort_order: m.sort_order,
+        point_b_area_id: m.point_b_area_id || mapAreaToPointBArea(m.area),
       })));
     } catch (error) {
       console.error('Error loading point B metrics:', error);
@@ -55,13 +63,27 @@ export function usePointBMetrics() {
   useEffect(() => { load(); }, [load]);
 
   const addMetric = async (metric: Omit<PointBMetric, 'id'>) => {
-    const { error } = await supabase.from('point_b_metrics').insert(metric as any);
+    const { error } = await supabase.from('point_b_metrics').insert({
+      area: metric.area,
+      area_id: metric.area,
+      point_b_area_id: metric.point_b_area_id || mapAreaToPointBArea(metric.area),
+      metric_name: metric.metric_name,
+      current_value: String(metric.current_value),
+      target_value: String(metric.target_value),
+      unit: metric.unit,
+      icon: metric.icon,
+      sort_order: metric.sort_order,
+    } as any);
     if (error) throw error;
     await load();
   };
 
   const updateMetric = async (id: string, updates: Partial<PointBMetric>) => {
-    await supabase.from('point_b_metrics').update(updates as any).eq('id', id);
+    const dbUpdates: Record<string, any> = { ...updates };
+    if (updates.current_value !== undefined) dbUpdates.current_value = String(updates.current_value);
+    if (updates.target_value !== undefined) dbUpdates.target_value = String(updates.target_value);
+    if (updates.point_b_area_id) dbUpdates.point_b_area_id = updates.point_b_area_id;
+    await supabase.from('point_b_metrics').update(dbUpdates).eq('id', id);
     await load();
   };
 
@@ -79,9 +101,20 @@ export function usePointBMetrics() {
     return groups;
   };
 
+  const groupedByPointBArea = () => {
+    const groups: Record<string, PointBMetric[]> = {};
+    for (const m of metrics) {
+      const pbArea = m.point_b_area_id || mapAreaToPointBArea(m.area);
+      if (!groups[pbArea]) groups[pbArea] = [];
+      groups[pbArea].push(m);
+    }
+    return groups;
+  };
+
   return {
     metrics,
     groupedByArea: groupedByArea(),
+    groupedByPointBArea: groupedByPointBArea(),
     loading,
     addMetric,
     updateMetric,

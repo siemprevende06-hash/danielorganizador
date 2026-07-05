@@ -1,20 +1,23 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { usePointBMetrics } from '@/hooks/usePointBMetrics'
 import { usePuntoPartida } from '@/hooks/usePuntoPartida'
+import { useIdentitySystems } from '@/hooks/useIdentitySystems'
 import { POINT_B_AREAS } from '@/data/pointB2027'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import {
-  Compass, Plus, Trash2, Target, TrendingUp, Eye,
-  Pencil, Check, X, ChevronDown, ChevronRight
+  Compass, Plus, Target, TrendingUp,
+  Pencil, Check, X, ChevronRight, ExternalLink
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { EditMetricDialog } from '@/components/vision/EditMetricDialog'
-import { PointBMetricCard } from '@/components/vision/PointBMetricCard'
+import { AreaSystemsAndGoals } from '@/components/vision/AreaSystemsAndGoals'
+import type { PointBMetric } from '@/hooks/usePointBMetrics'
+import type { IdentitySystem } from '@/lib/definitions'
 
 const GROUP_LABELS: Record<string, { label: string; icon: string; desc: string }> = {
   cimientos: { label: 'CIMIENTOS', icon: '🏗️', desc: 'Estructura y Hábitos' },
@@ -36,6 +39,11 @@ const HOMBRE_LABELS = [
 const HOMBRE_NOTAS: Record<string, number> = {
   liderazgo: 6, seguridad: 4, estatus: 5, provision: 5,
   fortaleza: 3, ie: 5, carisma: 8, lealtad: 5,
+}
+
+function getPointBAreaEffortIds(pbAreaId: string): string[] {
+  const area = POINT_B_AREAS.find(a => a.id === pbAreaId)
+  return area?.effortTrackingIds || []
 }
 
 function getProgressColor(pct: number) {
@@ -64,9 +72,18 @@ function getRemainingText(current: number, target: number, unit: string): string
 
 export default function VisionPage() {
   const { entries, loading: ppLoading, updateSubScore } = usePuntoPartida()
-  const { metrics, groupedByArea: customMetrics, loading: metricsLoading, addMetric, updateMetric, deleteMetric, refresh: refreshMetrics } = usePointBMetrics()
+  const { metrics, groupedByPointBArea: customMetricsByPB, loading: metricsLoading, addMetric, updateMetric, deleteMetric } = usePointBMetrics()
+
+  const {
+    systems,
+    dailyStates,
+    toggleTaskState,
+    toggleActive,
+    getSystemsByArea,
+  } = useIdentitySystems()
+
   const [showEdit, setShowEdit] = useState(false)
-  const [editingMetric, setEditingMetric] = useState<any>(null)
+  const [editingMetric, setEditingMetric] = useState<PointBMetric | null>(null)
   const [editingSub, setEditingSub] = useState<{ areaId: string; subId: string } | null>(null)
   const [editValue, setEditValue] = useState('')
   const editRef = useRef<HTMLInputElement>(null)
@@ -174,9 +191,11 @@ export default function VisionPage() {
               De Punto A → Point B · Cada sub-eje es un tramo del camino
             </p>
           </div>
-          <Button onClick={() => { setEditingMetric(null); setShowEdit(true) }} variant="outline" size="sm" className="gap-2">
-            <Plus className="h-4 w-4" /> Métrica custom
-          </Button>
+          <Link to="/plan-identidad">
+            <Button variant="outline" size="sm" className="gap-2">
+              <ExternalLink className="h-4 w-4" /> Gestionar sistemas
+            </Button>
+          </Link>
         </div>
 
         {/* Overall Progress Card */}
@@ -239,6 +258,10 @@ export default function VisionPage() {
 
               {areas.map(area => {
                 const res = areaResultados(area)
+                const effortIds = getPointBAreaEffortIds(area.id)
+                const areaSystems: IdentitySystem[] = effortIds.flatMap(id => getSystemsByArea(id))
+                const uniqueSystems = areaSystems.filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)
+                const areaMetrics = customMetricsByPB[area.id] || []
                 return (
                   <Card key={area.id} className="overflow-hidden border-l-4" style={{ borderLeftColor: res >= 80 ? '#22c55e' : res >= 40 ? '#f59e0b' : '#6b7280' }}>
                     {/* Area Header */}
@@ -250,6 +273,7 @@ export default function VisionPage() {
                             <CardTitle className="text-base font-bold">{area.label}</CardTitle>
                             <p className="text-xs text-muted-foreground">
                               {area.sub.length} sub-ejes · {res}% completo
+                              {areaMetrics.length > 0 && ` · ${areaMetrics.length} metas`}
                             </p>
                           </div>
                         </div>
@@ -257,7 +281,6 @@ export default function VisionPage() {
                           {res}%
                         </Badge>
                       </div>
-                      {/* Mini progress bar under header */}
                       <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
                         <div
                           className={cn('h-full rounded-full transition-all duration-700', getBarColor(res))}
@@ -277,7 +300,6 @@ export default function VisionPage() {
                             key={sub.id}
                             className="group flex items-center gap-3 py-1.5 px-2 rounded-md hover:bg-muted/50 transition-colors"
                           >
-                            {/* Status dot */}
                             <div className={cn(
                               'w-2 h-2 rounded-full shrink-0',
                               pct >= 100 ? 'bg-green-500' :
@@ -285,12 +307,10 @@ export default function VisionPage() {
                               'bg-muted-foreground/30'
                             )} />
 
-                            {/* Label */}
                             <span className="text-sm min-w-[130px] sm:min-w-[160px] text-foreground/80">
                               {sub.label}
                             </span>
 
-                            {/* Start -> Current -> Target */}
                             <div className="flex items-center gap-1.5 text-sm min-w-[140px]">
                               <span className="text-muted-foreground text-xs">{sub.start}</span>
                               <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
@@ -325,7 +345,6 @@ export default function VisionPage() {
                               <span className="text-xs text-muted-foreground">{sub.unit}</span>
                             </div>
 
-                            {/* Progress bar */}
                             <div className="flex-1 min-w-[60px]">
                               <div className="h-2 bg-muted rounded-full overflow-hidden">
                                 <div
@@ -335,7 +354,6 @@ export default function VisionPage() {
                               </div>
                             </div>
 
-                            {/* Percentage + remaining */}
                             <div className="flex items-center gap-2 min-w-[80px] justify-end">
                               <span className={cn('text-sm font-bold', getProgressColor(pct))}>
                                 {pct}%
@@ -345,7 +363,6 @@ export default function VisionPage() {
                               </span>
                             </div>
 
-                            {/* Edit button (visible on hover) */}
                             {!isEditing && (
                               <button
                                 onClick={() => handleStartEdit(area.id, sub.id, current)}
@@ -357,6 +374,24 @@ export default function VisionPage() {
                           </div>
                         )
                       })}
+
+                      {/* Systems + Goals */}
+                      <AreaSystemsAndGoals
+                        areaName={area.label}
+                        areaIcon={area.icon}
+                        systems={uniqueSystems}
+                        dailyStates={dailyStates}
+                        metrics={areaMetrics}
+                        onToggleTask={toggleTaskState}
+                        onToggleActive={toggleActive}
+                        onEditSystem={() => {}}
+                        onAddMetric={() => { setEditingMetric(null); setShowEdit(true) }}
+                        onEditMetric={(m) => { setEditingMetric(m); setShowEdit(true) }}
+                        onDeleteMetric={async (id) => {
+                          await deleteMetric(id)
+                          toast.success('Meta eliminada')
+                        }}
+                      />
                     </CardContent>
                   </Card>
                 )
@@ -395,75 +430,6 @@ export default function VisionPage() {
               )
             })}
           </div>
-        </div>
-
-        {/* Custom Metrics Section */}
-        <div className="space-y-3">
-          <details className="group" open>
-            <summary className="flex items-center gap-2 cursor-pointer text-base font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors list-none">
-              <ChevronRight className="h-4 w-4 group-open:rotate-90 transition-transform" />
-              📊 Métricas Personalizadas
-              <Badge variant="secondary" className="text-[10px] ml-1">
-                {metrics.length}
-              </Badge>
-            </summary>
-
-            <div className="mt-3 space-y-4">
-              {Object.keys(customMetrics).length === 0 ? (
-                <Card className="border-2 border-dashed border-muted-foreground/30">
-                  <CardContent className="p-8 text-center">
-                    <Compass className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-                    <h3 className="text-sm font-semibold mb-1">Define métricas adicionales</h3>
-                    <p className="text-xs text-muted-foreground mb-3 max-w-sm mx-auto">
-                      Añade métricas concretas que no estén cubiertas por los sub-ejes principales
-                    </p>
-                    <Button size="sm" onClick={() => { setEditingMetric(null); setShowEdit(true) }}>
-                      <Plus className="h-3 w-3 mr-1" /> Añadir métrica
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  {Object.entries(customMetrics).map(([area, areaMetrics]) => (
-                    <Card key={area}>
-                      <CardHeader className="pb-2 pt-3 px-4">
-                        <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                          <span className="capitalize">{area}</span>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {areaMetrics.filter(m => m.current_value >= m.target_value).length}/{areaMetrics.length}
-                          </Badge>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-2 px-4 pb-4">
-                        {areaMetrics.map(metric => (
-                          <div key={metric.id} className="relative group">
-                            <PointBMetricCard
-                              metric={metric}
-                              onEdit={() => { setEditingMetric(metric); setShowEdit(true) }}
-                            />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                              onClick={async () => {
-                                await deleteMetric(metric.id)
-                                toast.success('Métrica eliminada')
-                              }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  ))}
-                  <Button variant="outline" size="sm" onClick={() => { setEditingMetric(null); setShowEdit(true) }} className="gap-2">
-                    <Plus className="h-3 w-3" /> Añadir métrica
-                  </Button>
-                </>
-              )}
-            </div>
-          </details>
         </div>
 
       </div>
