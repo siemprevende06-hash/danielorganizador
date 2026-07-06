@@ -14,7 +14,7 @@ interface SubjectProgressCardProps {
   onToggleActive?: () => void;
 }
 
-export function SubjectProgressCard({ subject, weightedAverage, onClick }: SubjectProgressCardProps) {
+export function SubjectProgressCard({ subject, weightedAverage, onClick, isActive, onToggleActive }: SubjectProgressCardProps) {
   const totalTasks = subject.tasks.length;
   const completedTasks = subject.tasks.filter(t => t.completed).length;
   const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
@@ -24,7 +24,10 @@ export function SubjectProgressCard({ subject, weightedAverage, onClick }: Subje
 
   return (
     <Card
-      className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/40 border-l-4 border-l-primary/60"
+      className={cn(
+        "group cursor-pointer transition-all hover:shadow-md hover:border-primary/40 border-l-4 border-l-primary/60",
+        isActive && "ring-2 ring-primary border-l-primary"
+      )}
       onClick={onClick}
     >
       <CardContent className="p-4 space-y-3">
