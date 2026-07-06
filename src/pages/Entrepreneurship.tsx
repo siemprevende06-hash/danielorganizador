@@ -7,12 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Briefcase, Plus, Rocket, TrendingUp, CheckCircle2, 
-  ListTodo, DollarSign, Edit3, Trash2, ImagePlus, Loader2, X
+  Briefcase, Plus, Rocket, CheckCircle2, 
+  ListTodo, DollarSign, Edit3, Trash2, ImagePlus, Loader2, X, Star
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { useActiveSelection } from '@/hooks/useActiveSelection';
+import { cn } from '@/lib/utils';
 
 interface Entrepreneurship {
   id: string;
