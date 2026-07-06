@@ -27,6 +27,7 @@ import { RoutineBlockSchedule } from '@/components/university/RoutineBlockSchedu
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { useActiveSelection } from '@/hooks/useActiveSelection';
 import { z } from 'zod';
 
 const subjectSchema = z.object({
