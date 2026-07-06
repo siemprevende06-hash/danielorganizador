@@ -11,6 +11,7 @@ import { Plus, Trash2, Pencil, FolderKanban, Target, ListTodo, ChevronDown, Chev
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { useActiveSelection } from '@/hooks/useActiveSelection';
 
 interface SubTask {
   id: string;
