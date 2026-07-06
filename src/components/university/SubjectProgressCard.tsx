@@ -1,13 +1,17 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, CheckCircle2, Clock, FileText, GraduationCap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle2, FileText, GraduationCap, Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Subject } from '@/hooks/useUniversity';
 
 interface SubjectProgressCardProps {
   subject: Subject;
   weightedAverage: number | null;
   onClick?: () => void;
+  isActive?: boolean;
+  onToggleActive?: () => void;
 }
 
 export function SubjectProgressCard({ subject, weightedAverage, onClick }: SubjectProgressCardProps) {
