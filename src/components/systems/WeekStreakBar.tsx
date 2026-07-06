@@ -24,6 +24,10 @@ interface WeekStreakBarProps {
   compact?: boolean;
   /** Disparar shake si no se ha hecho cuando el usuario hace click */
   onShake?: () => void;
+  /** Ocultar el contador de racha (🔥/🏆) — útil cuando se muestra inline */
+  hideStreak?: boolean;
+  /** Clases adicionales para el wrapper */
+  className?: string;
 }
 
 const DAY_LABELS = ["L", "Ma", "Mi", "J", "V", "S", "D"];
@@ -55,6 +59,8 @@ export const WeekStreakBar = ({
   todayCompleted,
   compact = false,
   onShake,
+  hideStreak = false,
+  className,
 }: WeekStreakBarProps) => {
   const [statuses, setStatuses] = useState<DayStatus[]>(weekStatuses ?? Array(7).fill("none"));
   const [shaking, setShaking] = useState<number | null>(null);
@@ -145,9 +151,9 @@ export const WeekStreakBar = ({
   const sizeCircle = compact ? "w-6 h-6 text-[9px]" : "w-7 h-7 text-[10px]";
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1">
+    <div className={cn(!hideStreak && "space-y-1.5", className)}>
+      <div className={cn("flex items-center", hideStreak ? "gap-1" : "justify-between")}>
+        <div className={cn("flex", hideStreak ? "gap-0.5" : "gap-1")}>
           {weekDates.map((d, i) => {
             const status = statuses[i];
             const isToday = dateKey(d) === dateKey(new Date());
@@ -178,23 +184,25 @@ export const WeekStreakBar = ({
           })}
         </div>
 
-        <div
-          className={cn(
-            "flex items-center gap-2 text-[10px] font-medium transition-all",
-            pulseStreak && "scale-110"
-          )}
-        >
-          <span className="flex items-center gap-0.5 text-orange-500">
-            <Flame className="h-3 w-3" />
-            <span className={cn(pulseStreak && "animate-[bounce_0.5s_ease-out]")}>{streak.current}</span>
-          </span>
-          {streak.best > 0 && (
-            <span className="flex items-center gap-0.5 text-yellow-600">
-              <Trophy className="h-3 w-3" />
-              {streak.best}
+        {!hideStreak && (
+          <div
+            className={cn(
+              "flex items-center gap-2 text-[10px] font-medium transition-all ml-1",
+              pulseStreak && "scale-110"
+            )}
+          >
+            <span className="flex items-center gap-0.5 text-orange-500">
+              <Flame className="h-3 w-3" />
+              <span className={cn(pulseStreak && "animate-[bounce_0.5s_ease-out]")}>{streak.current}</span>
             </span>
-          )}
-        </div>
+            {streak.best > 0 && (
+              <span className="flex items-center gap-0.5 text-yellow-600">
+                <Trophy className="h-3 w-3" />
+                {streak.best}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
