@@ -3,8 +3,33 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
 import { getCached, setCache, clearTableCache } from "@/lib/offlineCache";
 import { cachedMutation } from "@/lib/supabaseCache";
+import { getCubaDate } from "@/lib/cubaTime";
 
-const todayKey = () => new Date().toISOString().split("T")[0];
+const todayKey = () => getCubaDate();
+
+// Umbrales por defecto para computar "min"/"max" en la racha semanal.
+const STREAK_MIN_MINUTES = 1;
+const STREAK_MAX_MINUTES = 30;
+
+/**
+ * Añade a `completions` claves `streak:<habitId>` = "min" | "max" para cada
+ * hábito completado hoy, para que el trigger de BD actualice
+ * `system_habit_streaks`. Preserva claves streak: existentes no relacionadas.
+ */
+function withStreakMirror(data: SystemsData): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data.completions || {})) {
+    if (!k.startsWith("streak:")) out[k] = v;
+  }
+  for (const [habitId, completed] of Object.entries(data.completions || {})) {
+    if (habitId.startsWith("streak:")) continue;
+    if (!completed) continue;
+    const minutes = data.timeData?.[habitId] ?? 0;
+    const level = minutes >= STREAK_MAX_MINUTES ? "max" : "min";
+    out[`streak:${habitId}`] = level;
+  }
+  return out;
+}
 
 export interface SystemsData {
   completions: Record<string, boolean>;
@@ -98,7 +123,7 @@ export function useSystemsTracking() {
     const today = todayKey();
     const payload = {
       tracking_date: today,
-      completions: newData.completions,
+      completions: withStreakMirror(newData),
       time_data: newData.timeData,
       count_data: newData.countData,
       water_data: newData.waterData,

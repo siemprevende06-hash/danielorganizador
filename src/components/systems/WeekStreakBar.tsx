@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Check, Star, Flame, Trophy } from "lucide-react";
 import { useSystemHabitStreak } from "@/hooks/useSystemHabitStreaks";
+import { getCubaDate } from "@/lib/cubaTime";
 
 export type DayStatus = "max" | "min" | "none" | "special";
 
@@ -27,17 +28,19 @@ interface WeekStreakBarProps {
 
 const DAY_LABELS = ["L", "Ma", "Mi", "J", "V", "S", "D"];
 
-/** Lunes de la semana actual (ISO) */
-const getMondayOfWeek = (date = new Date()) => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
+/** Lunes de la semana actual (ISO) en hora Cuba */
+const getMondayOfWeek = (date?: Date) => {
+  // Construimos "hoy" en Cuba a partir de getCubaDate() para evitar desfase UTC
+  const [y, m, d] = getCubaDate(date).split("-").map(Number);
+  const local = new Date(y, m - 1, d);
+  const day = local.getDay();
+  const diff = local.getDate() - day + (day === 0 ? -6 : 1);
+  local.setDate(diff);
+  local.setHours(0, 0, 0, 0);
+  return local;
 };
 
-const dateKey = (d: Date) => d.toISOString().split("T")[0];
+const dateKey = (d: Date) => getCubaDate(d);
 
 /**
  * Calendario semanal L→D con estados max/min/none/special + contador de racha.
