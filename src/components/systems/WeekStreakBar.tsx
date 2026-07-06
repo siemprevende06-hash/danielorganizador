@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Check, Star, Flame, Trophy } from "lucide-react";
 import { useSystemHabitStreak } from "@/hooks/useSystemHabitStreaks";
+import { getCubaDate } from "@/lib/cubaTime";
 
 export type DayStatus = "max" | "min" | "none" | "special";
 
