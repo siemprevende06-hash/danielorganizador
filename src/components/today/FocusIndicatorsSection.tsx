@@ -1,10 +1,16 @@
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CalendarDays, GraduationCap, Briefcase, Code2, Clock, Target, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { CalendarDays, GraduationCap, Briefcase, Code2, Clock, Target, Shield, ListChecks, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCombinedFocusTime } from "@/hooks/useCombinedFocusTime";
 import { useSystemsTracking } from "@/hooks/useSystemsTracking";
+import { useActiveSelection } from "@/hooks/useActiveSelection";
+import { useUniversity } from "@/hooks/useUniversity";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 function semaphore(progress: number) {
   if (progress >= 80) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Completado" };
@@ -13,9 +19,88 @@ function semaphore(progress: number) {
   return { ring: "ring-muted/40", bg: "bg-muted/5", text: "text-muted-foreground", label: "Sin empezar" };
 }
 
+interface ActiveInfo {
+  name: string;
+  done: number;
+  total: number;
+  route: string;
+}
+
+interface ProjectStored {
+  id: string;
+  name: string;
+  tasks?: { completed?: boolean }[];
+}
+
 export function FocusIndicatorsSection() {
+  const navigate = useNavigate();
   const { areas, loading, setManualTime } = useCombinedFocusTime();
   const { data: systemsData, loading: systemsLoading } = useSystemsTracking();
+  const { subjects } = useUniversity();
+
+  const { value: activeSubjectId } = useActiveSelection("activeSubjectId");
+  const { value: activeEntId } = useActiveSelection("activeEntrepreneurshipId");
+  const { value: activeProjectId } = useActiveSelection("selectedProjectId");
+
+  const [entInfo, setEntInfo] = useState<ActiveInfo | null>(null);
+  const [projectInfo, setProjectInfo] = useState<ActiveInfo | null>(null);
+  const [generalTasks, setGeneralTasks] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+
+  // Universidad — from active subject
+  const activeSubject = subjects.find((s) => s.id === activeSubjectId) || null;
+  const subjectInfo: ActiveInfo | null = activeSubject
+    ? {
+        name: activeSubject.name,
+        done: activeSubject.tasks.filter((t) => t.completed).length,
+        total: activeSubject.tasks.length,
+        route: "/university",
+      }
+    : null;
+
+  // Emprendimiento — fetch active from Supabase
+  useEffect(() => {
+    if (!activeEntId) { setEntInfo(null); return; }
+    (async () => {
+      const [{ data: ent }, { count: total }, { count: done }] = await Promise.all([
+        supabase.from("entrepreneurships").select("name").eq("id", activeEntId).maybeSingle(),
+        supabase.from("entrepreneurship_tasks").select("*", { count: "exact", head: true }).eq("entrepreneurship_id", activeEntId),
+        supabase.from("entrepreneurship_tasks").select("*", { count: "exact", head: true }).eq("entrepreneurship_id", activeEntId).eq("completed", true),
+      ]);
+      if (ent) setEntInfo({ name: ent.name, done: done || 0, total: total || 0, route: `/entrepreneurship/${activeEntId}` });
+      else setEntInfo(null);
+    })();
+  }, [activeEntId]);
+
+  // Proyectos — from localStorage 'userProjects'
+  useEffect(() => {
+    if (!activeProjectId) { setProjectInfo(null); return; }
+    try {
+      const stored = localStorage.getItem("userProjects");
+      if (!stored) { setProjectInfo(null); return; }
+      const list = JSON.parse(stored) as ProjectStored[];
+      const p = list.find((x) => x.id === activeProjectId);
+      if (!p) { setProjectInfo(null); return; }
+      const total = p.tasks?.length || 0;
+      const done = p.tasks?.filter((t) => t.completed).length || 0;
+      setProjectInfo({ name: p.name, done, total, route: "/projects" });
+    } catch {
+      setProjectInfo(null);
+    }
+  }, [activeProjectId]);
+
+  // Tareas Generales — from tasks table for today with source='general'
+  useEffect(() => {
+    (async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const { data } = await supabase
+        .from("tasks")
+        .select("id, completed, source")
+        .gte("due_date", `${today}T00:00:00`)
+        .lte("due_date", `${today}T23:59:59`);
+      const gen = (data || []).filter((t: any) => !t.source || t.source === "general");
+      setGeneralTasks({ done: gen.filter((t: any) => t.completed).length, total: gen.length });
+    })();
+  }, []);
 
   if (loading || systemsLoading) {
     return (
@@ -36,6 +121,12 @@ export function FocusIndicatorsSection() {
   const sostenTotal = SOSTEN_IDS.length;
   const sostenPct = Math.round((sostenCount / sostenTotal) * 100);
 
+  const infoByArea: Record<string, ActiveInfo | null> = {
+    universidad: subjectInfo,
+    emprendimiento: entInfo,
+    proyectos: projectInfo,
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -52,6 +143,13 @@ export function FocusIndicatorsSection() {
             emprendimiento: "text-amber-500 bg-amber-500/10 ring-amber-500/20",
             proyectos: "text-cyan-500 bg-cyan-500/10 ring-cyan-500/20",
           };
+          const routeMap: Record<string, string> = {
+            universidad: "/university",
+            emprendimiento: "/entrepreneurship",
+            proyectos: "/projects",
+          };
+          const info = infoByArea[area.id];
+          const taskPct = info && info.total > 0 ? Math.round((info.done / info.total) * 100) : 0;
 
           return (
             <Card key={area.id} className={cn("p-3 ring-2 transition-all", sem.ring, sem.bg, "flex flex-col gap-2")}>
@@ -64,6 +162,29 @@ export function FocusIndicatorsSection() {
                 </div>
                 <span className={cn("text-[10px] font-semibold", sem.text)}>{sem.label}</span>
               </div>
+
+              {/* Active selection */}
+              <button
+                type="button"
+                onClick={() => navigate(info?.route || routeMap[area.id])}
+                className="text-left rounded-md border border-border/50 bg-background/50 px-2 py-1.5 hover:bg-background transition-colors"
+              >
+                {info ? (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-medium truncate">{info.name}</span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">
+                        {info.done}/{info.total}
+                      </Badge>
+                    </div>
+                    <Progress value={taskPct} className="h-1 mt-1" />
+                  </>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">
+                    Selecciona una {area.id === "universidad" ? "asignatura" : area.id === "emprendimiento" ? "iniciativa" : "proyecto"} activa
+                  </span>
+                )}
+              </button>
 
               <div className="flex items-center gap-2">
                 <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -91,6 +212,29 @@ export function FocusIndicatorsSection() {
           );
         })}
       </div>
+
+      {/* Tareas Generales */}
+      <Card
+        className="p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/10 transition-colors"
+        onClick={() => navigate("/tasks")}
+      >
+        <div className="p-1.5 rounded-lg bg-foreground/10 text-foreground">
+          <ListChecks className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold">Tareas Generales · Hoy</span>
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              {generalTasks.done}/{generalTasks.total}
+            </span>
+          </div>
+          <Progress
+            value={generalTasks.total > 0 ? Math.round((generalTasks.done / generalTasks.total) * 100) : 0}
+            className="h-1 mt-1"
+          />
+        </div>
+      </Card>
 
       <Card className="p-3 bg-muted/10">
         <div className="flex items-center gap-3">
