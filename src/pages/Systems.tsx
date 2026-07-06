@@ -72,6 +72,7 @@ const SOSTEN_GROUPS: SystemGroup[] = [
       { id: "merienda-2", name: "Merienda 2", hasWater: true, hasMealPhoto: true },
       { id: "comida", name: "Comida", hasWater: true, hasMealPhoto: true },
       { id: "antes-dormir", name: "Antes de Dormir", hasWater: true, hasMealPhoto: true },
+      { id: "suplementos", name: "Suplementos" },
     ],
   },
 ];

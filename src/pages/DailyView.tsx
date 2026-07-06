@@ -12,6 +12,7 @@ import { HobbyCards } from '@/components/systems/HobbyCards';
 import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
+import { HealthSection } from '@/components/dashboard/HealthSection';
 import { QuickStatsGrid } from '@/components/dashboard/QuickStatsGrid';
 import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
 import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
@@ -64,6 +65,7 @@ const SOSTEN_GROUPS: SystemGroup[] = [
       { id: "merienda-2", name: "Merienda 2", hasWater: true, hasMealPhoto: true },
       { id: "comida", name: "Comida", hasWater: true, hasMealPhoto: true },
       { id: "antes-dormir", name: "Antes de Dormir", hasWater: true, hasMealPhoto: true },
+      { id: "suplementos", name: "Suplementos" },
     ],
   },
 ];
@@ -258,6 +260,7 @@ export default function DailyView() {
         </Card>
 
         <MySystemsSection />
+        <HealthSection />
 
         <Card className="border-blue-500/20">
           <CardHeader className="pb-3">
