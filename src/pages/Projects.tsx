@@ -50,7 +50,7 @@ export default function ProjectsPage() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
   const [subTaskTitle, setSubTaskTitle] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => localStorage.getItem("selectedProjectId"));
+  const { value: selectedProjectId, set: setSelectedProjectId, toggle: toggleSelectedProject } = useActiveSelection('selectedProjectId');
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { uploadImage, uploading } = useImageUpload();
