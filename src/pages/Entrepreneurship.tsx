@@ -38,6 +38,7 @@ export default function EntrepreneurshipPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, uploading } = useImageUpload();
   const navigate = useNavigate();
+  const { value: activeEntId, toggle: toggleActiveEnt } = useActiveSelection('activeEntrepreneurshipId');
 
   useEffect(() => { load(); }, []);
 
