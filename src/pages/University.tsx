@@ -27,6 +27,7 @@ import { RoutineBlockSchedule } from '@/components/university/RoutineBlockSchedu
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { useActiveSelection } from '@/hooks/useActiveSelection';
 import { z } from 'zod';
 
 const subjectSchema = z.object({
@@ -65,6 +66,7 @@ export default function UniversityPage() {
   const [examSubjectName, setExamSubjectName] = useState('');
 
   const [todayStudyMinutes, setTodayStudyMinutes] = useState(0);
+  const { value: activeSubjectId, toggle: toggleActiveSubject } = useActiveSelection('activeSubjectId');
 
   useEffect(() => {
     getTodayStudyTime().then(setTodayStudyMinutes);
@@ -285,6 +287,8 @@ export default function UniversityPage() {
                           subject={subject}
                           weightedAverage={gpa?.weightedAverage ?? null}
                           onClick={() => setSelectedSubjectId(subject.id)}
+                          isActive={activeSubjectId === subject.id}
+                          onToggleActive={() => toggleActiveSubject(subject.id)}
                         />
                       );
                     })}

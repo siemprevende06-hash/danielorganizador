@@ -1,16 +1,20 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, CheckCircle2, Clock, FileText, GraduationCap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle2, FileText, GraduationCap, Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Subject } from '@/hooks/useUniversity';
 
 interface SubjectProgressCardProps {
   subject: Subject;
   weightedAverage: number | null;
   onClick?: () => void;
+  isActive?: boolean;
+  onToggleActive?: () => void;
 }
 
-export function SubjectProgressCard({ subject, weightedAverage, onClick }: SubjectProgressCardProps) {
+export function SubjectProgressCard({ subject, weightedAverage, onClick, isActive, onToggleActive }: SubjectProgressCardProps) {
   const totalTasks = subject.tasks.length;
   const completedTasks = subject.tasks.filter(t => t.completed).length;
   const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
@@ -20,7 +24,10 @@ export function SubjectProgressCard({ subject, weightedAverage, onClick }: Subje
 
   return (
     <Card
-      className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/40 border-l-4 border-l-primary/60"
+      className={cn(
+        "group cursor-pointer transition-all hover:shadow-md hover:border-primary/40 border-l-4 border-l-primary/60",
+        isActive && "ring-2 ring-primary border-l-primary"
+      )}
       onClick={onClick}
     >
       <CardContent className="p-4 space-y-3">
@@ -42,16 +49,29 @@ export function SubjectProgressCard({ subject, weightedAverage, onClick }: Subje
               )}
             </div>
           </div>
-          {weightedAverage !== null && (
-            <div className={`text-right shrink-0 px-2 py-1 rounded-md ${
-              weightedAverage >= 70 ? 'bg-green-500/10 text-green-600' :
-              weightedAverage >= 50 ? 'bg-yellow-500/10 text-yellow-600' :
-              'bg-destructive/10 text-destructive'
-            }`}>
-              <p className="text-lg font-bold leading-none">{Math.round(weightedAverage)}</p>
-              <p className="text-[10px]">promedio</p>
-            </div>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {onToggleActive && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => { e.stopPropagation(); onToggleActive(); }}
+                title={isActive ? "Quitar como activa" : "Marcar como activa"}
+              >
+                <Star className={cn("h-4 w-4", isActive ? "fill-primary text-primary" : "text-muted-foreground")} />
+              </Button>
+            )}
+            {weightedAverage !== null && (
+              <div className={`text-right px-2 py-1 rounded-md ${
+                weightedAverage >= 70 ? 'bg-green-500/10 text-green-600' :
+                weightedAverage >= 50 ? 'bg-yellow-500/10 text-yellow-600' :
+                'bg-destructive/10 text-destructive'
+              }`}>
+                <p className="text-lg font-bold leading-none">{Math.round(weightedAverage)}</p>
+                <p className="text-[10px]">promedio</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Task progress */}

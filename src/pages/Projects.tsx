@@ -11,6 +11,7 @@ import { Plus, Trash2, Pencil, FolderKanban, Target, ListTodo, ChevronDown, Chev
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { useActiveSelection } from '@/hooks/useActiveSelection';
 
 interface SubTask {
   id: string;
@@ -49,7 +50,7 @@ export default function ProjectsPage() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
   const [subTaskTitle, setSubTaskTitle] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(() => localStorage.getItem("selectedProjectId"));
+  const { value: selectedProjectId, set: setSelectedProjectId, toggle: toggleSelectedProject } = useActiveSelection('selectedProjectId');
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { uploadImage, uploading } = useImageUpload();
@@ -62,11 +63,6 @@ export default function ProjectsPage() {
   useEffect(() => {
     if (projects.length > 0) localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
   }, [projects]);
-
-  useEffect(() => {
-    if (selectedProjectId) localStorage.setItem("selectedProjectId", selectedProjectId);
-    else localStorage.removeItem("selectedProjectId");
-  }, [selectedProjectId]);
 
   useEffect(() => {
     setExpandedProjects(new Set(projects.map(p => p.id)));
@@ -82,8 +78,9 @@ export default function ProjectsPage() {
   };
 
   const handleSelectProject = (projectId: string) => {
-    setSelectedProjectId(prev => prev === projectId ? null : projectId);
-    toast({ title: selectedProjectId === projectId ? 'Proyecto deseleccionado' : 'Proyecto activo seleccionado' });
+    const wasSelected = selectedProjectId === projectId;
+    toggleSelectedProject(projectId);
+    toast({ title: wasSelected ? 'Proyecto deseleccionado' : 'Proyecto activo seleccionado' });
   };
 
   const handleImageUpload = async (projectId: string, event: React.ChangeEvent<HTMLInputElement>) => {
