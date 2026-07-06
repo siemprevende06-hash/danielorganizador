@@ -123,7 +123,7 @@ export function useSystemsTracking() {
     const today = todayKey();
     const payload = {
       tracking_date: today,
-      completions: newData.completions,
+      completions: withStreakMirror(newData),
       time_data: newData.timeData,
       count_data: newData.countData,
       water_data: newData.waterData,
