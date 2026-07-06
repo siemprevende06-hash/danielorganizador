@@ -66,6 +66,7 @@ export default function UniversityPage() {
   const [examSubjectName, setExamSubjectName] = useState('');
 
   const [todayStudyMinutes, setTodayStudyMinutes] = useState(0);
+  const { value: activeSubjectId, toggle: toggleActiveSubject } = useActiveSelection('activeSubjectId');
 
   useEffect(() => {
     getTodayStudyTime().then(setTodayStudyMinutes);
