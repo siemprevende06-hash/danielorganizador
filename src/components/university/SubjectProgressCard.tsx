@@ -49,16 +49,29 @@ export function SubjectProgressCard({ subject, weightedAverage, onClick, isActiv
               )}
             </div>
           </div>
-          {weightedAverage !== null && (
-            <div className={`text-right shrink-0 px-2 py-1 rounded-md ${
-              weightedAverage >= 70 ? 'bg-green-500/10 text-green-600' :
-              weightedAverage >= 50 ? 'bg-yellow-500/10 text-yellow-600' :
-              'bg-destructive/10 text-destructive'
-            }`}>
-              <p className="text-lg font-bold leading-none">{Math.round(weightedAverage)}</p>
-              <p className="text-[10px]">promedio</p>
-            </div>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {onToggleActive && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => { e.stopPropagation(); onToggleActive(); }}
+                title={isActive ? "Quitar como activa" : "Marcar como activa"}
+              >
+                <Star className={cn("h-4 w-4", isActive ? "fill-primary text-primary" : "text-muted-foreground")} />
+              </Button>
+            )}
+            {weightedAverage !== null && (
+              <div className={`text-right px-2 py-1 rounded-md ${
+                weightedAverage >= 70 ? 'bg-green-500/10 text-green-600' :
+                weightedAverage >= 50 ? 'bg-yellow-500/10 text-yellow-600' :
+                'bg-destructive/10 text-destructive'
+              }`}>
+                <p className="text-lg font-bold leading-none">{Math.round(weightedAverage)}</p>
+                <p className="text-[10px]">promedio</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Task progress */}
