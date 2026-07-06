@@ -287,6 +287,8 @@ export default function UniversityPage() {
                           subject={subject}
                           weightedAverage={gpa?.weightedAverage ?? null}
                           onClick={() => setSelectedSubjectId(subject.id)}
+                          isActive={activeSubjectId === subject.id}
+                          onToggleActive={() => toggleActiveSubject(subject.id)}
                         />
                       );
                     })}
