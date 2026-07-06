@@ -65,11 +65,6 @@ export default function ProjectsPage() {
   }, [projects]);
 
   useEffect(() => {
-    if (selectedProjectId) localStorage.setItem("selectedProjectId", selectedProjectId);
-    else localStorage.removeItem("selectedProjectId");
-  }, [selectedProjectId]);
-
-  useEffect(() => {
     setExpandedProjects(new Set(projects.map(p => p.id)));
   }, [projects.length]);
 
@@ -83,8 +78,9 @@ export default function ProjectsPage() {
   };
 
   const handleSelectProject = (projectId: string) => {
-    setSelectedProjectId(prev => prev === projectId ? null : projectId);
-    toast({ title: selectedProjectId === projectId ? 'Proyecto deseleccionado' : 'Proyecto activo seleccionado' });
+    const wasSelected = selectedProjectId === projectId;
+    toggleSelectedProject(projectId);
+    toast({ title: wasSelected ? 'Proyecto deseleccionado' : 'Proyecto activo seleccionado' });
   };
 
   const handleImageUpload = async (projectId: string, event: React.ChangeEvent<HTMLInputElement>) => {
