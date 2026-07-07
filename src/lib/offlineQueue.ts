@@ -1,10 +1,6 @@
-/**
- * Cola de mutaciones para soporte offline.
- * Cuando una mutación de Supabase falla por estar sin conexión, la encolamos
- * en IndexedDB (vía idb-keyval) y la reintentamos cuando vuelve la red.
- */
 import { get, set, del } from "idb-keyval";
 import { supabase } from "@/integrations/supabase/client";
+import { isOnline } from "./isOnline";
 
 const QUEUE_KEY = "lovable_offline_mutation_queue_v1";
 
@@ -14,11 +10,9 @@ export type QueuedMutation = {
   table: string;
   op: "insert" | "update" | "upsert" | "delete";
   payload?: Record<string, any>;
-  match?: Record<string, any>; // for update/delete .eq() filters
-  onConflict?: string; // for upsert
+  match?: Record<string, any>;
+  onConflict?: string;
 };
-
-const isOnline = () => typeof navigator !== "undefined" && navigator.onLine;
 
 const readQueue = async (): Promise<QueuedMutation[]> => {
   return (await get<QueuedMutation[]>(QUEUE_KEY)) || [];
@@ -60,7 +54,8 @@ const runMutation = async (m: QueuedMutation): Promise<boolean> => {
       return !error;
     }
     return false;
-  } catch {
+  } catch (e) {
+    console.warn("[offlineQueue] runMutation error:", e);
     return false;
   }
 };
@@ -118,13 +113,10 @@ export const safeMutation = async (
   return { queued: false, error: null };
 };
 
-// Auto-flush al volver online
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     flushQueue().then((r) => {
       if (r.ok > 0) console.log(`[offlineQueue] Sincronizadas ${r.ok} mutaciones`);
     });
   });
-  // Flush inicial
-  setTimeout(() => { flushQueue().catch(() => {}); }, 2000);
 }

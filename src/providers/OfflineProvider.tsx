@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import { flushQueue, getQueueSize } from "@/lib/offlineQueue";
+import { isOnline } from "@/lib/isOnline";
 import { WifiOff, Cloud, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface OfflineContextValue {
   isOnline: boolean;
@@ -20,9 +20,7 @@ const OfflineContext = createContext<OfflineContextValue>({
 export const useOffline = () => useContext(OfflineContext);
 
 export function OfflineProvider({ children }: { children: ReactNode }) {
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true
-  );
+  const [isOnline, setIsOnline] = useState(isOnline());
   const [pendingMutations, setPendingMutations] = useState(0);
   const [lastSync, setLastSync] = useState<Date | null>(null);
 

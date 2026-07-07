@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getCached, setCache } from "@/lib/offlineCache";
+import { isOnline } from "@/lib/isOnline";
 
 interface UseOfflineQueryOptions<T> {
   table: string;
@@ -80,6 +81,16 @@ export function useOfflineQuery<T>({
       mountedRef.current = false;
     };
   }, [enabled, load]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onOnline = () => {
+      if (!isOnline()) return;
+      refetch();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [enabled, refetch]);
 
   const refetch = useCallback(async () => {
     setLoading(true);

@@ -1,6 +1,5 @@
 import { getCached, setCache, getCacheAge } from "./offlineCache";
-
-const isOnline = () => typeof navigator !== "undefined" && navigator.onLine;
+import { isOnline } from "./isOnline";
 
 export async function cachedQuery<T>(
   table: string,

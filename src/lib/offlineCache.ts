@@ -16,6 +16,11 @@ export const getCached = async <T>(table: string, queryKey: string): Promise<T |
   try {
     const raw = await get<CacheEntry<T>>(makeKey(table, queryKey));
     if (!raw) return null;
+    const effectiveTtl = raw.ttl ?? DEFAULT_TTL_MS;
+    if (Date.now() - raw.cachedAt > effectiveTtl) {
+      await del(makeKey(table, queryKey));
+      return null;
+    }
     return raw.data;
   } catch {
     return null;

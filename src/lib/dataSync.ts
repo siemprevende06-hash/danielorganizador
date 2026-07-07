@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isOnline } from "./isOnline";
+import { enqueueMutation } from "./offlineQueue";
 
 export interface SyncResult {
   table: string;
@@ -26,13 +28,29 @@ function getLocalData<T>(key: string): T | null {
 
 async function upsertBatch(table: string, data: Record<string, unknown>[], conflictColumn?: string): Promise<SyncResult> {
   if (data.length === 0) return { table, success: true, count: 0 };
+
+  if (!isOnline()) {
+    for (const item of data) {
+      await enqueueMutation({ table, op: "upsert", payload: item, onConflict: conflictColumn });
+    }
+    return { table, success: true, count: data.length };
+  }
+
   try {
     const query = (supabase.from(table as any) as any).upsert(data, conflictColumn ? { onConflict: conflictColumn } : undefined);
     const { error } = await query;
-    if (error) return { table, success: false, count: 0, error: error.message };
+    if (error) {
+      for (const item of data) {
+        await enqueueMutation({ table, op: "upsert", payload: item, onConflict: conflictColumn });
+      }
+      return { table, success: true, count: data.length, error: error.message };
+    }
     return { table, success: true, count: data.length };
   } catch (err) {
-    return { table, success: false, count: 0, error: String(err) };
+    for (const item of data) {
+      await enqueueMutation({ table, op: "upsert", payload: item, onConflict: conflictColumn });
+    }
+    return { table, success: true, count: data.length, error: String(err) };
   }
 }
 

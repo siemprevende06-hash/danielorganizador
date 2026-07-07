@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { Wifi, WifiOff, Cloud, CloudOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { flushQueue, getQueueSize } from "@/lib/offlineQueue";
+import { isOnline } from "@/lib/isOnline";
 
 export const OfflineIndicator = () => {
-  const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [online, setOnline] = useState(isOnline());
   const [pending, setPending] = useState(0);
 
   useEffect(() => {
