@@ -1275,6 +1275,51 @@ export type Database = {
         }
         Relationships: []
       }
+      grocery_products: {
+        Row: {
+          category: string | null
+          created_at: string
+          current_stock: number
+          id: string
+          name: string
+          notes: string | null
+          package_quantity: number
+          price: number
+          storage_type: string
+          unit: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          current_stock?: number
+          id?: string
+          name: string
+          notes?: string | null
+          package_quantity?: number
+          price?: number
+          storage_type?: string
+          unit?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          current_stock?: number
+          id?: string
+          name?: string
+          notes?: string | null
+          package_quantity?: number
+          price?: number
+          storage_type?: string
+          unit?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       habit_history: {
         Row: {
           completed_dates: Json | null
@@ -3569,6 +3614,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          tipo: string
           updated_at: string | null
           user_id: string | null
           workout_days: Json
@@ -3579,6 +3625,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          tipo?: string
           updated_at?: string | null
           user_id?: string | null
           workout_days?: Json
@@ -3589,6 +3636,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          tipo?: string
           updated_at?: string | null
           user_id?: string | null
           workout_days?: Json
