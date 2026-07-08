@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGroceryProducts } from "@/hooks/useGroceryProducts";
 import { useMealPlan } from "@/hooks/useRecipes";
 import { useShoppingGenerator } from "@/hooks/useShoppingGenerator";
-import { startOfWeek, addDays } from "date-fns";
+import { startOfWeek, addDays, format } from "date-fns";
 import { toast } from "sonner";
 
 interface Item { id: string; name: string; checked: boolean; qty?: number; unit?: string; productId?: string; storageType?: string; price?: number; }
