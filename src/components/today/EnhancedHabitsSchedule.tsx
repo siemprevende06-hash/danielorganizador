@@ -1,76 +1,104 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { getCubaDate } from '@/lib/cubaTime';
 
 interface Habit {
   id: string;
   title: string;
   time: string;
   period: 'morning' | 'day' | 'night';
-  completed: boolean;
 }
 
-const DEFAULT_HABITS: Habit[] = [
-  // Morning (5-8 AM)
-  { id: 'meditation', title: 'Meditación', time: '5:00', period: 'morning', completed: false },
-  { id: 'gym', title: 'Gym', time: '5:30-7:00', period: 'morning', completed: false },
-  { id: 'water-morning', title: 'Agua 1L', time: 'antes 8:00', period: 'morning', completed: false },
-  
-  // Day (8 AM - 6 PM)
-  { id: 'walk', title: 'Caminata 10min', time: 'almuerzo', period: 'day', completed: false },
-  { id: 'water-day', title: 'Agua 2L', time: 'antes 3:00 PM', period: 'day', completed: false },
-  { id: 'sunlight', title: 'Luz solar 15min', time: 'mediodía', period: 'day', completed: false },
-  
-  // Night (6-9 PM)
-  { id: 'stretching', title: 'Estiramientos', time: '8:30 PM', period: 'night', completed: false },
-  { id: 'skincare', title: 'Skincare', time: '8:45 PM', period: 'night', completed: false },
-  { id: 'journaling', title: 'Journaling', time: '9:00 PM', period: 'night', completed: false },
+const HABITS: Habit[] = [
+  { id: 'meditation', title: 'Meditación', time: '5:00', period: 'morning' },
+  { id: 'gym', title: 'Gym', time: '5:30-7:00', period: 'morning' },
+  { id: 'water-morning', title: 'Agua 1L', time: 'antes 8:00', period: 'morning' },
+  { id: 'walk', title: 'Caminata 10min', time: 'almuerzo', period: 'day' },
+  { id: 'water-day', title: 'Agua 2L', time: 'antes 3:00 PM', period: 'day' },
+  { id: 'sunlight', title: 'Luz solar 15min', time: 'mediodía', period: 'day' },
+  { id: 'stretching', title: 'Estiramientos', time: '8:30 PM', period: 'night' },
+  { id: 'skincare', title: 'Skincare', time: '8:45 PM', period: 'night' },
+  { id: 'journaling', title: 'Journaling', time: '9:00 PM', period: 'night' },
 ];
 
+// Key mirrors both the display state and the streak trigger key
+const streakKey = (id: string) => `streak:enh_${id}`;
+
 export const EnhancedHabitsSchedule = () => {
-  const [habits, setHabits] = useState<Habit[]>(() => {
-    const saved = localStorage.getItem('enhanced-habits-schedule');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Check if it's from today
-      if (parsed.date === new Date().toISOString().split('T')[0]) {
-        return parsed.habits;
-      }
+  const [completed, setCompleted] = useState<Record<string, boolean>>({});
+  const [rowId, setRowId] = useState<string | null>(null);
+  const today = getCubaDate();
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('daily_systems_tracking')
+      .select('id, completions')
+      .eq('tracking_date', today)
+      .maybeSingle();
+    const comp = (data?.completions as Record<string, any>) || {};
+    const state: Record<string, boolean> = {};
+    HABITS.forEach(h => {
+      const v = comp[streakKey(h.id)];
+      state[h.id] = v === true || v === 'true' || v === 'min' || v === 'max';
+    });
+    setCompleted(state);
+    setRowId(data?.id ?? null);
+  }, [today]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggleHabit = async (id: string) => {
+    const next = { ...completed, [id]: !completed[id] };
+    setCompleted(next);
+
+    // Read latest row to merge (avoid stale)
+    const { data: row } = await supabase
+      .from('daily_systems_tracking')
+      .select('id, completions')
+      .eq('tracking_date', today)
+      .maybeSingle();
+
+    const merged = { ...((row?.completions as Record<string, any>) || {}) };
+    HABITS.forEach(h => {
+      const key = streakKey(h.id);
+      if (next[h.id]) merged[key] = 'min';
+      else delete merged[key];
+    });
+
+    if (row?.id) {
+      await supabase
+        .from('daily_systems_tracking')
+        .update({ completions: merged })
+        .eq('id', row.id);
+      setRowId(row.id);
+    } else {
+      const { data: inserted } = await supabase
+        .from('daily_systems_tracking')
+        .upsert(
+          { tracking_date: today, completions: merged },
+          { onConflict: 'tracking_date' }
+        )
+        .select('id')
+        .single();
+      setRowId(inserted?.id ?? null);
     }
-    return DEFAULT_HABITS;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('enhanced-habits-schedule', JSON.stringify({
-      date: new Date().toISOString().split('T')[0],
-      habits,
-    }));
-  }, [habits]);
-
-  const toggleHabit = (id: string) => {
-    setHabits(prev => prev.map(h => 
-      h.id === id ? { ...h, completed: !h.completed } : h
-    ));
   };
 
   const groupedHabits = {
-    morning: habits.filter(h => h.period === 'morning'),
-    day: habits.filter(h => h.period === 'day'),
-    night: habits.filter(h => h.period === 'night'),
+    morning: HABITS.filter(h => h.period === 'morning'),
+    day: HABITS.filter(h => h.period === 'day'),
+    night: HABITS.filter(h => h.period === 'night'),
   };
 
-  const completedCount = habits.filter(h => h.completed).length;
-  const totalCount = habits.length;
+  const completedCount = HABITS.filter(h => completed[h.id]).length;
+  const totalCount = HABITS.length;
   const percentage = Math.round((completedCount / totalCount) * 100);
 
-  const renderPeriod = (
-    title: string, 
-    icon: string, 
-    habits: Habit[], 
-    timeRange: string
-  ) => (
+  const renderPeriod = (title: string, icon: string, list: Habit[], timeRange: string) => (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
         <span>{icon}</span>
@@ -78,30 +106,28 @@ export const EnhancedHabitsSchedule = () => {
         <span className="text-xs">({timeRange})</span>
       </div>
       <div className="space-y-1 pl-6">
-        {habits.map(habit => (
-          <div 
-            key={habit.id}
-            className={cn(
-              "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
-              habit.completed && "bg-green-500/10"
-            )}
-          >
-            <Checkbox
-              checked={habit.completed}
-              onCheckedChange={() => toggleHabit(habit.id)}
-              className="h-4 w-4"
-            />
-            <span className={cn(
-              "text-sm flex-1",
-              habit.completed && "line-through text-muted-foreground"
-            )}>
-              {habit.title}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {habit.time}
-            </span>
-          </div>
-        ))}
+        {list.map(habit => {
+          const isDone = !!completed[habit.id];
+          return (
+            <div
+              key={habit.id}
+              className={cn(
+                "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
+                isDone && "bg-green-500/10"
+              )}
+            >
+              <Checkbox
+                checked={isDone}
+                onCheckedChange={() => toggleHabit(habit.id)}
+                className="h-4 w-4"
+              />
+              <span className={cn("text-sm flex-1", isDone && "line-through text-muted-foreground")}>
+                {habit.title}
+              </span>
+              <span className="text-xs text-muted-foreground">{habit.time}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
