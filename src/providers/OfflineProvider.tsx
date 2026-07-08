@@ -20,7 +20,7 @@ const OfflineContext = createContext<OfflineContextValue>({
 export const useOffline = () => useContext(OfflineContext);
 
 export function OfflineProvider({ children }: { children: ReactNode }) {
-  const [isOnline, setIsOnline] = useState(isOnline());
+  const [online, setOnline] = useState(isOnline());
   const [pendingMutations, setPendingMutations] = useState(0);
   const [lastSync, setLastSync] = useState<Date | null>(null);
 
