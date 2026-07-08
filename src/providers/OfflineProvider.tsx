@@ -20,7 +20,7 @@ const OfflineContext = createContext<OfflineContextValue>({
 export const useOffline = () => useContext(OfflineContext);
 
 export function OfflineProvider({ children }: { children: ReactNode }) {
-  const [isOnline, setIsOnline] = useState(isOnline());
+  const [online, setOnline] = useState(isOnline());
   const [pendingMutations, setPendingMutations] = useState(0);
   const [lastSync, setLastSync] = useState<Date | null>(null);
 
@@ -37,10 +37,10 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshPending();
     const onOnline = async () => {
-      setIsOnline(true);
+      setOnline(true);
       await flushNow();
     };
-    const onOffline = () => setIsOnline(false);
+    const onOffline = () => setOnline(false);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
     const t = setInterval(refreshPending, 10000);
@@ -52,9 +52,9 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   }, [refreshPending, flushNow]);
 
   return (
-    <OfflineContext.Provider value={{ isOnline, pendingMutations, lastSync, flushNow }}>
+    <OfflineContext.Provider value={{ isOnline: online, pendingMutations, lastSync, flushNow }}>
       {/* Global offline banner */}
-      {!isOnline && (
+      {!online && (
         <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-white text-center text-xs py-1.5 flex items-center justify-center gap-2">
           <WifiOff className="h-3 w-3" />
           <span>Sin conexión — los datos se sincronizarán automáticamente al reconectar</span>
@@ -63,13 +63,14 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
           )}
         </div>
       )}
-      {isOnline && pendingMutations > 0 && (
+      {online && pendingMutations > 0 && (
         <div className="fixed top-0 left-0 right-0 z-[9999] bg-primary text-primary-foreground text-center text-xs py-1.5 flex items-center justify-center gap-2 cursor-pointer" onClick={flushNow}>
           <Cloud className="h-3 w-3" />
           <span>Sincronizando {pendingMutations} cambios pendientes</span>
           <RefreshCw className="h-3 w-3 animate-spin" />
         </div>
       )}
+
       {children}
     </OfflineContext.Provider>
   );

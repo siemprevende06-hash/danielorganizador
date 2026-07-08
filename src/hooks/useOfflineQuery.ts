@@ -82,6 +82,15 @@ export function useOfflineQuery<T>({
     };
   }, [enabled, load]);
 
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    const fresh = await fetchAndCache();
+    if (mountedRef.current) {
+      if (fresh !== null) setData(fresh);
+      setLoading(false);
+    }
+  }, [fetchAndCache]);
+
   useEffect(() => {
     if (!enabled) return;
     const onOnline = () => {
@@ -92,14 +101,6 @@ export function useOfflineQuery<T>({
     return () => window.removeEventListener("online", onOnline);
   }, [enabled, refetch]);
 
-  const refetch = useCallback(async () => {
-    setLoading(true);
-    const fresh = await fetchAndCache();
-    if (mountedRef.current) {
-      if (fresh !== null) setData(fresh);
-      setLoading(false);
-    }
-  }, [fetchAndCache]);
 
   return { data, loading, isStale, error, refetch };
 }
