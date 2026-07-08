@@ -26,7 +26,7 @@ export default function ShoppingList() {
   const [importMode, setImportMode] = useState<"manual" | "plan">("manual");
 
   const { products } = useGroceryProducts();
-  const { recipes } = useRecipes();
+
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const startStr = format(weekStart, "yyyy-MM-dd");
