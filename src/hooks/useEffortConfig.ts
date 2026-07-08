@@ -1,34 +1,51 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { EFFORT_DEFAULTS } from '@/data/areaMetricsData'
+import { supabase } from '@/integrations/supabase/client'
 
-const STORAGE_KEY = 'effortConfig'
+type EffortMap = Record<string, { bajo: number; normal: number; alto: number }>
 
-function loadAll(): Record<string, { bajo: number; normal: number; alto: number }> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return { ...EFFORT_DEFAULTS, ...JSON.parse(raw) }
-  } catch {}
-  return { ...EFFORT_DEFAULTS }
+const SETTING_KEY = 'effort_config'
+
+async function fetchAll(): Promise<EffortMap> {
+  const { data } = await supabase
+    .from('app_settings')
+    .select('setting_value')
+    .eq('setting_key', SETTING_KEY)
+    .maybeSingle()
+  const stored = (data?.setting_value as EffortMap) || {}
+  return { ...EFFORT_DEFAULTS, ...stored }
 }
 
-function saveAll(data: Record<string, { bajo: number; normal: number; alto: number }>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+async function persistAll(data: EffortMap) {
+  await supabase
+    .from('app_settings')
+    .upsert(
+      { setting_key: SETTING_KEY, setting_value: data as any },
+      { onConflict: 'user_id,setting_key' }
+    )
 }
 
 export function useEffortConfig() {
-  const [allConfigs, setAllConfigs] = useState(loadAll)
+  const [allConfigs, setAllConfigs] = useState<EffortMap>({ ...EFFORT_DEFAULTS })
 
-  const getConfig = useCallback((areaId: string) => {
-    const all = loadAll()
-    return all[areaId] || EFFORT_DEFAULTS[areaId] || { bajo: 15, normal: 30, alto: 45 }
+  useEffect(() => {
+    fetchAll().then(setAllConfigs)
   }, [])
 
-  const updateConfig = useCallback((areaId: string, values: { bajo: number; normal: number; alto: number }) => {
-    const all = loadAll()
-    all[areaId] = values
-    saveAll(all)
-    setAllConfigs(all)
-  }, [])
+  const getConfig = useCallback(
+    (areaId: string) =>
+      allConfigs[areaId] || EFFORT_DEFAULTS[areaId] || { bajo: 15, normal: 30, alto: 45 },
+    [allConfigs]
+  )
+
+  const updateConfig = useCallback(
+    async (areaId: string, values: { bajo: number; normal: number; alto: number }) => {
+      const next = { ...allConfigs, [areaId]: values }
+      setAllConfigs(next)
+      await persistAll(next)
+    },
+    [allConfigs]
+  )
 
   return { allConfigs, getConfig, updateConfig }
 }
