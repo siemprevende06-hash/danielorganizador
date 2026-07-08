@@ -8,9 +8,12 @@ export interface WorkoutRoutine {
   description: string | null;
   workout_days: Record<string, boolean>;
   is_active: boolean;
+  tipo: string;
   created_at: string;
   updated_at: string;
 }
+
+export type TrainingType = 'gimnasio' | 'calistenia';
 
 export interface WorkoutExercise {
   id: string;
@@ -57,15 +60,22 @@ const DAY_NAMES: Record<string, string> = {
 
 export const useWorkoutTracking = () => {
   const [routine, setRoutine] = useState<WorkoutRoutine | null>(null);
+  const [allRoutines, setAllRoutines] = useState<WorkoutRoutine[]>([]);
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadRoutine = useCallback(async () => {
-    const { data } = await supabase
+  const loadRoutine = useCallback(async (tipo?: TrainingType) => {
+    let query = supabase
       .from('workout_routines')
       .select('*')
-      .eq('is_active', true)
+      .eq('is_active', true);
+
+    if (tipo) {
+      query = query.eq('tipo', tipo);
+    }
+
+    const { data } = await query
       .limit(1)
       .single();
     
@@ -74,6 +84,29 @@ export const useWorkoutTracking = () => {
         ...data,
         workout_days: (data.workout_days as Record<string, boolean>) || {}
       });
+    } else {
+      setRoutine(null);
+    }
+    return data;
+  }, []);
+
+  const loadAllRoutines = useCallback(async (tipo?: TrainingType) => {
+    let query = supabase
+      .from('workout_routines')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (tipo) {
+      query = query.eq('tipo', tipo);
+    }
+
+    const { data } = await query;
+    
+    if (data) {
+      setAllRoutines(data.map(r => ({
+        ...r,
+        workout_days: (r.workout_days as Record<string, boolean>) || {}
+      })));
     }
     return data;
   }, []);
@@ -107,26 +140,54 @@ export const useWorkoutTracking = () => {
     return data;
   }, []);
 
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (tipo?: TrainingType) => {
     setIsLoading(true);
-    const routineData = await loadRoutine();
+    const routineData = await loadRoutine(tipo);
     if (routineData) {
       await loadExercises(routineData.id);
     }
     await loadLogs();
+    await loadAllRoutines(tipo);
     setIsLoading(false);
-  }, [loadRoutine, loadExercises, loadLogs]);
+  }, [loadRoutine, loadExercises, loadLogs, loadAllRoutines]);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
-  const createRoutine = async (name: string, workoutDays: Record<string, boolean>, description?: string) => {
-    // Deactivate existing routines
+  const selectRoutine = useCallback(async (routineId: string) => {
     await supabase
       .from('workout_routines')
       .update({ is_active: false })
       .eq('is_active', true);
+
+    await supabase
+      .from('workout_routines')
+      .update({ is_active: true })
+      .eq('id', routineId);
+
+    const { data } = await supabase
+      .from('workout_routines')
+      .select('*')
+      .eq('id', routineId)
+      .single();
+
+    if (data) {
+      setRoutine({
+        ...data,
+        workout_days: (data.workout_days as Record<string, boolean>) || {}
+      });
+      await loadExercises(data.id);
+    }
+  }, [loadExercises]);
+
+  const createRoutine = async (name: string, workoutDays: Record<string, boolean>, tipo: TrainingType = 'gimnasio', description?: string) => {
+    // Deactivate existing routines of same type
+    await supabase
+      .from('workout_routines')
+      .update({ is_active: false })
+      .eq('is_active', true)
+      .eq('tipo', tipo);
 
     const { data, error } = await supabase
       .from('workout_routines')
@@ -134,7 +195,8 @@ export const useWorkoutTracking = () => {
         name,
         description,
         workout_days: workoutDays,
-        is_active: true
+        is_active: true,
+        tipo
       })
       .select()
       .single();
@@ -144,6 +206,7 @@ export const useWorkoutTracking = () => {
         ...data,
         workout_days: (data.workout_days as Record<string, boolean>) || {}
       });
+      setAllRoutines(prev => [{ ...data, workout_days: (data.workout_days as Record<string, boolean>) || {} }, ...prev]);
     }
     return { data, error };
   };
@@ -298,11 +361,13 @@ export const useWorkoutTracking = () => {
 
   return {
     routine,
+    allRoutines,
     exercises,
     logs,
     isLoading,
     createRoutine,
     updateRoutine,
+    selectRoutine,
     addExercise,
     removeExercise,
     logWorkout,
@@ -310,6 +375,7 @@ export const useWorkoutTracking = () => {
     getAllProgress,
     getTodayWorkout,
     getExercisesByDay,
+    loadAllRoutines,
     reload: loadAll,
     DAY_NAMES
   };

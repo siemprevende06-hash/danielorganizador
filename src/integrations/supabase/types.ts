@@ -3569,6 +3569,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          tipo: string
           updated_at: string | null
           user_id: string | null
           workout_days: Json
@@ -3579,6 +3580,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          tipo?: string
           updated_at?: string | null
           user_id?: string | null
           workout_days?: Json
@@ -3589,6 +3591,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          tipo?: string
           updated_at?: string | null
           user_id?: string | null
           workout_days?: Json
