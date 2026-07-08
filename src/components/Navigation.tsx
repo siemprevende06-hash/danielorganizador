@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package
 } from 'lucide-react';
 import {
   Sheet,
@@ -105,6 +105,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/alimentacion', label: 'Alimentación', icon: Utensils },
       { path: '/gym', label: 'Gimnasio', icon: Dumbbell },
       { path: '/chess', label: 'Ajedrez', icon: Crown },
+      { path: '/grocery', label: 'Despensa', icon: Package },
       { path: '/shopping-list', label: 'Lista Compra', icon: ShoppingCart },
     ]
   },

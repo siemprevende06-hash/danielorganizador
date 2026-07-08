@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit2, ChefHat, Sun, Cookie, UtensilsCrossed, MoonStar } from "lucide-react";
+import { Plus, Trash2, Edit2, ChefHat, Sun, Cookie, UtensilsCrossed, MoonStar, DollarSign } from "lucide-react";
 import { useRecipes, type Recipe, type RecipeIngredient } from "@/hooks/useRecipes";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { useGroceryProducts } from "@/hooks/useGroceryProducts";
 import { toast } from "@/hooks/use-toast";
 
 const CATEGORIES = [
@@ -21,6 +22,7 @@ const CATEGORIES = [
 export function RecipeManager() {
   const { recipes, loading, createRecipe, updateRecipe, deleteRecipe } = useRecipes();
   const { uploadImage } = useImageUpload();
+  const { products } = useGroceryProducts();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Recipe | null>(null);
   const [name, setName] = useState("");
@@ -177,19 +179,74 @@ export function RecipeManager() {
               </div>
               <div className="space-y-1">
                 {ingredients.map((ing, i) => (
-                  <div key={i} className="flex gap-1">
-                    <Input className="flex-1" placeholder="Nombre" value={ing.name}
-                      onChange={e => setIngredients(ingredients.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
-                    <Input className="w-16" type="number" value={ing.quantity ?? ""} placeholder="Cant"
-                      onChange={e => setIngredients(ingredients.map((x, j) => j === i ? { ...x, quantity: +e.target.value } : x))} />
-                    <Input className="w-16" placeholder="Unidad" value={ing.unit ?? ""}
-                      onChange={e => setIngredients(ingredients.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} />
-                    <Button size="icon" variant="ghost" onClick={() => setIngredients(ingredients.filter((_, j) => j !== i))}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                  <div key={i} className="flex flex-col gap-1">
+                    <div className="flex gap-1">
+                      <Select
+                        value={ing.product_id || ""}
+                        onValueChange={v => {
+                          const p = v ? products.find(pr => pr.id === v) : null;
+                          setIngredients(ingredients.map((x, j) => j === i ? {
+                            ...x,
+                            product_id: v || null,
+                            name: p?.name || x.name,
+                            unit: p?.unit || x.unit || "g",
+                            quantity_for_recipe: x.quantity_for_recipe || x.quantity || null,
+                          } : x));
+                        }}
+                      >
+                        <SelectTrigger className="flex-1 h-8 text-xs">
+                          <SelectValue placeholder="Buscar producto..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Sin producto</SelectItem>
+                          {products.filter(p => !ingredients.some((x, j) => j !== i && x.product_id === p.id)).map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} {p.current_stock > 0 ? `(stock: ${p.current_stock} ${p.unit})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input className="w-16" type="number" value={ing.quantity ?? ""} placeholder="Cant"
+                        onChange={e => setIngredients(ingredients.map((x, j) => j === i ? { ...x, quantity: +e.target.value } : x))} />
+                      <Input className="w-14" placeholder="Unidad" value={ing.unit ?? ""}
+                        onChange={e => setIngredients(ingredients.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} />
+                      <Button size="icon" variant="ghost" onClick={() => setIngredients(ingredients.filter((_, j) => j !== i))}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {ing.product_id && (
+                      <div className="text-[10px] text-muted-foreground ml-1">
+                        {(() => {
+                          const p = products.find(pr => pr.id === ing.product_id);
+                          if (!p) return null;
+                          const uc = (p.price || 0) / Math.max(1, p.package_quantity || 1);
+                          const qty = Number(ing.quantity_for_recipe ?? ing.quantity ?? 0);
+                          const cost = qty * uc;
+                          return <>${p.price}/{p.package_quantity}{p.unit} → ${uc.toFixed(2)}/{p.unit} → ${cost.toFixed(2)}</>;
+                        })()}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
+              {(() => {
+                const totalCost = ingredients.reduce((sum, ing) => {
+                  if (!ing.product_id) return sum;
+                  const p = products.find(pr => pr.id === ing.product_id);
+                  if (!p || !p.price) return sum;
+                  const uc = (p.price || 0) / Math.max(1, p.package_quantity || 1);
+                  const qty = Number(ing.quantity_for_recipe ?? ing.quantity ?? 0);
+                  return sum + qty * uc;
+                }, 0);
+                if (totalCost <= 0) return null;
+                return (
+                  <div className="text-xs text-muted-foreground text-right mt-2 flex items-center justify-end gap-1">
+                    <DollarSign className="h-3 w-3" />
+                    Costo total: <span className="font-semibold">${totalCost.toFixed(2)}</span>
+                    {servings > 0 && <>, <span className="font-semibold">${(totalCost / servings).toFixed(2)}</span>/porción</>}
+                  </div>
+                );
+              })()}
             </div>
           </div>
           <DialogFooter><Button onClick={save}>Guardar</Button></DialogFooter>

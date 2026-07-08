@@ -8,6 +8,8 @@ export interface RecipeIngredient {
   quantity?: number | null;
   unit?: string | null;
   sort_order?: number;
+  product_id?: string | null;
+  quantity_for_recipe?: number | null;
 }
 
 export interface Recipe {
@@ -55,7 +57,15 @@ export function useRecipes() {
     if (error || !rec) return null;
     if (ingredients.length) {
       await supabase.from("recipe_ingredients").insert(
-        ingredients.map((ing, i) => ({ recipe_id: rec.id, name: ing.name, quantity: ing.quantity, unit: ing.unit, sort_order: i }))
+        ingredients.map((ing, i) => ({
+          recipe_id: rec.id,
+          name: ing.name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          sort_order: i,
+          product_id: ing.product_id || null,
+          quantity_for_recipe: ing.quantity_for_recipe || ing.quantity || null,
+        }))
       );
     }
     await load();
@@ -69,7 +79,15 @@ export function useRecipes() {
       await supabase.from("recipe_ingredients").delete().eq("recipe_id", id);
       if (ingredients.length) {
         await supabase.from("recipe_ingredients").insert(
-          ingredients.map((ing, i) => ({ recipe_id: id, name: ing.name, quantity: ing.quantity, unit: ing.unit, sort_order: i }))
+          ingredients.map((ing, i) => ({
+            recipe_id: id,
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            sort_order: i,
+            product_id: ing.product_id || null,
+            quantity_for_recipe: ing.quantity_for_recipe || ing.quantity || null,
+          }))
         );
       }
     }

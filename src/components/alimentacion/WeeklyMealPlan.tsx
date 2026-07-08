@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, ChevronLeft, ChevronRight, Snowflake, Thermometer, Archive } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useRecipes, useMealPlan } from "@/hooks/useRecipes";
+import { useGroceryProducts } from "@/hooks/useGroceryProducts";
+import { useShoppingGenerator } from "@/hooks/useShoppingGenerator";
 
 const SLOTS = [
   { id: "desayuno", label: "Desayuno" },
@@ -16,6 +18,12 @@ const SLOTS = [
   { id: "comida", label: "Comida" },
 ];
 
+const storageIcons: Record<string, any> = {
+  refrigerator: Snowflake,
+  freezer: Thermometer,
+  shelf: Archive,
+};
+
 export function WeeklyMealPlan() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
@@ -24,27 +32,14 @@ export function WeeklyMealPlan() {
 
   const { recipes } = useRecipes();
   const { plan, assign } = useMealPlan(startStr, endStr);
+  const { products } = useGroceryProducts();
+  const shoppingItems = useShoppingGenerator(plan, products);
 
   const getRecipeFor = (date: string, slot: string) =>
     plan.find(p => p.plan_date === date && p.meal_slot === slot);
 
-  // Compute shopping list from week
-  const shoppingList = useMemo(() => {
-    const agg: Record<string, { qty: number; unit: string }> = {};
-    plan.forEach(p => {
-      const ing = (p.recipe?.ingredients || []) as any[];
-      ing.forEach(i => {
-        const key = `${i.name.toLowerCase()}__${i.unit || ""}`;
-        if (!agg[key]) agg[key] = { qty: 0, unit: i.unit || "" };
-        agg[key].qty += Number(i.quantity) || 0;
-      });
-    });
-    return Object.entries(agg).map(([k, v]) => ({
-      name: k.split("__")[0], quantity: v.qty, unit: v.unit
-    }));
-  }, [plan]);
-
-  const shoppingQuery = encodeURIComponent(JSON.stringify(shoppingList));
+  const totalToBuy = shoppingItems.filter(i => i.toBuy > 0).length;
+  const totalCost = shoppingItems.reduce((s, i) => s + i.estimatedCost, 0);
 
   return (
     <div className="space-y-3">
@@ -56,8 +51,8 @@ export function WeeklyMealPlan() {
           </span>
           <Button size="icon" variant="ghost" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="h-4 w-4" /></Button>
         </div>
-        <Link to={`/shopping-list?items=${shoppingQuery}`}>
-          <Button size="sm" variant="outline"><ShoppingCart className="h-3 w-3 mr-1" />Lista ({shoppingList.length})</Button>
+        <Link to={`/shopping-list`}>
+          <Button size="sm" variant="outline"><ShoppingCart className="h-3 w-3 mr-1" />Lista ({totalToBuy})</Button>
         </Link>
       </div>
 
@@ -99,17 +94,40 @@ export function WeeklyMealPlan() {
         </div>
       </div>
 
-      {shoppingList.length > 0 && (
+      {shoppingItems.length > 0 && (
         <Card className="p-3">
-          <p className="text-xs font-semibold mb-2">Resumen de compras semanal</p>
-          <div className="grid grid-cols-2 gap-1 text-xs">
-            {shoppingList.map((it, i) => (
-              <div key={i} className="flex justify-between border-b py-1">
-                <span className="capitalize">{it.name}</span>
-                <span className="text-muted-foreground">{it.quantity} {it.unit}</span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold">Resumen de compras semanal</p>
+            {totalCost > 0 && <p className="text-xs text-muted-foreground">${totalCost.toFixed(2)}</p>}
           </div>
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            {shoppingItems.map((it, i) => {
+              const Icon = storageIcons[it.storageType] || Archive;
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs border-b py-1">
+                  <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <span className="flex-1 capitalize truncate font-medium">{it.productName}</span>
+                  <span className="text-muted-foreground shrink-0">
+                    {it.totalNeeded.toFixed(1)} {it.unit}
+                  </span>
+                  {it.inStock > 0 && (
+                    <span className="text-green-600 shrink-0">(stock: {it.inStock})</span>
+                  )}
+                  <span className="font-bold shrink-0">
+                    {it.toBuy.toFixed(1)} {it.unit}
+                  </span>
+                  {it.estimatedCost > 0 && (
+                    <span className="text-muted-foreground shrink-0">${it.estimatedCost.toFixed(2)}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <Link to={`/shopping-list`} className="block mt-2">
+            <Button size="sm" variant="outline" className="w-full">
+              <ShoppingCart className="h-3 w-3 mr-1" />Ir a la lista de compra
+            </Button>
+          </Link>
         </Card>
       )}
     </div>

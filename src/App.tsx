@@ -53,6 +53,7 @@ import Alimentacion from "./pages/Alimentacion";
 import Gym from "./pages/Gym";
 import Chess from "./pages/Chess";
 import ShoppingList from "./pages/ShoppingList";
+import Grocery from "./pages/Grocery";
 import PlanIdentidad from "./pages/PlanIdentidad";
 import MorningPrep from "./pages/MorningPrep";
 import PuntoPartida from "./pages/PuntoPartida";
@@ -122,6 +123,7 @@ function AppContent() {
         <Route path="/alimentacion" element={<Alimentacion />} />
         <Route path="/gym" element={<Gym />} />
         <Route path="/chess" element={<Chess />} />
+        <Route path="/grocery" element={<Grocery />} />
         <Route path="/shopping-list" element={<ShoppingList />} />
         <Route path="/plan-identidad" element={<PlanIdentidad />} />
         <Route path="/morning-prep" element={<MorningPrep />} />
