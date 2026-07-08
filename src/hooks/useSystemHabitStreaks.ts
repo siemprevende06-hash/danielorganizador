@@ -43,9 +43,12 @@ export function useSystemHabitStreak(habitId: string) {
       )
       .subscribe();
 
+    const pollTimer = setInterval(load, 30000);
+
     return () => {
       cancelled = true;
       supabase.removeChannel(ch);
+      clearInterval(pollTimer);
     };
   }, [habitId]);
 

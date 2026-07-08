@@ -35,7 +35,7 @@ export function useOverallSystemStreak() {
         if (data) {
           const pcts = (data as any[]).map(r => {
             const completions = (r.completions || {}) as Record<string, boolean>;
-            const entries = Object.entries(completions);
+            const entries = Object.entries(completions).filter(([k]) => !k.startsWith("streak:"));
             const done = entries.filter(([, v]) => v).length;
             const total = entries.length;
             return { date: r.tracking_date as string, pct: total > 0 ? Math.round((done / total) * 100) : 0 };

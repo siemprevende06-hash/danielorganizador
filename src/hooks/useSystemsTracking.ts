@@ -18,12 +18,13 @@ const STREAK_MAX_MINUTES = 30;
  */
 function withStreakMirror(data: SystemsData): Record<string, any> {
   const out: Record<string, any> = {};
+  const habitIds = new Set<string>();
   for (const [k, v] of Object.entries(data.completions || {})) {
-    if (!k.startsWith("streak:")) out[k] = v;
+    if (k.startsWith("streak:")) continue;
+    out[k] = v;
+    if (v) habitIds.add(k);
   }
-  for (const [habitId, completed] of Object.entries(data.completions || {})) {
-    if (habitId.startsWith("streak:")) continue;
-    if (!completed) continue;
+  for (const habitId of habitIds) {
     const minutes = data.timeData?.[habitId] ?? 0;
     const level = minutes >= STREAK_MAX_MINUTES ? "max" : "min";
     out[`streak:${habitId}`] = level;
