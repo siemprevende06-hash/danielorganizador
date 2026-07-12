@@ -8,7 +8,7 @@ import { cachedMutation } from "@/lib/supabaseCache";
 import { Zap, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const MINI_HABITS_KEY = "miniHabits";
+const MINI_HABITS_SETTING = "mini_habits_defs";
 
 interface MiniHabitDef {
   id: string;
@@ -23,15 +23,26 @@ const DEFAULT_MINI_HABITS: MiniHabitDef[] = [
 
 const todayKey = () => new Date().toISOString().split("T")[0];
 
-function loadDefs(): MiniHabitDef[] {
+async function loadDefsFromBackend(): Promise<MiniHabitDef[]> {
   try {
-    const raw = localStorage.getItem(MINI_HABITS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
+    const { data } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", MINI_HABITS_SETTING)
+      .maybeSingle();
+    const v: any = data?.setting_value;
+    const arr = (v?.value ?? v) as MiniHabitDef[] | undefined;
+    if (Array.isArray(arr) && arr.length > 0) return arr;
   } catch {}
-  localStorage.setItem(MINI_HABITS_KEY, JSON.stringify(DEFAULT_MINI_HABITS));
+  // seed defaults
+  try {
+    await supabase
+      .from("app_settings")
+      .upsert(
+        { setting_key: MINI_HABITS_SETTING, setting_value: { value: DEFAULT_MINI_HABITS } as any },
+        { onConflict: "user_id,setting_key" }
+      );
+  } catch {}
   return DEFAULT_MINI_HABITS;
 }
 
@@ -42,7 +53,9 @@ export function MiniHabitsSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setDefs(loadDefs());
+    (async () => {
+      setDefs(await loadDefsFromBackend());
+    })();
     (async () => {
       const today = todayKey();
       let row: any = null;
