@@ -1847,6 +1847,39 @@ export type Database = {
         }
         Relationships: []
       }
+      mini_habits: {
+        Row: {
+          created_at: string
+          emoji: string
+          habit_key: string
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          emoji?: string
+          habit_key: string
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          habit_key?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       monthly_area_goals: {
         Row: {
           area_id: string
@@ -2111,6 +2144,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      performance_modes: {
+        Row: {
+          active_routine: Json | null
+          config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_selected: boolean
+          mode_key: string
+          name: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active_routine?: Json | null
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_selected?: boolean
+          mode_key: string
+          name: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active_routine?: Json | null
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_selected?: boolean
+          mode_key?: string
+          name?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       periodic_reviews: {
         Row: {
@@ -2548,6 +2620,39 @@ export type Database = {
           reminder_datetime?: string
           title?: string
           updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      rewards_redemptions: {
+        Row: {
+          costo: number
+          created_at: string
+          fecha: string
+          icono: string | null
+          id: string
+          nombre: string
+          recompensa_id: string
+          user_id: string | null
+        }
+        Insert: {
+          costo: number
+          created_at?: string
+          fecha?: string
+          icono?: string | null
+          id?: string
+          nombre: string
+          recompensa_id: string
+          user_id?: string | null
+        }
+        Update: {
+          costo?: number
+          created_at?: string
+          fecha?: string
+          icono?: string | null
+          id?: string
+          nombre?: string
+          recompensa_id?: string
           user_id?: string | null
         }
         Relationships: []
@@ -3121,6 +3226,33 @@ export type Database = {
         }
         Relationships: []
       }
+      text_sections: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          section_key: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          id?: string
+          section_key: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          section_key?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -3339,6 +3471,30 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wake_time?: string | null
+        }
+        Relationships: []
+      }
+      valuable_skills: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
