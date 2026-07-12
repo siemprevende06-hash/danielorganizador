@@ -48,20 +48,36 @@ export const HabitTrackerMain = ({
           duration: 0,
         });
 
-        // Gamification: Update rewards/punishments balance
-        const rewardsBalance = parseInt(localStorage.getItem("rewardsBalance") || "0");
-        const punishmentsBalance = parseInt(
-          localStorage.getItem("punishmentsBalance") || "0"
-        );
+        // Gamification: Update rewards/punishments balance in backend
+        (async () => {
+          try {
+            const { supabase } = await import("@/integrations/supabase/client");
+            const { data: row } = await supabase
+              .from("user_settings")
+              .select("id, rewards_balance, punishments_balance")
+              .maybeSingle();
+            const rewards = (row as any)?.rewards_balance ?? 0;
+            const punishments = (row as any)?.punishments_balance ?? 0;
+            const patch =
+              action === "completed"
+                ? { rewards_balance: rewards + 1 }
+                : { punishments_balance: punishments + 1 };
+            if (row?.id) {
+              await supabase.from("user_settings").update(patch as any).eq("id", row.id);
+            } else {
+              await supabase.from("user_settings").insert({ user_id: crypto.randomUUID(), ...patch } as any);
+            }
+          } catch (e) {
+            console.warn("update rewards balance failed", e);
+          }
+        })();
 
         if (action === "completed") {
-          localStorage.setItem("rewardsBalance", String(rewardsBalance + 1));
           toast({
             title: "¡Hábito completado! 🎉",
             description: "+1 recompensa ganada",
           });
         } else {
-          localStorage.setItem("punishmentsBalance", String(punishmentsBalance + 1));
           toast({
             title: "Hábito marcado como fallado",
             description: "+1 castigo pendiente",
