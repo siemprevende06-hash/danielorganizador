@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, ListChecks, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package
 } from 'lucide-react';
 import {
   Sheet,
@@ -80,6 +80,8 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/weekly', label: 'Semana', icon: CalendarRange },
       { path: '/monthly', label: 'Mes', icon: Calendar },
       { path: '/monthly-planning', label: 'Plan Mensual', icon: Target },
+      { path: '/trimestral-planning', label: 'Plan Trimestral', icon: CalendarRange },
+      { path: '/weekly-planning', label: 'Plan Semanal', icon: ListChecks },
       { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
       { path: '/weeks', label: 'Semanas', icon: CalendarDays },
     ]

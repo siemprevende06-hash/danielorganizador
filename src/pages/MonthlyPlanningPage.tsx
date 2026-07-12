@@ -13,13 +13,14 @@ import {
   EventPlannerWidget,
   GoalPlannerWidget,
 } from '@/components/monthly-planning/MonthlyPlanWidgets';
-
+import { InheritedBanner } from '@/components/planning/InheritedBanner';
 
 export default function MonthlyPlanningPage() {
   const [month, setMonth] = useState(new Date());
   const {
     planData, loading, saving,
     books, songs, projects, subjects, events,
+    trimestralData,
     updatePlanData, savePlan,
   } = useMonthlyPlan(month);
   const { toast } = useToast();
@@ -86,13 +87,27 @@ export default function MonthlyPlanningPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} />
-          <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} />
-          <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
-          <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
-          <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
-          <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
+        <div className="space-y-4">
+          <InheritedBanner
+            trimestral={trimestralData}
+            onImport={(action) => {
+              if (action === 'all' && trimestralData) {
+                updatePlanData(p => ({
+                  ...p,
+                  books: { ...p.books, goal: trimestralData.books.goal },
+                  songs: { ...p.songs, goal: trimestralData.songs.goal },
+                }));
+              }
+            }}
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} />
+            <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} />
+            <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
+            <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
+            <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
+            <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
+          </div>
         </div>
       )}
 
