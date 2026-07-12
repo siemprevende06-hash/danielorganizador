@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Wrench, Image as ImageIcon, CheckCircle2, Trash2, Film } from 'lucide-react';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { useTextSection } from '@/hooks/useTextSection';
 
 interface VisionCard {
   id: string;
@@ -10,28 +11,24 @@ interface VisionCard {
   checked: boolean;
 }
 
+const INITIAL_CARDS: VisionCard[] = Array.from({ length: 24 }, (_, i) => ({
+  id: `card-${i}`,
+  checked: false,
+}));
+
 export default function ToolsPage() {
-  const [visionCards, setVisionCards] = useState<VisionCard[]>([]);
+  const { data: visionCards, setData: setVisionCards } = useTextSection<VisionCard[]>(
+    'idealPartnerVision',
+    INITIAL_CARDS
+  );
   const { uploadImage, uploading } = useImageUpload();
 
   useEffect(() => {
-    const stored = localStorage.getItem('idealPartnerVision');
-    if (stored) {
-      setVisionCards(JSON.parse(stored));
-    } else {
-      const initialCards = Array.from({ length: 24 }, (_, i) => ({
-        id: `card-${i}`,
-        checked: false,
-      }));
-      setVisionCards(initialCards);
+    if (visionCards.length === 0) {
+      setVisionCards(INITIAL_CARDS);
     }
-  }, []);
+  }, [visionCards.length, setVisionCards]);
 
-  useEffect(() => {
-    if (visionCards.length > 0) {
-      localStorage.setItem('idealPartnerVision', JSON.stringify(visionCards));
-    }
-  }, [visionCards]);
 
   const handleFileUpload = async (cardId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
