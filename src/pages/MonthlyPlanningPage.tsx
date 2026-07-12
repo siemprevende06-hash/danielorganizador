@@ -19,7 +19,7 @@ export default function MonthlyPlanningPage() {
   const [month, setMonth] = useState(new Date());
   const {
     planData, loading, saving,
-    books, songs, projects, subjects, events,
+    books, songs, projects, subjects, topics, events,
     trimestralData,
     updatePlanData, savePlan,
   } = useMonthlyPlan(month);
@@ -42,6 +42,7 @@ export default function MonthlyPlanningPage() {
   const songItems = songs.map(s => ({ id: s.id, title: s.title, subtitle: s.artist ? `${s.artist} · ${s.instrument}` : s.instrument }));
   const projectItems = projects.map(p => ({ id: p.id, title: p.name }));
   const subjectItems = subjects.map(s => ({ id: s.id, title: s.name }));
+  const topicItems = topics.map(t => ({ id: t.id, title: t.title, subtitle: t.subject_id || undefined }));
   const eventItems = events.map(e => ({
     id: e.id,
     title: e.title,
@@ -91,11 +92,20 @@ export default function MonthlyPlanningPage() {
           <InheritedBanner
             trimestral={trimestralData}
             onImport={(action) => {
-              if (action === 'all' && trimestralData) {
+              if (!trimestralData) return;
+              if (action === 'all') {
                 updatePlanData(p => ({
                   ...p,
                   books: { ...p.books, goal: trimestralData.books.goal },
                   songs: { ...p.songs, goal: trimestralData.songs.goal },
+                }));
+              } else if (action === 'auto') {
+                const totalBooks = trimestralData.books.goal;
+                const totalSongs = trimestralData.songs.goal;
+                updatePlanData(p => ({
+                  ...p,
+                  books: { ...p.books, goal: Math.round(totalBooks / 3) },
+                  songs: { ...p.songs, goal: Math.round(totalSongs / 3) },
                 }));
               }
             }}
@@ -104,7 +114,7 @@ export default function MonthlyPlanningPage() {
             <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} />
             <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} />
             <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
-            <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
+            <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={topicItems} />
             <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
             <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
           </div>

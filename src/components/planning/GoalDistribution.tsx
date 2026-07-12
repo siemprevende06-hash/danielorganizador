@@ -1,5 +1,3 @@
-
-
 interface Distribution {
   month1: number;
   month2: number;

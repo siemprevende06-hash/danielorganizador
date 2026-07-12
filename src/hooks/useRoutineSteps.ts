@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCubaDate } from "@/lib/cubaTime";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
 
-export type RoutineType = "activation" | "deactivation" | "morning_prep";
+export type RoutineType = "activation" | "deactivation" | "morning_prep" | "weekend";
 
 export interface RoutineStep {
   id: string;

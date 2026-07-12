@@ -45,7 +45,7 @@ export function ProgressRing({
           fill="none"
           stroke={trackColorValue}
           strokeWidth={strokeWidth}
-          className="dark:[&]:opacity-30"
+          className="dark:opacity-30"
         />
         <circle
           cx={size / 2}

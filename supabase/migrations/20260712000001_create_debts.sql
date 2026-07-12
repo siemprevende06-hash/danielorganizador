@@ -17,3 +17,6 @@ ALTER TABLE public.debts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all access to debts" ON public.debts FOR ALL USING (true) WITH CHECK (true);
 
 CREATE TRIGGER update_debts_updated_at BEFORE UPDATE ON public.debts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.debts TO anon, authenticated;
+GRANT USAGE ON SEQUENCE public.debts_id_seq TO anon, authenticated;
