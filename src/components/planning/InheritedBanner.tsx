@@ -3,7 +3,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Layers, Book, Music, FolderKanban, GraduationCap, Target } from 'lucide-react';
 import { useState } from 'react';
-import type { TrimestralSummary } from '@/hooks/useMonthlyPlan';
+
+interface TrimestralSummary {
+  books: { goal: number; selected: number };
+  songs: { goal: number; selected: number };
+  projects: number;
+  subjects: number;
+  personal_goals: number;
+  monthIndex: number;
+  quarterLabel: string;
+}
 
 interface InheritedBannerProps {
   trimestral: TrimestralSummary | null;
