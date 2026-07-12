@@ -59,8 +59,7 @@ export default function Motivos() {
 
   const persist = useCallback((next: MotivoSection[]) => {
     setSections(next);
-    save(next);
-  }, []);
+  }, [setSections]);
 
   const addSection = () => {
     const rows = 3;
