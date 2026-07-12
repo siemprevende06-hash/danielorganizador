@@ -94,7 +94,7 @@ export default function HabitsPage() {
   const [todayScore, setTodayScore] = useState(0);
 
   useEffect(() => {
-    setMiniDefs(loadMiniDefs());
+    loadMiniDefs().then(setMiniDefs);
     (async () => {
       const today = todayKey();
       try {
