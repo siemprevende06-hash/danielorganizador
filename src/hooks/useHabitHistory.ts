@@ -26,35 +26,9 @@ export const useHabitHistory = () => {
           };
         });
 
-        // Check for localStorage migration
-        const storedHistory = localStorage.getItem('habitHistory');
-        if (storedHistory && Object.keys(history).length === 0) {
-          try {
-            const localData = JSON.parse(storedHistory) as HabitHistory;
-            // Migrate to Supabase
-            for (const [habitId, habitData] of Object.entries(localData)) {
-              await supabase.from('habit_history').upsert({
-                habit_id: habitId,
-                completed_dates: habitData.completedDates as any,
-                current_streak: habitData.currentStreak,
-                longest_streak: habitData.longestStreak,
-              } as any, { onConflict: 'habit_id' });
-            }
-            setHabitHistory(localData);
-            localStorage.removeItem('habitHistory');
-          } catch (e) {
-            console.error('Migration error:', e);
-          }
-        } else {
-          setHabitHistory(history);
-        }
+        setHabitHistory(history);
       } catch (error) {
         console.error('Error loading habit history:', error);
-        // Fallback to localStorage
-        const stored = localStorage.getItem('habitHistory');
-        if (stored) {
-          setHabitHistory(JSON.parse(stored));
-        }
       } finally {
         setIsLoading(false);
       }
