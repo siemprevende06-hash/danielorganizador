@@ -59,8 +59,7 @@ export default function Realidad() {
 
   const persist = useCallback((next: RealidadSection[]) => {
     setSections(next);
-    save(next);
-  }, []);
+  }, [setSections]);
 
   const addSection = () => {
     const rows = 3;
