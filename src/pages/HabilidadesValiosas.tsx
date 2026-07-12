@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Plus, Target, Trash2, Edit3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTextSection } from '@/hooks/useTextSection';
 
 interface Skill {
   id: string;
@@ -18,35 +19,18 @@ interface Skill {
   createdAt: string;
 }
 
-const STORAGE_KEY = 'habilidades_valiosas';
-
-function loadSkills(): Skill[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveSkills(skills: Skill[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(skills));
-}
-
 const DEFAULT_ICONS = ['⭐', '🥊', '💃', '🎸', '🎹', '🎨', '📸', '✍️', '🗣️', '🧠', '💻', '🔧', '🏋️', '🧘', '🏊', '🚴', '⛰️', '🧭'];
 
 export default function HabilidadesValiosas() {
   const { toast } = useToast();
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: skills, setData: setSkills, loading } = useTextSection<Skill[]>('habilidades_valiosas', []);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', icon: '⭐', description: '' });
 
-  useEffect(() => {
-    setSkills(loadSkills());
-    setLoading(false);
-  }, []);
+  const saveSkills = (s: Skill[]) => setSkills(s);
+
+
 
   const resetForm = () => {
     setForm({ name: '', icon: '⭐', description: '' });
