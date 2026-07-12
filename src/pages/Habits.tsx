@@ -56,20 +56,32 @@ const HOBBY_HABITS = [
 
 const todayKey = () => new Date().toISOString().split("T")[0];
 
-function loadMiniDefs(): MiniHabit[] {
+async function loadMiniDefs(): Promise<MiniHabit[]> {
   try {
-    const raw = localStorage.getItem(MINI_HABITS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
+    const { data } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", MINI_HABITS_SETTING)
+      .maybeSingle();
+    const v: any = data?.setting_value;
+    const arr = (v?.value ?? v) as MiniHabit[] | undefined;
+    if (Array.isArray(arr) && arr.length > 0) return arr;
   } catch {}
-  localStorage.setItem(MINI_HABITS_KEY, JSON.stringify(DEFAULT_MINI_HABITS));
+  await saveMiniDefs(DEFAULT_MINI_HABITS);
   return DEFAULT_MINI_HABITS;
 }
 
-function saveMiniDefs(defs: MiniHabit[]) {
-  localStorage.setItem(MINI_HABITS_KEY, JSON.stringify(defs));
+async function saveMiniDefs(defs: MiniHabit[]) {
+  try {
+    await supabase
+      .from("app_settings")
+      .upsert(
+        { setting_key: MINI_HABITS_SETTING, setting_value: { value: defs } as any },
+        { onConflict: "user_id,setting_key" }
+      );
+  } catch (e) {
+    console.warn("saveMiniDefs failed", e);
+  }
 }
 
 export default function HabitsPage() {
