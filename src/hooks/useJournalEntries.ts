@@ -28,26 +28,9 @@ export const useJournalEntries = () => {
           content: row.content,
         })) || [];
 
-        // Migration from localStorage
-        const stored = localStorage.getItem('journalEntries');
-        if (stored && formattedEntries.length === 0) {
-          const localEntries = JSON.parse(stored) as JournalEntry[];
-          for (const entry of localEntries) {
-            await supabase.from('journal_entries').insert({
-              content: entry.content,
-              entry_date: new Date(entry.date).toISOString().split('T')[0],
-              created_at: entry.date,
-            });
-          }
-          setEntries(localEntries);
-          localStorage.removeItem('journalEntries');
-        } else {
-          setEntries(formattedEntries);
-        }
+        setEntries(formattedEntries);
       } catch (error) {
         console.error('Error loading journal entries:', error);
-        const stored = localStorage.getItem('journalEntries');
-        if (stored) setEntries(JSON.parse(stored));
       } finally {
         setIsLoading(false);
       }

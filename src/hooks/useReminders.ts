@@ -32,27 +32,9 @@ export const useReminders = () => {
           completed: row.completed,
         })) || [];
 
-        // Migration
-        const stored = localStorage.getItem('reminders');
-        if (stored && formattedReminders.length === 0) {
-          const localReminders = JSON.parse(stored) as Reminder[];
-          for (const r of localReminders) {
-            await supabase.from('reminders').insert({
-              title: r.title,
-              description: r.description,
-              reminder_datetime: r.dateTime,
-              completed: r.completed,
-            });
-          }
-          setReminders(localReminders);
-          localStorage.removeItem('reminders');
-        } else {
-          setReminders(formattedReminders);
-        }
+        setReminders(formattedReminders);
       } catch (error) {
         console.error('Error loading reminders:', error);
-        const stored = localStorage.getItem('reminders');
-        if (stored) setReminders(JSON.parse(stored));
       } finally {
         setIsLoading(false);
       }

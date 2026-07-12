@@ -1,69 +1,76 @@
-# Plan de mejoras
+## Objetivo
 
-## 1. Biblioteca — Indicador de tiempo de lectura diario
-En `src/pages/ReadingLibrary.tsx` agregar una tarjeta superior con:
-- **Tiempo leído hoy** (suma de `language_sessions.reading_duration` del día actual + cualquier sesión de focus marcada como lectura).
-- **Meta diaria** calculada desde `dailyPages` y libros pendientes del mes (fórmula ya existe).
-- Mini barra semanal con minutos por día (últimos 7 días) usando `WeekStreakBar` con `habitId="lectura"` para reutilizar la racha en BD.
-- Badge "Hoy: X min / Y min objetivo" con color verde si cumple.
+Auditar todo el uso de `localStorage` en la app y migrar al backend (Lovable Cloud) lo que representa **datos de usuario** (hábitos, finanzas, rachas, planes, selecciones, contenido editable). Mantener en `localStorage` solo lo que es **preferencia efímera del dispositivo** (tema, sidebar colapsado, caches de red).
 
-## 2. Sistemas — Persistencia real de rachas y checks
-El trigger en BD ya recalcula `system_habit_streaks`, pero los checklist actualmente se guardan con claves inconsistentes. Asegurar que:
-- Cada checkbox de Sistemas (lectura, ajedrez, música, idiomas, **entrenamiento**, hobbies) escribe en `daily_systems_tracking.completions` con clave `streak:<habitId>` y valor `"true" | "min" | "max"`.
-- Añadir trigger `AFTER INSERT OR UPDATE OR DELETE ON daily_systems_tracking` que invoque `refresh_system_habit_streaks_for_row` (la función existe pero **no hay trigger**, por eso no se actualizan rachas — verificado en `<db-triggers>`).
-- Reset diario a medianoche: `useSystemsTracking` ya hace `useMidnightReset`, confirmar que también limpia visualmente todos los checklist (entrenamiento, lectura, música, ajedrez) — el row del nuevo día queda vacío automáticamente.
+## Inventario y clasificación
 
-**Migración necesaria:**
-```sql
-CREATE TRIGGER trg_refresh_system_streaks
-AFTER INSERT OR UPDATE OR DELETE ON public.daily_systems_tracking
-FOR EACH ROW EXECUTE FUNCTION public.refresh_system_habit_streaks_for_row();
+### A) MIGRAR AL BACKEND (datos que se pierden entre dispositivos / días)
+
+| # | Fuente | Clave/Archivo | Destino propuesto |
+|---|---|---|---|
+| 1 | `useFinance.ts`, `pages/Finance.tsx` | `wallets`, `transactions`, `loans`, `debts`, `distributionBags`, `exchangeRate` | Tablas ya existentes: `wallets`, `transactions`, `loans`, `distribution_bags`. Nueva fila en `app_settings` para `exchangeRate`. Eliminar lectura/escritura local. |
+| 2 | `useRecompensas.ts` | `rewardsBalance`, `punishmentsBalance`, `canjes`, `lastEarned`, `catalogo` | Nueva tabla `rewards_state` (balance) + `rewards_redemptions` (canjes) + `app_settings` para catálogo. |
+| 3 | `HabitTrackerMain.tsx` | `rewardsBalance`, `punishmentsBalance` | Reutilizar `rewards_state`. |
+| 4 | `useHabitHistory.ts` | `habitHistory` | Ya existe `habit_history`; eliminar fallback local. |
+| 5 | `useJournalEntries.ts` | `journalEntries` | Ya existe `journal_entries`; eliminar fallback local. |
+| 6 | `useReminders.ts` | `reminders` | Ya existe `reminders`; eliminar fallback. |
+| 7 | `usePerformanceModes.ts` | `performanceModes`, `selectedMode`, `activeRoutine` | Nueva tabla `performance_modes` + fila en `user_settings` para modo seleccionado. |
+| 8 | `useRoutineConfig.ts` | `routineConfig`, `musicInstrument` | Guardar en `user_settings` (JSON). |
+| 9 | `useRoutineBlocks.ts` | `routineType`, `dailyRoutineBlocks_*` | Ya existen `routine_blocks` / `routine_completions`; consolidar. |
+| 10 | `useRoutineCompletions.ts` | fallback local | Eliminar fallback. |
+| 11 | `pages/DailyRoutine.tsx` | `routineStreak`, `dailyPlan_*`, `dailyRoutineBlocks_*` | Reusar `daily_plans`, `daily_plan_tasks`, `routine_completions`. |
+| 12 | `AssignTaskToBlockDialog.tsx`, `RoutineBlockSchedule.tsx` | `dailyPlanTasks_${date}` | Tabla `daily_plan_tasks` ya existe; migrar. |
+| 13 | `pages/Projects.tsx`, `FocusIndicatorsSection`, `QuickStatsGrid` | `userProjects`, `selectedProjectId` | Tabla `projects` ya existe; añadir columna/tabla para "activo" o usar `app_settings`. |
+| 14 | `useActiveSelection.ts` | claves `active_*` | Guardar en `app_settings` (setting_key = `active_selection:<scope>`). |
+| 15 | `pages/Habits.tsx`, `MiniHabitsSection.tsx` | `miniHabits` (definiciones) | Nueva tabla `mini_habits` o fila en `app_settings`. |
+| 16 | `pages/HabilidadesValiosas.tsx` | skills | Nueva tabla `valuable_skills`. |
+| 17 | `pages/Motivos.tsx`, `pages/Realidad.tsx`, `pages/Tools.tsx`, `VisionGoalsBoard.tsx` | `motivos`, `realidad`, `idealPartnerVision`, `visionGoals` | Usar `vision_boards` / `vision_board_cells` o crear tabla `text_sections` genérica (`section_key`, `content jsonb`). |
+| 18 | `useWeeklyData.ts` | plan semanal | Ya existe `weekly_plans`; migrar. |
+| 19 | `useVisionBoard.ts` | cache local | Eliminar fallback (ya usa `vision_boards`). |
+| 20 | `lib/pages.ts`, `Navigation.tsx` | `pages_meta`, `page_content_*` | Ya existen tablas para páginas; usarlas. |
+| 21 | `pages/ControlRoom.tsx` | agrega varias claves locales | Recalcular leyendo del backend. |
+| 22 | `useOverallSystemStreak.ts` | limpieza legacy | Ya migrado; borrar el `removeItem`. |
+| 23 | `pages/Focus.tsx` | `TASKS_CACHE_KEY` | Ya viene de DB; degradar a cache opcional o eliminar. |
+
+### B) MANTENER EN LOCALSTORAGE (preferencias del dispositivo)
+
+- `useAutoTheme.ts` → `theme` (light/dark/auto).
+- `SidebarContext.tsx` → `sidebarCollapsed`.
+- `integrations/supabase/client.ts` → sesión de Supabase (obligatorio).
+- `lib/offlineCache` / `offlineQueue` (idb) → cache offline, correcto.
+
+## Enfoque de implementación (por fases)
+
+Se hará por fases pequeñas y verificables. Cada fase = 1 migración + refactor de hooks/páginas afectadas + limpieza del `localStorage` correspondiente.
+
+```text
+Fase 1  Finanzas         (#1)          — alto impacto, tablas ya existen
+Fase 2  Rachas/Historial (#4 #5 #6 #22)— quitar fallbacks, ya hay tablas
+Fase 3  Rutinas y planes (#8 #9 #10 #11 #12) — consolidar en tablas existentes
+Fase 4  Recompensas      (#2 #3)       — nuevas tablas
+Fase 5  Selecciones/Proyectos (#13 #14) — app_settings o columna is_active
+Fase 6  Modos y config   (#7)          — nueva tabla performance_modes
+Fase 7  Contenido texto  (#15 #16 #17 #20) — tabla genérica text_sections
+Fase 8  Cleanup          (#18 #19 #21 #23) — eliminar fallbacks legacy
 ```
 
-## 3. Inicio — Datos reales y portadas navegables
-Refactor `src/hooks/usePillarProgress.ts` y `src/components/pillars/PillarCard.tsx`:
+## Detalles técnicos
 
-**a) Datos reales por área** — leer de fuentes correctas:
-- **Universidad**: `tasks` con `area_id='universidad'` + `exams` próximos + `university_subjects` (GPA actual).
-- **Emprendimiento**: `entrepreneurship_tasks` del día + `entrepreneurship_income` mes.
-- **Proyectos**: `tasks` con `area_id='proyectos'` + `projects` activos.
-- **Gym**: `exercise_logs` semana + racha desde `area_streaks` (no habit_history).
-- **Idiomas**: `language_sessions` día + minutos reales.
-- **Esfuerzo del día**: integrar desde Sistemas (`daily_systems_tracking.completions` count) → mostrar % esfuerzo.
-- **Resultados**: integrar desde `tasks` (completadas hoy / totales hoy) → mostrar % resultados.
-- Mostrar ambos números en la tarjeta de cada pilar (esfuerzo / resultados separados).
+- **Nuevas tablas** (mínimas): `performance_modes`, `rewards_state`, `rewards_redemptions`, `valuable_skills`, `text_sections`, `mini_habits`. Todas con `id uuid`, `user_id uuid null` (proyecto sin auth), `created_at`, `updated_at`, trigger `update_updated_at_column`, RLS `USING (true)`, GRANTs a `anon`, `authenticated`, `service_role` (política del proyecto: sin Auth).
+- **Reutilizar** `app_settings` (ya existente) para valores escalares (`exchangeRate`, catálogo de recompensas, `active_selection:*`, `selectedPerformanceMode`, `musicInstrument`, `routineType`).
+- **Patrón de refactor**: cada hook pasa a `select` inicial + suscripción, y `upsert` en las mutaciones (con `cachedMutation` para offline). Se elimina `localStorage.get/set` de datos, pero se mantiene el cache IndexedDB existente.
+- **Migración de datos existentes**: al montar cada hook migrado, si detecta la clave local, la sube al backend una vez y hace `removeItem`.
+- **Verificación**: por cada fase, build + smoke test en preview (recarga en otro navegador debería mostrar los mismos datos).
 
-**b) Portada por tarjeta**:
-- Añadir columna `cover_image_url TEXT` a `identity_plan` (o nueva tabla `pillar_covers` si prefieres no tocarla; recomiendo `pillar_covers(pillar_id TEXT PK, cover_url TEXT)`).
-- En `PillarCard`: si hay `cover_url` mostrar como background con overlay; botón hover para subir nueva imagen al bucket `user-images/pillars/`.
-- Toda la tarjeta envuelta en `<Link to={ruta}>` → universidad `/university`, emprendimiento `/entrepreneurship`, proyectos `/projects`, gym `/gym`, idiomas `/languages-dashboard`.
+## Fuera de alcance
 
-**Migración:**
-```sql
-CREATE TABLE public.pillar_covers (
-  pillar_id TEXT PRIMARY KEY,
-  cover_url TEXT,
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.pillar_covers TO anon, authenticated;
-GRANT ALL ON public.pillar_covers TO service_role;
-ALTER TABLE public.pillar_covers ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all" ON public.pillar_covers FOR ALL USING (true) WITH CHECK (true);
-```
+- Autenticación real (el proyecto sigue sin Auth según memory).
+- Rediseño de las tablas ya existentes.
+- Cambios de UI o lógica de negocio.
 
-## 4. Metas secundarias — Música unificada + Gaming
-En `usePillarProgress.ts` `SECONDARY_GOALS_CONFIG`:
-- **Eliminar** `piano` y `guitarra` separados.
-- **Agregar** `musica` (icono 🎵, ruta `/music-dashboard`) → `completed=true` si **piano OR guitarra** se hizo hoy; `duration` = suma de ambos.
-- **Mantener** `lectura`, `ajedrez`.
-- **Agregar** `gaming` (icono ❤️ Heart de lucide-react, sin ruta — toggle directo) → guardado en `daily_systems_tracking.completions['streak:gaming']`.
+## Entregables
 
-Resultado final: 4 metas secundarias → Música, Lectura, Ajedrez, Gaming.
-
-## Archivos a tocar
-- `src/pages/ReadingLibrary.tsx` (tarjeta tiempo diario)
-- `src/hooks/usePillarProgress.ts` (datos reales + música unificada + gaming + esfuerzo/resultados)
-- `src/components/pillars/PillarCard.tsx` (portada + Link)
-- `src/components/pillars/SecondaryGoalsProgress.tsx` (icono Heart para gaming, ruta música)
-- `src/components/systems/WeekStreakBar.tsx` (asegurar escritura con clave correcta — ya OK)
-- Migración: trigger streaks + tabla `pillar_covers`
+- Un plan de commits por fase (ver arriba).
+- Migraciones SQL para las nuevas tablas y grants.
+- Refactor de hooks/páginas listados.
+- Eliminación de las claves `localStorage` correspondientes, dejando solo tema, sidebar y sesión.

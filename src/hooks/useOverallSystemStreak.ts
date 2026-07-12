@@ -79,9 +79,6 @@ export function useOverallSystemStreak() {
         if (!cancelled) {
           setStreak({ current, longest: newLongest });
         }
-
-        // 4) One-time migration: clear legacy localStorage cache
-        try { localStorage.removeItem('system_overall_streak'); } catch {}
       } catch (err) {
         console.error('Error loading overall streak:', err);
       } finally {
