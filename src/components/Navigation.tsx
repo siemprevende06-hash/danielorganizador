@@ -64,6 +64,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/activation-routine', label: 'Activación', icon: Zap },
       { path: '/morning-prep', label: 'Alistamiento', icon: Shirt },
       { path: '/deactivation-routine', label: 'Desactivación', icon: Moon },
+      { path: '/weekend-routine', label: 'Fin de Semana', icon: Sun },
     ]
   },
   {
@@ -114,6 +115,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     items: [
       { path: '/systems', label: 'Sistemas', icon: Brain },
       { path: '/vision', label: 'Point B', icon: Eye },
+      { path: '/antivision', label: 'Anti-Point B', icon: Flame },
       { path: '/plan-identidad', label: 'Plan Identidad', icon: Compass },
       { label: 'Motivos', icon: Heart, submenu: [
         { path: '/motivos', label: 'Motivos' },

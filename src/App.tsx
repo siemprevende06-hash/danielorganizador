@@ -49,6 +49,7 @@ import SettingsPage from "./pages/SettingsPage";
 import PeriodicReview from "./pages/PeriodicReview";
 import SprintPage from "./pages/SprintPage";
 import VisionPage from "./pages/VisionPage";
+import AntiVisionPage from "./pages/AntiVisionPage";
 import Alimentacion from "./pages/Alimentacion";
 import Gym from "./pages/Gym";
 import Chess from "./pages/Chess";
@@ -56,6 +57,7 @@ import ShoppingList from "./pages/ShoppingList";
 import Grocery from "./pages/Grocery";
 import PlanIdentidad from "./pages/PlanIdentidad";
 import MorningPrep from "./pages/MorningPrep";
+import WeekendRoutine from "./pages/WeekendRoutine";
 import PuntoPartida from "./pages/PuntoPartida";
 import BoxeoPage from "./pages/BoxeoPage";
 import VidaSocial from "./pages/VidaSocial";
@@ -84,6 +86,7 @@ function AppContent() {
         <Route path="/daily-routine" element={<DailyRoutine />} />
         <Route path="/activation-routine" element={<ActivationRoutine />} />
         <Route path="/deactivation-routine" element={<DeactivationRoutine />} />
+        <Route path="/weekend-routine" element={<WeekendRoutine />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/tasks" element={<Tasks />} />
@@ -104,6 +107,7 @@ function AppContent() {
         <Route path="/systems" element={<Systems />} />
         <Route path="/sprint" element={<SprintPage />} />
         <Route path="/vision" element={<VisionPage />} />
+        <Route path="/antivision" element={<AntiVisionPage />} />
         <Route path="/12-week-year" element={<TwelveWeekYear />} />
         <Route path="/3-meses" element={<TwelveWeekYear />} />
         <Route path="/weeks" element={<Weeks />} />
