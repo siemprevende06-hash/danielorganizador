@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { precacheImages } from "@/lib/imageCache";
+import { useTextSection } from "@/hooks/useTextSection";
 import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,23 +28,8 @@ interface RealidadSection {
   cards: RealidadCard[];
 }
 
-const STORAGE_KEY = "realidad-data";
-
 function uid(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-}
-
-function load(): RealidadSection[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function save(sections: RealidadSection[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sections));
 }
 
 function makeCards(rows: number): RealidadCard[] {
@@ -57,15 +43,14 @@ function makeCards(rows: number): RealidadCard[] {
 const ROW_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
 
 export default function Realidad() {
-  const [sections, setSections] = useState<RealidadSection[]>([]);
+  const { data: sections, setData: setSections } = useTextSection<RealidadSection[]>(
+    "realidad-data",
+    []
+  );
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const { uploadImage } = useImageUpload();
-
-  useEffect(() => {
-    setSections(load());
-  }, []);
 
   useEffect(() => {
     const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
