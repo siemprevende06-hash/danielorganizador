@@ -79,6 +79,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/daily', label: 'Hoy', icon: CalendarDays },
       { path: '/weekly', label: 'Semana', icon: CalendarRange },
       { path: '/monthly', label: 'Mes', icon: Calendar },
+      { path: '/monthly-planning', label: 'Plan Mensual', icon: Target },
       { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
       { path: '/weeks', label: 'Semanas', icon: CalendarDays },
     ]

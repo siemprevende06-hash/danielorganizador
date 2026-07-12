@@ -66,6 +66,7 @@ import AreasDeVida from "./pages/AreasDeVida";
 import Recompensas from "./pages/Recompensas";
 import Paginas from "./pages/Paginas";
 import Motivos from "./pages/Motivos";
+import MonthlyPlanningPage from "./pages/MonthlyPlanningPage";
 import Realidad from "./pages/Realidad";
 import HabilidadesValiosas from "./pages/HabilidadesValiosas";
 
@@ -93,6 +94,7 @@ function AppContent() {
         <Route path="/daily" element={<DailyView />} />
         <Route path="/weekly" element={<WeeklyView />} />
         <Route path="/monthly" element={<MonthlyView />} />
+        <Route path="/monthly-planning" element={<MonthlyPlanningPage />} />
         <Route path="/goals" element={<Goals />} />
         <Route path="/journaling" element={<Journaling />} />
         <Route path="/entrepreneurship" element={<Entrepreneurship />} />

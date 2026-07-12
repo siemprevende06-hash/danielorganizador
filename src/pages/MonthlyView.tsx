@@ -17,6 +17,7 @@ import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
 import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
 import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
+import { MonthlyPlanSummary } from '@/components/monthly-planning/MonthlyPlanSummary';
 
 interface DayData {
   date: Date;
@@ -203,6 +204,8 @@ export default function MonthlyView() {
           value={`${overallStreak.current}d`}
           extra={overallStreak.longest > 0 ? <span className="flex items-center gap-0.5 text-[9px] text-yellow-600"><Trophy className="h-2.5 w-2.5" />{overallStreak.longest}</span> : null} />
       </div>
+
+      <MonthlyPlanSummary currentMonth={currentMonth} />
 
       <Tabs defaultValue="calendar" className="space-y-4">
         <TabsList className="bg-muted/50 backdrop-blur-sm p-0.5 rounded-xl overflow-x-auto flex-nowrap">
