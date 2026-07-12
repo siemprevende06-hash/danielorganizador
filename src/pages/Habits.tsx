@@ -13,7 +13,7 @@ import { Dumbbell, Moon, Zap, Droplet, Target, Shirt, GraduationCap, Code, Brief
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const MINI_HABITS_KEY = "miniHabits";
+const MINI_HABITS_SETTING = "mini_habits_defs";
 
 interface MiniHabit {
   id: string;
