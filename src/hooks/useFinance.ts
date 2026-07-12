@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { wallets as initialWallets, defaultDistributionBags } from '@/lib/data';
-import type { Wallet, Transaction, Loan, DistributionBag } from '@/lib/definitions';
+import type { Wallet, Transaction, Loan, DistributionBag, Debt } from '@/lib/definitions';
 import type { LucideIcon } from 'lucide-react';
 import { Banknote, CreditCard, PiggyBank, Target, Wallet as WalletIcon, Shield, TrendingUp, Home, Gamepad2, BookOpen, Heart, GraduationCap, Sparkles, DollarSign, Plane, Coffee } from 'lucide-react';
 
@@ -16,6 +16,7 @@ export const useFinance = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [distributionBags, setDistributionBags] = useState<DistributionBag[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const [exchangeRate, setExchangeRateState] = useState(360);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -65,6 +66,13 @@ export const useFinance = () => {
 
         if (loansError) throw loansError;
 
+        const { data: debtsData, error: debtsError } = await supabase
+          .from('debts')
+          .select('*')
+          .order('debt_date', { ascending: false });
+
+        if (debtsError) throw debtsError;
+
         const { data: bagsData, error: bagsError } = await supabase
           .from('distribution_bags')
           .select('*');
@@ -110,6 +118,18 @@ export const useFinance = () => {
           walletId: l.wallet_id,
           date: new Date(l.loan_date),
           status: l.status as 'outstanding' | 'paid',
+        })) || [];
+
+        const formattedDebts: Debt[] = debtsData?.map((d: any) => ({
+          id: d.id,
+          person: d.person,
+          description: d.description || '',
+          totalAmount: Number(d.total_amount),
+          paidAmount: Number(d.paid_amount),
+          walletId: d.wallet_id,
+          date: new Date(d.debt_date),
+          dueDate: d.due_date ? new Date(d.due_date) : undefined,
+          status: d.status as 'outstanding' | 'paid',
         })) || [];
 
         const formattedBags: DistributionBag[] = bagsData?.map((b: any) => ({
@@ -169,6 +189,7 @@ export const useFinance = () => {
 
         setTransactions(formattedTransactions);
         setLoans(formattedLoans);
+        setDebts(formattedDebts);
       } catch (error) {
         console.error('Error loading finance data:', error);
         const storedWallets = localStorage.getItem('wallets');
@@ -183,6 +204,12 @@ export const useFinance = () => {
         if (storedLoans) {
           setLoans(JSON.parse(storedLoans, (key, value) =>
             key === 'date' ? new Date(value) : value
+          ));
+        }
+        const storedDebts = localStorage.getItem('debts');
+        if (storedDebts) {
+          setDebts(JSON.parse(storedDebts, (key, value) =>
+            key === 'date' || key === 'dueDate' ? new Date(value) : value
           ));
         }
         const storedBags = localStorage.getItem('distributionBags');
@@ -326,6 +353,70 @@ export const useFinance = () => {
     }
   }, []);
 
+  const addDebt = useCallback(async (debt: Omit<Debt, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('debts')
+        .insert({
+          wallet_id: debt.walletId,
+          person: debt.person,
+          description: debt.description,
+          total_amount: debt.totalAmount,
+          paid_amount: debt.paidAmount,
+          due_date: debt.dueDate?.toISOString() || null,
+          status: debt.status,
+          debt_date: debt.date.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newDebt: Debt = {
+        id: data.id,
+        person: data.person,
+        description: data.description || '',
+        totalAmount: Number(data.total_amount),
+        paidAmount: Number(data.paid_amount),
+        walletId: data.wallet_id,
+        date: new Date(data.debt_date),
+        dueDate: data.due_date ? new Date(data.due_date) : undefined,
+        status: data.status as 'outstanding' | 'paid',
+      };
+
+      setDebts(prev => [newDebt, ...prev]);
+      return newDebt;
+    } catch (error) {
+      console.error('Error adding debt:', error);
+      return null;
+    }
+  }, []);
+
+  const updateDebt = useCallback(async (debtId: string, updates: Partial<Debt>) => {
+    try {
+      const dbUpdates: any = {};
+      if (updates.paidAmount !== undefined) dbUpdates.paid_amount = updates.paidAmount;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate.toISOString();
+      await supabase.from('debts').update(dbUpdates).eq('id', debtId);
+      setDebts(prev =>
+        prev.map(d => d.id === debtId ? { ...d, ...updates } : d)
+      );
+    } catch (error) {
+      console.error('Error updating debt:', error);
+    }
+  }, []);
+
+  const deleteDebt = useCallback(async (debtId: string) => {
+    try {
+      await supabase.from('debts').delete().eq('id', debtId);
+      setDebts(prev => prev.filter(d => d.id !== debtId));
+    } catch (error) {
+      console.error('Error deleting debt:', error);
+    }
+  }, []);
+
   const addDistributionBag = useCallback(async (bag: Omit<DistributionBag, 'id'>) => {
     try {
       const { data, error } = await supabase
@@ -404,10 +495,15 @@ export const useFinance = () => {
     setLoans(l);
   }, []);
 
+  const setDebtsState = useCallback((d: Debt[] | ((prev: Debt[]) => Debt[])) => {
+    setDebts(d);
+  }, []);
+
   return {
     wallets,
     transactions,
     loans,
+    debts,
     distributionBags,
     exchangeRate,
     setExchangeRate,
@@ -415,6 +511,7 @@ export const useFinance = () => {
     setWallets: setWalletsState,
     setTransactions: setTransactionsState,
     setLoans: setLoansState,
+    setDebts: setDebtsState,
     setDistributionBags: setDistributionBagsState,
     addTransaction,
     deleteTransaction,
@@ -422,6 +519,9 @@ export const useFinance = () => {
     updateWallet,
     addLoan,
     updateLoan,
+    addDebt,
+    updateDebt,
+    deleteDebt,
     addDistributionBag,
     updateDistributionBag,
     deleteDistributionBag,
