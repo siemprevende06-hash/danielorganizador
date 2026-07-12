@@ -9,17 +9,6 @@ export interface MonthlyPlanData {
   subjects: { subject_id: string; topics: string[] }[];
   events: string[];
   personal_goals: { title: string; target?: string }[];
-  inherited_from?: { quarter: number; year: number };
-}
-
-export interface TrimestralSummary {
-  books: { goal: number; selected: number };
-  songs: { goal: number; selected: number };
-  projects: number;
-  subjects: number;
-  personal_goals: number;
-  monthIndex: number;
-  quarterLabel: string;
 }
 
 const defaultPlanData: MonthlyPlanData = {
@@ -66,7 +55,6 @@ export function useMonthlyPlan(month: Date) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [trimestralData, setTrimestralData] = useState<TrimestralSummary | null>(null);
 
   const fetchPlan = useCallback(async () => {
     setLoading(true);
@@ -160,28 +148,6 @@ export function useMonthlyPlan(month: Date) {
     } catch { setProjects([]); }
   };
 
-  const loadTrimestral = () => {
-    const q = Math.ceil((month.getMonth() + 1) / 3);
-    const y = month.getFullYear();
-    const monthIndex = month.getMonth() - (q - 1) * 3;
-    const quarterLabel = `Q${q} ${y}`;
-    try {
-      const raw = localStorage.getItem(`trimestral_plan_Q${q}_${y}`);
-      if (raw) {
-        const tData = JSON.parse(raw);
-        setTrimestralData({
-          books: { goal: tData.books?.goal || 0, selected: tData.books?.selected?.length || 0 },
-          songs: { goal: tData.songs?.goal || 0, selected: tData.songs?.selected?.length || 0 },
-          projects: tData.projects?.length || 0,
-          subjects: tData.subjects?.length || 0,
-          personal_goals: tData.personal_goals?.length || 0,
-          monthIndex,
-          quarterLabel,
-        });
-      }
-    } catch {}
-  };
-
   useEffect(() => {
     fetchPlan();
     fetchBooks();
@@ -190,7 +156,6 @@ export function useMonthlyPlan(month: Date) {
     fetchTopics();
     fetchEvents();
     loadProjects();
-    loadTrimestral();
   }, [monthStr]);
 
   const updatePlanData = useCallback((updater: (prev: MonthlyPlanData) => MonthlyPlanData) => {
@@ -200,7 +165,6 @@ export function useMonthlyPlan(month: Date) {
   return {
     planData, loading, saving, monthStr,
     books, songs, projects, subjects, topics, events,
-    trimestralData,
     updatePlanData, savePlan, fetchPlan,
   };
 }
