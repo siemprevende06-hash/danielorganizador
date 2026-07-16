@@ -157,7 +157,7 @@ function BudgetCategoryForm({
   return (
     <div className="space-y-3">
       <div>
-        <FormLabel>Categoría</FormLabel>
+        <Label>Categoría</Label>
         <Select onValueChange={setSelectedCat} value={selectedCat}>
           <SelectTrigger className="rounded-xl mt-1"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
           <SelectContent>
@@ -170,7 +170,7 @@ function BudgetCategoryForm({
         </Select>
       </div>
       <div>
-        <FormLabel>Límite Mensual (CUP)</FormLabel>
+        <Label>Límite Mensual (CUP)</Label>
         <Input type="number" value={budgetAmount} onChange={(e) => setBudgetAmount(parseFloat(e.target.value) || 0)} className="rounded-xl mt-1" />
       </div>
       <DialogFooter>
