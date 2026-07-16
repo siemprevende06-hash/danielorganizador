@@ -113,7 +113,11 @@ export default function TrimestralPlanningPage() {
                 label="libros"
                 icon={<span className="text-xs">­ƒôÜ</span>}
                 total={planData.books.goal}
-                distribution={planData.distribution.month1.books > 0 || planData.distribution.month2.books > 0 || planData.distribution.month3.books > 0 ? planData.distribution : { month1: 0, month2: 0, month3: 0 }}
+                distribution={{
+                  month1: planData.distribution.month1.books,
+                  month2: planData.distribution.month2.books,
+                  month3: planData.distribution.month3.books,
+                }}
                 onChange={dist => updatePlanData(p => ({ ...p, distribution: { ...p.distribution, month1: { ...p.distribution.month1, books: dist.month1 }, month2: { ...p.distribution.month2, books: dist.month2 }, month3: { ...p.distribution.month3, books: dist.month3 } } }))}
                 monthLabels={Q_MONTHS}
               />
@@ -121,7 +125,11 @@ export default function TrimestralPlanningPage() {
                 label="canciones"
                 icon={<span className="text-xs">­ƒÄÁ</span>}
                 total={planData.songs.goal}
-                distribution={planData.distribution.month1.songs > 0 || planData.distribution.month2.songs > 0 || planData.distribution.month3.songs > 0 ? planData.distribution : { month1: 0, month2: 0, month3: 0 }}
+                distribution={{
+                  month1: planData.distribution.month1.songs,
+                  month2: planData.distribution.month2.songs,
+                  month3: planData.distribution.month3.songs,
+                }}
                 onChange={dist => updatePlanData(p => ({ ...p, distribution: { ...p.distribution, month1: { ...p.distribution.month1, songs: dist.month1 }, month2: { ...p.distribution.month2, songs: dist.month2 }, month3: { ...p.distribution.month3, songs: dist.month3 } } }))}
                 monthLabels={Q_MONTHS}
               />
