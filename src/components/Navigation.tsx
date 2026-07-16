@@ -52,7 +52,6 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/habits', label: 'Hábitos', icon: CheckSquare },
       { path: '/tasks', label: 'Tareas', icon: ListTodo },
       { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
-      { path: '/goals', label: 'Metas', icon: Goal },
       { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
       { path: '/journaling', label: 'Diario', icon: BookOpen },
     ]
@@ -79,11 +78,17 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/daily', label: 'Hoy', icon: CalendarDays },
       { path: '/weekly', label: 'Semana', icon: CalendarRange },
       { path: '/monthly', label: 'Mes', icon: Calendar },
-      { path: '/monthly-planning', label: 'Plan Mensual', icon: Target },
-      { path: '/trimestral-planning', label: 'Plan Trimestral', icon: CalendarRange },
-      { path: '/weekly-planning', label: 'Plan Semanal', icon: ListChecks },
       { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
       { path: '/weeks', label: 'Semanas', icon: CalendarDays },
+      { path: '/goals', label: 'Metas', icon: Goal },
+    ]
+  },
+  {
+    label: 'PLANES',
+    items: [
+      { path: '/trimestral-planning', label: 'Plan Trimestral', icon: CalendarRange },
+      { path: '/weekly-planning', label: 'Plan Semanal', icon: ListChecks },
+      { path: '/monthly-planning', label: 'Plan Mensual', icon: Target },
     ]
   },
   {
