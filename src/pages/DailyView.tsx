@@ -106,6 +106,7 @@ export default function DailyView() {
   const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, setMealPhoto, update } = useSystemsTracking();
   const { streak: overallStreak } = useOverallSystemStreak();
 
+  const dailyPlanData = useDailyPlanData(today);
   const {
     blocks: rawBlocks, blocksLoaded,
     tasksByBlock, unassignedTasks,
@@ -114,8 +115,8 @@ export default function DailyView() {
     completedBlocks, completedTasks, dayScore,
     tasks,
     planRoutineType,
-    planAssignments,
-  } = useDailyPlanData(new Date());
+  } = dailyPlanData;
+  const planAssignments = dailyPlanData.planAssignments ?? null;
 
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   useEffect(() => {
