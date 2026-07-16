@@ -21,6 +21,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -157,7 +158,7 @@ function BudgetCategoryForm({
   return (
     <div className="space-y-3">
       <div>
-        <FormLabel>Categoría</FormLabel>
+        <Label>Categoría</Label>
         <Select onValueChange={setSelectedCat} value={selectedCat}>
           <SelectTrigger className="rounded-xl mt-1"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
           <SelectContent>
@@ -170,7 +171,7 @@ function BudgetCategoryForm({
         </Select>
       </div>
       <div>
-        <FormLabel>Límite Mensual (CUP)</FormLabel>
+        <Label>Límite Mensual (CUP)</Label>
         <Input type="number" value={budgetAmount} onChange={(e) => setBudgetAmount(parseFloat(e.target.value) || 0)} className="rounded-xl mt-1" />
       </div>
       <DialogFooter>

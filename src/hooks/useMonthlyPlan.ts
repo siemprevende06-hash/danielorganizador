@@ -9,6 +9,8 @@ export interface MonthlyPlanData {
   events: string[];
   personal_goals: { title: string; target?: string }[];
   inherited_from?: { quarter: number; year: number };
+  distribution?: Record<string, { books: string[]; songs: string[] }>;
+
 }
 
 export interface TrimestralSummary {
