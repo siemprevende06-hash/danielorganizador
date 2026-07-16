@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Music, Piano, Guitar, GripVertical } from "lucide-react";
+import { BookOpen, Piano, Guitar, ChevronRight, ChevronLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BookDetail {
@@ -49,52 +48,45 @@ export function DragDropDistribution({
   onDistributionChange,
   onAutoDistribute,
 }: DragDropDistributionProps) {
-  const [dragOver, setDragOver] = useState<string | null>(null);
+  const allBookIds = books.map(b => b.id);
+  const allSongIds = songs.map(s => s.id);
+  const assignedBookIds = new Set(MONTH_KEYS.flatMap(k => distribution[k].books));
+  const assignedSongIds = new Set(MONTH_KEYS.flatMap(k => distribution[k].songs));
+  const unassignedBooks = books.filter(b => !assignedBookIds.has(b.id));
+  const unassignedSongs = songs.filter(s => !assignedSongIds.has(s.id));
+  const hasUnassigned = unassignedBooks.length > 0 || unassignedSongs.length > 0;
 
-  const monthKeyToIndex = (key: string) => MONTH_KEYS.indexOf(key as typeof MONTH_KEYS[number]);
+  const moveItem = (itemId: string, type: "book" | "song", fromMonth: string | null, toMonth: string) => {
+    const newDist = MONTH_KEYS.reduce((acc, key) => {
+      acc[key] = { books: [...distribution[key].books], songs: [...distribution[key].songs] };
+      return acc;
+    }, {} as Distribution);
 
-  const handleDragStart = (e: React.DragEvent, itemId: string, type: "book" | "song", fromMonth: string) => {
-    e.dataTransfer.setData("text/plain", JSON.stringify({ itemId, type, fromMonth }));
-    e.dataTransfer.effectAllowed = "move";
+    if (fromMonth) {
+      if (type === "book") newDist[fromMonth as keyof Distribution].books = newDist[fromMonth as keyof Distribution].books.filter(id => id !== itemId);
+      else newDist[fromMonth as keyof Distribution].songs = newDist[fromMonth as keyof Distribution].songs.filter(id => id !== itemId);
+    }
+
+    if (type === "book") newDist[toMonth as keyof Distribution].books.push(itemId);
+    else newDist[toMonth as keyof Distribution].songs.push(itemId);
+
+    onDistributionChange(newDist);
   };
 
-  const handleDragOver = (e: React.DragEvent, monthKey: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOver(monthKey);
-  };
-
-  const handleDragLeave = () => setDragOver(null);
-
-  const handleDrop = (e: React.DragEvent, toMonth: string) => {
-    e.preventDefault();
-    setDragOver(null);
-    try {
-      const { itemId, type, fromMonth } = JSON.parse(e.dataTransfer.getData("text/plain"));
-      if (fromMonth === toMonth) return;
-
-      const newDist = { ...distribution };
-      const from = { ...newDist[fromMonth as keyof Distribution] };
-      const to = { ...newDist[toMonth as keyof Distribution] };
-
-      if (type === "book") {
-        from.books = from.books.filter(id => id !== itemId);
-        to.books = [...to.books, itemId];
-      } else {
-        from.songs = from.songs.filter(id => id !== itemId);
-        to.songs = [...to.songs, itemId];
-      }
-
-      newDist[fromMonth as keyof Distribution] = from;
-      newDist[toMonth as keyof Distribution] = to;
-      onDistributionChange(newDist);
-    } catch {}
+  const removeItem = (itemId: string, type: "book" | "song", fromMonth: string) => {
+    const newDist = MONTH_KEYS.reduce((acc, key) => {
+      acc[key] = { books: [...distribution[key].books], songs: [...distribution[key].songs] };
+      return acc;
+    }, {} as Distribution);
+    if (type === "book") newDist[fromMonth as keyof Distribution].books = newDist[fromMonth as keyof Distribution].books.filter(id => id !== itemId);
+    else newDist[fromMonth as keyof Distribution].songs = newDist[fromMonth as keyof Distribution].songs.filter(id => id !== itemId);
+    onDistributionChange(newDist);
   };
 
   const getBook = (id: string) => books.find(b => b.id === id);
   const getSong = (id: string) => songs.find(s => s.id === id);
 
-  const totalItems = MONTH_KEYS.reduce((sum, key) => sum + distribution[key].books.length + distribution[key].songs.length, 0);
+  const totalItems = allBookIds.length + allSongIds.length;
 
   if (totalItems === 0) {
     return (
@@ -107,7 +99,7 @@ export function DragDropDistribution({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center gap-2">
         <div className="w-1 h-5 rounded-full bg-indigo-400" />
         <span className="text-sm font-semibold">Distribución por meses</span>
@@ -115,25 +107,63 @@ export function DragDropDistribution({
           Auto-distribuir
         </Button>
       </div>
+
+      {/* Unassigned pool */}
+      {hasUnassigned && (
+        <Card className="border-2 border-dashed border-amber-300/50 bg-amber-50/30 dark:bg-amber-950/10 rounded-2xl">
+          <CardContent className="p-3 space-y-2">
+            <p className="text-[10px] font-medium text-amber-600/70">Sin asignar — elige un mes para cada elemento</p>
+            <div className="flex flex-wrap gap-2">
+              {unassignedBooks.map(book => (
+                <div key={book.id} className="flex items-center gap-1.5 p-1.5 pr-1 rounded-xl bg-white dark:bg-zinc-800 border shadow-sm">
+                  <div className="w-7 h-10 rounded overflow-hidden bg-gradient-to-br from-indigo-500/20 shrink-0 flex items-center justify-center">
+                    {book.cover_image_url ? (
+                      <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <BookOpen className="w-3 h-3 text-indigo-400/60" />
+                    )}
+                  </div>
+                  <span className="text-[10px] font-medium max-w-[100px] truncate">{book.title}</span>
+                  <div className="flex gap-0.5 ml-1">
+                    {MONTH_KEYS.map((key, mi) => (
+                      <button key={key} onClick={() => moveItem(book.id, "book", null, key)}
+                        className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 hover:bg-indigo-200 transition-colors whitespace-nowrap">
+                        {monthLabels[mi]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {unassignedSongs.map(song => (
+                <div key={song.id} className="flex items-center gap-1 p-1.5 pr-1 rounded-lg bg-white dark:bg-zinc-800 border shadow-sm">
+                  {song.instrument === "piano" ? <Piano className="h-3 w-3 text-rose-400" /> : <Guitar className="h-3 w-3 text-amber-400" />}
+                  <span className="text-[10px] font-medium max-w-[80px] truncate">{song.title}</span>
+                  <div className="flex gap-0.5 ml-1">
+                    {MONTH_KEYS.map((key, mi) => (
+                      <button key={key} onClick={() => moveItem(song.id, "song", null, key)}
+                        className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 hover:bg-indigo-200 transition-colors whitespace-nowrap">
+                        {monthLabels[mi]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Month columns */}
       <div className="grid grid-cols-3 gap-3">
         {MONTH_KEYS.map((key, mi) => {
           const month = distribution[key];
           const monthBooks = month.books.map(id => getBook(id)).filter(Boolean) as BookDetail[];
           const monthSongs = month.songs.map(id => getSong(id)).filter(Boolean) as SongDetail[];
 
+          const otherMonths = MONTH_KEYS.filter(k => k !== key);
+
           return (
-            <div
-              key={key}
-              onDragOver={e => handleDragOver(e, key)}
-              onDragLeave={handleDragLeave}
-              onDrop={e => handleDrop(e, key)}
-              className={cn(
-                "min-h-[200px] rounded-2xl border-2 border-dashed transition-all p-3 space-y-2",
-                dragOver === key
-                  ? "border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20"
-                  : "border-border/40 bg-white/50 dark:bg-zinc-900/50"
-              )}
-            >
+            <div key={key} className="min-h-[180px] rounded-2xl border-2 border-border/40 bg-white/50 dark:bg-zinc-900/50 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold">{monthLabels[mi]}</span>
                 <Badge variant="outline" className="text-[9px] px-1.5">
@@ -141,16 +171,9 @@ export function DragDropDistribution({
                 </Badge>
               </div>
 
-              {/* Books */}
               {monthBooks.map(book => (
-                <div
-                  key={book.id}
-                  draggable
-                  onDragStart={e => handleDragStart(e, book.id, "book", key)}
-                  className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-zinc-800 border border-border/50 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all group"
-                >
-                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                  <div className="w-8 h-11 rounded-md overflow-hidden bg-gradient-to-br from-indigo-500/20 to-indigo-500/5 shrink-0 flex items-center justify-center shadow-sm">
+                <div key={book.id} className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-zinc-800 border border-border/50 shadow-sm group">
+                  <div className="w-8 h-11 rounded-md overflow-hidden bg-gradient-to-br from-indigo-500/20 shrink-0 flex items-center justify-center shadow-sm">
                     {book.cover_image_url ? (
                       <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" />
                     ) : (
@@ -159,37 +182,64 @@ export function DragDropDistribution({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-medium leading-tight truncate">{book.title}</p>
-                    {book.author && <p className="text-[8px] text-muted-foreground truncate">{book.author}</p>}
+                  </div>
+                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {otherMonths.map(ok => {
+                      const oi = MONTH_KEYS.indexOf(ok);
+                      const dir = oi > mi ? "right" : "left";
+                      return (
+                        <button key={ok} onClick={() => moveItem(book.id, "book", key, ok)}
+                          className="text-[9px] p-0.5 rounded hover:bg-muted transition-colors" title={`Mover a ${monthLabels[oi]}`}>
+                          {dir === "right" ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+                        </button>
+                      );
+                    })}
+                    <button onClick={() => removeItem(book.id, "book", key)}
+                      className="text-[9px] p-0.5 rounded hover:bg-red-100 hover:text-red-500 transition-colors" title="Quitar">
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
                 </div>
               ))}
 
-              {/* Songs */}
               {monthSongs.map(song => (
-                <div
-                  key={song.id}
-                  draggable
-                  onDragStart={e => handleDragStart(e, song.id, "song", key)}
-                  className="flex items-center gap-2 p-1.5 px-2 rounded-lg bg-white dark:bg-zinc-800 border border-border/50 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-all group"
-                >
-                  <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-                  {song.instrument === "piano" ? (
-                    <Piano className="h-3 w-3 text-rose-400 shrink-0" />
-                  ) : (
-                    <Guitar className="h-3 w-3 text-amber-400 shrink-0" />
-                  )}
-                  <span className="text-[10px] font-medium truncate">{song.title}</span>
+                <div key={song.id} className="flex items-center gap-1.5 p-1.5 px-2 rounded-lg bg-white dark:bg-zinc-800 border border-border/50 shadow-sm group">
+                  {song.instrument === "piano" ? <Piano className="h-3 w-3 text-rose-400 shrink-0" /> : <Guitar className="h-3 w-3 text-amber-400 shrink-0" />}
+                  <span className="text-[10px] font-medium flex-1 truncate">{song.title}</span>
+                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {otherMonths.map(ok => {
+                      const oi = MONTH_KEYS.indexOf(ok);
+                      const dir = oi > mi ? "right" : "left";
+                      return (
+                        <button key={ok} onClick={() => moveItem(song.id, "song", key, ok)}
+                          className="text-[9px] p-0.5 rounded hover:bg-muted transition-colors" title={`Mover a ${monthLabels[oi]}`}>
+                          {dir === "right" ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+                        </button>
+                      );
+                    })}
+                    <button onClick={() => removeItem(song.id, "song", key)}
+                      className="text-[9px] p-0.5 rounded hover:bg-red-100 hover:text-red-500 transition-colors" title="Quitar">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
               ))}
 
               {monthBooks.length === 0 && monthSongs.length === 0 && (
-                <div className="flex items-center justify-center h-20">
-                  <p className="text-[10px] text-muted-foreground/40">Arrastra items aquí</p>
+                <div className="flex items-center justify-center h-16">
+                  <p className="text-[10px] text-muted-foreground/40">Vacío</p>
                 </div>
               )}
             </div>
           );
         })}
+      </div>
+
+      {/* Quick stats */}
+      <div className="flex gap-3 text-[10px] text-muted-foreground justify-center">
+        <span>📚 {allBookIds.length} libros</span>
+        <span>🎵 {allSongIds.length} canciones</span>
+        {hasUnassigned && <span className="text-amber-600 font-medium">⚠️ {unassignedBooks.length + unassignedSongs.length} sin asignar</span>}
       </div>
     </div>
   );
