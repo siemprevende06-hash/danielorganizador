@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getCubaDate } from "@/lib/cubaTime";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
+import { toast } from "sonner";
 
 export type RoutineType = "activation" | "deactivation" | "morning_prep" | "weekend";
 
@@ -69,7 +70,11 @@ export function useRoutineSteps(type: RoutineType) {
       .insert({ routine_type: type, title, group_title: group_title || null, group_id, sort_order: sort })
       .select()
       .single();
-    if (!error && data) setSteps([...steps, data as any]);
+    if (error) {
+      toast.error(error.message);
+    } else if (data) {
+      setSteps([...steps, data as any]);
+    }
   };
 
   const removeStep = async (id: string) => {
