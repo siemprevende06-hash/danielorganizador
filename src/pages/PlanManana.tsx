@@ -122,12 +122,25 @@ export default function PlanManana() {
       if (uniRes.data) setUniTasks((uniRes.data as any[]).map(t => ({ id: t.id, title: t.title, completed: t.completed, subject_id: t.source_id })));
     } catch { toast.error("Error al cargar datos"); }
     try {
-      const raw = localStorage.getItem("userProjects");
-      if (raw) {
-        const parsed: Project[] = JSON.parse(raw);
-        setProjects(parsed.map((p: any) => ({ id: p.id, name: p.name, tasks: (p.tasks || []).filter((t: any) => !t.completed) })));
+      const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
+      if (data?.setting_value && Array.isArray(data.setting_value)) {
+        setProjects(data.setting_value.map((p: any) => ({ id: p.id, name: p.name, tasks: (p.tasks || []).filter((t: any) => !t.completed) })));
+      } else {
+        const raw = localStorage.getItem("userProjects");
+        if (raw) {
+          const parsed: Project[] = JSON.parse(raw);
+          setProjects(parsed.map((p: any) => ({ id: p.id, name: p.name, tasks: (p.tasks || []).filter((t: any) => !t.completed) })));
+        }
       }
-    } catch {}
+    } catch {
+      try {
+        const raw = localStorage.getItem("userProjects");
+        if (raw) {
+          const parsed: Project[] = JSON.parse(raw);
+          setProjects(parsed.map((p: any) => ({ id: p.id, name: p.name, tasks: (p.tasks || []).filter((t: any) => !t.completed) })));
+        }
+      } catch {}
+    }
     setLoading(false);
   };
 

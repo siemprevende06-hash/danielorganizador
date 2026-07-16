@@ -295,11 +295,17 @@ export function QuickStatsGrid({ timeframe }: Props) {
 }
 
 function loadProjects(setProjects: React.Dispatch<React.SetStateAction<CategoryStats | null>>) {
-  try {
-    const stored = localStorage.getItem("userProjects");
-    const selectedId = localStorage.getItem("selectedProjectId");
-    if (stored) {
-      const parsed: any[] = JSON.parse(stored);
+  (async () => {
+    try {
+      const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
+      let parsed: any[] = [];
+      if (data?.setting_value && Array.isArray(data.setting_value)) {
+        parsed = data.setting_value;
+      } else {
+        const stored = localStorage.getItem("userProjects");
+        if (stored) parsed = JSON.parse(stored);
+      }
+      const selectedId = localStorage.getItem("selectedProjectId");
       const selected = selectedId ? parsed.find((p: any) => p.id === selectedId) : parsed[0];
       const active = selected || null;
       const taskCompleted = active ? active.tasks.filter((t: any) => t.completed).length : 0;
@@ -313,12 +319,33 @@ function loadProjects(setProjects: React.Dispatch<React.SetStateAction<CategoryS
         hasData: parsed.length > 0,
         sparkData: [],
       });
-    } else {
-      setDefaultsProjects(setProjects);
+    } catch {
+      try {
+        const stored = localStorage.getItem("userProjects");
+        const selectedId = localStorage.getItem("selectedProjectId");
+        if (stored) {
+          const parsed: any[] = JSON.parse(stored);
+          const selected = selectedId ? parsed.find((p: any) => p.id === selectedId) : parsed[0];
+          const active = selected || null;
+          const taskCompleted = active ? active.tasks.filter((t: any) => t.completed).length : 0;
+          const taskTotal = active ? active.tasks.length : 0;
+          setProjects({
+            total: taskTotal,
+            completed: taskCompleted,
+            pct: taskTotal > 0 ? Math.round(taskCompleted / taskTotal * 100) : 0,
+            minutes: 0,
+            label: active?.name || '—',
+            hasData: parsed.length > 0,
+            sparkData: [],
+          });
+        } else {
+          setDefaultsProjects(setProjects);
+        }
+      } catch {
+        setDefaultsProjects(setProjects);
+      }
     }
-  } catch {
-    setDefaultsProjects(setProjects);
-  }
+  })();
 }
 
 function setDefaultsProjects(setProjects: React.Dispatch<React.SetStateAction<CategoryStats | null>>) {

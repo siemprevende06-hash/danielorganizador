@@ -71,21 +71,38 @@ export function FocusIndicatorsSection() {
     })();
   }, [activeEntId]);
 
-  // Proyectos — from localStorage 'userProjects'
+  // Proyectos — from app_settings (Supabase) with localStorage fallback
   useEffect(() => {
     if (!activeProjectId) { setProjectInfo(null); return; }
-    try {
-      const stored = localStorage.getItem("userProjects");
-      if (!stored) { setProjectInfo(null); return; }
-      const list = JSON.parse(stored) as ProjectStored[];
-      const p = list.find((x) => x.id === activeProjectId);
-      if (!p) { setProjectInfo(null); return; }
-      const total = p.tasks?.length || 0;
-      const done = p.tasks?.filter((t) => t.completed).length || 0;
-      setProjectInfo({ name: p.name, done, total, route: "/projects" });
-    } catch {
-      setProjectInfo(null);
-    }
+    (async () => {
+      try {
+        const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
+        let list: ProjectStored[] = [];
+        if (data?.setting_value && Array.isArray(data.setting_value)) {
+          list = data.setting_value;
+        } else {
+          const stored = localStorage.getItem("userProjects");
+          if (stored) list = JSON.parse(stored);
+        }
+        const p = list.find((x) => x.id === activeProjectId);
+        if (!p) { setProjectInfo(null); return; }
+        const total = p.tasks?.length || 0;
+        const done = p.tasks?.filter((t) => t.completed).length || 0;
+        setProjectInfo({ name: p.name, done, total, route: "/projects" });
+      } catch {
+        try {
+          const stored = localStorage.getItem("userProjects");
+          if (stored) {
+            const list = JSON.parse(stored) as ProjectStored[];
+            const p = list.find((x) => x.id === activeProjectId);
+            if (!p) { setProjectInfo(null); return; }
+            const total = p.tasks?.length || 0;
+            const done = p.tasks?.filter((t) => t.completed).length || 0;
+            setProjectInfo({ name: p.name, done, total, route: "/projects" });
+          } else { setProjectInfo(null); }
+        } catch { setProjectInfo(null); }
+      }
+    })();
   }, [activeProjectId]);
 
   // Tareas Generales — from tasks table for today with source='general'

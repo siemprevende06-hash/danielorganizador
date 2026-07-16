@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, startOfMonth } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface MonthlyPlanData {
   books: { goal: number; selected: string[] };
@@ -106,14 +107,21 @@ export function useMonthlyPlan(month: Date) {
     setSaving(false);
   }, [monthStr, planData]);
 
-  const loadLocalData = useCallback(() => {
+  const loadLocalData = useCallback(async () => {
     try {
       const storedBooks = localStorage.getItem('reading_library');
       if (storedBooks) setBooks(JSON.parse(storedBooks));
       const storedSongs = localStorage.getItem('music_repertoire');
       if (storedSongs) setSongs(JSON.parse(storedSongs));
-      const storedProjects = localStorage.getItem('userProjects');
-      if (storedProjects) setProjects(JSON.parse(storedProjects));
+      try {
+        const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
+        if (data?.setting_value && Array.isArray(data.setting_value)) {
+          setProjects(data.setting_value);
+        } else {
+          const stored = localStorage.getItem('userProjects');
+          if (stored) setProjects(JSON.parse(stored));
+        }
+      } catch { const stored = localStorage.getItem('userProjects'); if (stored) setProjects(JSON.parse(stored)); }
       const storedSubjects = localStorage.getItem('university_subjects');
       if (storedSubjects) setSubjects(JSON.parse(storedSubjects));
       const storedTopics = localStorage.getItem('subject_topics');
