@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, getISOWeek } from 'date-fns';
+
+export interface WeeklyAction {
+  id: string;
+  title: string;
+  category: string;
+  completed: boolean;
+}
 
 export interface WeeklyPlanData {
   objectives: string[];
@@ -7,19 +14,23 @@ export interface WeeklyPlanData {
   books: { goal: number; selected: string[] };
   songs: { goal: number; selected: string[] };
   personal_goals: { title: string; target?: string }[];
+  actions: WeeklyAction[];
+  weekNumber: number;
 }
 
-const defaultWeeklyData: WeeklyPlanData = {
+const makeDefault = (weekNumber: number): WeeklyPlanData => ({
   objectives: [],
   focus_areas: [],
   books: { goal: 0, selected: [] },
   songs: { goal: 0, selected: [] },
   personal_goals: [],
-};
+  actions: [],
+  weekNumber,
+});
 
 const STORAGE_PREFIX = 'weekly_plan_';
 
-function loadFromLocal(key: string): WeeklyPlanData | null {
+function loadFromLocal(key: string): Partial<WeeklyPlanData> | null {
   try {
     const raw = localStorage.getItem(STORAGE_PREFIX + key);
     if (raw) return JSON.parse(raw);
@@ -39,9 +50,16 @@ export function getWeekId(date: Date) {
   return format(weekStart, 'yyyy-ww');
 }
 
+function genId() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
 export function useWeeklyPlan(weekStart: Date) {
   const weekId = getWeekId(weekStart);
-  const [planData, setPlanData] = useState<WeeklyPlanData>(defaultWeeklyData);
+  const weekNumber = getISOWeek(weekStart);
+  const [planData, setPlanData] = useState<WeeklyPlanData>(makeDefault(weekNumber));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -51,9 +69,10 @@ export function useWeeklyPlan(weekStart: Date) {
   const fetchPlan = useCallback(() => {
     setLoading(true);
     const local = loadFromLocal(weekId);
-    setPlanData(local || defaultWeeklyData);
+    const base = makeDefault(weekNumber);
+    setPlanData(local ? { ...base, ...local, actions: local.actions ?? [], weekNumber } : base);
     setLoading(false);
-  }, [weekId]);
+  }, [weekId, weekNumber]);
 
   const savePlan = useCallback(async () => {
     setSaving(true);
@@ -80,9 +99,25 @@ export function useWeeklyPlan(weekStart: Date) {
     setPlanData(prev => updater(prev));
   }, []);
 
+  const addAction = useCallback((action: Omit<WeeklyAction, 'id'>) => {
+    setPlanData(prev => ({ ...prev, actions: [...(prev.actions ?? []), { ...action, id: genId() }] }));
+  }, []);
+
+  const toggleAction = useCallback((id: string) => {
+    setPlanData(prev => ({
+      ...prev,
+      actions: (prev.actions ?? []).map(a => a.id === id ? { ...a, completed: !a.completed } : a),
+    }));
+  }, []);
+
+  const removeAction = useCallback((id: string) => {
+    setPlanData(prev => ({ ...prev, actions: (prev.actions ?? []).filter(a => a.id !== id) }));
+  }, []);
+
   return {
     planData, loading, saving, weekId,
     books, songs,
     updatePlanData, savePlan, fetchPlan,
+    addAction, toggleAction, removeAction,
   };
 }
