@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import { flushQueue, getQueueSize } from "@/lib/offlineQueue";
 import { isOnline } from "@/lib/isOnline";
-import { WifiOff, Cloud, RefreshCw } from "lucide-react";
+import { WifiOff, Cloud, RefreshCw, Wifi } from "lucide-react";
 
 interface OfflineContextValue {
   isOnline: boolean;
@@ -51,23 +51,31 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshPending, flushNow]);
 
+  const showIndicator = !online || pendingMutations > 0;
+
   return (
     <OfflineContext.Provider value={{ isOnline: online, pendingMutations, lastSync, flushNow }}>
-      {/* Global offline banner */}
-      {!online && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-white text-center text-xs py-1.5 flex items-center justify-center gap-2">
-          <WifiOff className="h-3 w-3" />
-          <span>Sin conexión — los datos se sincronizarán automáticamente al reconectar</span>
-          {pendingMutations > 0 && (
-            <span className="font-bold">({pendingMutations} pendientes)</span>
+      {showIndicator && (
+        <div className="fixed top-3 right-3 z-[9999]">
+          {!online ? (
+            <button
+              onClick={flushNow}
+              className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full px-2.5 py-1 shadow-sm hover:shadow-md transition-shadow text-[10px] font-medium text-amber-600 dark:text-amber-400"
+              title="Sin conexión"
+            >
+              <WifiOff className="h-3 w-3" />
+              <span>Offline{pendingMutations > 0 ? ` · ${pendingMutations}` : ""}</span>
+            </button>
+          ) : (
+            <button
+              onClick={flushNow}
+              className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full px-2.5 py-1 shadow-sm hover:shadow-md transition-shadow text-[10px] font-medium text-blue-600 dark:text-blue-400"
+              title="Sincronizando"
+            >
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              <span>{pendingMutations}</span>
+            </button>
           )}
-        </div>
-      )}
-      {online && pendingMutations > 0 && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-primary text-primary-foreground text-center text-xs py-1.5 flex items-center justify-center gap-2 cursor-pointer" onClick={flushNow}>
-          <Cloud className="h-3 w-3" />
-          <span>Sincronizando {pendingMutations} cambios pendientes</span>
-          <RefreshCw className="h-3 w-3 animate-spin" />
         </div>
       )}
 
