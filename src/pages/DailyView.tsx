@@ -310,6 +310,7 @@ export default function DailyView() {
         {/* ===== SECCIÓN: TAREAS Y HORARIO ===== */}
         {activeSection === 'tasks' && (
           <>
+            <DailyGuide />
             {Object.keys(groupedTasks).length > 0 && (
               <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
@@ -415,7 +416,6 @@ export default function DailyView() {
         {/* ===== SECCIÓN: SOSTÉN ===== */}
         {activeSection === 'sosten' && (
           <>
-            <MySystemsSection />
             <HealthSection />
             <Card className="border-blue-500/20">
               <CardHeader className="pb-3">
@@ -436,16 +436,18 @@ export default function DailyView() {
 
         {/* ===== SECCIÓN: MEJORA ===== */}
         {activeSection === 'mejora' && (
-          <Card className="border-purple-500/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-purple-500" />
-                Mejora
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Lo que te transforma</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
+          <>
+            <MySystemsSection />
+            <Card className="border-purple-500/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-purple-500" />
+                  Mejora
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Lo que te transforma</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Física</p>
                 <WorkoutVisual duration={data.workoutDuration} intensity={data.workoutIntensity} onDurationChange={(v) => update("workoutDuration", v)} onIntensityChange={(v) => update("workoutIntensity", v)} completed={!!data.completions["entrenamiento-fisico"]} onToggleCompleted={() => toggleCompletion("entrenamiento-fisico")} />
               </div>
@@ -458,12 +460,12 @@ export default function DailyView() {
               </div>
             </CardContent>
           </Card>
+          </>
         )}
 
         {/* ===== SECCIÓN: ENFOQUE ===== */}
         {activeSection === 'enfoque' && (
           <>
-            <DailyGuide />
             <Card className="p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Focus className="h-4 w-4 text-primary" />
