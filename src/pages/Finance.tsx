@@ -25,9 +25,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import {
-  CalendarIcon, PlusCircle, Edit, Coins, LucideIcon, Wallet as WalletIcon, RotateCcw,
+  CalendarIcon, PlusCircle, Edit, Coins, LucideIcon, Wallet as WalletIcon,
   ArrowRightLeft, Download, Upload, DollarSign, Trash2, Plus, TrendingUp as TrendingUpIcon,
-  ArrowDown, ArrowUp, ChevronRight, LandPlot, BadgePercent, Settings, Scale, Target,
+  LandPlot, BadgePercent, Scale, Target,
   Shield, Home, Gamepad2, BookOpen, PiggyBank, Heart,
   GraduationCap, Sparkles, Plane, Coffee,
 } from 'lucide-react';
@@ -46,12 +46,12 @@ import {
 } from '@/components/finance/charts';
 
 const transactionSchema = z.object({
-  description: z.string().min(1, 'La descripci├│n es obligatoria.'),
+  description: z.string().min(1, 'La descripción es obligatoria.'),
   amount: z.coerce.number().positive('El monto debe ser positivo.'),
   currency: z.enum(['USD', 'CUP']),
   date: z.date({ required_error: 'La fecha es obligatoria.' }),
   walletId: z.string({ required_error: 'Selecciona una billetera.' }).min(1, 'Selecciona una billetera.'),
-  categoryId: z.string({ required_error: 'Selecciona una categor├¡a.' }).min(1, 'Selecciona una categor├¡a.'),
+  categoryId: z.string({ required_error: 'Selecciona una categoría.' }).min(1, 'Selecciona una categoría.'),
   type: z.enum(['income', 'expense'], { required_error: 'Selecciona un tipo.' }),
 });
 
@@ -79,7 +79,7 @@ const distributionSchema = z.object({
 
 const loanSchema = z.object({
   person: z.string().min(1, 'El nombre de la persona es obligatorio.'),
-  description: z.string().min(1, 'La descripci├│n es obligatoria.'),
+  description: z.string().min(1, 'La descripción es obligatoria.'),
   amount: z.coerce.number().positive('El monto debe ser positivo.'),
   currency: z.enum(['USD', 'CUP']),
   walletId: z.string().min(1, 'Selecciona una billetera.'),
@@ -92,7 +92,7 @@ const loanPaymentSchema = z.object({
 
 const debtSchema = z.object({
   person: z.string().min(1, 'El nombre del acreedor es obligatorio.'),
-  description: z.string().min(1, 'La descripci├│n es obligatoria.'),
+  description: z.string().min(1, 'La descripción es obligatoria.'),
   amount: z.coerce.number().positive('El monto debe ser positivo.'),
   currency: z.enum(['USD', 'CUP']),
   walletId: z.string().min(1, 'Selecciona una billetera.'),
@@ -124,17 +124,17 @@ const defaultBudgetLimits: Record<string, number> = {
   'cat-personal': 1500, 'cat-coffee': 1000, 'cat-travel': 5000,
 };
 
-const CurrencyDisplay = ({ usd, exchangeRate, large = false }: { usd: number; exchangeRate: number; large?: boolean }) => {
+function CurrencyDisplay({ usd, exchangeRate, large = false }: { usd: number; exchangeRate: number; large?: boolean }) {
   const cup = usd * exchangeRate;
   return (
     <div className="flex flex-col">
-      <span className={cn("font-semibold tracking-tight", large ? "text-2xl" : "text-sm")}>
+      <span className={cn("font-semibold tracking-tight text-zinc-900 dark:text-zinc-100", large ? "text-2xl" : "text-sm")}>
         {cup.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CUP
       </span>
-      <span className="text-[10px] text-muted-foreground">{usd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+      <span className="text-[10px] text-zinc-400 dark:text-zinc-500">${usd.toFixed(2)} USD</span>
     </div>
   );
-};
+}
 
 export default function Finance() {
   const {
@@ -329,10 +329,186 @@ export default function Finance() {
     orange: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-600 dark:text-orange-400', badge: 'bg-orange-500', bar: 'bg-orange-500' },
   };
 
-  const GLASS = "border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden";
-  const GLASS_CARD = (accent = false) => cn(GLASS, accent && "relative");
-  const ACCENT_BAR = "h-1 bg-gradient-to-r from-primary to-primary/60";
-  const PILL = "rounded-full";
+  // Handlers
+  const handleOpenTransactionDialog = () => {
+    transactionForm.reset({ description: '', amount: 0, currency: 'CUP', date: new Date(), walletId: '', categoryId: '', type: 'expense' });
+    setIsTransactionDialogOpen(true);
+  };
+
+  const onTransactionSubmit = async (data: z.infer<typeof transactionSchema>) => {
+    const wallet = wallets.find(w => w.id === data.walletId);
+    if (!wallet) return;
+
+    if (data.type === 'expense' && wallet.balance < data.amount) {
+      toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
+      return;
+    }
+
+    const newBalance = data.type === 'expense' ? wallet.balance - data.amount : wallet.balance + data.amount;
+    await addTransaction({ ...data, transferId: undefined, loanId: undefined, distributed: false });
+    await updateWalletBalance(data.walletId, newBalance);
+
+    toast({ title: "Transacción registrada", description: `${data.type === 'expense' ? 'Gasto' : 'Ingreso'} de ${data.amount} ${data.currency}` });
+    setIsTransactionDialogOpen(false);
+    transactionForm.reset();
+  };
+
+  const onTransferSubmit = async (data: z.infer<typeof transferSchema>) => {
+    const fromWallet = wallets.find(w => w.id === data.fromWalletId);
+    const toWallet = wallets.find(w => w.id === data.toWalletId);
+    if (!fromWallet || !toWallet) return;
+
+    if (fromWallet.balance < data.amount) {
+      toast({ title: "Saldo insuficiente", description: "La billetera de origen no tiene suficiente balance.", variant: "destructive" });
+      return;
+    }
+
+    const transferId = crypto.randomUUID();
+    await addTransaction({
+      description: `Traspaso a ${toWallet.name}`, amount: data.amount, currency: data.currency,
+      date: new Date(), walletId: data.fromWalletId, categoryId: 'cat-transfer', type: 'expense', transferId, distributed: false,
+    });
+    await addTransaction({
+      description: `Traspaso desde ${fromWallet.name}`, amount: data.amount, currency: data.currency,
+      date: new Date(), walletId: data.toWalletId, categoryId: 'cat-transfer', type: 'income', transferId, distributed: false,
+    });
+    await updateWalletBalance(data.fromWalletId, fromWallet.balance - data.amount);
+    await updateWalletBalance(data.toWalletId, toWallet.balance + data.amount);
+
+    toast({ title: "Traspaso realizado", description: `${data.amount} ${data.currency} transferidos` });
+    setIsTransferDialogOpen(false);
+    transferForm.reset();
+  };
+
+  const onLoanSubmit = async (data: z.infer<typeof loanSchema>) => {
+    const wallet = wallets.find(w => w.id === data.walletId);
+    if (!wallet) return;
+
+    if (wallet.balance < data.amount) {
+      toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
+      return;
+    }
+
+    await addTransaction({
+      description: `Préstamo a ${data.person}: ${data.description}`, amount: data.amount, currency: data.currency,
+      date: new Date(), walletId: data.walletId, categoryId: 'cat-loan', type: 'expense',
+      loanId: crypto.randomUUID(), distributed: false,
+    });
+    await addLoan({ person: data.person, description: data.description, totalAmount: data.amount, paidAmount: 0, walletId: data.walletId, date: new Date(), status: 'outstanding' });
+    await updateWalletBalance(data.walletId, wallet.balance - data.amount);
+
+    toast({ title: "Préstamo registrado", description: `Préstamo a ${data.person} por ${data.amount} ${data.currency}` });
+    setIsLoanDialogOpen(false);
+    loanForm.reset();
+  };
+
+  const onDebtSubmit = async (data: z.infer<typeof debtSchema>) => {
+    const wallet = wallets.find(w => w.id === data.walletId);
+    if (!wallet) return;
+
+    await addDebt({ person: data.person, description: data.description, totalAmount: data.amount, paidAmount: 0, walletId: data.walletId, date: new Date(), dueDate: data.dueDate, status: 'outstanding' });
+
+    toast({ title: "Deuda registrada", description: `Deuda con ${data.person} por ${data.amount} ${data.currency}` });
+    setIsDebtDialogOpen(false);
+    debtForm.reset();
+  };
+
+  const onLoanPaymentSubmit = async (data: z.infer<typeof loanPaymentSchema>) => {
+    if (!loanToPay) return;
+    const newPaid = loanToPay.paidAmount + data.amount;
+    const status = newPaid >= loanToPay.totalAmount ? 'paid' : 'outstanding';
+    await updateLoan(loanToPay.id, { paidAmount: newPaid, status });
+
+    toast({ title: "Pago registrado", description: `Cobrado ${data.amount} ${data.currency} de ${loanToPay.person}` });
+    setIsLoanPaymentDialogOpen(false);
+    setLoanToPay(null);
+    loanPaymentForm.reset();
+  };
+
+  const onDebtPaymentSubmit = async (data: z.infer<typeof debtPaymentSchema>) => {
+    if (!debtToPay) return;
+    const wallet = wallets.find(w => w.id === debtToPay.walletId);
+    if (!wallet) return;
+
+    if (wallet.balance < data.amount) {
+      toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
+      return;
+    }
+
+    const newPaid = debtToPay.paidAmount + data.amount;
+    const status = newPaid >= debtToPay.totalAmount ? 'paid' : 'outstanding';
+    await updateDebt(debtToPay.id, { paidAmount: newPaid, status });
+    await updateWalletBalance(debtToPay.walletId, wallet.balance - data.amount);
+
+    toast({ title: "Pago registrado", description: `Pagado ${data.amount} ${data.currency} a ${debtToPay.person}` });
+    setIsDebtPaymentDialogOpen(false);
+    setDebtToPay(null);
+    debtPaymentForm.reset();
+  };
+
+  const openWalletDialog = (wallet: Wallet) => {
+    setWalletToEdit(wallet);
+    walletForm.reset({ name: wallet.name, balance: wallet.balance, currency: 'CUP' });
+    setIsWalletDialogOpen(true);
+  };
+
+  const onWalletSubmit = async (data: z.infer<typeof walletSchema>) => {
+    if (!walletToEdit) return;
+    await updateWallet(walletToEdit.id, { balance: data.balance });
+    toast({ title: "Billetera actualizada", description: `${walletToEdit.name}: ${data.balance} CUP` });
+    setIsWalletDialogOpen(false);
+    setWalletToEdit(null);
+  };
+
+  const openLoanPaymentDialog = (loan: Loan) => {
+    setLoanToPay(loan);
+    loanPaymentForm.reset({ amount: 0, currency: 'CUP' });
+    setIsLoanPaymentDialogOpen(true);
+  };
+
+  const openDebtPaymentDialog = (debt: Debt) => {
+    setDebtToPay(debt);
+    debtPaymentForm.reset({ amount: 0, currency: 'CUP' });
+    setIsDebtPaymentDialogOpen(true);
+  };
+
+  const handleRevertTransaction = async () => {
+    if (!transactionToRevert) return;
+    const wallet = wallets.find(w => w.id === transactionToRevert.walletId);
+    if (!wallet) return;
+
+    const reversalAmount = transactionToRevert.type === 'expense' ? wallet.balance + transactionToRevert.amount : wallet.balance - transactionToRevert.amount;
+    await deleteTransaction(transactionToRevert.id);
+    await updateWalletBalance(transactionToRevert.walletId, reversalAmount);
+
+    toast({ title: "Transacción revertida", description: `"${transactionToRevert.description}" eliminada` });
+    setIsRevertDialogOpen(false);
+    setTransactionToRevert(null);
+  };
+
+  const handleConfirmDistribution = async () => {
+    const ids = undistributedIncomes.map(t => t.id);
+    setTransactions(prev => prev.map(t => ids.includes(t.id) ? { ...t, distributed: true } : t));
+    toast({ title: "Ingresos distribuidos", description: `${undistributedIncomes.length} ingreso(s) marcados como distribuidos` });
+    setIsDistributeIncomeDialogOpen(false);
+  };
+
+  const onBagSubmit = async (data: z.infer<typeof bagSchema>) => {
+    if (editingBag) {
+      await updateDistributionBag(editingBag.id, { name: data.name, percentage: data.percentage, description: data.description, icon: data.icon, color: data.color, balance: data.balance ?? editingBag.balance });
+    } else {
+      await addDistributionBag({ name: data.name, description: data.description || '', percentage: data.percentage, icon: data.icon, color: data.color, balance: 0 });
+    }
+    setIsBagDialogOpen(false);
+    setEditingBag(null);
+    bagForm.reset();
+  };
+
+  const handleDeleteBag = () => {
+    if (!bagToDelete) return;
+    deleteDistributionBag(bagToDelete.id);
+    setBagToDelete(null);
+  };
 
   const handleRevertTransaction = async () => {
     if (!transactionToRevert) return;
@@ -520,15 +696,15 @@ export default function Finance() {
   const renderDebtColumns = () => [
     {
       accessorKey: "date", header: "Fecha",
-      cell: ({ row }: any) => <span className="text-sm text-muted-foreground">{format(new Date(row.original.date), "dd MMM yyyy", { locale: es })}</span>,
+      cell: ({ row }: any) => <span className="text-sm text-zinc-500 dark:text-zinc-400">{format(new Date(row.original.date), "dd MMM yyyy", { locale: es })}</span>,
     },
     {
       accessorKey: "person", header: "Acreedor",
-      cell: ({ row }: any) => <span className="text-sm font-medium">{row.original.person}</span>,
+      cell: ({ row }: any) => <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{row.original.person}</span>,
     },
     {
-      accessorKey: "description", header: "Descripci├│n",
-      cell: ({ row }: any) => <span className="text-sm text-muted-foreground">{row.original.description}</span>,
+      accessorKey: "description", header: "Descripción",
+      cell: ({ row }: any) => <span className="text-sm text-zinc-500 dark:text-zinc-400">{row.original.description}</span>,
     },
     {
       accessorKey: "progress", header: "Progreso",
@@ -536,8 +712,8 @@ export default function Finance() {
         const progress = (row.original.paidAmount / row.original.totalAmount) * 100;
         return (
           <div className="flex items-center gap-3 min-w-[140px]">
-            <Progress value={progress} className="h-2 rounded-full flex-1" />
-            <span className="text-xs font-medium text-muted-foreground w-10 text-right">{Math.round(progress)}%</span>
+            <Progress value={progress} className="h-1.5 rounded-full flex-1 bg-zinc-200 dark:bg-zinc-700" />
+            <span className="text-xs font-medium text-zinc-500 w-10 text-right">{Math.round(progress)}%</span>
           </div>
         );
       },
@@ -548,10 +724,10 @@ export default function Finance() {
         const remaining = row.original.totalAmount - row.original.paidAmount;
         return (
           <div className="text-right">
-            <div className="text-sm font-semibold text-red-600 dark:text-red-400">
+            <div className="text-sm font-semibold text-red-500">
               {(remaining * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP
             </div>
-            <div className="text-xs text-muted-foreground">${remaining.toFixed(2)} USD</div>
+            <div className="text-xs text-zinc-400">${remaining.toFixed(2)} USD</div>
           </div>
         );
       },
@@ -559,10 +735,10 @@ export default function Finance() {
     {
       accessorKey: "status", header: "Estado",
       cell: ({ row }: any) => (
-        <Badge className={`${PILL} text-xs px-3 py-0.5 font-medium ${
+        <Badge className={`rounded-full text-xs px-3 py-0.5 font-medium ${
           row.original.status === "paid"
             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
         }`}>
           {row.original.status === "paid" ? "Pagado" : "Pendiente"}
         </Badge>
@@ -573,7 +749,7 @@ export default function Finance() {
       cell: ({ row }: any) =>
         row.original.status === "outstanding" ? (
           <div className="flex justify-end">
-            <Button size="sm" className={`h-8 ${PILL} text-xs px-3`} onClick={() => openDebtPaymentDialog(row.original)}>
+            <Button size="sm" variant="outline" className="rounded-full h-8 text-xs px-3" onClick={() => openDebtPaymentDialog(row.original)}>
               <DollarSign className="h-3 w-3 mr-1" /> Pagar
             </Button>
           </div>
@@ -581,45 +757,54 @@ export default function Finance() {
     },
   ];
 
+  const handleRevertClick = (transaction: Transaction) => {
+    setTransactionToRevert(transaction);
+    setIsRevertDialogOpen(true);
+  };
+  const transactionColumns = getTransactionColumns(initialWallets, transactionCategories, exchangeRate, handleRevertClick);
+  const loanColumns = getLoanColumns(exchangeRate, openLoanPaymentDialog);
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.03)_0%,_transparent_50%)]">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <header className="space-y-0.5">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight">Finanzas</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">Control financiero personal</p>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Finanzas</h1>
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Control financiero personal</p>
           </header>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* Loan Dialog */}
             <Dialog open={isLoanDialogOpen} onOpenChange={setIsLoanDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className={`${PILL} text-xs h-8 sm:h-9`}>
-                  <LandPlot className="mr-1 h-3.5 w-3.5" /> Pr├®stamo
+                <Button variant="outline" size="sm" className="rounded-full text-xs h-8 sm:h-9 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+                  <LandPlot className="mr-1 h-3.5 w-3.5" /> Préstamo
                 </Button>
               </DialogTrigger>
               <DialogContent className="rounded-2xl max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Nuevo Pr├®stamo</DialogTitle>
+                  <DialogTitle>Nuevo Préstamo</DialogTitle>
                   <DialogDescription>Registra dinero que has prestado.</DialogDescription>
                 </DialogHeader>
                 <Form {...loanForm}>
                   <form onSubmit={loanForm.handleSubmit(onLoanSubmit)} className="space-y-3">
-                    <FormField control={loanForm.control} name="person" render={({ field }) => (<FormItem><FormLabel>Persona</FormLabel><FormControl><Input {...field} placeholder="Ej: Juan P├®rez" /></FormControl><FormMessage /></FormItem>)}/>
-                    <FormField control={loanForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descripci├│n</FormLabel><FormControl><Input {...field} placeholder="Ej: Para el almuerzo" /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={loanForm.control} name="person" render={({ field }) => (<FormItem><FormLabel>Persona</FormLabel><FormControl><Input {...field} placeholder="Ej: Juan Pérez" /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={loanForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descripción</FormLabel><FormControl><Input {...field} placeholder="Ej: Para el almuerzo" /></FormControl><FormMessage /></FormItem>)}/>
                     <div className="grid grid-cols-3 gap-3">
                       <FormField control={loanForm.control} name="amount" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Monto</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>)}/>
                       <FormField control={loanForm.control} name="currency" render={({ field }) => (<FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="CUP">CUP</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     </div>
                     <FormField control={loanForm.control} name="walletId" render={({ field }) => (<FormItem><FormLabel>Billetera</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl><SelectContent>{wallets.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
-                    <DialogFooter><Button type="submit" className={PILL}>Confirmar Pr├®stamo</Button></DialogFooter>
+                    <DialogFooter><Button type="submit" className="rounded-full">Confirmar Préstamo</Button></DialogFooter>
                   </form>
                 </Form>
               </DialogContent>
             </Dialog>
+            {/* Debt Dialog */}
             <Dialog open={isDebtDialogOpen} onOpenChange={setIsDebtDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className={`${PILL} text-xs h-8 sm:h-9`}>
+                <Button variant="outline" size="sm" className="rounded-full text-xs h-8 sm:h-9 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
                   <BadgePercent className="mr-1 h-3.5 w-3.5" /> Deuda
                 </Button>
               </DialogTrigger>
@@ -630,8 +815,8 @@ export default function Finance() {
                 </DialogHeader>
                 <Form {...debtForm}>
                   <form onSubmit={debtForm.handleSubmit(onDebtSubmit)} className="space-y-3">
-                    <FormField control={debtForm.control} name="person" render={({ field }) => (<FormItem><FormLabel>Acreedor</FormLabel><FormControl><Input {...field} placeholder="Ej: Mar├¡a Garc├¡a" /></FormControl><FormMessage /></FormItem>)}/>
-                    <FormField control={debtForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descripci├│n</FormLabel><FormControl><Input {...field} placeholder="Ej: Pr├®stamo para el curso" /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={debtForm.control} name="person" render={({ field }) => (<FormItem><FormLabel>Acreedor</FormLabel><FormControl><Input {...field} placeholder="Ej: María García" /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={debtForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descripción</FormLabel><FormControl><Input {...field} placeholder="Ej: Préstamo para el curso" /></FormControl><FormMessage /></FormItem>)}/>
                     <div className="grid grid-cols-3 gap-3">
                       <FormField control={debtForm.control} name="amount" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Monto</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>)}/>
                       <FormField control={debtForm.control} name="currency" render={({ field }) => (<FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="CUP">CUP</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
@@ -639,7 +824,7 @@ export default function Finance() {
                     <FormField control={debtForm.control} name="walletId" render={({ field }) => (<FormItem><FormLabel>Billetera</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl><SelectContent>{wallets.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={debtForm.control} name="dueDate" render={({ field }) => (
                       <FormItem className="flex flex-col"><FormLabel>Vencimiento (opcional)</FormLabel>
-                        <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={`w-full pl-3 text-left font-normal ${PILL}`}>
+                        <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className="w-full pl-3 text-left font-normal rounded-full">
                           {field.value ? format(field.value, "PPP", { locale: es }) : "Elige una fecha"}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button></FormControl></PopoverTrigger>
@@ -647,14 +832,15 @@ export default function Finance() {
                         </Popover><FormMessage />
                       </FormItem>
                     )} />
-                    <DialogFooter><Button type="submit" className={PILL}>Registrar Deuda</Button></DialogFooter>
+                    <DialogFooter><Button type="submit" className="rounded-full">Registrar Deuda</Button></DialogFooter>
                   </form>
                 </Form>
               </DialogContent>
             </Dialog>
+            {/* Transfer Dialog */}
             <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className={`${PILL} text-xs h-8 sm:h-9`}>
+                <Button variant="outline" size="sm" className="rounded-full text-xs h-8 sm:h-9 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
                   <ArrowRightLeft className="mr-1 h-3.5 w-3.5" /> Traspaso
                 </Button>
               </DialogTrigger>
@@ -671,36 +857,37 @@ export default function Finance() {
                     </div>
                     <FormField control={transferForm.control} name="fromWalletId" render={({ field }) => (<FormItem><FormLabel>Desde</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Origen" /></SelectTrigger></FormControl><SelectContent>{wallets.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={transferForm.control} name="toWalletId" render={({ field }) => (<FormItem><FormLabel>Hacia</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Destino" /></SelectTrigger></FormControl><SelectContent>{wallets.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
-                    <DialogFooter><Button type="submit" className={PILL}>Confirmar Traspaso</Button></DialogFooter>
+                    <DialogFooter><Button type="submit" className="rounded-full">Confirmar Traspaso</Button></DialogFooter>
                   </form>
                 </Form>
               </DialogContent>
             </Dialog>
+            {/* New Transaction Dialog */}
             <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={handleOpenTransactionDialog} size="sm" className={`${PILL} text-xs h-8 sm:h-9`}>
+                <Button onClick={handleOpenTransactionDialog} size="sm" className="rounded-full text-xs h-8 sm:h-9 bg-blue-600 hover:bg-blue-700 text-white">
                   <PlusCircle className="mr-1 h-3.5 w-3.5" /> Nueva
                 </Button>
               </DialogTrigger>
               <DialogContent className="rounded-2xl max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Nueva Transacci├│n</DialogTitle>
+                  <DialogTitle>Nueva Transacción</DialogTitle>
                   <DialogDescription>Registra un ingreso o gasto.</DialogDescription>
                 </DialogHeader>
                 <Form {...transactionForm}>
                   <form onSubmit={transactionForm.handleSubmit(onTransactionSubmit)} className="space-y-3">
                     <FormField control={transactionForm.control} name="type" render={({ field }) => (<FormItem><FormLabel>Tipo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="expense">Gasto</SelectItem><SelectItem value="income">Ingreso</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                    <FormField control={transactionForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descripci├│n</FormLabel><FormControl><Input {...field} placeholder="Ej: Caf├® con amigos" /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={transactionForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descripción</FormLabel><FormControl><Input {...field} placeholder="Ej: Café con amigos" /></FormControl><FormMessage /></FormItem>)}/>
                     <div className="grid grid-cols-3 gap-3">
                       <FormField control={transactionForm.control} name="amount" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Monto</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>)}/>
                       <FormField control={transactionForm.control} name="currency" render={({ field }) => (<FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="CUP">CUP</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <FormField control={transactionForm.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={`w-full pl-3 text-left font-normal ${PILL}`}>{field.value ? format(field.value, "PPP", { locale: es }) : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
+                      <FormField control={transactionForm.control} name="date" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className="w-full pl-3 text-left font-normal rounded-full">{field.value ? format(field.value, "PPP", { locale: es }) : <span>Elige una fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                       <FormField control={transactionForm.control} name="walletId" render={({ field }) => (<FormItem><FormLabel>Billetera</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl><SelectContent>{wallets.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
                     </div>
-                    <FormField control={transactionForm.control} name="categoryId" render={({ field }) => (<FormItem><FormLabel>Categor├¡a</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl><SelectContent>{transactionCategories.filter(c => c.type === transactionType).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
-                    <DialogFooter><Button type="submit" className={PILL}>Guardar</Button></DialogFooter>
+                    <FormField control={transactionForm.control} name="categoryId" render={({ field }) => (<FormItem><FormLabel>Categoría</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl><SelectContent>{transactionCategories.filter(c => c.type === transactionType).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                    <DialogFooter><Button type="submit" className="rounded-full">Guardar</Button></DialogFooter>
                   </form>
                 </Form>
               </DialogContent>
@@ -708,28 +895,28 @@ export default function Finance() {
           </div>
         </div>
 
-        <div className="h-px bg-border/50" />
+        <div className="h-px bg-zinc-200/50 dark:bg-zinc-800/50" />
 
-        {/* Summary Cards - Glassmorphism */}
+        {/* Summary Cards */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-          <Card className={GLASS_CARD()}>
-            <div className={ACCENT_BAR} />
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+            <div className="h-0.5 bg-blue-500" />
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider">Balance Total</span>
-                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                <span className="text-[10px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Balance Total</span>
+                <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600">
                   <Coins className="h-3.5 w-3.5" />
                 </div>
               </div>
               <CurrencyDisplay usd={totalBalance} exchangeRate={exchangeRate} large />
             </CardContent>
           </Card>
-          <Card className={GLASS_CARD()}>
-            <div className={ACCENT_BAR} />
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+            <div className="h-0.5 bg-green-500" />
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider">Ingresos del Mes</span>
-                <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                <span className="text-[10px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Ingresos del Mes</span>
+                <div className="p-1.5 rounded-lg bg-green-50 dark:bg-green-500/10 text-green-600">
                   <Download className="h-3.5 w-3.5" />
                 </div>
               </div>
@@ -741,16 +928,16 @@ export default function Finance() {
                 <span className={cn("text-[10px] font-medium", incomeChange >= 0 ? "text-green-500" : "text-red-500")}>
                   {incomeChange >= 0 ? "+" : ""}{incomeChange.toFixed(1)}%
                 </span>
-                <span className="text-[10px] text-muted-foreground">vs mes anterior</span>
+                <span className="text-[10px] text-zinc-400">vs mes anterior</span>
               </div>
             </CardContent>
           </Card>
-          <Card className={GLASS_CARD()}>
-            <div className="h-1 bg-gradient-to-r from-red-500 to-red-400" />
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+            <div className="h-0.5 bg-red-400" />
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider">Gastos del Mes</span>
-                <div className="p-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                <span className="text-[10px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Gastos del Mes</span>
+                <div className="p-1.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-500">
                   <Upload className="h-3.5 w-3.5" />
                 </div>
               </div>
@@ -762,130 +949,119 @@ export default function Finance() {
                 <span className={cn("text-[10px] font-medium", expenseChange <= 0 ? "text-green-500" : "text-red-500")}>
                   {expenseChange >= 0 ? "+" : ""}{expenseChange.toFixed(1)}%
                 </span>
-                <span className="text-[10px] text-muted-foreground">vs mes anterior</span>
+                <span className="text-[10px] text-zinc-400">vs mes anterior</span>
               </div>
             </CardContent>
           </Card>
-          <Card className={GLASS_CARD()}>
-            <div className={cn("h-1 bg-gradient-to-r", monthlyBalance >= 0 ? "from-green-500 to-green-400" : "from-red-500 to-red-400")} />
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+            <div className={cn("h-0.5", monthlyBalance >= 0 ? "bg-green-500" : "bg-red-400")} />
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider">Balance Mensual</span>
-                <div className={cn("p-1.5 rounded-lg", monthlyBalance >= 0 ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-red-100 dark:bg-red-900/30 text-red-600")}>
+                <span className="text-[10px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Balance Mensual</span>
+                <div className={cn("p-1.5 rounded-lg", monthlyBalance >= 0 ? "bg-green-50 dark:bg-green-500/10 text-green-600" : "bg-red-50 dark:bg-red-500/10 text-red-500")}>
                   <Scale className="h-3.5 w-3.5" />
                 </div>
               </div>
-              <div className={cn(monthlyBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+              <div className={cn(monthlyBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500")}>
                 <CurrencyDisplay usd={monthlyBalance} exchangeRate={exchangeRate} large />
               </div>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-[10px] font-medium">{savingsRate.toFixed(1)}%</span>
-                <span className="text-[10px] text-muted-foreground">tasa de ahorro</span>
+                <span className="text-[10px] text-zinc-400">tasa de ahorro</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tasa de Cambio */}
-        <Card className={GLASS_CARD()}>
-          <div className="h-1 bg-gradient-to-r from-amber-500 to-amber-400" />
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center gap-3">
-              <Settings className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs sm:text-sm text-muted-foreground">$1 USD =</span>
-              <Input
-                type="number"
-                value={exchangeRate}
-                onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)}
-                className="w-20 h-8 text-xs sm:text-sm font-semibold text-right rounded-xl"
-              />
-              <span className="text-xs sm:text-sm font-medium">CUP</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Exchange Rate */}
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-xs text-zinc-400">$1 USD =</span>
+          <Input
+            type="number"
+            value={exchangeRate}
+            onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)}
+            className="w-20 h-7 text-xs font-semibold text-right rounded-lg border-zinc-200 dark:border-zinc-700"
+          />
+          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">CUP</span>
+        </div>
 
         {/* Charts Section */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className={GLASS_CARD()}>
-            <div className={ACCENT_BAR} />
-            <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-              <CardTitle className="text-sm sm:text-base">Resumen 6 Meses</CardTitle>
-              <CardDescription className="text-[10px] sm:text-xs">Ingresos vs Gastos</CardDescription>
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <CardHeader className="pb-1 px-4 pt-4">
+              <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Resumen 6 Meses</CardTitle>
+              <CardDescription className="text-xs text-zinc-400">Ingresos vs Gastos</CardDescription>
             </CardHeader>
-            <CardContent className="px-2 sm:px-4">
+            <CardContent className="px-3 pb-4">
               <MonthlySummaryChart data={chartData.monthlySummary} />
             </CardContent>
           </Card>
-          <Card className={GLASS_CARD()}>
-            <div className={ACCENT_BAR} />
-            <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-              <CardTitle className="text-sm sm:text-base">Gastos por Categor├¡a</CardTitle>
-              <CardDescription className="text-[10px] sm:text-xs">Distribuci├│n del mes</CardDescription>
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <CardHeader className="pb-1 px-4 pt-4">
+              <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Gastos por Categoría</CardTitle>
+              <CardDescription className="text-xs text-zinc-400">Distribución del mes</CardDescription>
             </CardHeader>
-            <CardContent className="px-2 sm:px-4">
+            <CardContent className="px-3 pb-4">
               <CategorySpendChart data={chartData.categorySpend} />
             </CardContent>
           </Card>
-          <Card className={GLASS_CARD()}>
-            <div className={ACCENT_BAR} />
-            <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-              <CardTitle className="text-sm sm:text-base">Distribuci├│n de Balance</CardTitle>
-              <CardDescription className="text-[10px] sm:text-xs">Por billetera</CardDescription>
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <CardHeader className="pb-1 px-4 pt-4">
+              <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Distribución de Balance</CardTitle>
+              <CardDescription className="text-xs text-zinc-400">Por billetera</CardDescription>
             </CardHeader>
-            <CardContent className="px-2 sm:px-4">
+            <CardContent className="px-3 pb-4">
               <WalletDistributionChart data={chartData.walletDistribution} />
             </CardContent>
           </Card>
-          <Card className={GLASS_CARD()}>
-            <div className={ACCENT_BAR} />
-            <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-              <CardTitle className="text-sm sm:text-base">Tendencia del Balance</CardTitle>
-              <CardDescription className="text-[10px] sm:text-xs">Evoluci├│n patrimonial</CardDescription>
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <CardHeader className="pb-1 px-4 pt-4">
+              <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Tendencia del Balance</CardTitle>
+              <CardDescription className="text-xs text-zinc-400">Evolución patrimonial</CardDescription>
             </CardHeader>
-            <CardContent className="px-2 sm:px-4">
+            <CardContent className="px-3 pb-4">
               <CashFlowTrendChart data={chartData.cashFlowTrend} />
             </CardContent>
           </Card>
         </div>
 
         {/* Budget Section */}
-        <Card className={GLASS_CARD()}>
-          <div className={ACCENT_BAR} />
-          <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+        <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+          <CardHeader className="pb-2 px-4 pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-sm sm:text-base">Presupuesto Mensual</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs">Gastado vs Presupuestado</CardDescription>
+                <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Presupuesto Mensual</CardTitle>
+                <CardDescription className="text-xs text-zinc-400">Gastado vs Presupuestado</CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="px-3 sm:px-4 space-y-3">
+          <CardContent className="px-4 space-y-3">
             {budgetData.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Establece l├¡mites de presupuesto para tus categor├¡as de gasto.</p>
+              <p className="text-xs text-zinc-400 text-center py-4">Establece límites de presupuesto para tus categorías de gasto.</p>
             ) : (
               budgetData.map(({ category, spent, limit, percentage }) => (
-                <div key={category.id} className="space-y-1">
+                <div key={category.id} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="font-medium truncate">{category.name}</span>
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300 truncate">{category.name}</span>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-muted-foreground">{formatCurrency(spent)}</span>
-                      <span className="text-muted-foreground">/</span>
-                      <span className="font-semibold">{formatCurrency(limit)}</span>
+                      <span className="text-zinc-400">{formatCurrency(spent)}</span>
+                      <span className="text-zinc-300 dark:text-zinc-600">/</span>
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatCurrency(limit)}</span>
                       <span className={cn(
                         "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                        percentage > 100 ? "bg-red-100 text-red-600 dark:bg-red-900/30" :
-                        percentage > 80 ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30" :
-                        "bg-green-100 text-green-600 dark:bg-green-900/30"
+                        percentage > 100 ? "bg-red-50 text-red-500 dark:bg-red-500/10" :
+                        percentage > 80 ? "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400" :
+                        "bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
                       )}>
                         {Math.round(percentage)}%
                       </span>
                     </div>
                   </div>
-                  <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="relative h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       className={cn(
                         "h-full rounded-full transition-all duration-500",
-                        percentage > 100 ? "bg-red-500" : percentage > 80 ? "bg-amber-500" : "bg-primary"
+                        percentage > 100 ? "bg-red-400" : percentage > 80 ? "bg-amber-400" : "bg-blue-500"
                       )}
                       style={{ width: `${Math.min(percentage, 100)}%` }}
                     />
@@ -894,8 +1070,8 @@ export default function Finance() {
                     type="number"
                     value={limit}
                     onChange={(e) => setBudgetLimits(prev => ({ ...prev, [category.id]: parseFloat(e.target.value) || 0 }))}
-                    className="h-6 text-[10px] w-24 text-right rounded-lg ml-auto"
-                    placeholder="L├¡mite"
+                    className="h-6 text-[10px] w-24 text-right rounded-lg border-zinc-200 dark:border-zinc-700"
+                    placeholder="Límite"
                   />
                 </div>
               ))
@@ -907,32 +1083,32 @@ export default function Finance() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm sm:text-base font-bold tracking-tight">Billeteras</h2>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">{wallets.length} billeteras ┬À Total: {(totalBalance * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
+              <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Billeteras</h2>
+              <p className="text-[10px] sm:text-xs text-zinc-400">{wallets.length} billeteras · Total: {(totalBalance * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
             </div>
           </div>
           <div className="grid gap-2 sm:gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             {wallets.map((wallet, idx) => {
               const Icon = getWalletIcon(wallet.id);
               return (
-                <Card key={wallet.id} className={GLASS_CARD()} style={{ animationDelay: `${idx * 0.05}s` }}>
+                <Card key={wallet.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl hover:shadow-md transition-all duration-200" style={{ animationDelay: `${idx * 0.05}s` }}>
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <div className="p-1 rounded-lg bg-muted/50">
-                          <Icon className="h-3 w-3 text-muted-foreground" />
+                        <div className="p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                          <Icon className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
                         </div>
-                        <span className="text-xs font-medium truncate">{wallet.name}</span>
+                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{wallet.name}</span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full text-muted-foreground hover:text-foreground" onClick={() => openWalletDialog(wallet)}>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => openWalletDialog(wallet)}>
                         <Edit className="h-2.5 w-2.5" />
                       </Button>
                     </div>
                     <div>
-                      <div className="text-sm font-bold tracking-tight">
+                      <div className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                         {(wallet.balance * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 2 })}
                       </div>
-                      <div className="text-[10px] text-muted-foreground">CUP ┬À ${wallet.balance.toFixed(2)} USD</div>
+                      <div className="text-[10px] text-zinc-400">CUP · ${wallet.balance.toFixed(2)} USD</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -945,15 +1121,15 @@ export default function Finance() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm sm:text-base font-bold tracking-tight">Distribuci├│n</h2>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">M├®todo JARS ┬À 6 bolsas</p>
+              <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Distribución</h2>
+              <p className="text-[10px] sm:text-xs text-zinc-400">Método JARS · 6 bolsas</p>
             </div>
             <div className="flex items-center gap-1.5">
               {(() => {
                 const totalUndistributed = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
                 if (totalUndistributed > 0) {
                   return (
-                    <Button onClick={() => setIsDistributeIncomeDialogOpen(true)} size="sm" className={`${PILL} text-[10px] h-7`}>
+                    <Button onClick={() => setIsDistributeIncomeDialogOpen(true)} size="sm" className="rounded-full text-[10px] h-7 bg-blue-600 hover:bg-blue-700 text-white">
                       <Coins className="mr-1 h-3 w-3" />
                       Distribuir {formatCurrency(totalUndistributed * exchangeRate)}
                     </Button>
@@ -961,29 +1137,29 @@ export default function Finance() {
                 }
                 return null;
               })()}
-              <Button variant="outline" size="sm" className={`${PILL} text-[10px] h-7`} onClick={() => { setEditingBag(null); bagForm.reset({ name: "", percentage: 10, description: "", icon: "Target", color: "blue" }); setIsBagDialogOpen(true); }}>
+              <Button variant="outline" size="sm" className="rounded-full text-[10px] h-7 border-zinc-200 dark:border-zinc-700" onClick={() => { setEditingBag(null); bagForm.reset({ name: "", percentage: 10, description: "", icon: "Target", color: "blue" }); setIsBagDialogOpen(true); }}>
                 <Plus className="mr-1 h-3 w-3" /> Bolsa
               </Button>
             </div>
           </div>
 
           {distributionBags.length === 0 ? (
-            <Card className={GLASS_CARD()}>
-              <CardContent className="p-6 text-center text-xs text-muted-foreground">
-                No hay bolsas de distribuci├│n. Crea una para empezar.
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <CardContent className="p-6 text-center text-xs text-zinc-400">
+                No hay bolsas de distribución. Crea una para empezar.
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              <Card className={GLASS_CARD()}>
+              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                 <CardContent className="p-3 sm:p-4">
                   <DistributionBagChart data={distributionBags.map(b => ({ name: b.name, percentage: b.percentage, color: b.color }))} />
                 </CardContent>
               </Card>
               <div className="space-y-2">
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground">
-                    <span>Distribuci├│n: {distributionBags.reduce((acc, b) => acc + b.percentage, 0)}%</span>
+                  <div className="flex justify-between text-[10px] sm:text-xs text-zinc-400">
+                    <span>Distribución: {distributionBags.reduce((acc, b) => acc + b.percentage, 0)}%</span>
                     {(() => {
                       const total = distributionBags.reduce((acc, b) => acc + b.percentage, 0);
                       if (total === 100) return <span className="text-green-500 font-medium">100%</span>;
@@ -991,7 +1167,7 @@ export default function Finance() {
                       return <span className="text-amber-500 font-medium">Falta {100 - total}%</span>;
                     })()}
                   </div>
-                  <div className="h-2.5 bg-muted rounded-full overflow-hidden flex">
+                  <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden flex">
                     {distributionBags.map((bag) => {
                       const color = bagColorMap[bag.color] || bagColorMap.blue;
                       return (
@@ -1009,20 +1185,20 @@ export default function Finance() {
                     const IconComponent = iconMap[bag.icon] || WalletIcon;
                     const color = bagColorMap[bag.color] || bagColorMap.blue;
                     return (
-                      <Card key={bag.id} className={GLASS_CARD()} style={{ animationDelay: `${idx * 0.05}s` }}>
+                      <Card key={bag.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl hover:shadow-md transition-all duration-200" style={{ animationDelay: `${idx * 0.05}s` }}>
                         <CardContent className="p-2.5 space-y-1.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                               <div className={cn("p-1 rounded-lg", color.bg)}>
                                 <IconComponent className={cn("h-3 w-3", color.text)} />
                               </div>
-                              <span className="text-xs font-medium truncate">{bag.name}</span>
+                              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{bag.name}</span>
                             </div>
                             <div className="flex items-center gap-0.5">
-                              <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full" onClick={() => { setEditingBag(bag); bagForm.reset({ name: bag.name, percentage: bag.percentage, description: bag.description, icon: bag.icon, color: bag.color }); setIsBagDialogOpen(true); }}>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full text-zinc-400 hover:text-zinc-700" onClick={() => { setEditingBag(bag); bagForm.reset({ name: bag.name, percentage: bag.percentage, description: bag.description, icon: bag.icon, color: bag.color }); setIsBagDialogOpen(true); }}>
                                 <Edit className="h-2.5 w-2.5" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full text-red-500 hover:text-red-700" onClick={() => setBagToDelete(bag)}>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full text-red-400 hover:text-red-600" onClick={() => setBagToDelete(bag)}>
                                 <Trash2 className="h-2.5 w-2.5" />
                               </Button>
                             </div>
@@ -1031,7 +1207,7 @@ export default function Finance() {
                             <span className={cn("text-[10px] font-semibold text-white px-1.5 py-0.5 rounded-full", color.badge)}>{bag.percentage}%</span>
                             <CurrencyDisplay usd={bag.balance || 0} exchangeRate={exchangeRate} />
                           </div>
-                          <p className="text-[10px] text-muted-foreground leading-relaxed truncate">{bag.description}</p>
+                          <p className="text-[10px] text-zinc-400 leading-relaxed truncate">{bag.description}</p>
                         </CardContent>
                       </Card>
                     );
@@ -1042,26 +1218,23 @@ export default function Finance() {
           )}
         </section>
 
-        <div className="h-px bg-border/50" />
+        <div className="h-px bg-zinc-200/50 dark:bg-zinc-800/50" />
 
         {/* Tabs Section */}
         <Tabs defaultValue="expenses" className="space-y-4">
-          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-            <TabsList className="inline-flex h-9 p-1 rounded-full bg-muted/50 backdrop-blur-sm whitespace-nowrap">
-              <TabsTrigger value="expenses" className={`${PILL} text-[10px] sm:text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm`}>Gastos</TabsTrigger>
-              <TabsTrigger value="incomes" className={`${PILL} text-[10px] sm:text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm`}>Ingresos</TabsTrigger>
-              <TabsTrigger value="transfers" className={`${PILL} text-[10px] sm:text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm`}>Traspasos</TabsTrigger>
-              <TabsTrigger value="loans" className={`${PILL} text-[10px] sm:text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm`}>Pr├®stamos</TabsTrigger>
-              <TabsTrigger value="debts" className={`${PILL} text-[10px] sm:text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm`}>Deudas</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="inline-flex h-9 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 gap-0.5">
+            <TabsTrigger value="expenses" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Gastos</TabsTrigger>
+            <TabsTrigger value="incomes" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Ingresos</TabsTrigger>
+            <TabsTrigger value="transfers" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Traspasos</TabsTrigger>
+            <TabsTrigger value="loans" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Préstamos</TabsTrigger>
+            <TabsTrigger value="debts" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Deudas</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="expenses">
-            <Card className={GLASS_CARD()}>
-              <div className={ACCENT_BAR} />
-              <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-                <CardTitle className="text-sm sm:text-base">Gastos</CardTitle>
-                <CardDescription className="text-[10px] sm:text-xs">{expenses.length} transacciones</CardDescription>
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <CardHeader className="pb-2 px-4 pt-4">
+                <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Gastos</CardTitle>
+                <CardDescription className="text-xs text-zinc-400">{expenses.length} transacciones</CardDescription>
               </CardHeader>
               <CardContent className="px-2 sm:px-4">
                 <DataTable columns={transactionColumns} data={expenses} />
@@ -1071,42 +1244,41 @@ export default function Finance() {
 
           <TabsContent value="incomes" className="space-y-3">
             <div className="grid gap-2 grid-cols-3">
-              <Card className={GLASS_CARD()}>
+              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                 <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Ingresos este mes</p>
-                  <p className="text-sm sm:text-base font-bold">{(monthlyIncome * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP</p>
-                  <p className="text-[10px] text-muted-foreground">${monthlyIncome.toFixed(2)} USD</p>
+                  <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Ingresos este mes</p>
+                  <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{(monthlyIncome * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP</p>
+                  <p className="text-[10px] text-zinc-400">${monthlyIncome.toFixed(2)} USD</p>
                 </CardContent>
               </Card>
-              <Card className={GLASS_CARD()}>
+              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                 <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Transacciones</p>
-                  <p className="text-sm sm:text-base font-bold">{incomes.filter(t => isThisMonth(t.date)).length}</p>
-                  <p className="text-[10px] text-muted-foreground">este mes</p>
+                  <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Transacciones</p>
+                  <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{incomes.filter(t => isThisMonth(t.date)).length}</p>
+                  <p className="text-[10px] text-zinc-400">este mes</p>
                 </CardContent>
               </Card>
-              <Card className={GLASS_CARD()}>
+              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                 <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Promedio</p>
-                  <p className="text-sm sm:text-base font-bold">
+                  <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Promedio</p>
+                  <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
                     {incomes.filter(t => isThisMonth(t.date)).length > 0
                       ? `${((monthlyIncome / incomes.filter(t => isThisMonth(t.date)).length) * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })}`
                       : "0"}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">CUP por ingreso</p>
+                  <p className="text-[10px] text-zinc-400">CUP por ingreso</p>
                 </CardContent>
               </Card>
             </div>
 
-            <Card className={GLASS_CARD()}>
-              <div className={ACCENT_BAR} />
-              <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <CardHeader className="pb-2 px-4 pt-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm sm:text-base">Ingresos</CardTitle>
-                    <CardDescription className="text-[10px] sm:text-xs">Historial</CardDescription>
+                    <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Ingresos</CardTitle>
+                    <CardDescription className="text-xs text-zinc-400">Historial</CardDescription>
                   </div>
-                  <Button size="sm" variant="outline" className={`${PILL} text-[10px] h-7`} onClick={() => {
+                  <Button size="sm" variant="outline" className="rounded-full text-[10px] h-7 border-zinc-200 dark:border-zinc-700" onClick={() => {
                     transactionForm.reset({ description: "", amount: 0, currency: "CUP", date: new Date(), walletId: "", categoryId: "", type: "income" });
                     setIsTransactionDialogOpen(true);
                   }}>
@@ -1120,9 +1292,9 @@ export default function Finance() {
                     { label: "Salario", category: "cat-income-1" },
                     { label: "Freelance", category: "cat-income-2" },
                     { label: "Venta", category: "cat-income-1" },
-                    { label: "Devoluci├│n", category: "cat-income-2" },
+                    { label: "Devolución", category: "cat-income-2" },
                   ].map(preset => (
-                    <Button key={preset.label} variant="outline" size="sm" className={`${PILL} text-[10px] h-7`} onClick={() => {
+                    <Button key={preset.label} variant="outline" size="sm" className="rounded-full text-[10px] h-7 border-zinc-200 dark:border-zinc-700" onClick={() => {
                       transactionForm.reset({ description: preset.label, amount: 0, currency: "CUP", date: new Date(), walletId: "", categoryId: preset.category, type: "income" });
                       setIsTransactionDialogOpen(true);
                     }}>
@@ -1136,10 +1308,9 @@ export default function Finance() {
           </TabsContent>
 
           <TabsContent value="transfers">
-            <Card className={GLASS_CARD()}>
-              <div className={ACCENT_BAR} />
-              <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-                <CardTitle className="text-sm sm:text-base">Traspasos</CardTitle>
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <CardHeader className="pb-2 px-4 pt-4">
+                <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Traspasos</CardTitle>
               </CardHeader>
               <CardContent className="px-2 sm:px-4">
                 <DataTable columns={transactionColumns} data={transfers} />
@@ -1157,56 +1328,56 @@ export default function Finance() {
               return (
                 <>
                   <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-                    <Card className={GLASS_CARD()}>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Prestado activo</p>
-                        <p className="text-sm sm:text-base font-bold">{(totalLent * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Prestado activo</p>
+                        <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{(totalLent * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className={GLASS_CARD()}>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Recuperado</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Recuperado</p>
                         <p className="text-sm sm:text-base font-bold text-green-600">{(totalRecovered * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className={GLASS_CARD()}>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Por cobrar</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Por cobrar</p>
                         <p className="text-sm sm:text-base font-bold text-amber-600">{(totalPending * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className={GLASS_CARD()}>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pr├®stamos</p>
-                        <p className="text-sm sm:text-base font-bold">{outstandingLoans.length} activos</p>
-                        <p className="text-[10px] text-muted-foreground">{paidLoans.length} pagados</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Préstamos</p>
+                        <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{outstandingLoans.length} activos</p>
+                        <p className="text-[10px] text-zinc-400">{paidLoans.length} pagados</p>
                       </CardContent>
                     </Card>
                   </div>
 
                   {outstandingLoans.length > 0 && (
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold">Pendientes</h3>
+                      <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Pendientes</h3>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {outstandingLoans.map(loan => {
                           const progress = (loan.paidAmount / loan.totalAmount) * 100;
                           const remaining = loan.totalAmount - loan.paidAmount;
                           return (
-                            <Card key={loan.id} className={cn(GLASS_CARD(), "ring-1 ring-amber-500/20")}>
+                            <Card key={loan.id} className={cn("border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl", "ring-1 ring-amber-500/10")}>
                               <CardContent className="p-3 space-y-2">
                                 <div className="flex items-start justify-between">
                                   <div className="space-y-0.5">
-                                    <h4 className="font-semibold text-xs">{loan.person}</h4>
-                                    <p className="text-[10px] text-muted-foreground">{loan.description}</p>
-                                    <p className="text-[10px] text-muted-foreground">{format(new Date(loan.date), "dd MMM yyyy", { locale: es })}</p>
+                                    <h4 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">{loan.person}</h4>
+                                    <p className="text-[10px] text-zinc-400">{loan.description}</p>
+                                    <p className="text-[10px] text-zinc-400">{format(new Date(loan.date), "dd MMM yyyy", { locale: es })}</p>
                                   </div>
-                                  <Button size="sm" variant="outline" className={`${PILL} text-[10px] h-7`} onClick={() => openLoanPaymentDialog(loan)}>
+                                  <Button size="sm" variant="outline" className="rounded-full text-[10px] h-7 border-zinc-200 dark:border-zinc-700" onClick={() => openLoanPaymentDialog(loan)}>
                                     <DollarSign className="h-3 w-3 mr-1" /> Cobrar
                                   </Button>
                                 </div>
                                 <div className="space-y-1">
-                                  <Progress value={progress} className="h-1.5 rounded-full" />
-                                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                                  <Progress value={progress} className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                                  <div className="flex justify-between text-[10px] text-zinc-400">
                                     <span>Pagado: {(loan.paidAmount * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
                                     <span>Falta: {(remaining * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
                                   </div>
@@ -1220,21 +1391,20 @@ export default function Finance() {
                   )}
 
                   {paidLoans.length > 0 && (
-                    <Card className={GLASS_CARD()}>
-                      <div className={ACCENT_BAR} />
-                      <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-                        <CardTitle className="text-sm sm:text-base">Completados ({paidLoans.length})</CardTitle>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                      <CardHeader className="pb-2 px-4 pt-4">
+                        <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Completados ({paidLoans.length})</CardTitle>
                       </CardHeader>
-                      <CardContent className="px-3 sm:px-4 space-y-1.5">
+                      <CardContent className="px-4 space-y-1.5">
                         {paidLoans.map(loan => (
-                          <div key={loan.id} className="flex items-center justify-between p-2 bg-muted/40 rounded-xl text-xs">
+                          <div key={loan.id} className="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl text-xs">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{loan.person}</span>
-                              <span className="text-muted-foreground">ÔÇö {loan.description}</span>
+                              <span className="font-medium text-zinc-700 dark:text-zinc-300">{loan.person}</span>
+                              <span className="text-zinc-400">— {loan.description}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{(loan.totalAmount * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
-                              <Badge className={`${PILL} text-[10px] px-2 bg-green-100 text-green-700 dark:bg-green-900/30`}>Pagado</Badge>
+                              <span className="font-medium text-zinc-700 dark:text-zinc-300">{(loan.totalAmount * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
+                              <Badge className="rounded-full text-[10px] px-2 bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400">Pagado</Badge>
                             </div>
                           </div>
                         ))}
@@ -1242,10 +1412,9 @@ export default function Finance() {
                     </Card>
                   )}
 
-                  <Card className={GLASS_CARD()}>
-                    <div className={ACCENT_BAR} />
-                    <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-                      <CardTitle className="text-sm sm:text-base">Todos los Pr├®stamos</CardTitle>
+                  <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <CardHeader className="pb-2 px-4 pt-4">
+                      <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Todos los Préstamos</CardTitle>
                     </CardHeader>
                     <CardContent className="px-2 sm:px-4">
                       <DataTable columns={loanColumns} data={loans} />
@@ -1266,63 +1435,63 @@ export default function Finance() {
               return (
                 <>
                   <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-                    <Card className={GLASS_CARD()}>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Deuda activa</p>
-                        <p className="text-sm sm:text-base font-bold">{(totalDebt * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Deuda activa</p>
+                        <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{(totalDebt * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className={GLASS_CARD()}>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pagado</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Pagado</p>
                         <p className="text-sm sm:text-base font-bold text-green-600">{(totalPaid * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className={GLASS_CARD()}>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Por pagar</p>
-                        <p className="text-sm sm:text-base font-bold text-red-600">{(totalRemaining * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Por pagar</p>
+                        <p className="text-sm sm:text-base font-bold text-red-500">{(totalRemaining * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className={GLASS_CARD()}>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Deudas</p>
-                        <p className="text-sm sm:text-base font-bold">{outstandingDebts.length} activas</p>
-                        <p className="text-[10px] text-muted-foreground">{paidDebts.length} pagadas</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Deudas</p>
+                        <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{outstandingDebts.length} activas</p>
+                        <p className="text-[10px] text-zinc-400">{paidDebts.length} pagadas</p>
                       </CardContent>
                     </Card>
                   </div>
 
                   {outstandingDebts.length > 0 && (
                     <div className="space-y-2">
-                      <h3 className="text-xs font-semibold">Pendientes</h3>
+                      <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Pendientes</h3>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {outstandingDebts.map(debt => {
                           const progress = (debt.paidAmount / debt.totalAmount) * 100;
                           const remaining = debt.totalAmount - debt.paidAmount;
                           const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
                           return (
-                            <Card key={debt.id} className={cn(GLASS_CARD(), isOverdue ? "ring-1 ring-red-500/20" : "ring-1 ring-primary/10")}>
+                            <Card key={debt.id} className={cn("border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl", isOverdue ? "ring-1 ring-red-500/20" : "ring-1 ring-zinc-200/50 dark:ring-zinc-700/50")}>
                               <CardContent className="p-3 space-y-2">
                                 <div className="flex items-start justify-between">
                                   <div className="space-y-0.5">
                                     <div className="flex items-center gap-2">
-                                      <h4 className="font-semibold text-xs">{debt.person}</h4>
-                                      {isOverdue && <Badge className={`${PILL} text-[10px] px-2 bg-red-100 text-red-700`}>Vencida</Badge>}
+                                      <h4 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">{debt.person}</h4>
+                                      {isOverdue && <Badge className="rounded-full text-[10px] px-2 bg-red-50 text-red-500 dark:bg-red-500/10">Vencida</Badge>}
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground">{debt.description}</p>
-                                    <p className="text-[10px] text-muted-foreground">
+                                    <p className="text-[10px] text-zinc-400">{debt.description}</p>
+                                    <p className="text-[10px] text-zinc-400">
                                       {format(new Date(debt.date), "dd MMM yyyy", { locale: es })}
-                                      {debt.dueDate && ` ┬À Vence: ${format(new Date(debt.dueDate), "dd MMM yyyy", { locale: es })}`}
+                                      {debt.dueDate && ` · Vence: ${format(new Date(debt.dueDate), "dd MMM yyyy", { locale: es })}`}
                                     </p>
                                   </div>
-                                  <Button size="sm" className={`${PILL} text-[10px] h-7`} onClick={() => openDebtPaymentDialog(debt)}>
+                                  <Button size="sm" className="rounded-full text-[10px] h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => openDebtPaymentDialog(debt)}>
                                     <DollarSign className="h-3 w-3 mr-1" /> Pagar
                                   </Button>
                                 </div>
                                 <div className="space-y-1">
-                                  <Progress value={progress} className="h-1.5 rounded-full" />
-                                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                                  <Progress value={progress} className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                                  <div className="flex justify-between text-[10px] text-zinc-400">
                                     <span>Pagado: {(debt.paidAmount * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
                                     <span className="text-red-500 font-medium">Falta: {(remaining * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
                                   </div>
@@ -1336,21 +1505,20 @@ export default function Finance() {
                   )}
 
                   {paidDebts.length > 0 && (
-                    <Card className={GLASS_CARD()}>
-                      <div className={ACCENT_BAR} />
-                      <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-                        <CardTitle className="text-sm sm:text-base">Pagadas ({paidDebts.length})</CardTitle>
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                      <CardHeader className="pb-2 px-4 pt-4">
+                        <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Pagadas ({paidDebts.length})</CardTitle>
                       </CardHeader>
-                      <CardContent className="px-3 sm:px-4 space-y-1.5">
+                      <CardContent className="px-4 space-y-1.5">
                         {paidDebts.map(debt => (
-                          <div key={debt.id} className="flex items-center justify-between p-2 bg-muted/40 rounded-xl text-xs">
+                          <div key={debt.id} className="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl text-xs">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{debt.person}</span>
-                              <span className="text-muted-foreground">ÔÇö {debt.description}</span>
+                              <span className="font-medium text-zinc-700 dark:text-zinc-300">{debt.person}</span>
+                              <span className="text-zinc-400">— {debt.description}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{(debt.totalAmount * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
-                              <Badge className={`${PILL} text-[10px] px-2 bg-green-100 text-green-700`}>Pagado</Badge>
+                              <span className="font-medium text-zinc-700 dark:text-zinc-300">{(debt.totalAmount * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
+                              <Badge className="rounded-full text-[10px] px-2 bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400">Pagado</Badge>
                             </div>
                           </div>
                         ))}
@@ -1358,10 +1526,9 @@ export default function Finance() {
                     </Card>
                   )}
 
-                  <Card className={GLASS_CARD()}>
-                    <div className={ACCENT_BAR} />
-                    <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
-                      <CardTitle className="text-sm sm:text-base">Todas las Deudas</CardTitle>
+                  <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <CardHeader className="pb-2 px-4 pt-4">
+                      <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Todas las Deudas</CardTitle>
                     </CardHeader>
                     <CardContent className="px-2 sm:px-4">
                       <DataTable columns={renderDebtColumns()} data={debts} />
@@ -1387,7 +1554,7 @@ export default function Finance() {
                   <FormField control={walletForm.control} name="balance" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Nuevo Saldo</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>)}/>
                   <FormField control={walletForm.control} name="currency" render={({ field }) => (<FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="CUP">CUP</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
-                <DialogFooter><Button type="submit" className={PILL}>Guardar Cambios</Button></DialogFooter>
+                <DialogFooter><Button type="submit" className="rounded-full">Guardar Cambios</Button></DialogFooter>
               </form>
             </Form>
           </DialogContent>
@@ -1397,8 +1564,8 @@ export default function Finance() {
         <Dialog open={isLoanPaymentDialogOpen} onOpenChange={setIsLoanPaymentDialogOpen}>
           <DialogContent className="rounded-2xl max-w-md">
             <DialogHeader>
-              <DialogTitle>Pago de Pr├®stamo</DialogTitle>
-              <DialogDescription>{loanToPay && `Pr├®stamo a: ${loanToPay.person}`}</DialogDescription>
+              <DialogTitle>Pago de Préstamo</DialogTitle>
+              <DialogDescription>{loanToPay && `Préstamo a: ${loanToPay.person}`}</DialogDescription>
             </DialogHeader>
             <Form {...loanPaymentForm}>
               <form onSubmit={loanPaymentForm.handleSubmit(onLoanPaymentSubmit)} className="space-y-3">
@@ -1406,7 +1573,7 @@ export default function Finance() {
                   <FormField control={loanPaymentForm.control} name="amount" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Monto</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>)}/>
                   <FormField control={loanPaymentForm.control} name="currency" render={({ field }) => (<FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="CUP">CUP</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
-                <DialogFooter><Button type="submit" className={PILL}>Registrar Pago</Button></DialogFooter>
+                <DialogFooter><Button type="submit" className="rounded-full">Registrar Pago</Button></DialogFooter>
               </form>
             </Form>
           </DialogContent>
@@ -1425,7 +1592,7 @@ export default function Finance() {
                   <FormField control={debtPaymentForm.control} name="amount" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Monto</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>)}/>
                   <FormField control={debtPaymentForm.control} name="currency" render={({ field }) => (<FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="CUP">CUP</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
-                <DialogFooter><Button type="submit" className={PILL}>Registrar Pago</Button></DialogFooter>
+                <DialogFooter><Button type="submit" className="rounded-full">Registrar Pago</Button></DialogFooter>
               </form>
             </Form>
           </DialogContent>
@@ -1435,14 +1602,14 @@ export default function Finance() {
         <AlertDialog open={isRevertDialogOpen} onOpenChange={setIsRevertDialogOpen}>
           <AlertDialogContent className="rounded-2xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>┬┐Revertir transacci├│n?</AlertDialogTitle>
+              <AlertDialogTitle>¿Revertir transacción?</AlertDialogTitle>
               <AlertDialogDescription>
-                Se eliminar├í "{transactionToRevert?.description}" y se restaurar├í el balance.
+                Se eliminará "{transactionToRevert?.description}" y se restaurará el balance.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className={PILL}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleRevertTransaction} className={PILL}>Revertir</AlertDialogAction>
+              <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRevertTransaction} className="rounded-full">Revertir</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -1452,13 +1619,13 @@ export default function Finance() {
           <DialogContent className="rounded-2xl max-w-md">
             <DialogHeader>
               <DialogTitle>{editingBag ? "Editar Bolsa" : "Agregar Bolsa"}</DialogTitle>
-              <DialogDescription>{editingBag ? "Modifica la bolsa." : "Crea una nueva bolsa de distribuci├│n."}</DialogDescription>
+              <DialogDescription>{editingBag ? "Modifica la bolsa." : "Crea una nueva bolsa de distribución."}</DialogDescription>
             </DialogHeader>
             <Form {...bagForm}>
               <form onSubmit={bagForm.handleSubmit(onBagSubmit)} className="space-y-3">
                 <FormField control={bagForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} placeholder="Ej: Vacaciones" /></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={bagForm.control} name="percentage" render={({ field }) => (<FormItem><FormLabel>Porcentaje (%)</FormLabel><FormControl><Input type="number" {...field} step="0.1" /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={bagForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descripci├│n</FormLabel><FormControl><Input {...field} placeholder="Breve descripci├│n" /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={bagForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descripción</FormLabel><FormControl><Input {...field} placeholder="Breve descripción" /></FormControl><FormMessage /></FormItem>)}/>
                 {editingBag && (
                   <FormField control={bagForm.control} name="balance" render={({ field }) => (<FormItem><FormLabel>Saldo (CUP)</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>)}/>
                 )}
@@ -1491,8 +1658,8 @@ export default function Finance() {
                   )}/>
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" className={PILL} onClick={() => { setIsBagDialogOpen(false); setEditingBag(null); }}>Cancelar</Button>
-                  <Button type="submit" className={PILL}>{editingBag ? "Guardar" : "Agregar"}</Button>
+                  <Button type="button" variant="outline" className="rounded-full" onClick={() => { setIsBagDialogOpen(false); setEditingBag(null); }}>Cancelar</Button>
+                  <Button type="submit" className="rounded-full">{editingBag ? "Guardar" : "Agregar"}</Button>
                 </DialogFooter>
               </form>
             </Form>
@@ -1503,12 +1670,12 @@ export default function Finance() {
         <AlertDialog open={!!bagToDelete} onOpenChange={(open) => { if (!open) setBagToDelete(null); }}>
           <AlertDialogContent className="rounded-2xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>┬┐Eliminar bolsa?</AlertDialogTitle>
-              <AlertDialogDescription>Se eliminar├í "{bagToDelete?.name}" de la distribuci├│n.</AlertDialogDescription>
+              <AlertDialogTitle>¿Eliminar bolsa?</AlertDialogTitle>
+              <AlertDialogDescription>Se eliminará "{bagToDelete?.name}" de la distribución.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className={PILL}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteBag} className={`${PILL} bg-red-500 hover:bg-red-600`}>Eliminar</AlertDialogAction>
+              <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteBag} className="rounded-full bg-red-500 hover:bg-red-600">Eliminar</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -1518,30 +1685,30 @@ export default function Finance() {
           <DialogContent className="rounded-2xl max-w-md">
             <DialogHeader>
               <DialogTitle>Distribuir Ingresos</DialogTitle>
-              <DialogDescription>Distribuye ingresos no asignados seg├║n tus bolsas.</DialogDescription>
+              <DialogDescription>Distribuye ingresos no asignados según tus bolsas.</DialogDescription>
             </DialogHeader>
             {(() => {
               const total = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
               return (
                 <div className="space-y-3">
-                  <div className="p-3 bg-muted/50 rounded-xl">
-                    <p className="text-[10px] text-muted-foreground">Total a distribuir</p>
+                  <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+                    <p className="text-[10px] text-zinc-400">Total a distribuir</p>
                     <CurrencyDisplay usd={total} exchangeRate={exchangeRate} large />
-                    <p className="text-[10px] text-muted-foreground mt-1">{undistributedIncomes.length} ingreso(s) sin distribuir</p>
+                    <p className="text-[10px] text-zinc-400 mt-1">{undistributedIncomes.length} ingreso(s) sin distribuir</p>
                   </div>
                   <div className="space-y-1.5 max-h-60 overflow-y-auto">
                     {distributionBags.map(bag => {
                       const amount = total * (bag.percentage / 100);
                       const color = bagColorMap[bag.color] || bagColorMap.blue;
                       return (
-                        <div key={bag.id} className="flex items-center justify-between p-2.5 bg-muted/30 rounded-xl">
+                        <div key={bag.id} className="flex items-center justify-between p-2.5 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-xl">
                           <div className="flex items-center gap-2">
                             <div className={cn("p-1 rounded-lg", color.bg)}>
                               <div className={cn("h-3 w-3", color.text)} />
                             </div>
                             <div>
-                              <p className="text-xs font-medium">{bag.name}</p>
-                              <p className="text-[10px] text-muted-foreground">{bag.percentage}%</p>
+                              <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{bag.name}</p>
+                              <p className="text-[10px] text-zinc-400">{bag.percentage}%</p>
                             </div>
                           </div>
                           <CurrencyDisplay usd={amount} exchangeRate={exchangeRate} />
@@ -1550,8 +1717,8 @@ export default function Finance() {
                     })}
                   </div>
                   <DialogFooter className="gap-2">
-                    <Button variant="outline" className={PILL} onClick={() => setIsDistributeIncomeDialogOpen(false)}>Cancelar</Button>
-                    <Button onClick={handleConfirmDistribution} className={PILL}>Marcar como Distribuido</Button>
+                    <Button variant="outline" className="rounded-full" onClick={() => setIsDistributeIncomeDialogOpen(false)}>Cancelar</Button>
+                    <Button onClick={handleConfirmDistribution} className="rounded-full bg-blue-600 hover:bg-blue-700 text-white">Marcar como Distribuido</Button>
                   </DialogFooter>
                 </div>
               );
