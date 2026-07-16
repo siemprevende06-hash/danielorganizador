@@ -8,7 +8,7 @@ const COLORS = ["#0A84FF", "#30D158", "#FF9F0A", "#FF453A", "#BF5AF2", "#64D2FF"
 
 interface MonthlySummaryData { month: string; income: number; expense: number }
 interface CategoryData { name: string; value: number; [key: string]: string | number | undefined }
-interface WalletDistData { name: string; value: number }
+interface WalletDistData { name: string; value: number; [key: string]: string | number | undefined }
 
 const formatCurrency = (v: number) =>
   v.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
