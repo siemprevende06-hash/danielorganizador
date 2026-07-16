@@ -345,7 +345,7 @@ export default function Finance() {
     }
 
     const newBalance = data.type === 'expense' ? wallet.balance - data.amount : wallet.balance + data.amount;
-    await addTransaction({ ...data, transferId: undefined, loanId: undefined, distributed: false });
+    await addTransaction({ description: data.description, amount: data.amount, date: data.date, walletId: data.walletId, categoryId: data.categoryId, type: data.type, transferId: undefined, loanId: undefined, distributed: false });
     await updateWalletBalance(data.walletId, newBalance);
 
     toast({ title: "Transacción registrada", description: `${data.type === 'expense' ? 'Gasto' : 'Ingreso'} de ${data.amount} ${data.currency}` });
