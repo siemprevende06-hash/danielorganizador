@@ -143,13 +143,14 @@ export default defineConfig(({ mode }) => ({
           },
           {
             urlPattern: /\.(?:js|css|woff2?|ttf|otf|eot)$/i,
-            handler: "StaleWhileRevalidate",
+            handler: "NetworkFirst",
             options: {
-              cacheName: "static-assets",
+              cacheName: "static-assets-v2",
               expiration: {
                 maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 90,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
               },
+              networkTimeoutSeconds: 5,
             },
           },
           {
