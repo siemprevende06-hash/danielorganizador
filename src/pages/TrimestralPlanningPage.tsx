@@ -137,14 +137,36 @@ export default function TrimestralPlanningPage() {
             </Button>
           </div>
 
-          {/* Widgets — book/song use monthKey for per-month assignment */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} monthKey={activeMonthKey} />
-            <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} monthKey={activeMonthKey} />
-            <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
-            <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
-            <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
-            <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
+          {/* Area: Desarrollo Personal */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-6 rounded-full bg-emerald-400" />
+              <div>
+                <h2 className="text-sm font-bold">Desarrollo Personal</h2>
+                <p className="text-[10px] text-muted-foreground">Lectura, música y metas personales</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} monthKey={activeMonthKey} />
+              <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} monthKey={activeMonthKey} />
+              <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
+            </div>
+          </div>
+
+          {/* Area: Profesional Académico */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-6 rounded-full bg-sky-400" />
+              <div>
+                <h2 className="text-sm font-bold">Profesional Académico</h2>
+                <p className="text-[10px] text-muted-foreground">Proyectos, asignaturas y eventos</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
+              <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
+              <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
+            </div>
           </div>
 
           {/* Distribution summary */}
