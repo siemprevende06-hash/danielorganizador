@@ -262,7 +262,7 @@ export default function PlanManana() {
                   )}>
                   <span className="text-sm">{r.icon}</span>
                   <span>{r.label}</span>
-                  <span className="text-[9px] opacity-60">{r.wake}-{r.sleep}</span>
+                  <span className="text-[9px] opacity-60">{r.wakeTime}-{r.sleepTime}</span>
                 </button>
               ))}
             </div>
