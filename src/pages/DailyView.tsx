@@ -175,6 +175,14 @@ export default function DailyView() {
     }
   }, [planRoutineType, setRoutineType]);
 
+  const [activeSection, setActiveSection] = useState<'tasks' | 'sosten' | 'mejora' | 'enfoque'>('tasks');
+  const SECTIONS = [
+    { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" /> },
+    { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" /> },
+    { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" /> },
+    { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" /> },
+  ];
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pt-24">
@@ -286,236 +294,185 @@ export default function DailyView() {
           </CardContent>
         </Card>
 
-        <DailyGuide />
+        {/* Section tabs */}
+        <div className="flex gap-1 bg-muted/30 rounded-2xl p-1 overflow-x-auto">
+          {SECTIONS.map(s => (
+            <button key={s.id} onClick={() => setActiveSection(s.id)}
+              className={cn("flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap",
+                activeSection === s.id ? "bg-white dark:bg-zinc-800 shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}>
+              {s.icon}
+              <span>{s.label}</span>
+            </button>
+          ))}
+        </div>
 
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Focus className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS</h2>
-          </div>
-          <QuickStatsGrid timeframe="today" />
-        </Card>
-
-        <MySystemsSection />
-        <HealthSection />
-
-        <Card className="border-blue-500/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-              <Shield className="h-4 w-4 text-blue-500" />
-              Sostén
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">Lo que te mantiene de pie</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {SOSTEN_GROUPS.map(group => (
-              <SystemHabitGroup
-                key={group.id}
-                group={group}
-                completions={data.completions}
-                timeData={data.timeData}
-                countData={data.countData}
-                waterData={data.waterData}
-                onToggle={toggleCompletion}
-                onTimeChange={setTimeValue}
-                onCountChange={setCountValue}
-                onWaterToggle={toggleWater}
-                workoutDuration={data.workoutDuration}
-                workoutIntensity={data.workoutIntensity}
-                onWorkoutDurationChange={v => update("workoutDuration", v)}
-                onWorkoutIntensityChange={v => update("workoutIntensity", v)}
-                wakeTime={data.wakeTime}
-                sleepTime={data.sleepTime}
-                onWakeTimeChange={v => update("wakeTime", v)}
-                onSleepTimeChange={v => update("sleepTime", v)}
-                mealPhotos={data.mealPhotos}
-                onMealPhotoUpload={setMealPhoto}
-              />
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="border-purple-500/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-purple-500" />
-              Mejora
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">Lo que te transforma</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Física</p>
-              <WorkoutVisual
-                duration={data.workoutDuration}
-                intensity={data.workoutIntensity}
-                onDurationChange={(v) => update("workoutDuration", v)}
-                onIntensityChange={(v) => update("workoutIntensity", v)}
-                completed={!!data.completions["entrenamiento-fisico"]}
-                onToggleCompleted={() => toggleCompletion("entrenamiento-fisico")}
-              />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Hobbys</p>
-              <HobbyCards
-                todayMinutes={{
-                  lectura: data.timeData["lectura"] || 0,
-                  musica: data.timeData["musica"] || 0,
-                  ajedrez: data.timeData["ajedrez"] || 0,
-                }}
-                countData={{ ajedrez: data.countData["ajedrez"] || 0 }}
-                onTimeChange={setTimeValue}
-                onCountChange={setCountValue}
-              />
-            </div>
-
-            <div>
-              <LanguageSkillCards completions={{}} onToggle={() => {}} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tareas y Eventos del Día */}
-        {Object.keys(groupedTasks).length > 0 && (
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <ListTodo className="h-4 w-4 text-indigo-500" />
-                <h2 className="text-sm font-semibold">Tareas del Día</h2>
-                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
-                  {plannedTasks.length} pendientes
-                </Badge>
-              </div>
-              <div className="space-y-2.5">
-                {Object.entries(groupedTasks).map(([source, sourceTasks]) => {
-                  const cfg = SOURCE_CONFIG[source] || { label: source, icon: <ListTodo className="h-3.5 w-3.5" />, color: 'text-muted-foreground' };
-                  return (
-                    <div key={source} className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        <span className={cfg.color}>{cfg.icon}</span>
-                        <span>{cfg.label}</span>
-                        <span className="text-[9px] text-muted-foreground/60">({sourceTasks.length})</span>
-                      </div>
-                      <div className="space-y-0.5">
-                        {sourceTasks.map(task => {
-                          const priorityColors: Record<string, string> = { high: 'border-l-red-400 bg-red-50/30', medium: 'border-l-amber-300 bg-amber-50/20', low: 'border-l-gray-200' };
-                          const priorityLabel: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
-                          return (
-                            <div key={task.id} className={cn("flex items-center gap-2 py-1 px-2 rounded-lg border-l-2 text-xs", priorityColors[task.priority || 'medium'])}>
-                              <span className="flex-1 truncate">{task.title}</span>
-                              {task.priority && task.priority !== 'low' && (
-                                <span className={cn("text-[9px] font-medium shrink-0", task.priority === 'high' ? 'text-red-500' : 'text-amber-500')}>
-                                  {priorityLabel[task.priority]}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Eventos de Hoy */}
-        {todayEvents.length > 0 && (
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-sky-500 to-cyan-400" />
-            <CardContent className="p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-sky-500" />
-                <h2 className="text-sm font-semibold">Eventos de Hoy</h2>
-                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
-                  {todayEvents.length}
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                {todayEvents.map((ev: any) => (
-                  <div key={ev.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20 text-xs">
-                    <span className="font-medium text-muted-foreground shrink-0">{ev.event_date?.slice(11, 16) || 'Todo el día'}</span>
-                    <span className="flex-1 truncate">{ev.title}</span>
-                    {ev.category && <Badge variant="outline" className="text-[9px] px-1">{ev.category}</Badge>}
+        {/* ===== SECCIÓN: TAREAS Y HORARIO ===== */}
+        {activeSection === 'tasks' && (
+          <>
+            {Object.keys(groupedTasks).length > 0 && (
+              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ListTodo className="h-4 w-4 text-indigo-500" />
+                    <h2 className="text-sm font-semibold">Tareas del Día</h2>
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
+                      {plannedTasks.length} pendientes
+                    </Badge>
                   </div>
+                  <div className="space-y-2.5">
+                    {Object.entries(groupedTasks).map(([source, sourceTasks]) => {
+                      const cfg = SOURCE_CONFIG[source] || { label: source, icon: <ListTodo className="h-3.5 w-3.5" />, color: 'text-muted-foreground' };
+                      return (
+                        <div key={source} className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            <span className={cfg.color}>{cfg.icon}</span>
+                            <span>{cfg.label}</span>
+                            <span className="text-[9px] text-muted-foreground/60">({sourceTasks.length})</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {sourceTasks.map(task => {
+                              const priorityColors: Record<string, string> = { high: 'border-l-red-400 bg-red-50/30', medium: 'border-l-amber-300 bg-amber-50/20', low: 'border-l-gray-200' };
+                              const priorityLabel: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
+                              return (
+                                <div key={task.id} className={cn("flex items-center gap-2 py-1 px-2 rounded-lg border-l-2 text-xs", priorityColors[task.priority || 'medium'])}>
+                                  <span className="flex-1 truncate">{task.title}</span>
+                                  {task.priority && task.priority !== 'low' && (
+                                    <span className={cn("text-[9px] font-medium shrink-0", task.priority === 'high' ? 'text-red-500' : 'text-amber-500')}>
+                                      {priorityLabel[task.priority]}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {todayEvents.length > 0 && (
+              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-sky-500 to-cyan-400" />
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-sky-500" />
+                    <h2 className="text-sm font-semibold">Eventos de Hoy</h2>
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
+                      {todayEvents.length}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    {todayEvents.map((ev: any) => (
+                      <div key={ev.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20 text-xs">
+                        <span className="font-medium text-muted-foreground shrink-0">{ev.event_date?.slice(11, 16) || 'Todo el día'}</span>
+                        <span className="flex-1 truncate">{ev.title}</span>
+                        {ev.category && <Badge variant="outline" className="text-[9px] px-1">{ev.category}</Badge>}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Routine Selector */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {ROUTINES.map((r) => {
+                const style = ROUTINE_STYLES[r.type];
+                const isActive = routineType === r.type;
+                return (
+                  <button key={r.type} onClick={() => setRoutineType(r.type)}
+                    className={cn("flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]", isActive ? style.active : `${style.inactive} bg-transparent`, isActive && "scale-[1.02]")}
+                  >
+                    <span className="text-xl leading-none transition-transform duration-300">{r.icon}</span>
+                    <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", isActive ? "opacity-100" : "opacity-70")}>{r.shortLabel}</span>
+                    <span className={cn("text-[10px] font-mono tracking-tight", isActive ? "opacity-80" : "opacity-40")}>{r.wakeTime}—{r.sleepTime}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
+
+            <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} />
+              <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
+                <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} />
+              </div>
+            </div>
+
+            <TodayWorkout />
+            <TaskAccordion />
+          </>
+        )}
+
+        {/* ===== SECCIÓN: SOSTÉN ===== */}
+        {activeSection === 'sosten' && (
+          <>
+            <MySystemsSection />
+            <HealthSection />
+            <Card className="border-blue-500/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-blue-500" />
+                  Sostén
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Lo que te mantiene de pie</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {SOSTEN_GROUPS.map(group => (
+                  <SystemHabitGroup key={group.id} group={group} completions={data.completions} timeData={data.timeData} countData={data.countData} waterData={data.waterData} onToggle={toggleCompletion} onTimeChange={setTimeValue} onCountChange={setCountValue} onWaterToggle={toggleWater} workoutDuration={data.workoutDuration} workoutIntensity={data.workoutIntensity} onWorkoutDurationChange={v => update("workoutDuration", v)} onWorkoutIntensityChange={v => update("workoutIntensity", v)} wakeTime={data.wakeTime} sleepTime={data.sleepTime} onWakeTimeChange={v => update("wakeTime", v)} onSleepTimeChange={v => update("sleepTime", v)} mealPhotos={data.mealPhotos} onMealPhotoUpload={setMealPhoto} />
                 ))}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* ===== SECCIÓN: MEJORA ===== */}
+        {activeSection === 'mejora' && (
+          <Card className="border-purple-500/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-purple-500" />
+                Mejora
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Lo que te transforma</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Física</p>
+                <WorkoutVisual duration={data.workoutDuration} intensity={data.workoutIntensity} onDurationChange={(v) => update("workoutDuration", v)} onIntensityChange={(v) => update("workoutIntensity", v)} completed={!!data.completions["entrenamiento-fisico"]} onToggleCompleted={() => toggleCompletion("entrenamiento-fisico")} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Hobbys</p>
+                <HobbyCards todayMinutes={{ lectura: data.timeData["lectura"] || 0, musica: data.timeData["musica"] || 0, ajedrez: data.timeData["ajedrez"] || 0 }} countData={{ ajedrez: data.countData["ajedrez"] || 0 }} onTimeChange={setTimeValue} onCountChange={setCountValue} />
+              </div>
+              <div>
+                <LanguageSkillCards completions={{}} onToggle={() => {}} />
               </div>
             </CardContent>
           </Card>
         )}
 
-        <Separator />
-
-        {/* Routine Selector - iPhone-style Segmented Control */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {ROUTINES.map((r) => {
-            const style = ROUTINE_STYLES[r.type];
-            const isActive = routineType === r.type;
-            return (
-              <button
-                key={r.type}
-                onClick={() => setRoutineType(r.type)}
-                className={cn(
-                  "flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]",
-                  isActive ? style.active : `${style.inactive} bg-transparent`,
-                  isActive && "scale-[1.02]"
-                )}
-              >
-                <span className="text-xl leading-none transition-transform duration-300">{r.icon}</span>
-                <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", isActive ? "opacity-100" : "opacity-70")}>{r.shortLabel}</span>
-                <span className={cn("text-[10px] font-mono tracking-tight", isActive ? "opacity-80" : "opacity-40")}>{r.wakeTime}—{r.sleepTime}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Daily Schedule — Routine Config + Current Block + Timeline + Task Pool */}
-        <RoutineConfigBar
-          wakeTime={wakeTime}
-          onWakeChange={setWakeTime}
-          focusBlock={focusBlock}
-          onFocusChange={setFocusBlock}
-          sleepTime={sleepTime}
-          onSleepChange={setSleepTime}
-          lateWake={lateWake}
-          onLateWakeChange={setLateWake}
-          musicInstrument={musicInstrument}
-          onMusicInstrumentChange={setMusicInstrument}
-          presetName={presetName}
-        />
-
-        <CurrentBlockCard
-          currentBlock={currentBlock}
-          blockProgress={currentProgress}
-          tasksByBlock={tasksByBlock}
-        />
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-          <DailyTimelinePlanner
-            blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
-            tasksByBlock={tasksByBlock}
-            onToggleBlock={toggleBlockComplete}
-            isBlockCompleted={isBlockCompleted}
-            onDropTask={assignTaskToBlock}
-            onRemoveTask={removeTaskFromBlock}
-            onUpdateFocus={updateRoutineBlockFocus}
-          />
-          <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
-            <TaskPoolPanel
-              unassignedTasks={unassignedTasks}
-              onTaskCreated={refreshTasks}
-            />
-          </div>
-        </div>
-
-        <Separator />
-
-        <TodayWorkout />
-
-        <TaskAccordion />
+        {/* ===== SECCIÓN: ENFOQUE ===== */}
+        {activeSection === 'enfoque' && (
+          <>
+            <DailyGuide />
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Focus className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS</h2>
+              </div>
+              <QuickStatsGrid timeframe="today" />
+            </Card>
+          </>
+        )}
       </div>
     </div>
   );
