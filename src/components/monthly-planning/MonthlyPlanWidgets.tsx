@@ -74,8 +74,26 @@ export function BookPlannerWidget({ planData, updatePlanData, items }: WidgetPro
   );
 }
 
+interface SongItem {
+  id: string;
+  title: string;
+  artist: string | null;
+  instrument: string;
+}
+
 export function SongPlannerWidget({ planData, updatePlanData, items }: WidgetProps & { items: SelectableItem[] }) {
   const [goalInput, setGoalInput] = useState(String(planData.songs.goal || ''));
+  const songs: SongItem[] = items.map(i => {
+    const inst = (i.subtitle || '').includes('guitar') ? 'guitar' : 'piano';
+    return { id: i.id, title: i.title, artist: i.subtitle?.split(' · ')[0] || null, instrument: inst };
+  });
+  const pianoItems = songs.filter(s => s.instrument === 'piano');
+  const guitarItems = songs.filter(s => s.instrument === 'guitar');
+  const selectItems = (ids: string[]) => {
+    const allSelected = [...pianoItems.filter(s => ids.includes(s.id) || planData.songs.selected.includes(s.id)), ...guitarItems.filter(s => ids.includes(s.id) || planData.songs.selected.includes(s.id))].map(s => s.id);
+    const merged = [...new Set([...allSelected.filter(id => pianoItems.some(s => s.id === id) || guitarItems.some(s => s.id === id)), ...planData.songs.selected.filter(id => !items.some(i => i.id === id))])];
+    updatePlanData(p => ({ ...p, songs: { ...p.songs, selected: merged } }));
+  };
 
   return (
     <WidgetCard icon={<Music className="w-4 h-4" />} title="Canciones" count={planData.songs.selected.length}>
@@ -94,13 +112,28 @@ export function SongPlannerWidget({ planData, updatePlanData, items }: WidgetPro
           />
           <span className="text-xs text-muted-foreground">canciones a aprender</span>
         </div>
-        <ItemSelector
-          items={items}
-          selected={planData.songs.selected}
-          onChange={ids => updatePlanData(p => ({ ...p, songs: { ...p.songs, selected: ids } }))}
-          placeholder="Seleccionar canciones..."
-          searchPlaceholder="Buscar canci├│n..."
-        />
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">Piano ({pianoItems.length})</p>
+            <ItemSelector
+              items={pianoItems.map(s => ({ id: s.id, title: s.title, subtitle: s.artist || undefined }))}
+              selected={pianoItems.filter(s => planData.songs.selected.includes(s.id)).map(s => s.id)}
+              onChange={ids => selectItems(ids)}
+              placeholder="Seleccionar piano..."
+              searchPlaceholder="Buscar canción de piano..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">Guitarra ({guitarItems.length})</p>
+            <ItemSelector
+              items={guitarItems.map(s => ({ id: s.id, title: s.title, subtitle: s.artist || undefined }))}
+              selected={guitarItems.filter(s => planData.songs.selected.includes(s.id)).map(s => s.id)}
+              onChange={ids => selectItems(ids)}
+              placeholder="Seleccionar guitarra..."
+              searchPlaceholder="Buscar canción de guitarra..."
+            />
+          </div>
+        </div>
       </div>
     </WidgetCard>
   );

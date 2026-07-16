@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Save, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan';
+import { useTrimestralPlan, getQuarterFromDate, type TrimestralPlanData } from '@/hooks/useTrimestralPlan';
 import {
   BookPlannerWidget,
   SongPlannerWidget,
@@ -11,7 +11,7 @@ import {
   EventPlannerWidget,
   GoalPlannerWidget,
 } from '@/components/monthly-planning/MonthlyPlanWidgets';
-import { GoalDistribution } from '@/components/planning/GoalDistribution';
+import { DragDropDistribution } from '@/components/planning/DragDropDistribution';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -27,8 +27,11 @@ export default function TrimestralPlanningPage() {
     planData, loading, saving,
     books, songs, projects, subjects, events,
     updatePlanData, savePlan, autoDistribute,
+    getMonthNamesForQuarter,
   } = useTrimestralPlan(quarter, year);
   const { toast } = useToast();
+
+  const monthLabels = getMonthNamesForQuarter();
 
   const navigateQ = (dir: 'prev' | 'next') => {
     if (dir === 'prev') {
@@ -47,10 +50,10 @@ export default function TrimestralPlanningPage() {
   };
 
   const bookItems = books.map(b => ({ id: b.id, title: b.title, subtitle: b.author || undefined }));
-  const songItems = songs.map(s => ({ id: s.id, title: s.title, subtitle: s.artist ? `${s.artist} ┬À ${s.instrument}` : s.instrument }));
+  const songItems = songs.map(s => ({ id: s.id, title: s.title, subtitle: s.artist ? `${s.artist} · ${s.instrument}` : s.instrument }));
   const projectItems = projects.map(p => ({ id: p.id, title: p.name }));
   const subjectItems = subjects.map(s => ({ id: s.id, title: s.name }));
-  const eventItems = events.map(e => ({ id: e.id, title: e.title, subtitle: `${format(new Date(e.event_date), 'd MMM', { locale: es })} ┬À ${e.category}` }));
+  const eventItems = events.map(e => ({ id: e.id, title: e.title, subtitle: `${format(new Date(e.event_date), 'd MMM', { locale: es })} · ${e.category}` }));
 
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
@@ -100,46 +103,24 @@ export default function TrimestralPlanningPage() {
             <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
           </div>
 
-          {(planData.books.goal > 0 || planData.songs.goal > 0) && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 rounded-full bg-indigo-400" />
-                <span className="text-sm font-semibold">Distribuci├│n por meses</span>
-                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-indigo-500" onClick={autoDistribute}>
-                  Auto-distribuir
-                </Button>
-              </div>
-              <GoalDistribution
-                label="libros"
-                icon={<span className="text-xs">­ƒôÜ</span>}
-                total={planData.books.goal}
-                distribution={{
-                  month1: planData.distribution.month1.books,
-                  month2: planData.distribution.month2.books,
-                  month3: planData.distribution.month3.books,
-                }}
-                onChange={dist => updatePlanData(p => ({ ...p, distribution: { ...p.distribution, month1: { ...p.distribution.month1, books: dist.month1 }, month2: { ...p.distribution.month2, books: dist.month2 }, month3: { ...p.distribution.month3, books: dist.month3 } } }))}
-                monthLabels={Q_MONTHS}
-              />
-              <GoalDistribution
-                label="canciones"
-                icon={<span className="text-xs">­ƒÄÁ</span>}
-                total={planData.songs.goal}
-                distribution={{
-                  month1: planData.distribution.month1.songs,
-                  month2: planData.distribution.month2.songs,
-                  month3: planData.distribution.month3.songs,
-                }}
-                onChange={dist => updatePlanData(p => ({ ...p, distribution: { ...p.distribution, month1: { ...p.distribution.month1, songs: dist.month1 }, month2: { ...p.distribution.month2, songs: dist.month2 }, month3: { ...p.distribution.month3, songs: dist.month3 } } }))}
-                monthLabels={Q_MONTHS}
-              />
-            </div>
+          {(planData.books.selected.length > 0 || planData.songs.selected.length > 0) && (
+            <DragDropDistribution
+              distribution={planData.distribution}
+              books={books}
+              songs={songs}
+              monthLabels={monthLabels}
+              onDistributionChange={dist => updatePlanData(p => ({ ...p, distribution: dist }))}
+              onAutoDistribute={() => {
+                const result = autoDistribute();
+                if (result) updatePlanData(() => result);
+              }}
+            />
           )}
         </div>
       )}
 
       <p className="text-[11px] text-muted-foreground text-center mt-6">
-        Define tus metas para el trimestre y distrib├║yelas por mes
+        Define tus metas para el trimestre y distribúyelas por mes
       </p>
     </div>
   );

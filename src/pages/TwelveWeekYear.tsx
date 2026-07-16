@@ -1,14 +1,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -16,12 +10,10 @@ import { AreaEffortResultsPanel } from "@/components/areas/AreaEffortResultsPane
 import { LifeAreaScoresPanel } from "@/components/areas/LifeAreaScoresPanel";
 import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import {
-  BookOpen, Music, Target, Calendar, TrendingUp, Flame, Trophy,
-  Zap, BarChart3, Sparkles, Check, X, Piano, Guitar, LayoutDashboard,
-  GraduationCap, Rocket, FolderKanban, Dumbbell, Languages
+  BookOpen, Music, Target, Calendar, Flame,
+  Zap, BarChart3, Check, Piano, Guitar, LayoutDashboard
 } from "lucide-react";
-import { format, addDays } from "date-fns";
-import { es } from "date-fns/locale";
+import { getMonthNamesForQuarter, loadTrimestralPlanFromLocal } from "@/hooks/useTrimestralPlan";
 
 interface TrimestralPlan {
   books: { goal: number; selected: string[] };
@@ -31,9 +23,9 @@ interface TrimestralPlan {
   events: string[];
   personal_goals: { title: string; target?: string }[];
   distribution: {
-    month1: { books: number; songs: number };
-    month2: { books: number; songs: number };
-    month3: { books: number; songs: number };
+    month1: { books: string[]; songs: string[] };
+    month2: { books: string[]; songs: string[] };
+    month3: { books: string[]; songs: string[] };
   };
 }
 
@@ -55,11 +47,7 @@ const QUARTERS = [
   { id: 4, name: "Q4", dates: "Oct – Dic" },
 ];
 
-const MONTHS = [
-  { id: 1, label: "Mes 1", subtitle: "Sem 1-4" },
-  { id: 2, label: "Mes 2", subtitle: "Sem 5-8" },
-  { id: 3, label: "Mes 3", subtitle: "Sem 9-12" },
-];
+const MONTH_KEYS = ["month1", "month2", "month3"] as const;
 
 const PROGRESS_KEY = "trimestral_progress_Q";
 
@@ -71,6 +59,8 @@ export default function TwelveWeekYear() {
     return Math.floor(month / 3) + 1;
   });
 
+  const monthLabels = getMonthNamesForQuarter(selectedQuarter);
+
   const [plan, setPlan] = useState<TrimestralPlan | null>(null);
   const [books, setBooks] = useState<BookDetail[]>([]);
   const [songs, setSongs] = useState<SongDetail[]>([]);
@@ -79,35 +69,36 @@ export default function TwelveWeekYear() {
     bookProgress: {}, songProgress: {},
   });
 
-  const [notesOpen, setNotesOpen] = useState(false);
-  const [noteTarget, setNoteTarget] = useState<{ id: string; type: "book" | "song" } | null>(null);
-  const [noteText, setNoteText] = useState("");
-
   const storageKey = `${PROGRESS_KEY}${selectedQuarter}_2026`;
 
-  // Load plan & details
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const raw = localStorage.getItem(`trimestral_plan_Q${selectedQuarter}_2026`);
-        let parsed: TrimestralPlan | null = null;
-        if (raw) parsed = JSON.parse(raw);
-        setPlan(parsed);
+        const parsed = loadTrimestralPlanFromLocal(`Q${selectedQuarter}_2026`);
+        setPlan(parsed as TrimestralPlan | null);
 
-        // Load progress
         const progRaw = localStorage.getItem(storageKey);
         if (progRaw) setProgress(JSON.parse(progRaw));
         else setProgress({ completedBooks: [], completedSongs: [], completedGoals: [], bookProgress: {}, songProgress: {} });
 
-        // Fetch details
         if (parsed) {
+          const allBookIds = [...new Set([
+            ...(parsed.distribution?.month1?.books || []),
+            ...(parsed.distribution?.month2?.books || []),
+            ...(parsed.distribution?.month3?.books || []),
+          ])];
+          const allSongIds = [...new Set([
+            ...(parsed.distribution?.month1?.songs || []),
+            ...(parsed.distribution?.month2?.songs || []),
+            ...(parsed.distribution?.month3?.songs || []),
+          ])];
           const [booksRes, songsRes] = await Promise.all([
-            parsed.books?.selected?.length > 0
-              ? supabase.from("reading_library").select("id, title, author, cover_image_url").in("id", parsed.books.selected)
+            allBookIds.length > 0
+              ? supabase.from("reading_library").select("id, title, author, cover_image_url").in("id", allBookIds)
               : Promise.resolve({ data: [] }),
-            parsed.songs?.selected?.length > 0
-              ? supabase.from("music_repertoire").select("id, title, artist, instrument").in("id", parsed.songs.selected)
+            allSongIds.length > 0
+              ? supabase.from("music_repertoire").select("id, title, artist, instrument").in("id", allSongIds)
               : Promise.resolve({ data: [] }),
           ]);
           if (booksRes.data) setBooks(booksRes.data);
@@ -154,15 +145,6 @@ export default function TwelveWeekYear() {
     saveProgress(next);
   };
 
-  const updateBookPageProgress = (id: string, pages: number) => {
-    const next = { ...progress };
-    next.bookProgress = { ...next.bookProgress, [id]: Math.min(pages, 100) };
-    if (next.bookProgress[id] >= 100) {
-      if (!next.completedBooks.includes(id)) next.completedBooks.push(id);
-    }
-    saveProgress(next);
-  };
-
   const getWeekInQuarter = () => {
     const now = new Date();
     const startOfYear = new Date(2026, 0, 1);
@@ -172,8 +154,8 @@ export default function TwelveWeekYear() {
   const weekInQ = getWeekInQuarter();
   const weekProgress = (weekInQ / 12) * 100;
 
-  const totalBooksTarget = plan ? (plan.distribution?.month1?.books || 0) + (plan.distribution?.month2?.books || 0) + (plan.distribution?.month3?.books || 0) : 0;
-  const totalSongsTarget = plan ? (plan.distribution?.month1?.songs || 0) + (plan.distribution?.month2?.songs || 0) + (plan.distribution?.month3?.songs || 0) : 0;
+  const totalBooksTarget = plan?.books?.goal || 0;
+  const totalSongsTarget = plan?.songs?.goal || 0;
   const completedBooksCount = progress.completedBooks.length;
   const completedSongsCount = progress.completedSongs.length;
   const completedGoalsCount = progress.completedGoals.length;
@@ -182,7 +164,25 @@ export default function TwelveWeekYear() {
   const bookPct = totalBooksTarget > 0 ? Math.round((completedBooksCount / totalBooksTarget) * 100) : 0;
   const songPct = totalSongsTarget > 0 ? Math.round((completedSongsCount / totalSongsTarget) * 100) : 0;
   const goalsPct = totalGoalsCount > 0 ? Math.round((completedGoalsCount / totalGoalsCount) * 100) : 0;
-  const overallPct = Math.round((bookPct + songPct + goalsPct) / 3);
+  const overallPct = totalBooksTarget + totalSongsTarget + totalGoalsCount > 0 ? Math.round((completedBooksCount + completedSongsCount + completedGoalsCount) / (totalBooksTarget + totalSongsTarget + totalGoalsCount) * 100) : 0;
+
+  const getMonthProgress = (monthKey: typeof MONTH_KEYS[number]) => {
+    if (!plan) return { books: [], songs: [], booksPct: 0, songsPct: 0, booksCount: 0, songsCount: 0, completedBooks: 0, completedSongs: 0 };
+    const monthBooks = plan.distribution?.[monthKey]?.books || [];
+    const monthSongs = plan.distribution?.[monthKey]?.songs || [];
+    const completedB = monthBooks.filter(id => progress.completedBooks.includes(id)).length;
+    const completedS = monthSongs.filter(id => progress.completedSongs.includes(id)).length;
+    return {
+      books: monthBooks,
+      songs: monthSongs,
+      booksCount: monthBooks.length,
+      songsCount: monthSongs.length,
+      completedBooks: completedB,
+      completedSongs: completedS,
+      booksPct: monthBooks.length > 0 ? Math.round((completedB / monthBooks.length) * 100) : 0,
+      songsPct: monthSongs.length > 0 ? Math.round((completedS / monthSongs.length) * 100) : 0,
+    };
+  };
 
   if (loading) {
     return (
@@ -204,7 +204,7 @@ export default function TwelveWeekYear() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">3 Meses</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Q{selectedQuarter} · Semana {weekInQ}/12
+              {QUARTERS.find(q => q.id === selectedQuarter)?.name} · Semana {weekInQ}/12
             </p>
           </div>
         </div>
@@ -266,7 +266,7 @@ export default function TwelveWeekYear() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <LayoutDashboard className="h-10 w-10 text-muted-foreground mb-3" />
               <p className="font-medium mb-1">Sin plan trimestral</p>
-              <p className="text-xs text-muted-foreground text-center mb-2">Ve a Plan Trimestral y crea un plan para Q{selectedQuarter}</p>
+              <p className="text-xs text-muted-foreground text-center mb-2">Ve a Plan Trimestral y crea un plan para {QUARTERS.find(q => q.id === selectedQuarter)?.name}</p>
             </CardContent>
           </Card>
         ) : (
@@ -295,32 +295,66 @@ export default function TwelveWeekYear() {
               </CardContent>
             </Card>
 
+            {/* Personal goals - shown once */}
+            {plan.personal_goals?.length > 0 && (
+              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-amber-500" />
+                    <span className="text-sm font-semibold">Metas Personales</span>
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
+                      {completedGoalsCount}/{totalGoalsCount}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    {plan.personal_goals.map((g, i) => {
+                      const done = progress.completedGoals.includes(g.title);
+                      return (
+                        <label key={i} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-border/40">
+                          <Checkbox checked={done} onCheckedChange={() => toggleGoal(g.title)} />
+                          <div className="flex-1 min-w-0">
+                            <p className={cn("text-xs font-medium", done && "line-through text-muted-foreground")}>{g.title}</p>
+                            {g.target && <p className="text-[10px] text-muted-foreground">Meta: {g.target}</p>}
+                          </div>
+                          {done && <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Month sections */}
-            {MONTHS.map((month, mi) => {
-              const mbTarget = plan.distribution?.[`month${month.id}` as keyof typeof plan.distribution]?.books || 0;
-              const msTarget = plan.distribution?.[`month${month.id}` as keyof typeof plan.distribution]?.songs || 0;
-              const monthBookIds = plan.books?.selected || [];
-              const monthSongIds = plan.songs?.selected || [];
-              // Show all books/songs in each month with their distribution target
+            {MONTH_KEYS.map((monthKey, mi) => {
+              const mp = getMonthProgress(monthKey);
+              const monthBooks = mp.books.map(id => books.find(b => b.id === id)).filter(Boolean) as BookDetail[];
+              const monthSongs = mp.songs.map(id => songs.find(s => s.id === id)).filter(Boolean) as SongDetail[];
 
               return (
-                <Card key={month.id} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+                <Card key={monthKey} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                   <div className={cn("h-1 bg-gradient-to-r", mi === 0 ? "from-sky-500 to-cyan-400" : mi === 1 ? "from-violet-500 to-purple-400" : "from-amber-500 to-orange-400")} />
                   <CardContent className="p-4 space-y-4">
-                    <h2 className="text-sm font-semibold">{month.label} <span className="text-xs text-muted-foreground font-normal">{month.subtitle}</span></h2>
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-semibold">{monthLabels[mi]}</h2>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{mp.completedBooks}/{mp.booksCount}</span>
+                        <span className="flex items-center gap-1"><Music className="h-3 w-3" />{mp.completedSongs}/{mp.songsCount}</span>
+                      </div>
+                    </div>
 
                     {/* Books this month */}
-                    {books.length > 0 && mbTarget > 0 && (
+                    {monthBooks.length > 0 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
-                          <span className="text-xs font-medium text-muted-foreground">Lectura — {mbTarget} libros meta</span>
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
-                            {progress.completedBooks.length}/{books.length}
-                          </Badge>
+                          <span className="text-xs font-medium text-muted-foreground">Lectura</span>
+                          <Progress value={mp.booksPct} className="h-1 flex-1 max-w-[80px]" />
+                          <span className="text-[10px] font-medium text-emerald-600">{mp.booksPct}%</span>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                          {books.map(book => {
+                          {monthBooks.map(book => {
                             const done = progress.completedBooks.includes(book.id);
                             return (
                               <div key={book.id} className={cn("space-y-1.5 p-2 rounded-xl border transition-all cursor-pointer", done ? "border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20" : "border-border/50 bg-card/30 hover:border-emerald-200")}
@@ -349,18 +383,17 @@ export default function TwelveWeekYear() {
                     )}
 
                     {/* Songs this month */}
-                    {songs.length > 0 && msTarget > 0 && (
+                    {monthSongs.length > 0 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Music className="h-3.5 w-3.5 text-rose-500" />
-                          <span className="text-xs font-medium text-muted-foreground">Canciones — {msTarget} canciones meta</span>
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
-                            {progress.completedSongs.length}/{songs.length}
-                          </Badge>
+                          <span className="text-xs font-medium text-muted-foreground">Canciones</span>
+                          <Progress value={mp.songsPct} className="h-1 flex-1 max-w-[80px]" />
+                          <span className="text-[10px] font-medium text-rose-600">{mp.songsPct}%</span>
                         </div>
                         <div className="space-y-1.5">
                           {(["piano", "guitar"] as const).map(inst => {
-                            const instSongs = songs.filter(s => s.instrument === inst);
+                            const instSongs = monthSongs.filter(s => s.instrument === inst);
                             if (!instSongs.length) return null;
                             return (
                               <div key={inst} className="space-y-1">
@@ -388,39 +421,10 @@ export default function TwelveWeekYear() {
                       </div>
                     )}
 
-                    {/* Personal goals */}
-                    {plan.personal_goals?.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Target className="h-3.5 w-3.5 text-amber-500" />
-                          <span className="text-xs font-medium text-muted-foreground">Metas Personales</span>
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
-                            {completedGoalsCount}/{totalGoalsCount}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1">
-                          {plan.personal_goals.map((g, i) => {
-                            const done = progress.completedGoals.includes(g.title);
-                            return (
-                              <label key={i} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-border/40">
-                                <Checkbox checked={done} onCheckedChange={() => toggleGoal(g.title)} />
-                                <div className="flex-1 min-w-0">
-                                  <p className={cn("text-xs font-medium", done && "line-through text-muted-foreground")}>{g.title}</p>
-                                  {g.target && <p className="text-[10px] text-muted-foreground">Meta: {g.target}</p>}
-                                </div>
-                                {done && <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Distribution summary inline */}
-                    {(mbTarget > 0 || msTarget > 0) && (
-                      <div className="flex gap-3 text-[10px] text-muted-foreground pt-1 border-t border-border/30">
-                        {mbTarget > 0 && <span>📚 {mbTarget} libros este mes</span>}
-                        {msTarget > 0 && <span>🎵 {msTarget} canciones este mes</span>}
+                    {monthBooks.length === 0 && monthSongs.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-6 text-muted-foreground/50">
+                        <Calendar className="h-6 w-6 mb-1" />
+                        <p className="text-[10px]">Sin items asignados este mes</p>
                       </div>
                     )}
                   </CardContent>

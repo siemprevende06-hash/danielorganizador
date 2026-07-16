@@ -10,9 +10,9 @@ export interface TrimestralPlanData {
   events: string[];
   personal_goals: { title: string; target?: string }[];
   distribution: {
-    month1: { books: number; songs: number };
-    month2: { books: number; songs: number };
-    month3: { books: number; songs: number };
+    month1: { books: string[]; songs: string[] };
+    month2: { books: string[]; songs: string[] };
+    month3: { books: string[]; songs: string[] };
   };
 }
 
@@ -24,13 +24,13 @@ const defaultTrimestralData: TrimestralPlanData = {
   events: [],
   personal_goals: [],
   distribution: {
-    month1: { books: 0, songs: 0 },
-    month2: { books: 0, songs: 0 },
-    month3: { books: 0, songs: 0 },
+    month1: { books: [], songs: [] },
+    month2: { books: [], songs: [] },
+    month3: { books: [], songs: [] },
   },
 };
 
-interface Book { id: string; title: string; author: string | null; }
+interface Book { id: string; title: string; author: string | null; cover_image_url: string | null; }
 interface Song { id: string; title: string; artist: string | null; instrument: string; }
 interface Project { id: string; name: string; }
 interface Subject { id: string; name: string; }
@@ -38,20 +38,65 @@ interface CalendarEvent { id: string; title: string; event_date: string; categor
 
 const STORAGE_PREFIX = 'trimestral_plan_';
 
-function loadFromLocal(key: string): TrimestralPlanData | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + key);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return null;
-}
-
 function saveToLocal(key: string, data: TrimestralPlanData) {
   try { localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data)); } catch {}
 }
 
+export function loadTrimestralPlanFromLocal(key: string): TrimestralPlanData | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + key);
+    if (raw) {
+      const data = JSON.parse(raw);
+      const migrated = migrateDistribution(data);
+      if (migrated !== data) saveToLocal(key, migrated);
+      return migrated;
+    }
+  } catch {}
+  return null;
+}
+
+function migrateDistribution(data: any): TrimestralPlanData {
+  if (!data.distribution) return { ...defaultTrimestralData, ...data, distribution: defaultTrimestralData.distribution };
+  const m1 = data.distribution.month1;
+  if (m1 && typeof m1.books === 'number') {
+    const books = data.books?.selected || [];
+    const songs = data.songs?.selected || [];
+    const bSplit = splitEvenly(books, 3);
+    const sSplit = splitEvenly(songs, 3);
+    return {
+      ...data,
+      distribution: {
+        month1: { books: bSplit[0], songs: sSplit[0] },
+        month2: { books: bSplit[1], songs: sSplit[1] },
+        month3: { books: bSplit[2], songs: sSplit[2] },
+      },
+    };
+  }
+  return data;
+}
+
+function splitEvenly<T>(arr: T[], n: number): T[][] {
+  const result: T[][] = Array.from({ length: n }, () => []);
+  arr.forEach((item, i) => result[i % n].push(item));
+  return result;
+}
+
 export function getQuarterFromDate(date: Date) {
   return { quarter: Math.ceil((date.getMonth() + 1) / 3), year: date.getFullYear() };
+}
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+function getMonthName(quarter: number, monthIndex: number): string {
+  const realMonth = (quarter - 1) * 3 + monthIndex;
+  return MONTH_NAMES[realMonth] || `Mes ${monthIndex + 1}`;
+}
+
+export function getMonthNamesForQuarter(quarter: number): string[] {
+  return [0, 1, 2].map(i => getMonthName(quarter, i));
 }
 
 export function useTrimestralPlan(quarter: number, year: number) {
@@ -68,7 +113,7 @@ export function useTrimestralPlan(quarter: number, year: number) {
 
   const fetchPlan = useCallback(() => {
     setLoading(true);
-    const local = loadFromLocal(storageKey);
+    const local = loadTrimestralPlanFromLocal(storageKey);
     setPlanData(local || defaultTrimestralData);
     setLoading(false);
   }, [storageKey]);
@@ -84,7 +129,7 @@ export function useTrimestralPlan(quarter: number, year: number) {
   const loadLocalData = useCallback(async () => {
     try {
       const [booksRes, songsRes] = await Promise.all([
-        supabase.from('reading_library').select('id, title, author').order('title'),
+        supabase.from('reading_library').select('id, title, author, cover_image_url').order('title'),
         supabase.from('music_repertoire').select('id, title, artist, instrument').order('title'),
       ]);
       if (booksRes.data) setBooks(booksRes.data);
@@ -120,20 +165,16 @@ export function useTrimestralPlan(quarter: number, year: number) {
   const autoDistribute = useCallback(() => {
     let result: TrimestralPlanData | null = null;
     updatePlanData(prev => {
-      const totalBooks = prev.books.goal;
-      const totalSongs = prev.songs.goal;
-      const b1 = Math.round(totalBooks / 3);
-      const b2 = Math.round(totalBooks / 3);
-      const b3 = totalBooks - b1 - b2;
-      const s1 = Math.round(totalSongs / 3);
-      const s2 = Math.round(totalSongs / 3);
-      const s3 = totalSongs - s1 - s2;
+      const bookIds = prev.books.selected || [];
+      const songIds = prev.songs.selected || [];
+      const bSplit = splitEvenly(bookIds, 3);
+      const sSplit = splitEvenly(songIds, 3);
       result = {
         ...prev,
         distribution: {
-          month1: { books: b1, songs: s1 },
-          month2: { books: b2, songs: s2 },
-          month3: { books: b3, songs: s3 },
+          month1: { books: bSplit[0], songs: sSplit[0] },
+          month2: { books: bSplit[1], songs: sSplit[1] },
+          month3: { books: bSplit[2], songs: sSplit[2] },
         },
       };
       return result;
@@ -145,5 +186,6 @@ export function useTrimestralPlan(quarter: number, year: number) {
     planData, loading, saving, storageKey, quarter, year,
     books, songs, projects, subjects, events,
     updatePlanData, savePlan, fetchPlan, autoDistribute,
+    getMonthNamesForQuarter: () => getMonthNamesForQuarter(quarter),
   };
 }
