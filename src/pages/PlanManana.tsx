@@ -115,11 +115,11 @@ export default function PlanManana() {
       const [tasksRes, entreRes, uniRes] = await Promise.all([
         supabase.from("tasks").select("id, title, source, area_id, completed, routine_block_id").eq("completed", false),
         supabase.from("entrepreneurship_tasks").select("id, title, completed, entrepreneurship_id").eq("completed", false),
-        supabase.from("university_subject_tasks").select("id, title, completed, subject_id").eq("completed", false),
+        supabase.from("tasks").select("id, title, completed, source_id").eq("completed", false).eq("source", "university"),
       ]);
-      if (tasksRes.data) setTasks(tasksRes.data);
-      if (entreRes.data) setEntreTasks(entreRes.data);
-      if (uniRes.data) setUniTasks(uniRes.data);
+      if (tasksRes.data) setTasks(tasksRes.data as TaskItem[]);
+      if (entreRes.data) setEntreTasks(entreRes.data as EntreTask[]);
+      if (uniRes.data) setUniTasks((uniRes.data as any[]).map(t => ({ id: t.id, title: t.title, completed: t.completed, subject_id: t.source_id })));
     } catch { toast.error("Error al cargar datos"); }
     try {
       const raw = localStorage.getItem("userProjects");
