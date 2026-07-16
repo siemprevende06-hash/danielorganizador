@@ -29,7 +29,7 @@ import {
   ArrowRightLeft, Download, Upload, DollarSign, Trash2, Plus, TrendingUp as TrendingUpIcon,
   LandPlot, BadgePercent, Scale, Target,
   Shield, Home, Gamepad2, BookOpen, PiggyBank, Heart,
-  GraduationCap, Sparkles, Plane, Coffee,
+  GraduationCap, Sparkles, Plane, Coffee, Banknote, CreditCard, Settings, X,
 } from 'lucide-react';
 import { format, isThisMonth, startOfMonth, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -58,6 +58,13 @@ const transactionSchema = z.object({
 const walletSchema = z.object({
   name: z.string().min(1, "El nombre es obligatorio."),
   balance: z.coerce.number(),
+  currency: z.enum(['USD', 'CUP']),
+});
+
+const walletCreateSchema = z.object({
+  name: z.string().min(1, "El nombre es obligatorio."),
+  balance: z.coerce.number().default(0),
+  icon: z.string().min(1, "Selecciona un icono."),
   currency: z.enum(['USD', 'CUP']),
 });
 
@@ -166,6 +173,10 @@ export default function Finance() {
   const [editingBag, setEditingBag] = useState<DistributionBag | null>(null);
   const [bagToDelete, setBagToDelete] = useState<DistributionBag | null>(null);
   const [isDistributeIncomeDialogOpen, setIsDistributeIncomeDialogOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isWalletCreateDialogOpen, setIsWalletCreateDialogOpen] = useState(false);
+  const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
+  const [isBudgetCategoryDialogOpen, setIsBudgetCategoryDialogOpen] = useState(false);
   const [budgetLimits, setBudgetLimits] = useState<Record<string, number>>(() => {
     const stored = localStorage.getItem('budgetLimits');
     return stored ? JSON.parse(stored) : defaultBudgetLimits;
@@ -220,6 +231,11 @@ export default function Finance() {
   const bagForm = useForm<z.infer<typeof bagSchema>>({
     resolver: zodResolver(bagSchema),
     defaultValues: { name: '', percentage: 10, description: '', icon: 'Target', color: 'blue', balance: 0 },
+  });
+
+  const walletCreateForm = useForm<z.infer<typeof walletCreateSchema>>({
+    resolver: zodResolver(walletCreateSchema),
+    defaultValues: { name: '', balance: 0, icon: 'Wallet', currency: 'CUP' },
   });
 
   const transactionType = transactionForm.watch('type');
@@ -318,6 +334,7 @@ export default function Finance() {
   const iconMap: Record<string, LucideIcon> = {
     Shield, TrendingUp: TrendingUpIcon, Home, Gamepad2, BookOpen, PiggyBank, Heart,
     GraduationCap, Sparkles, DollarSign, Plane, Coffee, Target, Wallet: WalletIcon,
+    Banknote, CreditCard,
   };
 
   const bagColorMap: Record<string, { bg: string; text: string; badge: string; bar: string }> = {
@@ -510,6 +527,42 @@ export default function Finance() {
     setBagToDelete(null);
   };
 
+  const onWalletCreateSubmit = async (data: z.infer<typeof walletCreateSchema>) => {
+    const newWallet: Wallet = { id: crypto.randomUUID(), name: data.name, balance: data.balance, icon: iconMap[data.icon] || WalletIcon };
+    setWallets(prev => {
+      const updated = [...prev, newWallet];
+      localStorage.setItem('wallets', JSON.stringify(updated));
+      return updated;
+    });
+    toast({ title: "Billetera creada", description: `${data.name} creada con éxito` });
+    setIsWalletCreateDialogOpen(false);
+    walletCreateForm.reset();
+  };
+
+  const handleDeleteWallet = () => {
+    if (!walletToDelete) return;
+    setWallets(prev => {
+      const updated = prev.filter(w => w.id !== walletToDelete.id);
+      localStorage.setItem('wallets', JSON.stringify(updated));
+      return updated;
+    });
+    toast({ title: "Billetera eliminada", description: `${walletToDelete.name} ha sido eliminada` });
+    setWalletToDelete(null);
+  };
+
+  const handleRemoveBudgetCategory = (categoryId: string) => {
+    setBudgetLimits(prev => {
+      const updated = { ...prev };
+      delete updated[categoryId];
+      return updated;
+    });
+  };
+
+  const handleAddBudgetCategory = (categoryId: string, amount: number) => {
+    setBudgetLimits(prev => ({ ...prev, [categoryId]: amount }));
+    setIsBudgetCategoryDialogOpen(false);
+    toast({ title: "Presupuesto agregado", description: "Categoría agregada al presupuesto mensual" });
+  };
 
   if (!isClient || isLoading) return null;
 
@@ -595,6 +648,14 @@ export default function Finance() {
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Control financiero personal</p>
           </header>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <Button
+              variant={isEditMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsEditMode(!isEditMode)}
+              className={cn("rounded-full text-xs h-8 sm:h-9", isEditMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300")}
+            >
+              <Settings className="mr-1 h-3.5 w-3.5" /> {isEditMode ? "Hecho" : "Editar"}
+            </Button>
             {/* Loan Dialog */}
             <Dialog open={isLoanDialogOpen} onOpenChange={setIsLoanDialogOpen}>
               <DialogTrigger asChild>
@@ -853,6 +914,11 @@ export default function Finance() {
                 <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Presupuesto Mensual</CardTitle>
                 <CardDescription className="text-xs text-zinc-400">Gastado vs Presupuestado</CardDescription>
               </div>
+              {isEditMode && (
+                <Button variant="outline" size="sm" className="rounded-full text-[10px] h-7 border-zinc-200 dark:border-zinc-700" onClick={() => setIsBudgetCategoryDialogOpen(true)}>
+                  <Plus className="mr-1 h-3 w-3" /> Categoría
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="px-4 space-y-3">
@@ -862,7 +928,14 @@ export default function Finance() {
               budgetData.map(({ category, spent, limit, percentage }) => (
                 <div key={category.id} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="font-medium text-zinc-700 dark:text-zinc-300 truncate">{category.name}</span>
+                    <div className="flex items-center gap-1.5">
+                      {isEditMode && (
+                        <Button variant="ghost" size="icon" className="h-4 w-4 rounded-full text-red-400 hover:text-red-600" onClick={() => handleRemoveBudgetCategory(category.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300 truncate">{category.name}</span>
+                    </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-zinc-400">{formatCurrency(spent)}</span>
                       <span className="text-zinc-300 dark:text-zinc-600">/</span>
@@ -886,15 +959,27 @@ export default function Finance() {
                       style={{ width: `${Math.min(percentage, 100)}%` }}
                     />
                   </div>
-                  <Input
-                    type="number"
-                    value={limit}
-                    onChange={(e) => setBudgetLimits(prev => ({ ...prev, [category.id]: parseFloat(e.target.value) || 0 }))}
-                    className="h-6 text-[10px] w-24 text-right rounded-lg border-zinc-200 dark:border-zinc-700"
-                    placeholder="Límite"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={limit}
+                      onChange={(e) => setBudgetLimits(prev => ({ ...prev, [category.id]: parseFloat(e.target.value) || 0 }))}
+                      className="h-6 text-[10px] w-24 text-right rounded-lg border-zinc-200 dark:border-zinc-700"
+                      placeholder="Límite"
+                    />
+                    {isEditMode && (
+                      <span className="text-[10px] text-zinc-400">CUP</span>
+                    )}
+                  </div>
                 </div>
               ))
+            )}
+            {isEditMode && budgetData.length > 0 && (
+              <div className="pt-2 text-center">
+                <Button variant="ghost" size="sm" className="rounded-full text-[10px] h-7 text-zinc-400 hover:text-zinc-700" onClick={() => setIsBudgetCategoryDialogOpen(true)}>
+                  <Plus className="mr-1 h-3 w-3" /> Agregar categoría al presupuesto
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -906,6 +991,11 @@ export default function Finance() {
               <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Billeteras</h2>
               <p className="text-[10px] sm:text-xs text-zinc-400">{wallets.length} billeteras · Total: {(totalBalance * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
             </div>
+            {isEditMode && (
+              <Button size="sm" className="rounded-full text-[10px] h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => { walletCreateForm.reset({ name: '', balance: 0, icon: 'Wallet', currency: 'CUP' }); setIsWalletCreateDialogOpen(true); }}>
+                <Plus className="mr-1 h-3 w-3" /> Agregar
+              </Button>
+            )}
           </div>
           <div className="grid gap-2 sm:gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             {wallets.map((wallet, idx) => {
@@ -920,9 +1010,16 @@ export default function Finance() {
                         </div>
                         <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{wallet.name}</span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => openWalletDialog(wallet)}>
-                        <Edit className="h-2.5 w-2.5" />
-                      </Button>
+                      <div className="flex items-center gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => openWalletDialog(wallet)}>
+                          <Edit className="h-2.5 w-2.5" />
+                        </Button>
+                        {isEditMode && (
+                          <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full text-red-400 hover:text-red-600" onClick={() => setWalletToDelete(wallet)}>
+                            <Trash2 className="h-2.5 w-2.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <div className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
@@ -1377,6 +1474,93 @@ export default function Finance() {
                 <DialogFooter><Button type="submit" className="rounded-full">Guardar Cambios</Button></DialogFooter>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Wallet Create Dialog */}
+        <Dialog open={isWalletCreateDialogOpen} onOpenChange={setIsWalletCreateDialogOpen}>
+          <DialogContent className="rounded-2xl max-w-md">
+            <DialogHeader>
+              <DialogTitle>Nueva Billetera</DialogTitle>
+              <DialogDescription>Crea una nueva billetera para gestionar tu dinero.</DialogDescription>
+            </DialogHeader>
+            <Form {...walletCreateForm}>
+              <form onSubmit={walletCreateForm.handleSubmit(onWalletCreateSubmit)} className="space-y-3">
+                <FormField control={walletCreateForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} placeholder="Ej: Ahorros" /></FormControl><FormMessage /></FormItem>)}/>
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField control={walletCreateForm.control} name="balance" render={({ field }) => (<FormItem className="col-span-2"><FormLabel>Saldo Inicial</FormLabel><FormControl><Input type="number" {...field} step="0.01" /></FormControl><FormMessage /></FormItem>)}/>
+                  <FormField control={walletCreateForm.control} name="currency" render={({ field }) => (<FormItem><FormLabel>Moneda</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="CUP">CUP</SelectItem><SelectItem value="USD">USD</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                </div>
+                <FormField control={walletCreateForm.control} name="icon" render={({ field }) => (
+                  <FormItem><FormLabel>Icono</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger className="rounded-xl"><SelectValue placeholder="Icono" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {["Wallet","Banknote","CreditCard","PiggyBank","Target","DollarSign","Coins"].map(key => (
+                          <SelectItem key={key} value={key}>{key}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
+                <DialogFooter><Button type="submit" className="rounded-full">Crear Billetera</Button></DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Wallet Dialog */}
+        <AlertDialog open={!!walletToDelete} onOpenChange={(open) => { if (!open) setWalletToDelete(null); }}>
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar billetera?</AlertDialogTitle>
+              <AlertDialogDescription>Se eliminará "{walletToDelete?.name}" de tus billeteras. Las transacciones asociadas se conservarán.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteWallet} className="rounded-full bg-red-500 hover:bg-red-600">Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Add Budget Category Dialog */}
+        <Dialog open={isBudgetCategoryDialogOpen} onOpenChange={setIsBudgetCategoryDialogOpen}>
+          <DialogContent className="rounded-2xl max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Agregar al Presupuesto</DialogTitle>
+              <DialogDescription>Selecciona una categoría y define su límite mensual.</DialogDescription>
+            </DialogHeader>
+            {(() => {
+              const [selectedCat, setSelectedCat] = useState('');
+              const [budgetAmount, setBudgetAmount] = useState(1000);
+              const availableCategories = transactionCategories.filter(c => c.type === 'expense' && !budgetLimits[c.id]);
+              return (
+                <div className="space-y-3">
+                  <div>
+                    <FormLabel>Categoría</FormLabel>
+                    <Select onValueChange={setSelectedCat} value={selectedCat}>
+                      <SelectTrigger className="rounded-xl mt-1"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableCategories.length === 0 ? (
+                          <SelectItem value="__none__" disabled>Todas las categorías ya tienen presupuesto</SelectItem>
+                        ) : availableCategories.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <FormLabel>Límite Mensual (CUP)</FormLabel>
+                    <Input type="number" value={budgetAmount} onChange={(e) => setBudgetAmount(parseFloat(e.target.value) || 0)} className="rounded-xl mt-1" />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" className="rounded-full" onClick={() => setIsBudgetCategoryDialogOpen(false)}>Cancelar</Button>
+                    <Button className="rounded-full" disabled={!selectedCat} onClick={() => handleAddBudgetCategory(selectedCat, budgetAmount)}>Agregar</Button>
+                  </DialogFooter>
+                </div>
+              );
+            })()}
           </DialogContent>
         </Dialog>
 
