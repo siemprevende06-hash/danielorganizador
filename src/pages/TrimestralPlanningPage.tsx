@@ -41,8 +41,8 @@ export default function TrimestralPlanningPage() {
   };
 
   const handleSave = async () => {
-    autoDistribute();
-    await savePlan();
+    const distributed = autoDistribute();
+    await savePlan(distributed || undefined);
     toast({ title: 'Plan trimestral guardado', description: `Q${quarter} ${year} actualizado.` });
   };
 

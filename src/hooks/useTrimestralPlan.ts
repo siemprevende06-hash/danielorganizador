@@ -73,9 +73,10 @@ export function useTrimestralPlan(quarter: number, year: number) {
     setLoading(false);
   }, [storageKey]);
 
-  const savePlan = useCallback(async () => {
+  const savePlan = useCallback(async (data?: TrimestralPlanData) => {
     setSaving(true);
-    saveToLocal(storageKey, planData);
+    const toSave = data || planData;
+    saveToLocal(storageKey, toSave);
     await new Promise(r => setTimeout(r, 300));
     setSaving(false);
   }, [storageKey, planData]);
@@ -117,6 +118,7 @@ export function useTrimestralPlan(quarter: number, year: number) {
   }, []);
 
   const autoDistribute = useCallback(() => {
+    let result: TrimestralPlanData | null = null;
     updatePlanData(prev => {
       const totalBooks = prev.books.goal;
       const totalSongs = prev.songs.goal;
@@ -126,7 +128,7 @@ export function useTrimestralPlan(quarter: number, year: number) {
       const s1 = Math.round(totalSongs / 3);
       const s2 = Math.round(totalSongs / 3);
       const s3 = totalSongs - s1 - s2;
-      return {
+      result = {
         ...prev,
         distribution: {
           month1: { books: b1, songs: s1 },
@@ -134,7 +136,9 @@ export function useTrimestralPlan(quarter: number, year: number) {
           month3: { books: b3, songs: s3 },
         },
       };
+      return result;
     });
+    return result;
   }, []);
 
   return {
