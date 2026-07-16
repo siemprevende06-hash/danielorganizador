@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Save, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useTrimestralPlan, getQuarterFromDate, type TrimestralPlanData } from '@/hooks/useTrimestralPlan';
+import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan';
 import {
   BookPlannerWidget,
   SongPlannerWidget,
@@ -11,17 +12,18 @@ import {
   EventPlannerWidget,
   GoalPlannerWidget,
 } from '@/components/monthly-planning/MonthlyPlanWidgets';
-import { DragDropDistribution } from '@/components/planning/DragDropDistribution';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
-const Q_MONTHS = ['Primer mes', 'Segundo mes', 'Tercer mes'];
+const MONTH_KEYS = ["month1", "month2", "month3"] as const;
 
 export default function TrimestralPlanningPage() {
   const now = new Date();
   const { quarter: currentQ, year: currentY } = getQuarterFromDate(now);
   const [quarter, setQuarter] = useState(currentQ);
   const [year, setYear] = useState(currentY);
+  const [activeMonth, setActiveMonth] = useState(0);
 
   const {
     planData, loading, saving,
@@ -32,6 +34,7 @@ export default function TrimestralPlanningPage() {
   const { toast } = useToast();
 
   const monthLabels = getMonthNamesForQuarter();
+  const activeMonthKey = MONTH_KEYS[activeMonth];
 
   const navigateQ = (dir: 'prev' | 'next') => {
     if (dir === 'prev') {
@@ -44,8 +47,7 @@ export default function TrimestralPlanningPage() {
   };
 
   const handleSave = async () => {
-    const distributed = autoDistribute();
-    await savePlan(distributed || undefined);
+    await savePlan();
     toast({ title: 'Plan trimestral guardado', description: `Q${quarter} ${year} actualizado.` });
   };
 
@@ -54,6 +56,11 @@ export default function TrimestralPlanningPage() {
   const projectItems = projects.map(p => ({ id: p.id, title: p.name }));
   const subjectItems = subjects.map(s => ({ id: s.id, title: s.name }));
   const eventItems = events.map(e => ({ id: e.id, title: e.title, subtitle: `${format(new Date(e.event_date), 'd MMM', { locale: es })} · ${e.category}` }));
+
+  const distTotals = MONTH_KEYS.map(k => ({
+    books: (planData.distribution[k].books || []).length,
+    songs: (planData.distribution[k].songs || []).length,
+  }));
 
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
@@ -94,33 +101,71 @@ export default function TrimestralPlanningPage() {
         </div>
       ) : (
         <div className="space-y-6">
+          {/* Month tabs */}
+          <div className="flex gap-2">
+            {monthLabels.map((label, i) => {
+              const total = distTotals[i].books + distTotals[i].songs;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setActiveMonth(i)}
+                  className={cn(
+                    "flex-1 relative rounded-2xl p-3.5 text-left transition-all border-0",
+                    activeMonth === i
+                      ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 scale-[1.02]"
+                      : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                  )}
+                >
+                  <div className="text-base font-bold">{label}</div>
+                  <div className={cn("text-[10px] mt-0.5", activeMonth === i ? "text-white/70" : "text-muted-foreground")}>
+                    {total > 0 ? `${total} items` : "Sin asignar"}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active month label + quick actions */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              Asignando a <span className="font-semibold text-indigo-500">{monthLabels[activeMonth]}</span>
+              {distTotals[activeMonth].books > 0 && <> · {distTotals[activeMonth].books} libros</>}
+              {distTotals[activeMonth].songs > 0 && <> · {distTotals[activeMonth].songs} canciones</>}
+            </p>
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] text-indigo-500" onClick={autoDistribute}>
+              Auto-distribuir
+            </Button>
+          </div>
+
+          {/* Widgets — book/song use monthKey for per-month assignment */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} />
-            <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} />
+            <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} monthKey={activeMonthKey} />
+            <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} monthKey={activeMonthKey} />
             <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
             <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
             <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
             <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
           </div>
 
-          {(planData.books.selected.length > 0 || planData.songs.selected.length > 0) && (
-            <DragDropDistribution
-              distribution={planData.distribution}
-              books={books}
-              songs={songs}
-              monthLabels={monthLabels}
-              onDistributionChange={dist => updatePlanData(p => ({ ...p, distribution: dist }))}
-              onAutoDistribute={() => {
-                const result = autoDistribute();
-                if (result) updatePlanData(() => result);
-              }}
-            />
-          )}
+          {/* Distribution summary */}
+          <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2 border-t border-border/30">
+            {monthLabels.map((label, i) => {
+              const t = distTotals[i].books + distTotals[i].songs;
+              return (
+                <div key={i} className="flex items-center gap-1">
+                  <div className={cn("w-2 h-2 rounded-full", activeMonth === i ? "bg-indigo-500" : "bg-muted-foreground/30")} />
+                  <span>{label}: <strong>{t}</strong> items</span>
+                </div>
+              );
+            })}
+            <span className="text-muted-foreground/40">|</span>
+            <span>Total: <strong>{distTotals.reduce((s, d) => s + d.books + d.songs, 0)}</strong></span>
+          </div>
         </div>
       )}
 
       <p className="text-[11px] text-muted-foreground text-center mt-6">
-        Define tus metas para el trimestre y distribúyelas por mes
+        Selecciona un mes arriba y elige los libros y canciones para ese mes
       </p>
     </div>
   );

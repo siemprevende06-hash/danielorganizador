@@ -42,11 +42,29 @@ function WidgetCard({ icon, title, count, children }: { icon: React.ReactNode; t
   );
 }
 
-export function BookPlannerWidget({ planData, updatePlanData, items }: WidgetProps & { items: SelectableItem[] }) {
+function removeFromOtherMonths(p: MonthlyPlanData, id: string, type: "book" | "song", activeKey: string): MonthlyPlanData {
+  const keys = ["month1", "month2", "month3"];
+  const dist = { ...p.distribution };
+  keys.forEach(k => {
+    if (k === activeKey) return;
+    const arr = type === "book" ? [...dist[k].books] : [...dist[k].songs];
+    const filtered = arr.filter(x => x !== id);
+    if (filtered.length !== (type === "book" ? dist[k].books.length : dist[k].songs.length)) {
+      dist[k] = type === "book" ? { ...dist[k], books: filtered } : { ...dist[k], songs: filtered };
+    }
+  });
+  return { ...p, distribution: dist };
+}
+
+export function BookPlannerWidget({ planData, updatePlanData, items, monthKey }: WidgetProps & { items: SelectableItem[]; monthKey?: string }) {
   const [goalInput, setGoalInput] = useState(String(planData.books.goal || ''));
+  const isMonthMode = !!monthKey;
+  const count = isMonthMode
+    ? (planData.distribution as any)?.[monthKey!]?.books?.length || 0
+    : planData.books.selected.length;
 
   return (
-    <WidgetCard icon={<Book className="w-4 h-4" />} title="Libros" count={planData.books.selected.length}>
+    <WidgetCard icon={<Book className="w-4 h-4" />} title="Libros" count={count}>
       <div className="space-y-2.5">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground shrink-0">Meta:</span>
@@ -60,12 +78,28 @@ export function BookPlannerWidget({ planData, updatePlanData, items }: WidgetPro
             }}
             className="h-7 w-16 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
-          <span className="text-xs text-muted-foreground">libros este mes</span>
+          <span className="text-xs text-muted-foreground">libros en el trimestre</span>
         </div>
         <ItemSelector
           items={items}
-          selected={planData.books.selected}
-          onChange={ids => updatePlanData(p => ({ ...p, books: { ...p.books, selected: ids } }))}
+          selected={isMonthMode ? (planData.distribution as any)?.[monthKey!]?.books || [] : planData.books.selected}
+          onChange={ids => {
+            if (isMonthMode) {
+              updatePlanData(p => {
+                let next = removeFromOtherMonths(p, "", "book", monthKey!);
+                ids.forEach(id => { next = removeFromOtherMonths(next, id, "book", monthKey!); });
+                return {
+                  ...next,
+                  distribution: {
+                    ...next.distribution,
+                    [monthKey!]: { ...(next.distribution as any)[monthKey!], books: ids },
+                  },
+                } as MonthlyPlanData;
+              });
+            } else {
+              updatePlanData(p => ({ ...p, books: { ...p.books, selected: ids } }));
+            }
+          }}
           placeholder="Seleccionar libros..."
           searchPlaceholder="Buscar libro..."
         />
@@ -81,22 +115,42 @@ interface SongItem {
   instrument: string;
 }
 
-export function SongPlannerWidget({ planData, updatePlanData, items }: WidgetProps & { items: SelectableItem[] }) {
+export function SongPlannerWidget({ planData, updatePlanData, items, monthKey }: WidgetProps & { items: SelectableItem[]; monthKey?: string }) {
   const [goalInput, setGoalInput] = useState(String(planData.songs.goal || ''));
+  const isMonthMode = !!monthKey;
   const songs: SongItem[] = items.map(i => {
     const inst = (i.subtitle || '').includes('guitar') ? 'guitar' : 'piano';
     return { id: i.id, title: i.title, artist: i.subtitle?.split(' · ')[0] || null, instrument: inst };
   });
   const pianoItems = songs.filter(s => s.instrument === 'piano');
   const guitarItems = songs.filter(s => s.instrument === 'guitar');
-  const selectItems = (ids: string[]) => {
-    const allSelected = [...pianoItems.filter(s => ids.includes(s.id) || planData.songs.selected.includes(s.id)), ...guitarItems.filter(s => ids.includes(s.id) || planData.songs.selected.includes(s.id))].map(s => s.id);
-    const merged = [...new Set([...allSelected.filter(id => pianoItems.some(s => s.id === id) || guitarItems.some(s => s.id === id)), ...planData.songs.selected.filter(id => !items.some(i => i.id === id))])];
-    updatePlanData(p => ({ ...p, songs: { ...p.songs, selected: merged } }));
+  const currentIds: string[] = isMonthMode ? (planData.distribution as any)?.[monthKey!]?.songs || [] : planData.songs.selected;
+  const pianoSelected = pianoItems.filter(s => currentIds.includes(s.id)).map(s => s.id);
+  const guitarSelected = guitarItems.filter(s => currentIds.includes(s.id)).map(s => s.id);
+
+  const handleChange = (sectionIds: string[], section: "piano" | "guitar") => {
+    const sectionItems = section === "piano" ? pianoItems : guitarItems;
+    const otherSectionIds = section === "piano" ? guitarSelected : pianoSelected;
+    const merged = [...new Set([...sectionIds, ...otherSectionIds])];
+    if (isMonthMode) {
+      updatePlanData(p => {
+        let next = { ...p };
+        merged.forEach(id => { next = removeFromOtherMonths(next as any, id, "song", monthKey!); });
+        return {
+          ...next,
+          distribution: {
+            ...next.distribution,
+            [monthKey!]: { ...(next.distribution as any)[monthKey!], songs: merged },
+          },
+        } as MonthlyPlanData;
+      });
+    } else {
+      updatePlanData(p => ({ ...p, songs: { ...p.songs, selected: merged } }));
+    }
   };
 
   return (
-    <WidgetCard icon={<Music className="w-4 h-4" />} title="Canciones" count={planData.songs.selected.length}>
+    <WidgetCard icon={<Music className="w-4 h-4" />} title="Canciones" count={currentIds.length}>
       <div className="space-y-2.5">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground shrink-0">Meta:</span>
@@ -110,15 +164,15 @@ export function SongPlannerWidget({ planData, updatePlanData, items }: WidgetPro
             }}
             className="h-7 w-16 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
-          <span className="text-xs text-muted-foreground">canciones a aprender</span>
+          <span className="text-xs text-muted-foreground">canciones en el trimestre</span>
         </div>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">Piano ({pianoItems.length})</p>
             <ItemSelector
               items={pianoItems.map(s => ({ id: s.id, title: s.title, subtitle: s.artist || undefined }))}
-              selected={pianoItems.filter(s => planData.songs.selected.includes(s.id)).map(s => s.id)}
-              onChange={ids => selectItems(ids)}
+              selected={pianoSelected}
+              onChange={ids => handleChange(ids, "piano")}
               placeholder="Seleccionar piano..."
               searchPlaceholder="Buscar canción de piano..."
             />
@@ -127,8 +181,8 @@ export function SongPlannerWidget({ planData, updatePlanData, items }: WidgetPro
             <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">Guitarra ({guitarItems.length})</p>
             <ItemSelector
               items={guitarItems.map(s => ({ id: s.id, title: s.title, subtitle: s.artist || undefined }))}
-              selected={guitarItems.filter(s => planData.songs.selected.includes(s.id)).map(s => s.id)}
-              onChange={ids => selectItems(ids)}
+              selected={guitarSelected}
+              onChange={ids => handleChange(ids, "guitar")}
               placeholder="Seleccionar guitarra..."
               searchPlaceholder="Buscar canción de guitarra..."
             />
