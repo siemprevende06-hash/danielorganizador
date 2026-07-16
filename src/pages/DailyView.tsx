@@ -24,9 +24,10 @@ import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutineBlocks';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -114,6 +115,40 @@ export default function DailyView() {
     tasks,
     planRoutineType,
   } = useDailyPlanData(new Date());
+
+  const [todayEvents, setTodayEvents] = useState<any[]>([]);
+  useEffect(() => {
+    supabase.from('calendar_events').select('*').eq('event_date', format(new Date(), 'yyyy-MM-dd')).order('event_date').then(({ data }) => { if (data) setTodayEvents(data); });
+  }, []);
+
+  const plannedTaskIds = useMemo(() => {
+    if (!planAssignments) return new Set<string>();
+    return new Set(Object.values(planAssignments).flat());
+  }, [planAssignments]);
+
+  const plannedTasks = useMemo(() => tasks.filter(t => plannedTaskIds.has(t.id) && !t.completed), [tasks, plannedTaskIds]);
+
+  const groupedTasks = useMemo(() => {
+    const groups: Record<string, typeof tasks> = {};
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    for (const task of plannedTasks) {
+      const key = task.source === 'entrepreneurship' ? 'emprendimiento' : task.source || 'general';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(task);
+    }
+    for (const key of Object.keys(groups)) {
+      groups[key].sort((a, b) => (priorityOrder[a.priority || 'medium'] ?? 1) - (priorityOrder[b.priority || 'medium'] ?? 1));
+    }
+    return groups;
+  }, [plannedTasks]);
+
+  const SOURCE_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
+    universidad: { label: 'Universidad', icon: <GraduationCap className="h-3.5 w-3.5" />, color: 'text-blue-500' },
+    emprendimiento: { label: 'Emprendimiento', icon: <Briefcase className="h-3.5 w-3.5" />, color: 'text-purple-500' },
+    proyectos: { label: 'Proyectos', icon: <FolderKanban className="h-3.5 w-3.5" />, color: 'text-amber-500' },
+    idiomas: { label: 'Idiomas', icon: <Globe className="h-3.5 w-3.5" />, color: 'text-emerald-500' },
+    general: { label: 'General', icon: <ListTodo className="h-3.5 w-3.5" />, color: 'text-muted-foreground' },
+  };
 
   const {
     adjustedBlocks,
@@ -338,6 +373,77 @@ export default function DailyView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Tareas y Eventos del Día */}
+        {Object.keys(groupedTasks).length > 0 && (
+          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <ListTodo className="h-4 w-4 text-indigo-500" />
+                <h2 className="text-sm font-semibold">Tareas del Día</h2>
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
+                  {plannedTasks.length} pendientes
+                </Badge>
+              </div>
+              <div className="space-y-2.5">
+                {Object.entries(groupedTasks).map(([source, sourceTasks]) => {
+                  const cfg = SOURCE_CONFIG[source] || { label: source, icon: <ListTodo className="h-3.5 w-3.5" />, color: 'text-muted-foreground' };
+                  return (
+                    <div key={source} className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <span className={cfg.color}>{cfg.icon}</span>
+                        <span>{cfg.label}</span>
+                        <span className="text-[9px] text-muted-foreground/60">({sourceTasks.length})</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {sourceTasks.map(task => {
+                          const priorityColors: Record<string, string> = { high: 'border-l-red-400 bg-red-50/30', medium: 'border-l-amber-300 bg-amber-50/20', low: 'border-l-gray-200' };
+                          const priorityLabel: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
+                          return (
+                            <div key={task.id} className={cn("flex items-center gap-2 py-1 px-2 rounded-lg border-l-2 text-xs", priorityColors[task.priority || 'medium'])}>
+                              <span className="flex-1 truncate">{task.title}</span>
+                              {task.priority && task.priority !== 'low' && (
+                                <span className={cn("text-[9px] font-medium shrink-0", task.priority === 'high' ? 'text-red-500' : 'text-amber-500')}>
+                                  {priorityLabel[task.priority]}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Eventos de Hoy */}
+        {todayEvents.length > 0 && (
+          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-sky-500 to-cyan-400" />
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-sky-500" />
+                <h2 className="text-sm font-semibold">Eventos de Hoy</h2>
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
+                  {todayEvents.length}
+                </Badge>
+              </div>
+              <div className="space-y-1">
+                {todayEvents.map((ev: any) => (
+                  <div key={ev.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20 text-xs">
+                    <span className="font-medium text-muted-foreground shrink-0">{ev.event_date?.slice(11, 16) || 'Todo el día'}</span>
+                    <span className="flex-1 truncate">{ev.title}</span>
+                    {ev.category && <Badge variant="outline" className="text-[9px] px-1">{ev.category}</Badge>}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Separator />
 
