@@ -3,17 +3,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   GraduationCap, Rocket, FolderKanban, Dumbbell, Languages,
   Piano, Guitar, BookOpen, Plus, Target, Calendar, TrendingUp,
-  Flame, Trophy, Trash2, Edit3, Zap, BarChart3, Sparkles
+  Flame, Trophy, Trash2, Edit3, Zap, BarChart3,   Sparkles, Music, Check, X
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -95,7 +97,27 @@ export default function TwelveWeekYear() {
   const [addDescription, setAddDescription] = useState("");
   const [addTarget, setAddTarget] = useState("");
 
+  // Songs & books from music/reading pages
+  const [musicSongs, setMusicSongs] = useState<Array<{id: string; title: string; artist: string | null; instrument: string}>>([]);
+  const [libraryBooks, setLibraryBooks] = useState<Array<{id: string; title: string; author: string | null}>>([]);
+
+  // Selection dialog state
+  const [selectDialogOpen, setSelectDialogOpen] = useState(false);
+  const [selectCategory, setSelectCategory] = useState<string>('');
+  const [selectMonth, setSelectMonth] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectQuantity, setSelectQuantity] = useState(0);
+
   useEffect(() => { fetchGoals(); }, []);
+
+  useEffect(() => {
+    supabase.from('music_repertoire').select('id, title, artist, instrument').order('title').then(({ data }) => {
+      if (data) setMusicSongs(data);
+    });
+    supabase.from('reading_library').select('id, title, author').order('title').then(({ data }) => {
+      if (data) setLibraryBooks(data);
+    });
+  }, []);
 
   const fetchGoals = async () => {
     try {
@@ -194,6 +216,76 @@ export default function TwelveWeekYear() {
 
   const getCategoryInfo = (categoryId: string) =>
     CATEGORIES.find(c => c.id === categoryId) || CATEGORIES[0];
+
+  // Extra area helpers
+  const getExtraGoal = (category: string, month: number | null) =>
+    quarterGoals.find(g => g.category === category && g.month === month);
+
+  const getExtraGoalQuantity = (category: string, month: number | null) => {
+    const g = getExtraGoal(category, month);
+    if (!g?.target_value) return 0;
+    const v = parseInt(g.target_value);
+    return isNaN(v) ? 0 : v;
+  };
+
+  const getConnectedSongs = (category: string, month: number | null) => {
+    const g = getExtraGoal(category, month);
+    if (!g?.connected_blocks?.length) return [];
+    return musicSongs.filter(s => g.connected_blocks!.includes(s.id));
+  };
+
+  const getConnectedBooks = (month: number | null) => {
+    const g = getExtraGoal('lectura', month);
+    if (!g?.connected_blocks?.length) return [];
+    return libraryBooks.filter(b => g.connected_blocks!.includes(b.id));
+  };
+
+  const openSelectDialog = (category: string, month: number | null) => {
+    const goal = getExtraGoal(category, month);
+    setSelectCategory(category);
+    setSelectMonth(month);
+    setSelectQuantity(getExtraGoalQuantity(category, month));
+    setSelectedIds(goal?.connected_blocks || []);
+    setSelectDialogOpen(true);
+  };
+
+  const saveExtraGoal = async (category: string, month: number | null, data: { target_value?: string; connected_blocks?: string[] }) => {
+    const existing = getExtraGoal(category, month);
+    try {
+      if (existing) {
+        const { error } = await supabase.from('twelve_week_goals').update(data).eq('id', existing.id);
+        if (error) throw error;
+        setGoals(prev => prev.map(g => g.id === existing.id ? { ...g, ...data } : g));
+      } else {
+        const catInfo = getCategoryInfo(category);
+        const { data: inserted, error } = await supabase.from('twelve_week_goals').insert({
+          title: `${catInfo.name} - Mes ${month || 'Sin mes'}`,
+          category,
+          month,
+          quarter: selectedQuarter,
+          year: 2026,
+          target_value: data.target_value || '0',
+          connected_blocks: data.connected_blocks || [],
+          progress_percentage: 0,
+          weekly_actions: [],
+          status: 'active',
+        }).select().single();
+        if (error) throw error;
+        if (inserted) setGoals(prev => [...prev, inserted as TwelveWeekGoal]);
+      }
+      toast.success("Configuración guardada");
+    } catch {
+      toast.error("Error al guardar");
+    }
+  };
+
+  const confirmSelection = async () => {
+    await saveExtraGoal(selectCategory, selectMonth, {
+      target_value: String(selectQuantity),
+      connected_blocks: selectedIds,
+    });
+    setSelectDialogOpen(false);
+  };
 
   const getCurrentWeek = () => {
     const now = new Date();
@@ -475,9 +567,94 @@ export default function TwelveWeekYear() {
 
         {quarterGoals.length > 0 && renderAreaGrid(MAIN_AREA_IDS, "Metas Principales", <TrendingUp className="h-3.5 w-3.5" />)}
 
-        {quarterGoals.filter(g => EXTRA_AREA_IDS.includes(g.category)).length > 0 &&
-          renderAreaGrid(EXTRA_AREA_IDS, "Metas Adicionales", <Sparkles className="h-3.5 w-3.5" />)
-        }
+        {/* Metas Adicionales: Piano, Guitarra, Lectura — con selección de canciones/libros */}
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
+          <CardContent className="p-4 space-y-3">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              Metas Adicionales
+            </h2>
+
+            <div className="overflow-x-auto pb-2">
+              <div className="min-w-[650px] space-y-3">
+                {/* Header row */}
+                <div className="grid gap-1.5" style={{ gridTemplateColumns: '160px repeat(3,1fr)' }}>
+                  <div />
+                  {MONTHS.map(m => (
+                    <div key={m.id} className="text-center py-1">
+                      <div className="text-xs font-bold">{m.label}</div>
+                      <div className="text-[9px] text-muted-foreground">{m.subtitle}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {EXTRA_AREA_IDS.map(aid => {
+                  const cat = getCategoryInfo(aid);
+                  const Icon = cat.icon;
+                  return (
+                    <div key={aid} className="grid gap-1.5" style={{ gridTemplateColumns: '160px repeat(3,1fr)' }}>
+                      <div className="flex items-center gap-1.5 py-1 min-w-0">
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${cat.color}15` }}>
+                          <Icon className="h-3.5 w-3.5" style={{ color: cat.color }} />
+                        </div>
+                        <span className="text-xs font-medium truncate">{cat.name}</span>
+                      </div>
+
+                      {MONTHS.map(m => {
+                        const qty = getExtraGoalQuantity(aid, m.id);
+                        const connectedSongs = aid !== 'lectura' ? getConnectedSongs(aid, m.id) : [];
+                        const connectedBooks = aid === 'lectura' ? getConnectedBooks(m.id) : [];
+                        const items = aid === 'lectura' ? connectedBooks : connectedSongs;
+                        return (
+                          <div key={m.id} className="space-y-1.5 min-h-[60px] p-1.5 rounded-lg border border-border/40 bg-muted/20">
+                            <div className="flex items-center justify-between gap-1">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">Cant:</span>
+                                <Input
+                                  type="number" min={0} max={99}
+                                  value={qty}
+                                  onChange={async (e) => {
+                                    const v = parseInt(e.target.value) || 0;
+                                    await saveExtraGoal(aid, m.id, { target_value: String(v), connected_blocks: getExtraGoal(aid, m.id)?.connected_blocks || [] });
+                                  }}
+                                  className="h-6 w-12 text-xs text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[10px] rounded-full gap-1 px-2"
+                                onClick={() => openSelectDialog(aid, m.id)}
+                              >
+                                <Music className="h-3 w-3" /> Seleccionar
+                              </Button>
+                            </div>
+                            {items.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {items.slice(0, 3).map((item: any) => (
+                                  <Badge key={item.id} variant="secondary" className="text-[9px] px-1.5 py-0 truncate max-w-[100px]">
+                                    {item.title}
+                                  </Badge>
+                                ))}
+                                {items.length > 3 && (
+                                  <Badge variant="outline" className="text-[9px] px-1.5 py-0">+{items.length - 3}</Badge>
+                                )}
+                              </div>
+                            )}
+                            {items.length === 0 && qty > 0 && (
+                              <p className="text-[9px] text-muted-foreground italic">Selecciona {aid === 'lectura' ? 'libros' : 'canciones'}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Esfuerzo y Resultados */}
         <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
@@ -545,6 +722,101 @@ export default function TwelveWeekYear() {
                 </SelectContent>
               </Select>
               <Button onClick={addGoal} className="w-full">Agregar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Selection dialog for songs/books */}
+        <Dialog open={selectDialogOpen} onOpenChange={setSelectDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {selectCategory === 'lectura' ? 'Seleccionar Libros' : `Seleccionar Canciones de ${getCategoryInfo(selectCategory).name}`}
+              </DialogTitle>
+              <DialogDescription>
+                {selectCategory === 'lectura'
+                  ? 'Selecciona los libros de la biblioteca para este mes'
+                  : `Selecciona las canciones de ${getCategoryInfo(selectCategory).name} del repertorio para este mes`}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Cantidad a completar:</span>
+                <Input
+                  type="number" min={0} max={99}
+                  value={selectQuantity}
+                  onChange={e => setSelectQuantity(parseInt(e.target.value) || 0)}
+                  className="h-8 w-16 text-sm text-center"
+                />
+              </div>
+              <ScrollArea className="h-64 border rounded-lg p-2">
+                {selectCategory === 'lectura' ? (
+                  libraryBooks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No hay libros en la biblioteca</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {libraryBooks.map(book => (
+                        <label key={book.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer">
+                          <Checkbox
+                            checked={selectedIds.includes(book.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedIds(prev =>
+                                checked ? [...prev, book.id] : prev.filter(id => id !== book.id)
+                              );
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{book.title}</p>
+                            {book.author && <p className="text-xs text-muted-foreground truncate">{book.author}</p>}
+                          </div>
+                          {selectedIds.includes(book.id) && <Check className="h-4 w-4 text-primary shrink-0" />}
+                        </label>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  (() => {
+                    const instrument = selectCategory === 'piano' ? 'piano' : 'guitar';
+                    const filteredSongs = musicSongs.filter(s => s.instrument === instrument);
+                    return filteredSongs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        No hay canciones de {getCategoryInfo(selectCategory).name} en el repertorio
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {filteredSongs.map(song => (
+                          <label key={song.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer">
+                            <Checkbox
+                              checked={selectedIds.includes(song.id)}
+                              onCheckedChange={(checked) => {
+                                setSelectedIds(prev =>
+                                  checked ? [...prev, song.id] : prev.filter(id => id !== song.id)
+                                );
+                              }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{song.title}</p>
+                              {song.artist && <p className="text-xs text-muted-foreground truncate">{song.artist}</p>}
+                            </div>
+                            {selectedIds.includes(song.id) && <Check className="h-4 w-4 text-primary shrink-0" />}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })()
+                )}
+              </ScrollArea>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">{selectedIds.length} seleccionados</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelectDialogOpen(false)}>
+                    <X className="h-3.5 w-3.5 mr-1" /> Cancelar
+                  </Button>
+                  <Button size="sm" onClick={confirmSelection}>
+                    <Check className="h-3.5 w-3.5 mr-1" /> Guardar
+                  </Button>
+                </div>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

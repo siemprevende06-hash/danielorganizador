@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { wallets as initialWallets, defaultDistributionBags } from '@/lib/data';
-import type { Wallet, Transaction, Loan, DistributionBag } from '@/lib/definitions';
+import type { Wallet, Transaction, Loan, DistributionBag, Debt } from '@/lib/definitions';
 import type { LucideIcon } from 'lucide-react';
 import { Banknote, CreditCard, PiggyBank, Target, Wallet as WalletIcon, Shield, TrendingUp, Home, Gamepad2, BookOpen, Heart, GraduationCap, Sparkles, DollarSign, Plane, Coffee } from 'lucide-react';
 
@@ -11,184 +10,72 @@ const iconStringToComponent: Record<string, LucideIcon> = {
   GraduationCap, Sparkles, DollarSign, Plane, Coffee,
 };
 
+function saveToLocal(key: string, data: any) {
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
+}
+
+function loadFromLocal<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
+}
+
+function genId(): string {
+  return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
 export const useFinance = () => {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [distributionBags, setDistributionBags] = useState<DistributionBag[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const [exchangeRate, setExchangeRateState] = useState(360);
   const [isLoading, setIsLoading] = useState(true);
 
-  const setExchangeRate = useCallback(async (rate: number) => {
+  const setExchangeRate = useCallback((rate: number) => {
     setExchangeRateState(rate);
-    try {
-      const { data: existing } = await supabase
-        .from('user_settings')
-        .select('id')
-        .limit(1);
-      if (existing && existing.length > 0) {
-        await supabase
-          .from('user_settings')
-          .update({ exchange_rate: rate })
-          .eq('id', existing[0].id);
-      } else {
-        await supabase
-          .from('user_settings')
-          .insert({ exchange_rate: rate, user_id: '00000000-0000-0000-0000-000000000000' });
-      }
-    } catch (error) {
-      console.error('Error saving exchange rate:', error);
-    }
+    saveToLocal('exchangeRate', rate);
   }, []);
 
   useEffect(() => {
-    const loadFinanceData = async () => {
+    const loadFinanceData = () => {
       setIsLoading(true);
       try {
-        const { data: walletsData, error: walletsError } = await supabase
-          .from('wallets')
-          .select('*');
+        const storedWallets = loadFromLocal<Wallet[]>('wallets', initialWallets.map((w, i) => ({ ...w, id: genId() })));
+        const storedTransactions = loadFromLocal<Transaction[]>('transactions', []);
+        const storedLoans = loadFromLocal<Loan[]>('loans', []);
+        const storedDebts = loadFromLocal<Debt[]>('debts', []);
+        const storedBags = loadFromLocal<DistributionBag[]>('distributionBags', defaultDistributionBags.map(b => ({ ...b, id: genId(), balance: 0 })));
+        const storedRate = loadFromLocal<number>('exchangeRate', 360);
 
-        if (walletsError) throw walletsError;
-
-        const { data: transactionsData, error: transactionsError } = await supabase
-          .from('transactions')
-          .select('*')
-          .order('transaction_date', { ascending: false });
-
-        if (transactionsError) throw transactionsError;
-
-        const { data: loansData, error: loansError } = await supabase
-          .from('loans')
-          .select('*')
-          .order('loan_date', { ascending: false });
-
-        if (loansError) throw loansError;
-
-        const { data: bagsData, error: bagsError } = await supabase
-          .from('distribution_bags')
-          .select('*');
-
-        if (bagsError) throw bagsError;
-
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('user_settings')
-          .select('exchange_rate')
-          .limit(1);
-
-        if (settingsError) throw settingsError;
-        if (settingsData && settingsData.length > 0 && settingsData[0].exchange_rate) {
-          setExchangeRateState(Number(settingsData[0].exchange_rate));
+        if (storedWallets.length > 0) setWallets(storedWallets);
+        else {
+          const defaults = initialWallets.map((w, i) => ({ ...w, id: genId() }));
+          setWallets(defaults);
+          saveToLocal('wallets', defaults);
         }
 
-        const formattedWallets: Wallet[] = walletsData?.map((w: any) => ({
-          id: w.id,
-          name: w.name,
-          balance: Number(w.balance),
-          icon: iconStringToComponent[w.icon] || WalletIcon,
-        })) || [];
+        setTransactions(storedTransactions.map(t => ({ ...t, date: new Date(t.date) })));
+        setLoans(storedLoans.map(l => ({ ...l, date: new Date(l.date) })));
+        const parsedDebts = storedDebts.map(d => ({
+          ...d,
+          date: new Date(d.date),
+          dueDate: d.dueDate ? new Date(d.dueDate) : undefined,
+        }));
+        setDebts(parsedDebts);
 
-        const formattedTransactions: Transaction[] = transactionsData?.map((t: any) => ({
-          id: t.id,
-          description: t.description,
-          amount: Number(t.amount),
-          date: new Date(t.transaction_date),
-          walletId: t.wallet_id,
-          categoryId: t.category_id,
-          type: t.transaction_type as 'income' | 'expense',
-          transferId: t.transfer_id,
-          loanId: t.loan_id,
-          distributed: t.distributed || false,
-        })) || [];
-
-        const formattedLoans: Loan[] = loansData?.map((l: any) => ({
-          id: l.id,
-          person: l.person,
-          description: l.description,
-          totalAmount: Number(l.total_amount),
-          paidAmount: Number(l.paid_amount),
-          walletId: l.wallet_id,
-          date: new Date(l.loan_date),
-          status: l.status as 'outstanding' | 'paid',
-        })) || [];
-
-        const formattedBags: DistributionBag[] = bagsData?.map((b: any) => ({
-          id: b.id,
-          name: b.name,
-          description: b.description || '',
-          percentage: Number(b.percentage),
-          icon: b.icon || 'Target',
-          color: b.color || 'blue',
-          balance: Number(b.balance) || 0,
-        })) || [];
-
-        if (formattedWallets.length === 0) {
-          const iconNameByPosition = ['Banknote', 'Banknote', 'CreditCard', 'PiggyBank', 'Target', 'Wallet', 'Wallet'];
-          for (let i = 0; i < initialWallets.length; i++) {
-            await supabase.from('wallets').insert({
-              name: initialWallets[i].name,
-              balance: initialWallets[i].balance,
-              icon: iconNameByPosition[i] || 'Wallet',
-            });
-          }
-          const { data: newWallets } = await supabase.from('wallets').select('*');
-          setWallets(newWallets?.map((w: any) => ({
-            id: w.id,
-            name: w.name,
-            balance: Number(w.balance),
-            icon: iconStringToComponent[w.icon] || WalletIcon,
-          })) || []);
-        } else {
-          setWallets(formattedWallets);
+        if (storedBags.length > 0) setDistributionBags(storedBags);
+        else {
+          const defaults = defaultDistributionBags.map(b => ({ ...b, id: genId(), balance: 0 }));
+          setDistributionBags(defaults);
+          saveToLocal('distributionBags', defaults);
         }
 
-        if (formattedBags.length === 0) {
-          for (const bag of defaultDistributionBags) {
-            await supabase.from('distribution_bags').insert({
-              name: bag.name,
-              description: bag.description,
-              percentage: bag.percentage,
-              icon: bag.icon,
-              color: bag.color,
-              balance: 0,
-            });
-          }
-          const { data: newBags } = await supabase.from('distribution_bags').select('*');
-          setDistributionBags(newBags?.map((b: any) => ({
-            id: b.id,
-            name: b.name,
-            description: b.description || '',
-            percentage: Number(b.percentage),
-            icon: b.icon || 'Target',
-            color: b.color || 'blue',
-            balance: Number(b.balance) || 0,
-          })) || []);
-        } else {
-          setDistributionBags(formattedBags);
-        }
-
-        setTransactions(formattedTransactions);
-        setLoans(formattedLoans);
+        setExchangeRateState(storedRate);
       } catch (error) {
         console.error('Error loading finance data:', error);
-        const storedWallets = localStorage.getItem('wallets');
-        setWallets(storedWallets ? JSON.parse(storedWallets) : initialWallets);
-        const storedTransactions = localStorage.getItem('transactions');
-        if (storedTransactions) {
-          setTransactions(JSON.parse(storedTransactions, (key, value) =>
-            key === 'date' ? new Date(value) : value
-          ));
-        }
-        const storedLoans = localStorage.getItem('loans');
-        if (storedLoans) {
-          setLoans(JSON.parse(storedLoans, (key, value) =>
-            key === 'date' ? new Date(value) : value
-          ));
-        }
-        const storedBags = localStorage.getItem('distributionBags');
-        setDistributionBags(storedBags ? JSON.parse(storedBags) : defaultDistributionBags);
-        const storedRate = localStorage.getItem('exchangeRate');
-        if (storedRate) setExchangeRateState(parseFloat(storedRate));
       } finally {
         setIsLoading(false);
       }
@@ -198,194 +85,107 @@ export const useFinance = () => {
   }, []);
 
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert({
-          wallet_id: transaction.walletId,
-          description: transaction.description,
-          amount: transaction.amount,
-          transaction_type: transaction.type,
-          category_id: transaction.categoryId,
-          transaction_date: transaction.date.toISOString(),
-          transfer_id: transaction.transferId || null,
-          loan_id: transaction.loanId || null,
-          distributed: transaction.distributed || false,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newTransaction: Transaction = {
-        id: data.id,
-        description: data.description,
-        amount: Number(data.amount),
-        date: new Date(data.transaction_date),
-        walletId: data.wallet_id,
-        categoryId: data.category_id,
-        type: data.transaction_type as 'income' | 'expense',
-        transferId: data.transfer_id,
-        loanId: data.loan_id,
-        distributed: data.distributed || false,
-      };
-
-      setTransactions(prev => [newTransaction, ...prev]);
-      return newTransaction;
-    } catch (error) {
-      console.error('Error adding transaction:', error);
-      return null;
-    }
+    const newTransaction: Transaction = { ...transaction, id: genId() };
+    setTransactions(prev => {
+      const updated = [newTransaction, ...prev];
+      saveToLocal('transactions', updated);
+      return updated;
+    });
+    return newTransaction;
   }, []);
 
   const deleteTransaction = useCallback(async (transactionId: string) => {
-    try {
-      await supabase.from('transactions').delete().eq('id', transactionId);
-      setTransactions(prev => prev.filter(t => t.id !== transactionId));
-    } catch (error) {
-      console.error('Error deleting transaction:', error);
-    }
+    setTransactions(prev => {
+      const updated = prev.filter(t => t.id !== transactionId);
+      saveToLocal('transactions', updated);
+      return updated;
+    });
   }, []);
 
   const updateWalletBalance = useCallback(async (walletId: string, newBalance: number) => {
-    try {
-      await supabase
-        .from('wallets')
-        .update({ balance: newBalance })
-        .eq('id', walletId);
-      setWallets(prev =>
-        prev.map(w => w.id === walletId ? { ...w, balance: newBalance } : w)
-      );
-    } catch (error) {
-      console.error('Error updating wallet:', error);
-    }
+    setWallets(prev => {
+      const updated = prev.map(w => w.id === walletId ? { ...w, balance: newBalance } : w);
+      saveToLocal('wallets', updated);
+      return updated;
+    });
   }, []);
 
   const updateWallet = useCallback(async (walletId: string, updates: Partial<Wallet>) => {
-    try {
-      const dbUpdates: any = {};
-      if (updates.name !== undefined) dbUpdates.name = updates.name;
-      if (updates.balance !== undefined) dbUpdates.balance = updates.balance;
-      await supabase.from('wallets').update(dbUpdates).eq('id', walletId);
-      setWallets(prev =>
-        prev.map(w => w.id === walletId ? { ...w, ...updates } : w)
-      );
-    } catch (error) {
-      console.error('Error updating wallet:', error);
-    }
+    setWallets(prev => {
+      const updated = prev.map(w => w.id === walletId ? { ...w, ...updates } : w);
+      saveToLocal('wallets', updated);
+      return updated;
+    });
   }, []);
 
   const addLoan = useCallback(async (loan: Omit<Loan, 'id'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('loans')
-        .insert({
-          wallet_id: loan.walletId,
-          person: loan.person,
-          description: loan.description,
-          total_amount: loan.totalAmount,
-          paid_amount: loan.paidAmount,
-          status: loan.status,
-          loan_date: loan.date.toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newLoan: Loan = {
-        id: data.id,
-        person: data.person,
-        description: data.description,
-        totalAmount: Number(data.total_amount),
-        paidAmount: Number(data.paid_amount),
-        walletId: data.wallet_id,
-        date: new Date(data.loan_date),
-        status: data.status as 'outstanding' | 'paid',
-      };
-
-      setLoans(prev => [newLoan, ...prev]);
-      return newLoan;
-    } catch (error) {
-      console.error('Error adding loan:', error);
-      return null;
-    }
+    const newLoan: Loan = { ...loan, id: genId() };
+    setLoans(prev => {
+      const updated = [newLoan, ...prev];
+      saveToLocal('loans', updated);
+      return updated;
+    });
+    return newLoan;
   }, []);
 
   const updateLoan = useCallback(async (loanId: string, updates: Partial<Loan>) => {
-    try {
-      const dbUpdates: any = {};
-      if (updates.paidAmount !== undefined) dbUpdates.paid_amount = updates.paidAmount;
-      if (updates.status !== undefined) dbUpdates.status = updates.status;
-      await supabase.from('loans').update(dbUpdates).eq('id', loanId);
-      setLoans(prev =>
-        prev.map(l => l.id === loanId ? { ...l, ...updates } : l)
-      );
-    } catch (error) {
-      console.error('Error updating loan:', error);
-    }
+    setLoans(prev => {
+      const updated = prev.map(l => l.id === loanId ? { ...l, ...updates } : l);
+      saveToLocal('loans', updated);
+      return updated;
+    });
+  }, []);
+
+  const addDebt = useCallback(async (debt: Omit<Debt, 'id'>) => {
+    const newDebt: Debt = { ...debt, id: genId() };
+    setDebts(prev => {
+      const updated = [newDebt, ...prev];
+      saveToLocal('debts', updated);
+      return updated;
+    });
+    return newDebt;
+  }, []);
+
+  const updateDebt = useCallback(async (debtId: string, updates: Partial<Debt>) => {
+    setDebts(prev => {
+      const updated = prev.map(d => d.id === debtId ? { ...d, ...updates } : d);
+      saveToLocal('debts', updated);
+      return updated;
+    });
+  }, []);
+
+  const deleteDebt = useCallback(async (debtId: string) => {
+    setDebts(prev => {
+      const updated = prev.filter(d => d.id !== debtId);
+      saveToLocal('debts', updated);
+      return updated;
+    });
   }, []);
 
   const addDistributionBag = useCallback(async (bag: Omit<DistributionBag, 'id'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('distribution_bags')
-        .insert({
-          name: bag.name,
-          description: bag.description,
-          percentage: bag.percentage,
-          icon: bag.icon,
-          color: bag.color,
-          balance: bag.balance || 0,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newBag: DistributionBag = {
-        id: data.id,
-        name: data.name,
-        description: data.description || '',
-        percentage: Number(data.percentage),
-        icon: data.icon || 'Target',
-        color: data.color || 'blue',
-        balance: Number(data.balance) || 0,
-      };
-
-      setDistributionBags(prev => [...prev, newBag]);
-      return newBag;
-    } catch (error) {
-      console.error('Error adding distribution bag:', error);
-      return null;
-    }
+    const newBag: DistributionBag = { ...bag, id: genId() };
+    setDistributionBags(prev => {
+      const updated = [...prev, newBag];
+      saveToLocal('distributionBags', updated);
+      return updated;
+    });
+    return newBag;
   }, []);
 
   const updateDistributionBag = useCallback(async (bagId: string, updates: Partial<DistributionBag>) => {
-    try {
-      const dbUpdates: any = {};
-      if (updates.name !== undefined) dbUpdates.name = updates.name;
-      if (updates.percentage !== undefined) dbUpdates.percentage = updates.percentage;
-      if (updates.description !== undefined) dbUpdates.description = updates.description;
-      if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
-      if (updates.color !== undefined) dbUpdates.color = updates.color;
-      if (updates.balance !== undefined) dbUpdates.balance = updates.balance;
-      await supabase.from('distribution_bags').update(dbUpdates).eq('id', bagId);
-      setDistributionBags(prev =>
-        prev.map(b => b.id === bagId ? { ...b, ...updates } : b)
-      );
-    } catch (error) {
-      console.error('Error updating distribution bag:', error);
-    }
+    setDistributionBags(prev => {
+      const updated = prev.map(b => b.id === bagId ? { ...b, ...updates } : b);
+      saveToLocal('distributionBags', updated);
+      return updated;
+    });
   }, []);
 
   const deleteDistributionBag = useCallback(async (bagId: string) => {
-    try {
-      await supabase.from('distribution_bags').delete().eq('id', bagId);
-      setDistributionBags(prev => prev.filter(b => b.id !== bagId));
-    } catch (error) {
-      console.error('Error deleting distribution bag:', error);
-    }
+    setDistributionBags(prev => {
+      const updated = prev.filter(b => b.id !== bagId);
+      saveToLocal('distributionBags', updated);
+      return updated;
+    });
   }, []);
 
   const setDistributionBagsState = useCallback((bags: DistributionBag[] | ((prev: DistributionBag[]) => DistributionBag[])) => {
@@ -404,10 +204,15 @@ export const useFinance = () => {
     setLoans(l);
   }, []);
 
+  const setDebtsState = useCallback((d: Debt[] | ((prev: Debt[]) => Debt[])) => {
+    setDebts(d);
+  }, []);
+
   return {
     wallets,
     transactions,
     loans,
+    debts,
     distributionBags,
     exchangeRate,
     setExchangeRate,
@@ -415,6 +220,7 @@ export const useFinance = () => {
     setWallets: setWalletsState,
     setTransactions: setTransactionsState,
     setLoans: setLoansState,
+    setDebts: setDebtsState,
     setDistributionBags: setDistributionBagsState,
     addTransaction,
     deleteTransaction,
@@ -422,6 +228,9 @@ export const useFinance = () => {
     updateWallet,
     addLoan,
     updateLoan,
+    addDebt,
+    updateDebt,
+    deleteDebt,
     addDistributionBag,
     updateDistributionBag,
     deleteDistributionBag,
