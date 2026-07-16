@@ -365,11 +365,11 @@ export default function Finance() {
 
     const transferId = crypto.randomUUID();
     await addTransaction({
-      description: `Traspaso a ${toWallet.name}`, amount: data.amount, currency: data.currency,
+      description: `Traspaso a ${toWallet.name}`, amount: data.amount,
       date: new Date(), walletId: data.fromWalletId, categoryId: 'cat-transfer', type: 'expense', transferId, distributed: false,
     });
     await addTransaction({
-      description: `Traspaso desde ${fromWallet.name}`, amount: data.amount, currency: data.currency,
+      description: `Traspaso desde ${fromWallet.name}`, amount: data.amount,
       date: new Date(), walletId: data.toWalletId, categoryId: 'cat-transfer', type: 'income', transferId, distributed: false,
     });
     await updateWalletBalance(data.fromWalletId, fromWallet.balance - data.amount);
@@ -390,7 +390,7 @@ export default function Finance() {
     }
 
     await addTransaction({
-      description: `Préstamo a ${data.person}: ${data.description}`, amount: data.amount, currency: data.currency,
+      description: `Préstamo a ${data.person}: ${data.description}`, amount: data.amount,
       date: new Date(), walletId: data.walletId, categoryId: 'cat-loan', type: 'expense',
       loanId: crypto.randomUUID(), distributed: false,
     });
