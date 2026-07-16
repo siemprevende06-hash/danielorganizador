@@ -21,6 +21,7 @@ interface CategoryData {
 interface WalletDistData {
   name: string;
   value: number;
+  [key: string]: string | number;
 }
 
 const formatCurrency = (v: number) =>
