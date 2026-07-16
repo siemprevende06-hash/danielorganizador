@@ -76,6 +76,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     label: 'LÍNEA DE TIEMPO',
     items: [
       { path: '/daily', label: 'Hoy', icon: CalendarDays },
+      { path: '/plan-manana', label: 'Mañana', icon: CalendarDays },
       { path: '/weekly', label: 'Semana', icon: CalendarRange },
       { path: '/monthly', label: 'Mes', icon: Calendar },
       { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },

@@ -72,6 +72,7 @@ import WeeklyPlanningPage from "./pages/WeeklyPlanningPage";
 import Realidad from "./pages/Realidad";
 import HabilidadesValiosas from "./pages/HabilidadesValiosas";
 import ObjetivoVision1Ano from "./pages/ObjetivoVision1Ano";
+import PlanManana from "./pages/PlanManana";
 
 const queryClient = new QueryClient();
 
@@ -148,6 +149,7 @@ function AppContent() {
         <Route path="/paginas/:id" element={<Paginas />} />
         <Route path="/habilidades-valiosas" element={<HabilidadesValiosas />} />
         <Route path="/objetivo-vision-1-ano" element={<ObjetivoVision1Ano />} />
+        <Route path="/plan-manana" element={<PlanManana />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
