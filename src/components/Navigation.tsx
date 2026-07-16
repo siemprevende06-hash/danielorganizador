@@ -123,6 +123,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { label: 'Motivos', icon: Heart, submenu: [
         { path: '/motivos', label: 'Motivos' },
         { path: '/motivos/realidad', label: 'Realidad' },
+        { path: '/objetivo-vision-1-ano', label: 'Visión 1 Año' },
       ]},
       { path: '/punto-partida', label: 'Punto Partida', icon: Activity },
       { path: '/goal-alignment', label: 'Conexión Total', icon: Compass },
