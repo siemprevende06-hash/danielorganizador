@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Save, Target } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Target, Book, Music, Gamepad2, Palette, Globe, Code, Briefcase, ListTodo, GraduationCap, FolderKanban, Calendar, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan';
 import {
@@ -17,6 +18,27 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 const MONTH_KEYS = ["month1", "month2", "month3"] as const;
+
+function NoteCard({ icon, label, value, onChange }: { icon: React.ReactNode; label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <Card className="overflow-hidden border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
+      <CardContent className="p-3 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-500 shrink-0">
+            {icon}
+          </div>
+          <span className="text-xs font-semibold">{label}</span>
+        </div>
+        <Input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={`Meta para ${label.toLowerCase()}...`}
+          className="h-7 text-xs"
+        />
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function TrimestralPlanningPage() {
   const now = new Date();
@@ -49,6 +71,10 @@ export default function TrimestralPlanningPage() {
   const handleSave = async () => {
     await savePlan();
     toast({ title: 'Plan trimestral guardado', description: `Q${quarter} ${year} actualizado.` });
+  };
+
+  const setNote = (key: string, value: string) => {
+    updatePlanData(p => ({ ...p, notes: { ...p.notes, [key]: value } }));
   };
 
   const bookItems = books.map(b => ({ id: b.id, title: b.title, subtitle: b.author || undefined }));
@@ -137,35 +163,137 @@ export default function TrimestralPlanningPage() {
             </Button>
           </div>
 
-          {/* Area: Desarrollo Personal */}
-          <div className="space-y-3">
+          {/* ===== ÁREA: DESARROLLO PERSONAL ===== */}
+          <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-1 h-6 rounded-full bg-emerald-400" />
+              <div className="w-1 h-8 rounded-full bg-gradient-to-b from-emerald-400 to-emerald-500" />
               <div>
-                <h2 className="text-sm font-bold">Desarrollo Personal</h2>
-                <p className="text-[10px] text-muted-foreground">Lectura, música y metas personales</p>
+                <h2 className="text-base font-bold">Desarrollo Personal</h2>
+                <p className="text-[10px] text-muted-foreground">Crecimiento intelectual, creatividad y bienestar</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} monthKey={activeMonthKey} />
-              <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} monthKey={activeMonthKey} />
-              <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
+
+            {/* Sub-área: Lectura */}
+            <div className="space-y-2 pl-4 border-l-2 border-emerald-200/50">
+              <div className="flex items-center gap-2">
+                <Book className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Lectura</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} monthKey={activeMonthKey} />
+              </div>
+            </div>
+
+            {/* Sub-área: Música */}
+            <div className="space-y-2 pl-4 border-l-2 border-rose-200/50">
+              <div className="flex items-center gap-2">
+                <Music className="h-3.5 w-3.5 text-rose-500" />
+                <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Música</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} monthKey={activeMonthKey} />
+              </div>
+            </div>
+
+            {/* Sub-área: Hobbies */}
+            <div className="space-y-2 pl-4 border-l-2 border-amber-200/50">
+              <div className="flex items-center gap-2">
+                <Heart className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Hobbies</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <NoteCard icon={<Gamepad2 className="h-3.5 w-3.5" />} label="Ajedrez" value={planData.notes.ajedrez || ''} onChange={v => setNote('ajedrez', v)} />
+                <NoteCard icon={<Palette className="h-3.5 w-3.5" />} label="Dibujo" value={planData.notes.dibujo || ''} onChange={v => setNote('dibujo', v)} />
+              </div>
+            </div>
+
+            {/* Sub-área: Habilidades Valiosas */}
+            <div className="space-y-2 pl-4 border-l-2 border-cyan-200/50">
+              <div className="flex items-center gap-2">
+                <Code className="h-3.5 w-3.5 text-cyan-500" />
+                <span className="text-xs font-semibold text-cyan-700 dark:text-cyan-400">Habilidades Valiosas</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Idiomas" value={planData.notes.idiomas || ''} onChange={v => setNote('idiomas', v)} />
+                <NoteCard icon={<Code className="h-3.5 w-3.5" />} label="Habilidades Técnicas" value={planData.notes.habilidades_tecnicas || ''} onChange={v => setNote('habilidades_tecnicas', v)} />
+              </div>
+            </div>
+
+            {/* Sub-área: Metas Personales */}
+            <div className="space-y-2 pl-4 border-l-2 border-purple-200/50">
+              <div className="flex items-center gap-2">
+                <Target className="h-3.5 w-3.5 text-purple-500" />
+                <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Metas Personales</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
+              </div>
             </div>
           </div>
 
-          {/* Area: Profesional Académico */}
-          <div className="space-y-3">
+          {/* ===== ÁREA: PROFESIONAL ACADÉMICO ===== */}
+          <div className="space-y-4 pt-2">
             <div className="flex items-center gap-3">
-              <div className="w-1 h-6 rounded-full bg-sky-400" />
+              <div className="w-1 h-8 rounded-full bg-gradient-to-b from-sky-400 to-blue-500" />
               <div>
-                <h2 className="text-sm font-bold">Profesional Académico</h2>
-                <p className="text-[10px] text-muted-foreground">Proyectos, asignaturas y eventos</p>
+                <h2 className="text-base font-bold">Profesional Académico</h2>
+                <p className="text-[10px] text-muted-foreground">Carrera, estudios y proyectos</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
-              <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
-              <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
+
+            {/* Sub-área: Universidad */}
+            <div className="space-y-2 pl-4 border-l-2 border-blue-200/50">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-3.5 w-3.5 text-blue-500" />
+                <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Universidad</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
+              </div>
+            </div>
+
+            {/* Sub-área: Proyectos */}
+            <div className="space-y-2 pl-4 border-l-2 border-amber-200/50">
+              <div className="flex items-center gap-2">
+                <FolderKanban className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Proyectos</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
+              </div>
+            </div>
+
+            {/* Sub-área: Emprendimiento */}
+            <div className="space-y-2 pl-4 border-l-2 border-purple-200/50">
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-3.5 w-3.5 text-purple-500" />
+                <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Emprendimiento</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <NoteCard icon={<Briefcase className="h-3.5 w-3.5" />} label="Enfoque" value={planData.notes.emprendimiento || ''} onChange={v => setNote('emprendimiento', v)} />
+              </div>
+            </div>
+
+            {/* Sub-área: Tareas */}
+            <div className="space-y-2 pl-4 border-l-2 border-emerald-200/50">
+              <div className="flex items-center gap-2">
+                <ListTodo className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Tareas</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <NoteCard icon={<ListTodo className="h-3.5 w-3.5" />} label="Áreas de enfoque" value={planData.notes.tareas || ''} onChange={v => setNote('tareas', v)} />
+              </div>
+            </div>
+
+            {/* Sub-área: Eventos */}
+            <div className="space-y-2 pl-4 border-l-2 border-red-200/50">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5 text-red-500" />
+                <span className="text-xs font-semibold text-red-700 dark:text-red-400">Eventos</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
+              </div>
             </div>
           </div>
 
@@ -187,7 +315,7 @@ export default function TrimestralPlanningPage() {
       )}
 
       <p className="text-[11px] text-muted-foreground text-center mt-6">
-        Selecciona un mes arriba y elige los libros y canciones para ese mes
+        Selecciona un mes arriba y organiza tus áreas de vida
       </p>
     </div>
   );

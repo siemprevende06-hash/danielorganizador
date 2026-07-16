@@ -14,6 +14,7 @@ export interface TrimestralPlanData {
     month2: { books: string[]; songs: string[] };
     month3: { books: string[]; songs: string[] };
   };
+  notes: Record<string, string>;
 }
 
 const defaultTrimestralData: TrimestralPlanData = {
@@ -28,6 +29,7 @@ const defaultTrimestralData: TrimestralPlanData = {
     month2: { books: [], songs: [] },
     month3: { books: [], songs: [] },
   },
+  notes: {},
 };
 
 interface Book { id: string; title: string; author: string | null; cover_image_url: string | null; }
@@ -56,6 +58,7 @@ export function loadTrimestralPlanFromLocal(key: string): TrimestralPlanData | n
 }
 
 function migrateDistribution(data: any): TrimestralPlanData {
+  if (!data.notes) data.notes = {};
   if (!data.distribution) return { ...defaultTrimestralData, ...data, distribution: defaultTrimestralData.distribution };
   const m1 = data.distribution.month1;
   if (m1 && typeof m1.books === 'number') {
