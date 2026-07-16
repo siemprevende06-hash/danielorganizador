@@ -115,8 +115,8 @@ export default defineConfig(({ mode }) => ({
             options: {
               cacheName: "supabase-storage",
               expiration: {
-                maxEntries: 1000,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
+                maxEntries: 2000,
+                maxAgeSeconds: 60 * 60 * 24 * 90,
               },
               cacheableResponse: {
                 statuses: [0, 200],
@@ -136,8 +136,8 @@ export default defineConfig(({ mode }) => ({
             options: {
               cacheName: "images",
               expiration: {
-                maxEntries: 300,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
+                maxEntries: 500,
+                maxAgeSeconds: 60 * 60 * 24 * 90,
               },
             },
           },

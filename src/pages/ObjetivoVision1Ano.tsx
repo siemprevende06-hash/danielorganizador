@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useImageUpload } from "@/hooks/useImageUpload";
-import { precacheImages } from "@/lib/imageCache";
+import { cacheImageNow, precacheImages } from "@/lib/imageCache";
 import { useTextSection } from "@/hooks/useTextSection";
 import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, ChevronDown, ChevronUp, StickyNote } from "lucide-react";
 import { toast } from "sonner";
@@ -155,7 +155,7 @@ export default function ObjetivoVision1Ano() {
     setUploadingId(cardId);
     const url = await uploadImage(file, "objetivo-vision");
     if (url) {
-      precacheImages([url]);
+      cacheImageNow(url);
       persist(
         sections.map((s) =>
           s.id === sectionId

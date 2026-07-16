@@ -15,6 +15,21 @@ async function cacheSingleImage(url: string): Promise<void> {
   }
 }
 
+export async function cacheImageNow(url: string): Promise<void> {
+  if (!url) return;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(url);
+    if (cached) return;
+    const response = await fetch(url, { mode: "cors" });
+    if (response.ok) {
+      await cache.put(url, response);
+    }
+  } catch {
+    // Silently fail
+  }
+}
+
 export async function precacheImages(urls: string[]): Promise<void> {
   const valid = urls.filter(Boolean);
   if (valid.length === 0) return;
