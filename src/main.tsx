@@ -17,34 +17,50 @@ const isPreviewHost =
   window.location.hostname.includes("lovableproject.com") ||
   (window.location.hostname.includes("lovable.app") && window.location.hostname.startsWith("id-preview"));
 
+async function clearOldCaches() {
+  if (!("caches" in window)) return;
+  const expectedCaches = ["supabase-api", "supabase-storage", "images", "static-assets-v2", "data-files", "workbox-precache-v2"];
+  const names = await caches.keys();
+  await Promise.all(names.map(n => { if (!expectedCaches.includes(n)) return caches.delete(n); }));
+}
+
 if (isPreviewHost || isInIframe) {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
   }
 } else if ("serviceWorker" in navigator) {
+  // If there's a waiting service worker, activate it via reload (once per session)
+  if (!sessionStorage.getItem('pwa_updated')) {
+    navigator.serviceWorker.getRegistrations().then(rs => {
+      if (rs.some(r => r.waiting)) {
+        sessionStorage.setItem('pwa_updated', '1');
+        window.location.reload();
+      }
+    });
+  }
+  clearOldCaches();
   import("virtual:pwa-register").then(({ registerSW }) => {
     registerSW({
       immediate: true,
-      onNeedRefresh() {
-        const autoReload = setTimeout(() => window.location.reload(), 30_000);
+      onNeedRefresh(updateSW) {
+        const reloadNow = () => {
+          if (updateSW) updateSW(true);
+          setTimeout(() => window.location.reload(), 300);
+        };
         toast("Nueva versión disponible", {
-          description: "Actualizando automáticamente en 30 segundos...",
-          duration: Infinity,
-          action: {
-            label: "Actualizar ahora",
-            onClick: () => {
-              clearTimeout(autoReload);
-              window.location.reload();
-            },
-          },
+          description: "Actualizando...",
+          duration: 3000,
+          action: { label: "Ok", onClick: reloadNow },
         });
+        reloadNow();
       },
       onOfflineReady() {
         console.log("[PWA] App lista para usar offline");
       },
       onRegisteredSW(_swUrl, registration) {
         if (registration) {
-          setInterval(() => registration.update().catch(() => {}), 5 * 60 * 1000);
+          setTimeout(() => registration.update(), 2000);
+          setInterval(() => registration.update().catch(() => {}), 2 * 60 * 1000);
         }
       },
     });
