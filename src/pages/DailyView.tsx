@@ -114,6 +114,7 @@ export default function DailyView() {
     completedBlocks, completedTasks, dayScore,
     tasks,
     planRoutineType,
+    planAssignments,
   } = useDailyPlanData(new Date());
 
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
