@@ -40,19 +40,11 @@ if (isPreviewHost || isInIframe) {
   }
   clearOldCaches();
   import("virtual:pwa-register").then(({ registerSW }) => {
-    registerSW({
+    const updateSW = registerSW({
       immediate: true,
-      onNeedRefresh(updateSW) {
-        const reloadNow = () => {
-          if (updateSW) updateSW(true);
-          setTimeout(() => window.location.reload(), 300);
-        };
-        toast("Nueva versión disponible", {
-          description: "Actualizando...",
-          duration: 3000,
-          action: { label: "Ok", onClick: reloadNow },
-        });
-        reloadNow();
+      onNeedRefresh(updateCb) {
+        updateCb(true);
+        setTimeout(() => window.location.reload(), 300);
       },
       onOfflineReady() {
         console.log("[PWA] App lista para usar offline");
@@ -64,6 +56,23 @@ if (isPreviewHost || isInIframe) {
         }
       },
     });
+    (window as any).__pwaUpdateSW = updateSW;
+    (window as any).__pwaCheckForUpdates = async () => {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update();
+          if (reg.waiting) {
+            if (updateSW) updateSW(true);
+            setTimeout(() => window.location.reload(), 300);
+          } else {
+            toast("Ya estás en la versión más reciente");
+          }
+        }
+      } catch {
+        toast("Error al buscar actualizaciones");
+      }
+    };
   }).catch(() => {});
 }
 

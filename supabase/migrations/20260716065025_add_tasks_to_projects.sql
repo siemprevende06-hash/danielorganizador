@@ -1,0 +1,1 @@
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS tasks JSONB DEFAULT '[]'::jsonb;

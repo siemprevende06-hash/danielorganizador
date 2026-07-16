@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, ListChecks, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, ListChecks, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package, RefreshCw
 } from 'lucide-react';
 import {
   Sheet,
@@ -284,7 +284,14 @@ export const Navigation = () => {
           </button>
           <span className="font-medium text-sm">{currentPage}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => (window as any).__pwaCheckForUpdates?.()}
+            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            title="Buscar actualizaciones"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
           <ThemeToggle />
           <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
         </div>
@@ -362,12 +369,21 @@ export const Navigation = () => {
               <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
             </div>
           )}
-          <button
-            onClick={sidebarToggle}
-            className={cn("p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0", collapsed && "mx-auto")}
-          >
-            {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </button>
+          <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "gap-1")}>
+            <button
+              onClick={() => (window as any).__pwaCheckForUpdates?.()}
+              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+              title="Buscar actualizaciones"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button
+              onClick={sidebarToggle}
+              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0"
+            >
+              {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
         {/* Nav items */}
