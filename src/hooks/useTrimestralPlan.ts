@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
-import { startOfQuarter, format } from 'date-fns';
+import { startOfQuarter, format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface TrimestralPlanData {
   books: { goal: number; selected: string[] };
   songs: { goal: number; selected: string[] };
   projects: string[];
+  monthProjects: Record<string, string[]>;
+  monthEntrepreneurships: Record<string, string[]>;
   subjects: { subject_id: string; topics: string[] }[];
+  monthSubjects: Record<string, string[]>;
   events: string[];
   personal_goals: { title: string; target?: string }[];
+  completedTasks: Record<string, string[]>;
+  completedEvents: Record<string, string[]>;
   distribution: {
     month1: { books: string[]; songs: string[] };
     month2: { books: string[]; songs: string[] };
@@ -21,9 +26,14 @@ const defaultTrimestralData: TrimestralPlanData = {
   books: { goal: 0, selected: [] },
   songs: { goal: 0, selected: [] },
   projects: [],
+  monthProjects: { month1: [], month2: [], month3: [] },
+  monthEntrepreneurships: { month1: [], month2: [], month3: [] },
   subjects: [],
+  monthSubjects: { month1: [], month2: [], month3: [] },
   events: [],
   personal_goals: [],
+  completedTasks: { month1: [], month2: [], month3: [] },
+  completedEvents: { month1: [], month2: [], month3: [] },
   distribution: {
     month1: { books: [], songs: [] },
     month2: { books: [], songs: [] },
@@ -37,6 +47,8 @@ interface Song { id: string; title: string; artist: string | null; instrument: s
 interface Project { id: string; name: string; }
 interface Subject { id: string; name: string; }
 interface CalendarEvent { id: string; title: string; event_date: string; category: string; }
+interface TaskItem { id: string; title: string; source: string; due_date: string; completed: boolean; priority?: string; }
+interface MonthlyTimeData { totalMinutes: number; byArea: Record<string, number>; }
 
 const STORAGE_PREFIX = 'trimestral_plan_';
 
@@ -59,6 +71,11 @@ export function loadTrimestralPlanFromLocal(key: string): TrimestralPlanData | n
 
 function migrateDistribution(data: any): TrimestralPlanData {
   if (!data.notes) data.notes = {};
+  if (!data.monthProjects) data.monthProjects = { month1: [], month2: [], month3: [] };
+  if (!data.monthEntrepreneurships) data.monthEntrepreneurships = { month1: [], month2: [], month3: [] };
+  if (!data.monthSubjects) data.monthSubjects = { month1: [], month2: [], month3: [] };
+  if (!data.completedTasks) data.completedTasks = { month1: [], month2: [], month3: [] };
+  if (!data.completedEvents) data.completedEvents = { month1: [], month2: [], month3: [] };
   if (!data.distribution) return { ...defaultTrimestralData, ...data, distribution: defaultTrimestralData.distribution };
   const m1 = data.distribution.month1;
   if (m1 && typeof m1.books === 'number') {
@@ -113,6 +130,16 @@ export function useTrimestralPlan(quarter: number, year: number) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [quarterTasks, setQuarterTasks] = useState<TaskItem[]>([]);
+  const [monthlyTimeData, setMonthlyTimeData] = useState<Record<string, MonthlyTimeData>>({});
+
+  const qStart = (quarter - 1) * 3;
+
+  const getMonthRange = useCallback((monthIdx: number) => {
+    const start = new Date(year, qStart + monthIdx, 1);
+    const end = new Date(year, qStart + monthIdx + 1, 0);
+    return { start, end };
+  }, [year, qStart]);
 
   const fetchPlan = useCallback(() => {
     setLoading(true);
@@ -131,30 +158,57 @@ export function useTrimestralPlan(quarter: number, year: number) {
 
   const loadLocalData = useCallback(async () => {
     try {
-      const [booksRes, songsRes] = await Promise.all([
+      const qStartMonth = (quarter - 1) * 3;
+      const quarterStart = new Date(year, qStartMonth, 1);
+      const quarterEnd = new Date(year, qStartMonth + 3, 0);
+
+      const [booksRes, songsRes, tasksRes, eventsRes] = await Promise.all([
         supabase.from('reading_library').select('id, title, author, cover_image_url').order('title'),
         supabase.from('music_repertoire').select('id, title, artist, instrument').order('title'),
+        supabase.from('tasks').select('id, title, source, due_date, completed, priority')
+          .gte('due_date', format(quarterStart, 'yyyy-MM-dd'))
+          .lte('due_date', format(quarterEnd, 'yyyy-MM-dd')),
+        supabase.from('calendar_events').select('*')
+          .gte('event_date', format(quarterStart, 'yyyy-MM-dd'))
+          .lte('event_date', format(quarterEnd, 'yyyy-MM-dd'))
+          .order('event_date'),
       ]);
       if (booksRes.data) setBooks(booksRes.data);
       if (songsRes.data) setSongs(songsRes.data);
+      if (tasksRes.data) setQuarterTasks(tasksRes.data);
+      if (eventsRes.data) setEvents(eventsRes.data);
+
+      // Load time data per month from daily_systems_tracking
+      const monthTimes: Record<string, MonthlyTimeData> = {};
+      for (let mi = 0; mi < 3; mi++) {
+        const { start, end } = getMonthRange(mi);
+        const s = format(start, 'yyyy-MM-dd');
+        const e = format(end, 'yyyy-MM-dd');
+        const { data: timeRows } = await supabase
+          .from('daily_systems_tracking')
+          .select('tracking_date, time_data')
+          .gte('tracking_date', s)
+          .lte('tracking_date', e);
+        const byArea: Record<string, number> = {};
+        let total = 0;
+        (timeRows || []).forEach((row: any) => {
+          const td = row.time_data || {};
+          Object.entries(td).forEach(([key, val]) => {
+            const v = val as number;
+            byArea[key] = (byArea[key] || 0) + v;
+            total += v;
+          });
+        });
+        monthTimes[`month${mi + 1}`] = { totalMinutes: total, byArea };
+      }
+      setMonthlyTimeData(monthTimes);
 
       const storedProjects = localStorage.getItem('userProjects');
       if (storedProjects) setProjects(JSON.parse(storedProjects).map((p: any) => ({ id: p.id, name: p.name })));
       const storedSubjects = localStorage.getItem('university_subjects');
       if (storedSubjects) setSubjects(JSON.parse(storedSubjects));
-      const storedEvents = localStorage.getItem('calendar_events');
-      if (storedEvents) {
-        const parsed = JSON.parse(storedEvents).filter((e: any) => {
-          const d = new Date(e.event_date);
-          const qStart = (quarter - 1) * 3;
-          const startD = new Date(year, qStart, 1);
-          const endD = new Date(year, qStart + 3, 0);
-          return d >= startD && d <= endD;
-        });
-        setEvents(parsed);
-      }
-    } catch {}
-  }, [quarter, year]);
+    } catch (e) { console.error('Error loading trimestral data:', e); }
+  }, [quarter, year, getMonthRange]);
 
   useEffect(() => {
     fetchPlan();
@@ -185,10 +239,27 @@ export function useTrimestralPlan(quarter: number, year: number) {
     return result;
   }, []);
 
+  const toggleTaskCompletion = useCallback((monthKey: string, taskId: string) => {
+    setPlanData(prev => {
+      const list = prev.completedTasks[monthKey] || [];
+      const updated = list.includes(taskId) ? list.filter(id => id !== taskId) : [...list, taskId];
+      return { ...prev, completedTasks: { ...prev.completedTasks, [monthKey]: updated } };
+    });
+  }, []);
+
+  const toggleEventCompletion = useCallback((monthKey: string, eventId: string) => {
+    setPlanData(prev => {
+      const list = prev.completedEvents[monthKey] || [];
+      const updated = list.includes(eventId) ? list.filter(id => id !== eventId) : [...list, eventId];
+      return { ...prev, completedEvents: { ...prev.completedEvents, [monthKey]: updated } };
+    });
+  }, []);
+
   return {
     planData, loading, saving, storageKey, quarter, year,
-    books, songs, projects, subjects, events,
+    books, songs, projects, subjects, events, quarterTasks, monthlyTimeData,
     updatePlanData, savePlan, fetchPlan, autoDistribute,
-    getMonthNamesForQuarter: () => getMonthNamesForQuarter(quarter),
+    toggleTaskCompletion, toggleEventCompletion,
+    getMonthRange, getMonthNamesForQuarter: () => getMonthNamesForQuarter(quarter),
   };
 }

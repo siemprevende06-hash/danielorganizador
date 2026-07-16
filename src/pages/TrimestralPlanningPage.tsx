@@ -1,18 +1,13 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Save, Target, Book, Music, Gamepad2, Palette, Globe, Code, Briefcase, ListTodo, GraduationCap, FolderKanban, Calendar, Heart } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Save, Target, Book, Music, Gamepad2, Palette, Globe, Code, Briefcase, ListTodo, GraduationCap, FolderKanban, Calendar, Heart, Brain, BookOpen, ChevronDown, ChevronUp, CheckCircle2, Circle, Dumbbell, Zap, Sword } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan';
-import {
-  BookPlannerWidget,
-  SongPlannerWidget,
-  ProjectPlannerWidget,
-  SubjectPlannerWidget,
-  EventPlannerWidget,
-  GoalPlannerWidget,
-} from '@/components/monthly-planning/MonthlyPlanWidgets';
+import { ItemSelector } from '@/components/monthly-planning/ItemSelector';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -29,12 +24,14 @@ function NoteCard({ icon, label, value, onChange }: { icon: React.ReactNode; lab
           </div>
           <span className="text-xs font-semibold">{label}</span>
         </div>
-        <Input
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={`Meta para ${label.toLowerCase()}...`}
-          className="h-7 text-xs"
-        />
+        <div className="min-h-[36px]">
+          <Input
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            placeholder={`Meta para ${label.toLowerCase()}...`}
+            className="h-7 text-xs"
+          />
+        </div>
       </CardContent>
     </Card>
   );
@@ -49,9 +46,9 @@ export default function TrimestralPlanningPage() {
 
   const {
     planData, loading, saving,
-    books, songs, projects, subjects, events,
-    updatePlanData, savePlan, autoDistribute,
-    getMonthNamesForQuarter,
+    books, songs, projects, subjects, events, quarterTasks,
+    updatePlanData, savePlan,
+    getMonthNamesForQuarter, toggleTaskCompletion, toggleEventCompletion, getMonthRange,
   } = useTrimestralPlan(quarter, year);
   const { toast } = useToast();
 
@@ -80,13 +77,47 @@ export default function TrimestralPlanningPage() {
   const bookItems = books.map(b => ({ id: b.id, title: b.title, subtitle: b.author || undefined }));
   const songItems = songs.map(s => ({ id: s.id, title: s.title, subtitle: s.artist ? `${s.artist} · ${s.instrument}` : s.instrument }));
   const projectItems = projects.map(p => ({ id: p.id, title: p.name }));
-  const subjectItems = subjects.map(s => ({ id: s.id, title: s.name }));
-  const eventItems = events.map(e => ({ id: e.id, title: e.title, subtitle: `${format(new Date(e.event_date), 'd MMM', { locale: es })} · ${e.category}` }));
 
-  const distTotals = MONTH_KEYS.map(k => ({
-    books: (planData.distribution[k].books || []).length,
-    songs: (planData.distribution[k].songs || []).length,
-  }));
+  // Split songs by instrument
+  const pianoSongs = songs.filter(s => s.instrument === 'piano');
+  const guitarSongs = songs.filter(s => s.instrument === 'guitar');
+
+  const activeMonthSongs = planData.distribution[activeMonthKey]?.songs || [];
+  const activePianoSelected = pianoSongs.filter(s => activeMonthSongs.includes(s.id)).map(s => s.id);
+  const activeGuitarSelected = guitarSongs.filter(s => activeMonthSongs.includes(s.id)).map(s => s.id);
+
+  // Tasks for active month
+  const { start: monthStart, end: monthEnd } = getMonthRange(activeMonth);
+  const monthTasks = useMemo(() =>
+    quarterTasks.filter(t => {
+      if (!t.due_date) return false;
+      const d = new Date(t.due_date);
+      return d >= monthStart && d <= monthEnd;
+    }),
+    [quarterTasks, monthStart, monthEnd]
+  );
+
+  // Events for active month
+  const monthEvents = useMemo(() =>
+    events.filter(e => {
+      const d = new Date(e.event_date);
+      return d >= monthStart && d <= monthEnd;
+    }),
+    [events, monthStart, monthEnd]
+  );
+
+  const handleSongChange = (sectionIds: string[], section: "piano" | "guitar") => {
+    const sectionItems = section === "piano" ? pianoSongs : guitarSongs;
+    const otherIds = section === "piano" ? activeGuitarSelected : activePianoSelected;
+    const merged = [...new Set([...sectionIds, ...otherIds])];
+    updatePlanData(p => ({
+      ...p,
+      distribution: {
+        ...p.distribution,
+        [activeMonthKey]: { ...p.distribution[activeMonthKey], songs: merged },
+      },
+    }));
+  };
 
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
@@ -129,38 +160,30 @@ export default function TrimestralPlanningPage() {
         <div className="space-y-6">
           {/* Month tabs */}
           <div className="flex gap-2">
-            {monthLabels.map((label, i) => {
-              const total = distTotals[i].books + distTotals[i].songs;
-              return (
-                <button
-                  key={i}
-                  onClick={() => setActiveMonth(i)}
-                  className={cn(
-                    "flex-1 relative rounded-2xl p-3.5 text-left transition-all border-0",
-                    activeMonth === i
-                      ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 scale-[1.02]"
-                      : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
-                  )}
-                >
-                  <div className="text-base font-bold">{label}</div>
-                  <div className={cn("text-[10px] mt-0.5", activeMonth === i ? "text-white/70" : "text-muted-foreground")}>
-                    {total > 0 ? `${total} items` : "Sin asignar"}
-                  </div>
-                </button>
-              );
-            })}
+            {monthLabels.map((label, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveMonth(i)}
+                className={cn(
+                  "flex-1 relative rounded-2xl p-3.5 text-left transition-all border-0",
+                  activeMonth === i
+                    ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 scale-[1.02]"
+                    : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                )}
+              >
+                <div className="text-base font-bold">{label}</div>
+                <div className={cn("text-[10px] mt-0.5", activeMonth === i ? "text-white/70" : "text-muted-foreground")}>
+                  Mes {i + 1}
+                </div>
+              </button>
+            ))}
           </div>
 
-          {/* Active month label + quick actions */}
+          {/* Active month label */}
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
-              Asignando a <span className="font-semibold text-indigo-500">{monthLabels[activeMonth]}</span>
-              {distTotals[activeMonth].books > 0 && <> · {distTotals[activeMonth].books} libros</>}
-              {distTotals[activeMonth].songs > 0 && <> · {distTotals[activeMonth].songs} canciones</>}
+              Organizando <span className="font-semibold text-indigo-500">{monthLabels[activeMonth]}</span>
             </p>
-            <Button variant="ghost" size="sm" className="h-6 text-[10px] text-indigo-500" onClick={autoDistribute}>
-              Auto-distribuir
-            </Button>
           </div>
 
           {/* ===== ÁREA: DESARROLLO PERSONAL ===== */}
@@ -179,31 +202,64 @@ export default function TrimestralPlanningPage() {
                 <Book className="h-3.5 w-3.5 text-emerald-500" />
                 <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Lectura</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} monthKey={activeMonthKey} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ItemSelector
+                  items={bookItems}
+                  selected={planData.distribution[activeMonthKey]?.books || []}
+                  onChange={ids => updatePlanData(p => ({
+                    ...p,
+                    distribution: {
+                      ...p.distribution,
+                      [activeMonthKey]: { ...p.distribution[activeMonthKey], books: ids },
+                    },
+                  }))}
+                  placeholder="Seleccionar libros..."
+                  searchPlaceholder="Buscar libro..."
+                />
               </div>
             </div>
 
-            {/* Sub-área: Música */}
-            <div className="space-y-2 pl-4 border-l-2 border-rose-200/50">
+            {/* Sub-área: Hobbies Intelectuales */}
+            <div className="space-y-2 pl-4 border-l-2 border-sky-200/50">
               <div className="flex items-center gap-2">
-                <Music className="h-3.5 w-3.5 text-rose-500" />
-                <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Música</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} monthKey={activeMonthKey} />
-              </div>
-            </div>
-
-            {/* Sub-área: Hobbies */}
-            <div className="space-y-2 pl-4 border-l-2 border-amber-200/50">
-              <div className="flex items-center gap-2">
-                <Heart className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Hobbies</span>
+                <Brain className="h-3.5 w-3.5 text-sky-500" />
+                <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Hobbies Intelectuales</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 <NoteCard icon={<Gamepad2 className="h-3.5 w-3.5" />} label="Ajedrez" value={planData.notes.ajedrez || ''} onChange={v => setNote('ajedrez', v)} />
-                <NoteCard icon={<Palette className="h-3.5 w-3.5" />} label="Dibujo" value={planData.notes.dibujo || ''} onChange={v => setNote('dibujo', v)} />
+                <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Italiano" value={planData.notes.italiano || ''} onChange={v => setNote('italiano', v)} />
+                <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Inglés" value={planData.notes.ingles || ''} onChange={v => setNote('ingles', v)} />
+                <NoteCard icon={<Sword className="h-3.5 w-3.5" />} label="Game Seducción" value={planData.notes.game_seduccion || ''} onChange={v => setNote('game_seduccion', v)} />
+              </div>
+            </div>
+
+            {/* Sub-área: Hobbies Artísticos — Canciones */}
+            <div className="space-y-2 pl-4 border-l-2 border-rose-200/50">
+              <div className="flex items-center gap-2">
+                <Music className="h-3.5 w-3.5 text-rose-500" />
+                <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Canciones</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">Piano ({pianoSongs.length})</p>
+                  <ItemSelector
+                    items={pianoSongs.map(s => ({ id: s.id, title: s.title, subtitle: s.artist || undefined }))}
+                    selected={activePianoSelected}
+                    onChange={ids => handleSongChange(ids, "piano")}
+                    placeholder="Seleccionar piano..."
+                    searchPlaceholder="Buscar canción de piano..."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">Guitarra ({guitarSongs.length})</p>
+                  <ItemSelector
+                    items={guitarSongs.map(s => ({ id: s.id, title: s.title, subtitle: s.artist || undefined }))}
+                    selected={activeGuitarSelected}
+                    onChange={ids => handleSongChange(ids, "guitar")}
+                    placeholder="Seleccionar guitarra..."
+                    searchPlaceholder="Buscar canción de guitarra..."
+                  />
+                </div>
               </div>
             </div>
 
@@ -214,7 +270,6 @@ export default function TrimestralPlanningPage() {
                 <span className="text-xs font-semibold text-cyan-700 dark:text-cyan-400">Habilidades Valiosas</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Idiomas" value={planData.notes.idiomas || ''} onChange={v => setNote('idiomas', v)} />
                 <NoteCard icon={<Code className="h-3.5 w-3.5" />} label="Habilidades Técnicas" value={planData.notes.habilidades_tecnicas || ''} onChange={v => setNote('habilidades_tecnicas', v)} />
               </div>
             </div>
@@ -225,8 +280,28 @@ export default function TrimestralPlanningPage() {
                 <Target className="h-3.5 w-3.5 text-purple-500" />
                 <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Metas Personales</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
+              <div className="max-w-md space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Agregar meta personal..."
+                    className="h-8 text-xs"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                        updatePlanData(p => ({ ...p, personal_goals: [...p.personal_goals, { title: (e.target as HTMLInputElement).value.trim() }] }));
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }}
+                  />
+                </div>
+                {planData.personal_goals.map((goal, i) => (
+                  <div key={i} className="flex items-center gap-2 group">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                    <p className="text-xs flex-1 truncate">{goal.title}</p>
+                    <button onClick={() => updatePlanData(p => ({ ...p, personal_goals: p.personal_goals.filter((_, idx) => idx !== i) }))} className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground hover:text-destructive">
+                      Eliminar
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -241,14 +316,23 @@ export default function TrimestralPlanningPage() {
               </div>
             </div>
 
-            {/* Sub-área: Universidad */}
+            {/* Sub-área: Universidad — Asignaturas */}
             <div className="space-y-2 pl-4 border-l-2 border-blue-200/50">
               <div className="flex items-center gap-2">
                 <GraduationCap className="h-3.5 w-3.5 text-blue-500" />
-                <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Universidad</span>
+                <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Asignaturas</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={[]} />
+              <div className="max-w-md">
+                <ItemSelector
+                  items={subjects.map(s => ({ id: s.id, title: s.name }))}
+                  selected={planData.monthSubjects[activeMonthKey] || []}
+                  onChange={ids => updatePlanData(p => ({
+                    ...p,
+                    monthSubjects: { ...p.monthSubjects, [activeMonthKey]: ids },
+                  }))}
+                  placeholder="Asignaturas a estudiar este mes..."
+                  searchPlaceholder="Buscar asignatura..."
+                />
               </div>
             </div>
 
@@ -258,8 +342,17 @@ export default function TrimestralPlanningPage() {
                 <FolderKanban className="h-3.5 w-3.5 text-amber-500" />
                 <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Proyectos</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
+              <div className="max-w-md">
+                <ItemSelector
+                  items={projectItems}
+                  selected={planData.monthProjects[activeMonthKey] || []}
+                  onChange={ids => updatePlanData(p => ({
+                    ...p,
+                    monthProjects: { ...p.monthProjects, [activeMonthKey]: ids },
+                  }))}
+                  placeholder="Seleccionar proyectos para este mes..."
+                  searchPlaceholder="Buscar proyecto..."
+                />
               </div>
             </div>
 
@@ -269,54 +362,79 @@ export default function TrimestralPlanningPage() {
                 <Briefcase className="h-3.5 w-3.5 text-purple-500" />
                 <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Emprendimiento</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                <NoteCard icon={<Briefcase className="h-3.5 w-3.5" />} label="Enfoque" value={planData.notes.emprendimiento || ''} onChange={v => setNote('emprendimiento', v)} />
+              <div className="max-w-md">
+                <NoteCard icon={<Briefcase className="h-3.5 w-3.5" />} label="Enfoque del Mes" value={planData.notes.emprendimiento || ''} onChange={v => setNote('emprendimiento', v)} />
               </div>
             </div>
 
-            {/* Sub-área: Tareas */}
+            {/* Sub-área: Tareas del Mes */}
             <div className="space-y-2 pl-4 border-l-2 border-emerald-200/50">
               <div className="flex items-center gap-2">
                 <ListTodo className="h-3.5 w-3.5 text-emerald-500" />
-                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Tareas</span>
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Tareas del Mes</span>
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                  {monthTasks.filter(t => (planData.completedTasks[activeMonthKey] || []).includes(t.id)).length}/{monthTasks.length} completadas
+                </Badge>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                <NoteCard icon={<ListTodo className="h-3.5 w-3.5" />} label="Áreas de enfoque" value={planData.notes.tareas || ''} onChange={v => setNote('tareas', v)} />
-              </div>
+              {monthTasks.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground italic pl-1">Sin tareas con fecha en {monthLabels[activeMonth]}</p>
+              ) : (
+                <div className="space-y-1 max-w-lg">
+                  {monthTasks.map(task => {
+                    const done = (planData.completedTasks[activeMonthKey] || []).includes(task.id);
+                    return (
+                      <div key={task.id}
+                        className={cn("flex items-center gap-2.5 p-2 rounded-lg border border-border/40 text-xs cursor-pointer transition-colors",
+                          done ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200" : "hover:bg-muted/30"
+                        )}
+                        onClick={() => toggleTaskCompletion(activeMonthKey, task.id)}
+                      >
+                        <Checkbox checked={done} />
+                        <span className={cn("flex-1 truncate", done && "line-through text-muted-foreground")}>{task.title}</span>
+                        <Badge variant="outline" className="text-[9px] px-1">{task.source}</Badge>
+                        {task.due_date && <span className="text-[9px] text-muted-foreground shrink-0">{format(new Date(task.due_date), 'd MMM', { locale: es })}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Sub-área: Eventos */}
+            {/* Sub-área: Eventos del Mes */}
             <div className="space-y-2 pl-4 border-l-2 border-red-200/50">
               <div className="flex items-center gap-2">
                 <Calendar className="h-3.5 w-3.5 text-red-500" />
-                <span className="text-xs font-semibold text-red-700 dark:text-red-400">Eventos</span>
+                <span className="text-xs font-semibold text-red-700 dark:text-red-400">Eventos del Mes</span>
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                  {monthEvents.filter(e => (planData.completedEvents[activeMonthKey] || []).includes(e.id)).length}/{monthEvents.length} realizados
+                </Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
-              </div>
-            </div>
-          </div>
-
-          {/* Distribution summary */}
-          <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2 border-t border-border/30">
-            {monthLabels.map((label, i) => {
-              const t = distTotals[i].books + distTotals[i].songs;
-              return (
-                <div key={i} className="flex items-center gap-1">
-                  <div className={cn("w-2 h-2 rounded-full", activeMonth === i ? "bg-indigo-500" : "bg-muted-foreground/30")} />
-                  <span>{label}: <strong>{t}</strong> items</span>
+              {monthEvents.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground italic pl-1">Sin eventos en {monthLabels[activeMonth]}</p>
+              ) : (
+                <div className="space-y-1 max-w-lg">
+                  {monthEvents.map(ev => {
+                    const done = (planData.completedEvents[activeMonthKey] || []).includes(ev.id);
+                    return (
+                      <div key={ev.id}
+                        className={cn("flex items-center gap-2.5 p-2 rounded-lg border border-border/40 text-xs cursor-pointer transition-colors",
+                          done ? "bg-red-50/40 dark:bg-red-950/20 border-red-200" : "hover:bg-muted/30"
+                        )}
+                        onClick={() => toggleEventCompletion(activeMonthKey, ev.id)}
+                      >
+                        <Checkbox checked={done} />
+                        <span className={cn("flex-1 truncate", done && "line-through text-muted-foreground")}>{ev.title}</span>
+                        <Badge variant="outline" className="text-[9px] px-1">{ev.category}</Badge>
+                        <span className="text-[9px] text-muted-foreground shrink-0">{format(new Date(ev.event_date), 'd MMM', { locale: es })}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-            <span className="text-muted-foreground/40">|</span>
-            <span>Total: <strong>{distTotals.reduce((s, d) => s + d.books + d.songs, 0)}</strong></span>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      <p className="text-[11px] text-muted-foreground text-center mt-6">
-        Selecciona un mes arriba y organiza tus áreas de vida
-      </p>
     </div>
   );
 }
