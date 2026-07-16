@@ -85,8 +85,8 @@ export default function PlanManana() {
   const tomorrowDisplay = format(tomorrow, "EEEE d 'de' MMMM", { locale: es });
   const tomorrowCapitalized = tomorrowDisplay.charAt(0).toUpperCase() + tomorrowDisplay.slice(1);
 
-  const [routineType, setRoutineType] = useState<RoutineType>("normal");
-  const { blocks } = useRoutineBlocks(routineType);
+  const { blocks, routineType, setRoutineType } = useRoutineBlocks();
+
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
