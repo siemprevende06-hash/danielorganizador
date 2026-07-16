@@ -391,6 +391,114 @@ export default function TwelveWeekYear() {
     );
   };
 
+  const renderTrimestralPlanSection = () => {
+    if (!trimestralPlan) return null;
+    const dist = trimestralPlan.distribution || { month1: { books: 0, songs: 0 }, month2: { books: 0, songs: 0 }, month3: { books: 0, songs: 0 } };
+    const totalBooks = (dist.month1.books || 0) + (dist.month2.books || 0) + (dist.month3.books || 0);
+    const totalSongs = (dist.month1.songs || 0) + (dist.month2.songs || 0) + (dist.month3.songs || 0);
+
+    return (
+      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-violet-500 to-indigo-400" />
+        <CardContent className="p-4 space-y-4">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <LayoutDashboard className="h-3.5 w-3.5 text-violet-500" />
+            Plan Trimestral
+          </h2>
+
+          {trimestralPlan.books?.selected?.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
+                Lectura — {totalBooks} libros meta
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {selectedBookDetails.map(book => (
+                  <div key={book.id} className="w-20 space-y-1">
+                    <div className="aspect-[2/3] bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-lg overflow-hidden flex items-center justify-center shadow-sm border border-border/40">
+                      {book.cover_image_url ? (
+                        <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <BookOpen className="w-6 h-6 text-emerald-400/60" />
+                      )}
+                    </div>
+                    <p className="text-[9px] font-medium leading-tight line-clamp-2 text-center">{book.title}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {trimestralPlan.songs?.selected?.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Music className="h-3.5 w-3.5 text-rose-500" />
+                Canciones — {totalSongs} canciones meta
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  const pianoSongs = selectedSongDetails.filter(s => s.instrument === 'piano');
+                  const guitarSongs = selectedSongDetails.filter(s => s.instrument === 'guitar');
+                  return (
+                    <>
+                      {pianoSongs.length > 0 && (
+                        <div className="space-y-1 w-full">
+                          <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+                            <Piano className="h-3 w-3" /> Piano ({pianoSongs.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {pianoSongs.map(s => (
+                              <Badge key={s.id} variant="secondary" className="text-[10px] px-2 py-0.5">
+                                {s.title}{s.artist ? ` — ${s.artist}` : ''}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {guitarSongs.length > 0 && (
+                        <div className="space-y-1 w-full">
+                          <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+                            <Guitar className="h-3 w-3" /> Guitarra ({guitarSongs.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {guitarSongs.map(s => (
+                              <Badge key={s.id} variant="secondary" className="text-[10px] px-2 py-0.5">
+                                {s.title}{s.artist ? ` — ${s.artist}` : ''}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {(totalBooks > 0 || totalSongs > 0) && (
+            <div className="grid grid-cols-3 gap-2">
+              {MONTHS.map((m, i) => {
+                const monthKey = `month${m.id}` as keyof typeof dist;
+                const mb = dist[monthKey]?.books || 0;
+                const ms = dist[monthKey]?.songs || 0;
+                return (
+                  <div key={m.id} className="bg-muted/30 rounded-lg p-2 text-center">
+                    <p className="text-[10px] font-semibold text-muted-foreground">{m.label}</p>
+                    <div className="flex justify-center gap-2 mt-1 text-xs">
+                      {mb > 0 && <span className="flex items-center gap-0.5"><BookOpen className="h-3 w-3 text-emerald-500" />{mb}</span>}
+                      {ms > 0 && <span className="flex items-center gap-0.5"><Music className="h-3 w-3 text-rose-500" />{ms}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   const renderAreaGrid = (areaIds: string[], title: string, icon: React.ReactNode) => {
     const showSinMes = hasGoalsInSinMes(areaIds);
     const columns = showSinMes ? "160px repeat(3,1fr) 140px" : "160px repeat(3,1fr)";
@@ -553,6 +661,8 @@ export default function TwelveWeekYear() {
             </div>
           </CardContent>
         </Card>
+
+        {renderTrimestralPlanSection()}
 
         {quarterGoals.length === 0 && (
           <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
