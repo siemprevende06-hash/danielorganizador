@@ -145,8 +145,12 @@ export default function TwelveWeekYear() {
         if (booksRes.data) setBooks(booksRes.data);
         if (songsRes.data) setSongs(songsRes.data);
 
-        const storedProjects = localStorage.getItem('userProjects');
-        if (storedProjects) setProjects(JSON.parse(storedProjects).map((p: any) => ({ id: p.id, name: p.name })));
+        try {
+          const { data: projData } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
+          if (projData?.setting_value && Array.isArray(projData.setting_value)) {
+            setProjects(projData.setting_value.map((p: any) => ({ id: p.id, name: p.name })));
+          }
+        } catch {}
         const storedSubjects = localStorage.getItem('university_subjects');
         if (storedSubjects) setSubjects(JSON.parse(storedSubjects));
 

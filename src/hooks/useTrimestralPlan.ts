@@ -203,8 +203,24 @@ export function useTrimestralPlan(quarter: number, year: number) {
       }
       setMonthlyTimeData(monthTimes);
 
-      const storedProjects = localStorage.getItem('userProjects');
-      if (storedProjects) setProjects(JSON.parse(storedProjects).map((p: any) => ({ id: p.id, name: p.name })));
+      // Load projects from Supabase, fall back to localStorage for migration
+      try {
+        const { data: projectsData } = await supabase
+          .from('app_settings')
+          .select('setting_value')
+          .eq('setting_key', 'user_projects')
+          .maybeSingle();
+        if (projectsData?.setting_value && Array.isArray(projectsData.setting_value)) {
+          setProjects(projectsData.setting_value.map((p: any) => ({ id: p.id, name: p.name })));
+          localStorage.removeItem('userProjects');
+        } else {
+          const storedProjects = localStorage.getItem('userProjects');
+          if (storedProjects) setProjects(JSON.parse(storedProjects).map((p: any) => ({ id: p.id, name: p.name })));
+        }
+      } catch {
+        const storedProjects = localStorage.getItem('userProjects');
+        if (storedProjects) setProjects(JSON.parse(storedProjects).map((p: any) => ({ id: p.id, name: p.name })));
+      }
       const storedSubjects = localStorage.getItem('university_subjects');
       if (storedSubjects) setSubjects(JSON.parse(storedSubjects));
     } catch (e) { console.error('Error loading trimestral data:', e); }

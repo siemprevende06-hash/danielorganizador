@@ -12,33 +12,10 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { useActiveSelection } from '@/hooks/useActiveSelection';
-
-interface SubTask {
-  id: string;
-  title: string;
-  completed: boolean;
-}
-
-interface ProjectTask {
-  id: string;
-  title: string;
-  completed: boolean;
-  subTasks?: SubTask[];
-  dueDate?: string;
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  coverImage?: string;
-  tasks: ProjectTask[];
-}
-
-const PROJECTS_KEY = 'userProjects';
+import { useProjects, type Project, type ProjectTask } from '@/hooks/useProjects';
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { projects, loading, createProject, deleteProject: deleteProjectHook, updateProject, addTask: addTaskHook, toggleTask, deleteTask: deleteTaskHook, updateTask: updateTaskHook, addSubTask: addSubTaskHook, toggleSubTask: toggleSubTaskHook } = useProjects();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isEditTaskDialogOpen, setIsEditTaskDialogOpen] = useState(false);
@@ -54,15 +31,6 @@ export default function ProjectsPage() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { uploadImage, uploading } = useImageUpload();
-
-  useEffect(() => {
-    const stored = localStorage.getItem(PROJECTS_KEY);
-    if (stored) setProjects(JSON.parse(stored));
-  }, []);
-
-  useEffect(() => {
-    if (projects.length > 0) localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-  }, [projects]);
 
   useEffect(() => {
     setExpandedProjects(new Set(projects.map(p => p.id)));
@@ -95,13 +63,7 @@ export default function ProjectsPage() {
 
   const handleCreateProject = () => {
     if (!projectName.trim()) return;
-    const newProject: Project = {
-      id: `project-${Date.now()}`,
-      name: projectName,
-      description: projectDescription,
-      tasks: [],
-    };
-    setProjects(prev => [...prev, newProject]);
+    createProject(projectName, projectDescription);
     setProjectName('');
     setProjectDescription('');
     setIsProjectDialogOpen(false);
@@ -109,19 +71,13 @@ export default function ProjectsPage() {
   };
 
   const handleDeleteProject = (projectId: string) => {
-    setProjects(prev => prev.filter(p => p.id !== projectId));
+    deleteProjectHook(projectId);
     toast({ title: 'Proyecto eliminado' });
   };
 
   const handleAddTask = () => {
     if (!currentProject || !taskTitle.trim()) return;
-    const newTask: ProjectTask = {
-      id: `task-${Date.now()}`,
-      title: taskTitle,
-      completed: false,
-      dueDate: taskDueDate || undefined,
-    };
-    setProjects(prev => prev.map(p => p.id === currentProject.id ? { ...p, tasks: [...p.tasks, newTask] } : p));
+    addTaskHook(currentProject.id, taskTitle, taskDueDate || undefined);
     setTaskTitle('');
     setTaskDueDate('');
     setIsTaskDialogOpen(false);
@@ -142,9 +98,7 @@ export default function ProjectsPage() {
 
   const handleUpdateTask = () => {
     if (!currentProject || !currentTask || !taskTitle.trim()) return;
-    setProjects(prev => prev.map(p => p.id === currentProject.id ? {
-      ...p, tasks: p.tasks.map(t => t.id === currentTask.id ? { ...t, title: taskTitle, dueDate: taskDueDate || undefined } : t)
-    } : p));
+    updateTaskHook(currentProject.id, currentTask.id, { title: taskTitle, dueDate: taskDueDate || undefined });
     setTaskTitle('');
     setTaskDueDate('');
     setCurrentTask(null);
@@ -153,32 +107,23 @@ export default function ProjectsPage() {
   };
 
   const handleToggleTask = (projectId: string, taskId: string) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? {
-      ...p, tasks: p.tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
-    } : p));
+    toggleTask(projectId, taskId);
   };
 
   const handleDeleteTask = (projectId: string, taskId: string) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, tasks: p.tasks.filter(t => t.id !== taskId) } : p));
+    deleteTaskHook(projectId, taskId);
   };
 
   const handleAddSubTask = () => {
     if (!currentProject || !currentTask || !subTaskTitle.trim()) return;
-    const newSubTask: SubTask = { id: `subtask-${Date.now()}`, title: subTaskTitle, completed: false };
-    setProjects(prev => prev.map(p => p.id === currentProject.id ? {
-      ...p, tasks: p.tasks.map(t => t.id === currentTask.id ? { ...t, subTasks: [...(t.subTasks || []), newSubTask] } : t)
-    } : p));
+    addSubTaskHook(currentProject.id, currentTask.id, subTaskTitle);
     setSubTaskTitle('');
     setIsSubTaskDialogOpen(false);
     toast({ title: 'Sub-tarea añadida' });
   };
 
   const handleToggleSubTask = (projectId: string, taskId: string, subTaskId: string) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? {
-      ...p, tasks: p.tasks.map(t => t.id === taskId ? {
-        ...t, subTasks: (t.subTasks || []).map(st => st.id === subTaskId ? { ...st, completed: !st.completed } : st)
-      } : t)
-    } : p));
+    toggleSubTaskHook(projectId, taskId, subTaskId);
   };
 
   const getProjectProgress = (project: Project) => {
