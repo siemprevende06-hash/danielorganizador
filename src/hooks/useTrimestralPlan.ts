@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { startOfQuarter, format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface TrimestralPlanData {
   books: { goal: number; selected: string[] };
@@ -79,12 +80,15 @@ export function useTrimestralPlan(quarter: number, year: number) {
     setSaving(false);
   }, [storageKey, planData]);
 
-  const loadLocalData = useCallback(() => {
+  const loadLocalData = useCallback(async () => {
     try {
-      const storedBooks = localStorage.getItem('reading_library');
-      if (storedBooks) setBooks(JSON.parse(storedBooks));
-      const storedSongs = localStorage.getItem('music_repertoire');
-      if (storedSongs) setSongs(JSON.parse(storedSongs));
+      const [booksRes, songsRes] = await Promise.all([
+        supabase.from('reading_library').select('id, title, author').order('title'),
+        supabase.from('music_repertoire').select('id, title, artist, instrument').order('title'),
+      ]);
+      if (booksRes.data) setBooks(booksRes.data);
+      if (songsRes.data) setSongs(songsRes.data);
+
       const storedProjects = localStorage.getItem('userProjects');
       if (storedProjects) setProjects(JSON.parse(storedProjects).map((p: any) => ({ id: p.id, name: p.name })));
       const storedSubjects = localStorage.getItem('university_subjects');
