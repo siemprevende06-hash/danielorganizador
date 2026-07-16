@@ -1531,36 +1531,12 @@ export default function Finance() {
               <DialogTitle>Agregar al Presupuesto</DialogTitle>
               <DialogDescription>Selecciona una categoría y define su límite mensual.</DialogDescription>
             </DialogHeader>
-            {(() => {
-              const [selectedCat, setSelectedCat] = useState('');
-              const [budgetAmount, setBudgetAmount] = useState(1000);
-              const availableCategories = transactionCategories.filter(c => c.type === 'expense' && !budgetLimits[c.id]);
-              return (
-                <div className="space-y-3">
-                  <div>
-                    <FormLabel>Categoría</FormLabel>
-                    <Select onValueChange={setSelectedCat} value={selectedCat}>
-                      <SelectTrigger className="rounded-xl mt-1"><SelectValue placeholder="Selecciona..." /></SelectTrigger>
-                      <SelectContent>
-                        {availableCategories.length === 0 ? (
-                          <SelectItem value="__none__" disabled>Todas las categorías ya tienen presupuesto</SelectItem>
-                        ) : availableCategories.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <FormLabel>Límite Mensual (CUP)</FormLabel>
-                    <Input type="number" value={budgetAmount} onChange={(e) => setBudgetAmount(parseFloat(e.target.value) || 0)} className="rounded-xl mt-1" />
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" className="rounded-full" onClick={() => setIsBudgetCategoryDialogOpen(false)}>Cancelar</Button>
-                    <Button className="rounded-full" disabled={!selectedCat} onClick={() => handleAddBudgetCategory(selectedCat, budgetAmount)}>Agregar</Button>
-                  </DialogFooter>
-                </div>
-              );
-            })()}
+            <BudgetCategoryForm
+              availableCategories={transactionCategories.filter(c => c.type === 'expense' && !budgetLimits[c.id])}
+              onCancel={() => setIsBudgetCategoryDialogOpen(false)}
+              onSubmit={handleAddBudgetCategory}
+            />
+
           </DialogContent>
         </Dialog>
 
