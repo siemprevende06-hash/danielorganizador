@@ -105,7 +105,7 @@ export default function ObjetivoVision1Ano() {
 
   const visibleMonths = showAllMonths
     ? months
-    : months.slice(Math.max(0, currentMonthIndex - 1), currentMonthIndex + 2);
+    : months.filter((_, i) => i === currentMonthIndex);
 
   const persist = useCallback((next: VisionSection[]) => {
     setSections(next);
