@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-06b39193'], (function (workbox) { 'use strict';
+define(['./workbox-82e18f6b'], (function (workbox) { 'use strict';
 
   workbox.enable();
   self.skipWaiting();
@@ -83,7 +83,7 @@ define(['./workbox-06b39193'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "/index.html",
-    "revision": "0.ev2bmdk2378"
+    "revision": "0.ttcrlg0oiro"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/index.html"), {
@@ -122,11 +122,12 @@ define(['./workbox-06b39193'], (function (workbox) { 'use strict';
       maxAgeSeconds: 2592000
     })]
   }), 'GET');
-  workbox.registerRoute(/\.(?:js|css|woff2?|ttf|otf|eot)$/i, new workbox.StaleWhileRevalidate({
-    "cacheName": "static-assets",
+  workbox.registerRoute(/\.(?:js|css|woff2?|ttf|otf|eot)$/i, new workbox.NetworkFirst({
+    "cacheName": "static-assets-v2",
+    "networkTimeoutSeconds": 5,
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 200,
-      maxAgeSeconds: 7776000
+      maxAgeSeconds: 604800
     })]
   }), 'GET');
   workbox.registerRoute(/\.(?:json|xml)$/i, new workbox.NetworkFirst({
