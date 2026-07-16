@@ -199,6 +199,7 @@ export default function PlanManana() {
       } else {
         await supabase.from("daily_plans").insert({
           plan_date: tomorrowStr,
+          mode: routineType,
           routine_type: routineType,
           block_assignments: JSON.parse(JSON.stringify(assignments)),
           notes: JSON.stringify({ systemIntensity }),
