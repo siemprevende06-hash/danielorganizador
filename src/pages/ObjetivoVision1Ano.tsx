@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { precacheImages } from "@/lib/imageCache";
 import { useTextSection } from "@/hooks/useTextSection";
-import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, ChevronDown, ChevronUp, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 
 interface VisionCard {
@@ -78,9 +79,13 @@ export default function ObjetivoVision1Ano() {
     []
   );
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const { data: notesText, setData: setNotesText } = useTextSection<string>(
+    "objetivo-vision-notas", ""
+  );
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [today, setToday] = useState(new Date());
   const [showAllMonths, setShowAllMonths] = useState(false);
+  const notesTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const { uploadImage } = useImageUpload();
 
@@ -106,6 +111,11 @@ export default function ObjetivoVision1Ano() {
   const visibleMonths = showAllMonths
     ? months
     : months.filter((_, i) => i === currentMonthIndex);
+
+  const handleNotesChange = (val: string) => {
+    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    notesTimerRef.current = setTimeout(() => setNotesText(val), 800);
+  };
 
   const persist = useCallback((next: VisionSection[]) => {
     setSections(next);
@@ -294,6 +304,19 @@ export default function ObjetivoVision1Ano() {
               );
             })}
           </div>
+        </Card>
+
+        <Card className="p-4 md:p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <StickyNote className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Notas y Reflexiones</h2>
+          </div>
+          <Textarea
+            defaultValue={notesText}
+            onChange={(e) => handleNotesChange(e.target.value)}
+            placeholder="Escribe tus notas, reflexiones y aprendizajes durante este año de visión..."
+            className="min-h-[150px] resize-y text-sm leading-relaxed"
+          />
         </Card>
 
         <div className="flex items-center justify-between">
