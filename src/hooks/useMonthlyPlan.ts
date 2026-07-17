@@ -116,7 +116,7 @@ export function useMonthlyPlan(month: Date) {
       try {
         const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
         if (data?.setting_value && Array.isArray(data.setting_value)) {
-          setProjects(data.setting_value);
+          setProjects(data.setting_value as unknown as Project[]);
         } else {
           const stored = localStorage.getItem('userProjects');
           if (stored) setProjects(JSON.parse(stored));
