@@ -43,7 +43,7 @@ function makeCards(rows: number): MotivoCard[] {
 const ROW_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
 
 export default function Motivos() {
-  const { data: sections, setData: setSections, loading } = useTextSection<MotivoSection[]>(
+  const { data: sections, setData: setSections, loading, saving, saveNow } = useTextSection<MotivoSection[]>(
     "motivos-data",
     []
   );
@@ -158,10 +158,20 @@ export default function Motivos() {
               Crea secciones con cuadrículas de imágenes desde tu galería
             </p>
           </div>
-          <Button onClick={addSection}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Nueva Sección
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={saveNow} disabled={saving}>
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <ImagePlus className="h-4 w-4 mr-1.5" />
+              )}
+              Guardar
+            </Button>
+            <Button onClick={addSection}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nueva Sección
+            </Button>
+          </div>
         </div>
 
         {sections.length > 0 && (

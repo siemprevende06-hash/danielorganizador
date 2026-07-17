@@ -74,7 +74,7 @@ const MONTH_NAMES_SHORT = [
 ];
 
 export default function ObjetivoVision1Ano() {
-  const { data: sections, setData: setSections, loading } = useTextSection<VisionSection[]>(
+  const { data: sections, setData: setSections, loading, saving, saveNow } = useTextSection<VisionSection[]>(
     "objetivo-vision-data",
     []
   );
@@ -334,10 +334,20 @@ export default function ObjetivoVision1Ano() {
               Imágenes que representan tu objetivo a 1 año
             </p>
           </div>
-          <Button onClick={addSection}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Nueva Sección
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={saveNow} disabled={saving}>
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <ImagePlus className="h-4 w-4 mr-1.5" />
+              )}
+              Guardar
+            </Button>
+            <Button onClick={addSection}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nueva Sección
+            </Button>
+          </div>
         </div>
 
         {sections.length > 0 && (

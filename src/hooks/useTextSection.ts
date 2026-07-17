@@ -1,12 +1,16 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export function useTextSection<T>(sectionKey: string, defaultValue: T) {
   const [data, setData] = useState<T>(defaultValue);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const loadedRef = useRef(false);
   const userChangedRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestData = useRef(data);
+  latestData.current = data;
 
   useEffect(() => {
     let cancelled = false;
@@ -73,5 +77,28 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
     [persist]
   );
 
-  return { data, setData: update, loading };
+  const saveNow = useCallback(async (): Promise<boolean> => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("text_sections")
+        .upsert(
+          { section_key: sectionKey, content: latestData.current as any },
+          { onConflict: "user_id,section_key" }
+        );
+      if (error) {
+        toast.error(`Error al guardar: ${error.message}`);
+        return false;
+      }
+      toast.success("Guardado correctamente");
+      return true;
+    } catch (e: any) {
+      toast.error(`Error al guardar: ${e?.message || "desconocido"}`);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [sectionKey]);
+
+  return { data, setData: update, loading, saving, saveNow };
 }
