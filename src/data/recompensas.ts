@@ -22,7 +22,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "1 hora de gaming",
     descripcion: "Juega libremente por 1 hora sin culpa",
     icono: "🎮",
-    costo: 50,
+    costo: 35,
     categoria: "ocio",
   },
   {
@@ -30,7 +30,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Ver una película",
     descripcion: "Disfruta de una película que tengas pendiente",
     icono: "🎬",
-    costo: 30,
+    costo: 25,
     categoria: "ocio",
   },
   {
@@ -38,7 +38,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "30 min de dibujo libre",
     descripcion: "Dibuja lo que quieras sin presión",
     icono: "🎨",
-    costo: 20,
+    costo: 15,
     categoria: "ocio",
   },
   {
@@ -46,7 +46,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Salir a comer algo rico",
     descripcion: "Cómpra algo delicioso fuera de casa",
     icono: "🍕",
-    costo: 100,
+    costo: 60,
     categoria: "experiencia",
   },
   {
@@ -54,7 +54,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Día de ocio sin culpa",
     descripcion: "Un día entero para ti, sin obligaciones",
     icono: "🏖️",
-    costo: 200,
+    costo: 120,
     categoria: "ocio",
   },
   {
@@ -62,7 +62,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Maratón de serie",
     descripcion: "Varios episodios de tu serie favorita",
     icono: "📺",
-    costo: 40,
+    costo: 30,
     categoria: "ocio",
   },
   {
@@ -70,7 +70,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Comprar algo que quieras",
     descripcion: "Date un gusto material (hasta $10)",
     icono: "🛍️",
-    costo: 150,
+    costo: 80,
     categoria: "capricho",
   },
   {
@@ -78,7 +78,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Siesta reparadora",
     descripcion: "Duerme una siesta de hasta 1 hora",
     icono: "😴",
-    costo: 15,
+    costo: 10,
     categoria: "salud",
   },
   {
@@ -86,7 +86,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "30 min de redes sociales",
     descripcion: "Navega sin límite por tus redes favoritas",
     icono: "📱",
-    costo: 25,
+    costo: 20,
     categoria: "ocio",
   },
   {
@@ -94,7 +94,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Sesión de música relajante",
     descripcion: "Escucha música y desconecta por 30 min",
     icono: "🎵",
-    costo: 15,
+    costo: 10,
     categoria: "salud",
   },
   {
@@ -102,7 +102,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Paseo al aire libre",
     descripcion: "Sal a caminar sin rumbo y disfruta",
     icono: "🌳",
-    costo: 25,
+    costo: 15,
     categoria: "salud",
   },
   {
@@ -110,7 +110,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Juego de mesa / cartas",
     descripcion: "Juega con amigos o familia",
     icono: "🎲",
-    costo: 35,
+    costo: 25,
     categoria: "ocio",
   },
   {
@@ -118,7 +118,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Comida rápida sin remordimiento",
     descripcion: "Pide tu combo favorito",
     icono: "🍔",
-    costo: 80,
+    costo: 50,
     categoria: "capricho",
   },
   {
@@ -126,7 +126,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "Noche de películas + snacks",
     descripcion: "Películas con tus snacks favoritos",
     icono: "🍿",
-    costo: 120,
+    costo: 70,
     categoria: "experiencia",
   },
   {
@@ -134,7 +134,7 @@ export const RECOMPENSAS_DEFAULT: Recompensa[] = [
     nombre: "1 hora de redes sociales",
     descripcion: "Tiempo extra en tus redes preferidas",
     icono: "📱",
-    costo: 40,
+    costo: 30,
     categoria: "ocio",
   },
 ]

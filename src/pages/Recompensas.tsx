@@ -36,7 +36,7 @@ const emptyForm: FormData = { nombre: "", descripcion: "", icono: "🎁", costo:
 export default function Recompensas() {
   const { timeframe, view } = useTimeframe()
   const {
-    balance, canjes, scores, scoresLoading, catalogo,
+    balance, canjes, scores, scoresLoading, dailyScore, catalogo,
     puntosGanadosHoy, puntosGastadosHoy,
     canjearRecompensa, agregarRecompensa, editarRecompensa, eliminarRecompensa,
   } = useRecompensas()
@@ -163,51 +163,91 @@ export default function Recompensas() {
                 <p className="text-muted-foreground text-xs">gastados hoy</p>
               </div>
               <div className="text-center">
-                <p className="text-amber-500 font-bold">{scores.length > 0 ? Math.round(scores.reduce((s, a) => s + a.esfuerzo, 0) / scores.length) : 0}%</p>
-                <p className="text-muted-foreground text-xs">esfuerzo</p>
+                <p className="text-amber-500 font-bold">{dailyScore.loading ? "..." : `${dailyScore.total}`}</p>
+                <p className="text-muted-foreground text-xs">pts hoy</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Earnings Breakdown */}
+      {/* Score Composition */}
       <Card className="border-amber-500/10">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <TrendingUp className="h-4 w-4 text-amber-500" />
-            Puntos por área
+            Composición del puntaje
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {scores.map((area) => {
-            const pct = area.esfuerzo
-            return (
-              <div key={area.id} className="space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-lg">{area.icon}</span>
-                    <span>{area.label}</span>
-                  </span>
-                  <span className={cn(
-                    "font-bold tabular-nums text-xs",
-                    pct >= 70 ? "text-green-500" : pct >= 40 ? "text-amber-500" : "text-red-500"
-                  )}>
-                    {pct} pts
-                  </span>
-                </div>
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-500",
-                      pct >= 70 ? "bg-green-500" : pct >= 40 ? "bg-amber-500" : "bg-red-500"
-                    )}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            )
-          })}
+        <CardContent className="space-y-4">
+          {/* Total del día */}
+          <div className="text-center pb-2 border-b border-border/50">
+            <span className="text-xs text-muted-foreground">Puntaje de hoy</span>
+            <div className="text-3xl font-bold text-amber-500">
+              {dailyScore.loading ? "..." : `${dailyScore.total} pts`}
+            </div>
+          </div>
+
+          {/* Sosten */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1.5">
+                <span>🔄</span>
+                <span className="font-medium">Sosten</span>
+                <span className="text-[10px] text-muted-foreground">10%</span>
+              </span>
+              <span className="font-bold tabular-nums text-xs text-green-500">
+                {dailyScore.sosten}%
+              </span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-green-500" style={{ width: `${dailyScore.sosten}%` }} />
+            </div>
+            <p className="text-[10px] text-muted-foreground">Hábitos y rutinas cumplidas</p>
+          </div>
+
+          {/* Acumulativos */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1.5">
+                <span>📈</span>
+                <span className="font-medium">Acumulativos</span>
+                <span className="text-[10px] text-muted-foreground">40%</span>
+              </span>
+              <span className="font-bold tabular-nums text-xs text-blue-500">
+                {dailyScore.acumulativos}%
+              </span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-blue-500" style={{ width: `${dailyScore.acumulativos}%` }} />
+            </div>
+            <p className="text-[10px] text-muted-foreground">Gym, idiomas, lectura, ajedrez, piano, guitarra</p>
+          </div>
+
+          {/* Focus */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1.5">
+                <span>🎯</span>
+                <span className="font-medium">Focus</span>
+                <span className="text-[10px] text-muted-foreground">50%</span>
+              </span>
+              <span className="font-bold tabular-nums text-xs text-purple-500">
+                {dailyScore.focus}%
+              </span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-purple-500" style={{ width: `${dailyScore.focus}%` }} />
+            </div>
+            <p className="text-[10px] text-muted-foreground">Universidad, emprendimiento, proyectos</p>
+          </div>
+
+          {/* Formula hint */}
+          <div className="text-center pt-1">
+            <p className="text-[10px] text-muted-foreground">
+              Sosten × 10% + Acumulativos × 40% + Focus × 50%
+            </p>
+          </div>
         </CardContent>
       </Card>
 

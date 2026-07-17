@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { supabase } from "@/integrations/supabase/client"
 import { useAreaScores } from "./useAreaScores"
+import { useDailyScore } from "./useDailyScore"
 import { useTimeframe } from "@/contexts/TimeframeContext"
 import { RECOMPENSAS_DEFAULT, type Recompensa, type Canje } from "@/data/recompensas"
 
@@ -105,6 +106,7 @@ function generarId(): string {
 export function useRecompensas() {
   const { timeframe, view } = useTimeframe()
   const { scores, averages, loading: scoresLoading } = useAreaScores(timeframe, view)
+  const dailyScore = useDailyScore()
   const [balance, setBalance] = useState<number>(0)
   const [canjes, setCanjes] = useState<Canje[]>([])
   const [lastEarned, setLastEarned] = useState<DailyEarning | null>(null)
@@ -130,10 +132,10 @@ export function useRecompensas() {
   }, [])
 
   const puntosHoy = lastEarned?.date === todayKey() ? lastEarned.points : 0
-  const puntosPosibles = scoresLoading ? 0 : averages.esfuerzo
+  const puntosPosibles = dailyScore.loading ? 0 : dailyScore.total
 
   useEffect(() => {
-    if (scoresLoading || scores.length === 0) return
+    if (dailyScore.loading) return
 
     const today = todayKey()
     const earnedToday = lastEarned?.date === today ? lastEarned.points : 0
@@ -147,7 +149,7 @@ export function useRecompensas() {
       setBalance(newBalance)
       saveBalance(newBalance)
     }
-  }, [scoresLoading, puntosPosibles])
+  }, [dailyScore.loading, puntosPosibles])
 
   const canjearRecompensa = useCallback(
     (recompensaId: string): boolean => {
@@ -234,6 +236,7 @@ export function useRecompensas() {
     canjes,
     scores,
     scoresLoading,
+    dailyScore,
     catalogo,
     puntosPosibles,
     puntosGanadosHoy,
