@@ -3,8 +3,8 @@ import { format, parseISO, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Award, Flame, CalendarDays, Zap, CheckCircle2, XCircle, Minus } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ---------- Sostén ----------
@@ -544,7 +544,7 @@ export default function EstadisticasEsfuerzo() {
                   </div>
                 </div>
 
-                {/* Weekly trend bar chart (pure CSS/SVG) */}
+                    {/* Weekly trend — Line charts */}
                 {weeklyTrends.length > 0 && (
                   <>
                     <div>
@@ -552,59 +552,52 @@ export default function EstadisticasEsfuerzo() {
                         <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Evolución semanal — Mejora (min)</h3>
                       </div>
-                      <div className="flex items-end gap-1 h-32 overflow-x-auto pb-2">
-                        {weeklyTrends.map(w => {
-                          const maxVal = Math.max(...weeklyTrends.map(x => x.mejoraMin), 1);
-                          const pct = Math.round((w.mejoraMin / maxVal) * 100);
-                          return (
-                            <div key={w.weekId} className="flex flex-col items-center gap-1 min-w-[32px]">
-                              <span className="text-[8px] text-muted-foreground tabular-nums">{w.mejoraMin}</span>
-                              <div className="w-5 bg-gradient-to-t from-purple-400 to-purple-500 rounded-t-sm transition-all" style={{ height: `${Math.max(pct, 2)}%` }} />
-                              <span className="text-[7px] text-muted-foreground">{w.label}</span>
-                            </div>
-                          );
-                        })}
+                      <div className="w-full h-48 bg-muted/10 rounded-lg p-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={weeklyTrends} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                            <YAxis tick={{ fontSize: 10 }} />
+                            <Tooltip contentStyle={{ fontSize: 11 }} formatter={(v: number) => [`${v} min`, 'Mejora']} />
+                            <Line type="monotone" dataKey="mejoraMin" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
 
-                    {/* Focus weekly trend */}
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <Target className="h-3.5 w-3.5 text-muted-foreground" />
                         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Evolución semanal — Enfoque (min)</h3>
                       </div>
-                      <div className="flex items-end gap-1 h-32 overflow-x-auto pb-2">
-                        {weeklyTrends.map(w => {
-                          const maxVal = Math.max(...weeklyTrends.map(x => x.focusTotal), 1);
-                          const pct = Math.round((w.focusTotal / maxVal) * 100);
-                          return (
-                            <div key={w.weekId} className="flex flex-col items-center gap-1 min-w-[32px]">
-                              <span className="text-[8px] text-muted-foreground tabular-nums">{w.focusTotal}</span>
-                              <div className="w-5 bg-gradient-to-t from-amber-400 to-orange-500 rounded-t-sm transition-all" style={{ height: `${Math.max(pct, 2)}%` }} />
-                              <span className="text-[7px] text-muted-foreground">{w.label}</span>
-                            </div>
-                          );
-                        })}
+                      <div className="w-full h-48 bg-muted/10 rounded-lg p-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={weeklyTrends} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                            <YAxis tick={{ fontSize: 10 }} />
+                            <Tooltip contentStyle={{ fontSize: 11 }} formatter={(v: number) => [`${v} min`, 'Enfoque']} />
+                            <Line type="monotone" dataKey="focusTotal" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
 
-                    {/* Sosten consistency weekly */}
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <Shield className="h-3.5 w-3.5 text-muted-foreground" />
                         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Evolución semanal — Consistencia Sostén (%)</h3>
                       </div>
-                      <div className="flex items-end gap-1 h-32 overflow-x-auto pb-2">
-                        {weeklyTrends.map(w => {
-                          return (
-                            <div key={w.weekId} className="flex flex-col items-center gap-1 min-w-[32px]">
-                              <span className="text-[8px] text-muted-foreground tabular-nums">{w.sostenPct}%</span>
-                              <div className={cn("w-5 rounded-t-sm transition-all", w.sostenPct >= 80 ? "bg-gradient-to-t from-emerald-400 to-emerald-500" : w.sostenPct >= 50 ? "bg-gradient-to-t from-amber-400 to-amber-500" : "bg-gradient-to-t from-red-400 to-red-500")}
-                                style={{ height: `${Math.max(w.sostenPct, 2)}%` }} />
-                              <span className="text-[7px] text-muted-foreground">{w.label}</span>
-                            </div>
-                          );
-                        })}
+                      <div className="w-full h-48 bg-muted/10 rounded-lg p-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={weeklyTrends} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                            <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
+                            <Tooltip contentStyle={{ fontSize: 11 }} formatter={(v: number) => [`${v}%`, 'Sostén']} />
+                            <Line type="monotone" dataKey="sostenPct" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
 
