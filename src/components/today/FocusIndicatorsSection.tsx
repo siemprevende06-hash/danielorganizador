@@ -351,7 +351,6 @@ export function FocusIndicatorsSection() {
           <span className="text-[10px] text-muted-foreground tabular-nums">{sostenPct}%</span>
         </div>
       </Card>
-    </div>
 
       <DailyPlanChecklist
         tasks={dailyTasks}
