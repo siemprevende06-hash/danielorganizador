@@ -217,6 +217,8 @@ export function MySystemsSection() {
     return { cards, idiomasCard: iCard, gymCard: gCard };
   }
 
+  const musicaSem = semaphore(musicaMin, 15, 30);
+
   if (loading) return null;
 
   return (
@@ -248,12 +250,13 @@ export function MySystemsSection() {
       <div className="grid grid-cols-3 gap-3 mb-5">
         {/* Música — 3 columnas */}
         <Link to="/music-dashboard" className="col-span-3 block">
-          <Card className="p-3 ring-2 ring-purple-500/30 h-full">
+          <Card className={cn("p-3 ring-2 h-full", musicaSem.ring, musicaSem.bg)}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
                 <Music className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs font-bold">Música</span>
               </div>
+              <span className={cn("text-[10px] font-semibold", musicaSem.text)}>{musicaSem.label}</span>
             </div>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div className="rounded-lg bg-muted/30 p-2">
