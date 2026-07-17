@@ -43,7 +43,7 @@ export function useProjects() {
         .maybeSingle();
       if (error) throw error;
       if (data?.setting_value && Array.isArray(data.setting_value)) {
-        return data.setting_value as Project[];
+        return data.setting_value as unknown as Project[];
       }
     } catch (e) {
       console.error('Error loading projects from Supabase:', e);
