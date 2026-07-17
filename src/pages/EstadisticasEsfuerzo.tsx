@@ -141,6 +141,8 @@ export default function EstadisticasEsfuerzo() {
       mejoraMin: number;
       focus: Record<string, number>;
       tareas: number;
+      habitCompletions: Record<string, number>;
+      habitMinutes: Record<string, number>;
     }> = {};
 
     const allSystems = systemsData;
@@ -158,21 +160,29 @@ export default function EstadisticasEsfuerzo() {
       if (d < `${year}-01-01` || d > `${year}-12-31`) return;
       if (t.source === 'general' || (!t.source && !t.area_id)) {
         const wid = getWeekId(d);
-        if (!weeks[wid]) weeks[wid] = { days: 0, sosten: 0, sostenTotal: 0, mejoraMin: 0, focus: { universidad: 0, emprendimiento: 0, proyectos: 0 }, tareas: 0 };
+        if (!weeks[wid]) weeks[wid] = { days: 0, sosten: 0, sostenTotal: 0, mejoraMin: 0, focus: { universidad: 0, emprendimiento: 0, proyectos: 0 }, tareas: 0, habitCompletions: {}, habitMinutes: {} };
         weeks[wid].tareas++;
       }
     });
 
     allSystems.forEach(row => {
       const wid = getWeekId(row.tracking_date);
-      if (!weeks[wid]) weeks[wid] = { days: 0, sosten: 0, sostenTotal: 0, mejoraMin: 0, focus: { universidad: 0, emprendimiento: 0, proyectos: 0 }, tareas: 0 };
+      if (!weeks[wid]) weeks[wid] = { days: 0, sosten: 0, sostenTotal: 0, mejoraMin: 0, focus: { universidad: 0, emprendimiento: 0, proyectos: 0 }, tareas: 0, habitCompletions: {}, habitMinutes: {} };
       weeks[wid].days++;
       const c = row.completions || {};
-      ALL_SOSTEN_IDS.forEach(h => { if (c[h]) weeks[wid].sosten++; });
+      ALL_SOSTEN_IDS.forEach(h => {
+        if (c[h]) weeks[wid].sosten++;
+        if (c[h]) weeks[wid].habitCompletions[h] = (weeks[wid].habitCompletions[h] || 0) + 1;
+      });
       weeks[wid].sostenTotal += ALL_SOSTEN_IDS.length;
       const td = row.time_data || {};
-      MEJORA_HABITS.forEach(h => { weeks[wid].mejoraMin += (td[h.id] || 0); });
+      MEJORA_HABITS.forEach(h => {
+        const mins = (td[h.id] || 0);
+        weeks[wid].mejoraMin += mins;
+        weeks[wid].habitMinutes[h.id] = (weeks[wid].habitMinutes[h.id] || 0) + mins;
+      });
       weeks[wid].mejoraMin += (row.workout_duration || 0);
+      weeks[wid].habitMinutes['entrenamiento-fisico'] = (weeks[wid].habitMinutes['entrenamiento-fisico'] || 0) + (row.workout_duration || 0);
 
       const f = areaMapAll[row.tracking_date];
       if (f) {
@@ -183,13 +193,21 @@ export default function EstadisticasEsfuerzo() {
     });
 
     return Object.entries(weeks)
-      .map(([weekId, data]) => ({
-        weekId,
-        label: `Sem ${weekId.slice(-5)}`,
-        ...data,
-        sostenPct: data.sostenTotal > 0 ? Math.round((data.sosten / data.sostenTotal) * 100) : 0,
-        focusTotal: data.focus.universidad + data.focus.emprendimiento + data.focus.proyectos,
-      }))
+      .map(([weekId, data]) => {
+        const daysCount = data.days || 1;
+        const perHabitCompletions: Record<string, number> = {};
+        ALL_SOSTEN_IDS.forEach(h => {
+          perHabitCompletions[h] = Math.round(((data.habitCompletions[h] || 0) / daysCount) * 100);
+        });
+        return {
+          weekId,
+          label: `Sem ${weekId.slice(-5)}`,
+          ...data,
+          sostenPct: data.sostenTotal > 0 ? Math.round((data.sosten / data.sostenTotal) * 100) : 0,
+          focusTotal: data.focus.universidad + data.focus.emprendimiento + data.focus.proyectos,
+          perHabitCompletions,
+        };
+      })
       .sort((a, b) => a.weekId.localeCompare(b.weekId));
   }, [systemsData, areaStats, taskCompletions, year]);
 
@@ -601,7 +619,73 @@ export default function EstadisticasEsfuerzo() {
                       </div>
                     </div>
 
-                    {/* Monthly summary table */}
+                    {/* ─── Individual Habit Trends: Sostén ─── */}
+                    <div className="pt-2">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tendencias Individuales — Sostén (% cumplimiento semanal)</h3>
+                      </div>
+                      {SOSTEN_GROUPS.map(group => (
+                        <div key={group.label} className="mb-4">
+                          <p className="text-[10px] font-medium text-muted-foreground/70 mb-2 px-1">{group.label}</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {group.habits.map(habit => {
+                              const habitSeries = weeklyTrends.map(w => ({ label: w.label, value: w.perHabitCompletions[habit.id] || 0 }));
+                              const lastVal = habitSeries.length > 0 ? habitSeries[habitSeries.length - 1].value : 0;
+                              return (
+                                <div key={habit.id} className="bg-muted/10 rounded-lg p-2">
+                                  <p className="text-[9px] font-medium mb-1 text-center truncate">{habit.label}</p>
+                                  <div className="h-20">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <LineChart data={habitSeries} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
+                                        <XAxis dataKey="label" tick={false} />
+                                        <YAxis tick={false} domain={[0, 100]} />
+                                        <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                                      </LineChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                  <p className="text-[8px] text-muted-foreground text-center mt-0.5 tabular-nums">{lastVal}%</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ─── Individual Habit Trends: Mejora ─── */}
+                    <div className="pt-2">
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="h-3.5 w-3.5 text-purple-500" />
+                        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tendencias Individuales — Mejora (min/semana)</h3>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                        {MEJORA_HABITS.map(habit => {
+                          const habitSeries = weeklyTrends.map(w => ({ label: w.label, value: w.habitMinutes[habit.id] || 0 }));
+                          const lastVal = habitSeries.length > 0 ? habitSeries[habitSeries.length - 1].value : 0;
+                          return (
+                            <div key={habit.id} className="bg-muted/10 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1 justify-center">
+                                <habit.icon className="h-3 w-3 text-purple-500" />
+                                <p className="text-[9px] font-medium">{habit.label}</p>
+                              </div>
+                              <div className="h-20">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <LineChart data={habitSeries} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
+                                    <XAxis dataKey="label" tick={false} />
+                                    <YAxis tick={false} />
+                                    <Line type="monotone" dataKey="value" stroke="#a855f7" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </div>
+                              <p className="text-[8px] text-muted-foreground text-center mt-0.5 tabular-nums">{lastVal}min</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Weekly summary table */}
                     <div className="pt-2 border-t border-border/20">
                       <div className="flex items-center gap-2 mb-3">
                         <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
