@@ -73,6 +73,7 @@ import Realidad from "./pages/Realidad";
 import HabilidadesValiosas from "./pages/HabilidadesValiosas";
 import ObjetivoVision1Ano from "./pages/ObjetivoVision1Ano";
 import PlanManana from "./pages/PlanManana";
+import EstadisticasEsfuerzo from "./pages/EstadisticasEsfuerzo";
 
 const queryClient = new QueryClient();
 
@@ -150,6 +151,7 @@ function AppContent() {
         <Route path="/habilidades-valiosas" element={<HabilidadesValiosas />} />
         <Route path="/objetivo-vision-1-ano" element={<ObjetivoVision1Ano />} />
         <Route path="/plan-manana" element={<PlanManana />} />
+        <Route path="/estadisticas-esfuerzo" element={<EstadisticasEsfuerzo />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
