@@ -339,9 +339,9 @@ export function DailyTimelinePlanner({
                             </div>
                             <button
                               onClick={() => onRemoveTask(task.id)}
-                              className="opacity-0 group-hover:opacity-100 h-4 w-4 p-0 flex items-center justify-center shrink-0"
+                              className="h-5 w-5 p-0 flex items-center justify-center shrink-0 rounded hover:bg-destructive/10 transition-colors"
                             >
-                              <X className="h-2.5 w-2.5 text-muted-foreground hover:text-destructive" />
+                              <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
                             </button>
                           </div>
                         ))}

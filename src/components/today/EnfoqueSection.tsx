@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   GraduationCap, Briefcase, FolderKanban, ListTodo,
-  Focus, Clock, Target, ArrowRight, Save, CalendarDays, CheckCircle2
+  Focus, Clock, Target, ArrowRight, Save, CalendarDays, CheckCircle2, X, Sun, Moon, Coffee, Book, Music, Dumbbell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDailyPlanData } from "@/hooks/useDailyPlanData";
@@ -18,6 +18,9 @@ import { useUniversity } from "@/hooks/useUniversity";
 import { WeekStreakBar } from "@/components/systems/WeekStreakBar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import type { RoutineBlock } from "@/hooks/useRoutineBlocksDB";
+import type { TaskItem } from "@/hooks/useDailyPlanData";
 
 interface ActiveInfo {
   name: string;
@@ -32,24 +35,11 @@ interface ProjectStored {
   tasks?: { completed?: boolean }[];
 }
 
-const priorityColors: Record<string, string> = {
-  high: 'border-l-red-400 bg-red-50/30',
-  medium: 'border-l-amber-300 bg-amber-50/20',
-  low: 'border-l-gray-200'
-};
-
-const priorityLabel: Record<string, string> = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Baja'
-};
-
-const SOURCE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  universidad: { label: 'Universidad', icon: <GraduationCap className="h-3.5 w-3.5" />, color: 'text-blue-500' },
-  emprendimiento: { label: 'Emprendimiento', icon: <Briefcase className="h-3.5 w-3.5" />, color: 'text-purple-500' },
-  proyectos: { label: 'Proyecto', icon: <FolderKanban className="h-3.5 w-3.5" />, color: 'text-amber-500' },
-  general: { label: 'General', icon: <ListTodo className="h-3.5 w-3.5" />, color: 'text-muted-foreground' },
-};
+interface EnfoqueSectionProps {
+  blocks?: RoutineBlock[];
+  tasksByBlock?: Record<string, TaskItem[]>;
+  onRemoveTask?: (taskId: string) => void;
+}
 
 const AREA_CARD_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; gradient: string; color: string; bg: string; route: string }> = {
   universidad: { icon: GraduationCap, gradient: "from-purple-600 to-purple-400", color: "text-purple-500", bg: "bg-purple-500/10", route: "/university" },
@@ -64,10 +54,63 @@ const progressSemaphore = (pct: number) => {
   return { ring: "ring-muted/40", bg: "bg-muted/5", text: "text-muted-foreground", label: "Sin empezar" };
 };
 
+const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; label: string }> = {
+  universidad: { border: 'border-l-blue-500', bg: 'bg-blue-500/10', dot: 'bg-blue-500', label: 'Universidad' },
+  emprendimiento: { border: 'border-l-purple-500', bg: 'bg-purple-500/10', dot: 'bg-purple-500', label: 'Emprendimiento' },
+  proyectos: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/10', dot: 'bg-emerald-500', label: 'Proyectos' },
+  idiomas: { border: 'border-l-teal-500', bg: 'bg-teal-500/10', dot: 'bg-teal-500', label: 'Idiomas' },
+  musica: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Música' },
+  lectura: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Lectura' },
+  descanso: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', dot: 'bg-slate-500', label: 'Descanso' },
+  gym: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Gym' },
+  estructural: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Estructural' },
+  alimentacion: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500', label: 'Alimentación' },
+  default: { border: 'border-l-muted-foreground/30', bg: 'bg-muted/30', dot: 'bg-muted-foreground', label: 'Otros' },
+};
+
+function getBlockFocusKey(block: RoutineBlock): string {
+  const focus = block.currentFocus || block.defaultFocus;
+  if (focus && focus !== 'none') return focus;
+  const title = block.title.toLowerCase();
+  if (title.includes('gym') || title.includes('entreno')) return 'gym';
+  if (title.includes('activación') || title.includes('alistamiento') || title.includes('desactivación') || title.includes('dormir')) return 'estructural';
+  if (title.includes('almuerzo') || title.includes('comida') || title.includes('desayuno') || title.includes('merienda')) return 'alimentacion';
+  if (title.includes('lectura') || title.includes('música') || title.includes('piano') || title.includes('ajedrez')) return 'lectura';
+  return 'default';
+}
+
+function getBlockIcon(block: RoutineBlock) {
+  const focus = getBlockFocusKey(block);
+  switch (focus) {
+    case 'universidad': return <GraduationCap className="h-4 w-4 text-blue-500" />;
+    case 'emprendimiento': return <Briefcase className="h-4 w-4 text-purple-500" />;
+    case 'proyectos': return <FolderKanban className="h-4 w-4 text-emerald-500" />;
+    case 'descanso': return <Moon className="h-4 w-4 text-slate-500" />;
+    case 'lectura': return <Book className="h-4 w-4 text-indigo-500" />;
+    case 'musica': return <Music className="h-4 w-4 text-pink-500" />;
+    case 'gym': return <Dumbbell className="h-4 w-4 text-orange-500" />;
+    case 'estructural': return <Sun className="h-4 w-4 text-indigo-500" />;
+    case 'alimentacion': return <Coffee className="h-4 w-4 text-amber-500" />;
+    default: return <Clock className="h-4 w-4 text-muted-foreground" />;
+  }
+}
+
+function formatTimeDisplay(time: string) {
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
+const parseTime = (timeStr: string): number => {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
 // ============================================================
-//  ENFOQUE SECTION — Tareas del día + Tarjetas de enfoque
+//  ENFOQUE SECTION — Bloques + Tarjetas de enfoque
 // ============================================================
-export function EnfoqueSection() {
+export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSectionProps) {
   const navigate = useNavigate();
   const { tasks } = useDailyPlanData(new Date());
   const { areas, loading, setManualTime } = useCombinedFocusTime();
@@ -79,20 +122,31 @@ export function EnfoqueSection() {
   const [entInfo, setEntInfo] = useState<ActiveInfo | null>(null);
   const [projectInfo, setProjectInfo] = useState<ActiveInfo | null>(null);
 
-  // Group tasks by source (only pending)
-  const groupedTasks = useMemo(() => {
-    const groups: Record<string, typeof tasks> = {};
-    for (const task of tasks) {
-      if (task.completed) continue;
-      const key = task.source === 'university' ? 'universidad'
-        : task.source === 'entrepreneurship' ? 'emprendimiento'
-          : task.source === 'projects' ? 'proyectos'
-            : 'general';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(task);
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // Filter tasks by today's date
+  const todayTasks = useMemo(() => {
+    return tasks.filter(t => {
+      if (!t.due_date) return true;
+      return t.due_date.startsWith(todayStr);
+    });
+  }, [tasks, todayStr]);
+
+  // Filter tasksByBlock to only include today's tasks
+  const todayTasksByBlock = useMemo(() => {
+    if (!tasksByBlock) return undefined;
+    const filtered: Record<string, TaskItem[]> = {};
+    for (const [blockId, blockTasks] of Object.entries(tasksByBlock)) {
+      const filteredTasks = blockTasks.filter(t => {
+        if (!t.due_date) return true;
+        return t.due_date.startsWith(todayStr);
+      });
+      if (filteredTasks.length > 0) {
+        filtered[blockId] = filteredTasks;
+      }
     }
-    return groups;
-  }, [tasks]);
+    return filtered;
+  }, [tasksByBlock, todayStr]);
 
   // Universidad — active subject info
   const activeSubject = subjects.find((s) => s.id === activeSubjectId) || null;
@@ -159,6 +213,31 @@ export function EnfoqueSection() {
     proyectos: projectInfo,
   };
 
+  // Sort blocks by start time
+  const sortedBlocks = useMemo(() => {
+    if (!blocks) return [];
+    return [...blocks].sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+  }, [blocks]);
+
+  const hasBlocksContent = sortedBlocks.length > 0 && todayTasksByBlock &&
+    Object.values(todayTasksByBlock).some(t => t.length > 0);
+
+  // Group non-block tasks by source for fallback display
+  const groupedTasks = useMemo(() => {
+    if (blocks) return {}; // Don't show grouped when blocks are shown
+    const groups: Record<string, typeof todayTasks> = {};
+    for (const task of todayTasks) {
+      if (task.completed || task.routine_block_id) continue;
+      const key = task.source === 'university' ? 'universidad'
+        : task.source === 'entrepreneurship' ? 'emprendimiento'
+          : task.source === 'projects' ? 'proyectos'
+            : 'general';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(task);
+    }
+    return groups;
+  }, [todayTasks, blocks]);
+
   const taskCount = Object.values(groupedTasks).reduce((sum, t) => sum + t.length, 0);
 
   return (
@@ -168,8 +247,68 @@ export function EnfoqueSection() {
         <h2 className="text-sm font-bold uppercase tracking-wide">ENFOQUE · HOY</h2>
       </div>
 
-      {/* ===== TAREAS DEL DÍA AGRUPADAS ===== */}
-      {taskCount > 0 && (
+      {/* ===== BLOQUES DE TRABAJO CON TAREAS ===== */}
+      {hasBlocksContent && (
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-indigo-500" />
+              <h3 className="text-sm font-semibold">Bloques de Trabajo</h3>
+            </div>
+            <div className="space-y-2">
+              {sortedBlocks.map(block => {
+                const blockTasks = todayTasksByBlock?.[block.id] || [];
+                if (blockTasks.length === 0) return null;
+                const focusKey = getBlockFocusKey(block);
+                const colors = FOCUS_COLORS[focusKey] || FOCUS_COLORS.default;
+                return (
+                  <div key={block.id} className="rounded-lg border-l-[3px] overflow-hidden" style={{ borderLeftColor: `var(--${colors.dot.replace('bg-', '')})` }}>
+                    <div className={cn("px-3 py-2 border-b border-border/30", colors.bg)}>
+                      <div className="flex items-center gap-2">
+                        {getBlockIcon(block)}
+                        <span className="text-xs font-semibold flex-1">{block.title}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {formatTimeDisplay(block.startTime)} — {formatTimeDisplay(block.endTime)}
+                        </span>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">
+                          {blockTasks.length}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="px-3 py-1.5 space-y-0.5">
+                      {blockTasks.map(task => (
+                        <div key={task.id} className="flex items-center justify-between py-1 px-2 rounded-md bg-background/60 group hover:bg-background transition-colors">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", task.completed ? "bg-green-500" : colors.dot)} />
+                            <span className={cn("text-xs truncate", task.completed && "line-through text-muted-foreground")}>
+                              {task.title}
+                            </span>
+                            {task.priority && task.priority === 'high' && (
+                              <span className="text-[9px] text-red-500 font-medium shrink-0">Alta</span>
+                            )}
+                          </div>
+                          {onRemoveTask && (
+                            <button
+                              onClick={() => { onRemoveTask(task.id); toast.success("Tarea quitada del bloque"); }}
+                              className="h-5 w-5 p-0 flex items-center justify-center shrink-0 rounded hover:bg-destructive/10 transition-colors"
+                            >
+                              <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ===== TAREAS DEL DÍA AGRUPADAS (fallback cuando no hay bloques) ===== */}
+      {!blocks && taskCount > 0 && (
         <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
           <CardContent className="p-4 space-y-3">
@@ -184,7 +323,17 @@ export function EnfoqueSection() {
               {(['universidad', 'emprendimiento', 'proyectos', 'general'] as const).map(source => {
                 const sourceTasks = groupedTasks[source];
                 if (!sourceTasks?.length) return null;
+                const SOURCE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+                  universidad: { label: 'Universidad', icon: <GraduationCap className="h-3.5 w-3.5" />, color: 'text-blue-500' },
+                  emprendimiento: { label: 'Emprendimiento', icon: <Briefcase className="h-3.5 w-3.5" />, color: 'text-purple-500' },
+                  proyectos: { label: 'Proyecto', icon: <FolderKanban className="h-3.5 w-3.5" />, color: 'text-amber-500' },
+                  general: { label: 'General', icon: <ListTodo className="h-3.5 w-3.5" />, color: 'text-muted-foreground' },
+                };
                 const cfg = SOURCE_CONFIG[source];
+                const priorityColors: Record<string, string> = {
+                  high: 'border-l-red-400 bg-red-50/30', medium: 'border-l-amber-300 bg-amber-50/20', low: 'border-l-gray-200'
+                };
+                const priorityLabel: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
                 return (
                   <div key={source} className="space-y-1">
                     <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

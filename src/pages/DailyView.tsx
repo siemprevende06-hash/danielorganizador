@@ -14,7 +14,6 @@ import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
 import { HealthSection } from '@/components/dashboard/HealthSection';
-import { QuickStatsGrid } from '@/components/dashboard/QuickStatsGrid';
 import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
 import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
@@ -546,7 +545,11 @@ export default function DailyView() {
 
         {/* ===== SECCIÓN: ENFOQUE ===== */}
         {activeSection === 'enfoque' && (
-          <EnfoqueSection />
+          <EnfoqueSection
+            blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
+            tasksByBlock={tasksByBlock}
+            onRemoveTask={removeTaskFromBlock}
+          />
         )}
       </div>
     </div>
