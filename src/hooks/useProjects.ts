@@ -55,11 +55,11 @@ export function useProjects() {
     try {
       const { error } = await supabase
         .from('app_settings')
-        .upsert({
+        .upsert([{
           setting_key: SETTINGS_KEY,
-          setting_value: projects,
-          user_id: null,
-        }, { onConflict: 'user_id,setting_key' });
+          setting_value: projects as any,
+          user_id: null as any,
+        }], { onConflict: 'user_id,setting_key' });
       if (error) throw error;
     } catch (e) {
       console.error('Error saving projects to Supabase:', e);
