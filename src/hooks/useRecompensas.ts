@@ -140,14 +140,18 @@ export function useRecompensas() {
     const today = todayKey()
     const earnedToday = lastEarned?.date === today ? lastEarned.points : 0
 
-    if (earnedToday === 0 && puntosPosibles > 0) {
-      const newEarning: DailyEarning = { date: today, points: puntosPosibles }
-      setLastEarned(newEarning)
-      setSetting(LAST_EARNED_KEY, newEarning)
+    if (puntosPosibles > 0 && puntosPosibles !== earnedToday) {
+      const delta = puntosPosibles - earnedToday
 
-      const newBalance = balance + puntosPosibles
-      setBalance(newBalance)
-      saveBalance(newBalance)
+      if (delta > 0) {
+        const newEarning: DailyEarning = { date: today, points: puntosPosibles }
+        setLastEarned(newEarning)
+        setSetting(LAST_EARNED_KEY, newEarning)
+
+        const newBalance = balance + delta
+        setBalance(newBalance)
+        saveBalance(newBalance)
+      }
     }
   }, [dailyScore.loading, puntosPosibles])
 
