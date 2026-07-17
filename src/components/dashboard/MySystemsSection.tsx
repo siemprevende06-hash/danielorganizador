@@ -7,11 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCached, setCache } from "@/lib/offlineCache";
 import { format, subDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { Activity, Dumbbell, Brain, Languages, Music, Gamepad2, BookOpen, Music2, Crown, Tv, Gamepad } from "lucide-react";
+import { Activity, Dumbbell, Brain, Languages, Music, Gamepad2, BookOpen, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "@/components/systems/WeekStreakBar";
 import { useMusicRepertoire } from "@/hooks/useMusicRepertoire";
-import { useRecompensas } from "@/hooks/useRecompensas";
 
 interface SystemCard {
   id: string;
@@ -93,21 +92,14 @@ function SystemCardView({ c }: { c: SystemCard }) {
 
 export function MySystemsSection() {
   const [cards, setCards] = useState<SystemCard[]>([]);
-  const [gameCard, setGameCard] = useState<SystemCard | null>(null);
+  const [idiomasCard, setIdiomasCard] = useState<SystemCard | null>(null);
+  const [gymCard, setGymCard] = useState<SystemCard | null>(null);
   const [musicaMin, setMusicaMin] = useState(0);
   const [loading, setLoading] = useState(true);
   const { getSongsByInstrument } = useMusicRepertoire();
-  const { canjes } = useRecompensas();
 
   const pianoLearning = getSongsByInstrument("piano").find(s => s.status === "learning");
   const guitarLearning = getSongsByInstrument("guitar").find(s => s.status === "learning");
-
-  const gamingCanjes = canjes.filter(c => c.recompensaId === "gaming-1h");
-  const seriesCanjes = canjes.filter(c => c.recompensaId === "serie-maraton");
-  const gamingThisWeek = gamingCanjes.filter(c => new Date(c.fecha) >= subDays(new Date(), 7)).length;
-  const seriesThisWeek = seriesCanjes.filter(c => new Date(c.fecha) >= subDays(new Date(), 7)).length;
-  const lastGamingDate = gamingCanjes[0]?.fecha ?? null;
-  const lastSeriesDate = seriesCanjes[0]?.fecha ?? null;
 
   useEffect(() => {
     (async () => {
@@ -130,7 +122,8 @@ export function MySystemsSection() {
         setMusicaMin(Number(td["musica"]) || 0);
         const result = buildCards(rows, streaks, langR.data || [], today);
         setCards(result.cards);
-        setGameCard(result.gameCard);
+        setIdiomasCard(result.idiomasCard);
+        setGymCard(result.gymCard);
       } catch {
         const today = todayKey();
         const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
@@ -145,7 +138,8 @@ export function MySystemsSection() {
           setMusicaMin(Number(td["musica"]) || 0);
           const result = buildCards(cachedRows, sMap, cachedLang || [], today);
           setCards(result.cards);
-          setGameCard(result.gameCard);
+          setIdiomasCard(result.idiomasCard);
+          setGymCard(result.gymCard);
         }
       }
       setLoading(false);
@@ -178,6 +172,7 @@ export function MySystemsSection() {
     const last = (a: number[]) => a[a.length - 1] || 0;
 
     const gameSpark = minutesByDay("game");
+    const gymSpark = minutesByDay("gym");
 
     const cards: SystemCard[] = [
       {
@@ -195,23 +190,31 @@ export function MySystemsSection() {
         weekTotal: sum(minutesByDay("ajedrez")), streak: streaks.ajedrez || 0, spark: minutesByDay("ajedrez"),
       },
       {
-        id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard",
-        schedule: "5:00 - 6:30 PM",
-        todayValue: last(langSpark), unit: "min",
-        minThreshold: 30, maxThreshold: 90,
-        weekTotal: sum(langSpark), streak: streaks.idiomas || 0, spark: langSpark,
+        id: "game", label: "Game (Seducción)", icon: Gamepad2, route: "/systems",
+        schedule: "1:20 - 2:00 PM",
+        todayValue: last(gameSpark), unit: "min",
+        minThreshold: 10, maxThreshold: 20,
+        weekTotal: sum(gameSpark), streak: streaks.game || 0, spark: gameSpark,
       },
     ];
 
-    const gCard: SystemCard = {
-      id: "game", label: "Game (Seducción)", icon: Gamepad2, route: "/systems",
-      schedule: "1:20 - 2:00 PM",
-      todayValue: last(gameSpark), unit: "min",
-      minThreshold: 10, maxThreshold: 20,
-      weekTotal: sum(gameSpark), streak: streaks.game || 0, spark: gameSpark,
+    const iCard: SystemCard = {
+      id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard",
+      schedule: "5:00 - 6:30 PM",
+      todayValue: last(langSpark), unit: "min",
+      minThreshold: 30, maxThreshold: 90,
+      weekTotal: sum(langSpark), streak: streaks.idiomas || 0, spark: langSpark,
     };
 
-    return { cards, gameCard: gCard };
+    const gCard: SystemCard = {
+      id: "gym", label: "Gym", icon: Dumbbell, route: "/gym",
+      schedule: "6:00 - 7:00 PM",
+      todayValue: last(gymSpark), unit: "min",
+      minThreshold: 30, maxThreshold: 60,
+      weekTotal: sum(gymSpark), streak: streaks.gym || 0, spark: gymSpark,
+    };
+
+    return { cards, idiomasCard: iCard, gymCard: gCard };
   }
 
   if (loading) return null;
@@ -234,8 +237,8 @@ export function MySystemsSection() {
       {/* === Hobbies Artísticos === */}
       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Hobbies Artísticos</p>
       <div className="grid grid-cols-3 gap-3 mb-5">
-        {/* Música — 2 columnas */}
-        <Link to="/music-dashboard" className="col-span-2 block">
+        {/* Música — 3 columnas */}
+        <Link to="/music-dashboard" className="col-span-3 block">
           <Card className="p-3 ring-2 ring-purple-500/30 h-full">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
@@ -281,35 +284,22 @@ export function MySystemsSection() {
             <WeekStreakBar habitId="musica" todayValue={musicaMin} minThreshold={15} maxThreshold={30} compact hideStreak />
           </Card>
         </Link>
-        {/* Game Seducción — 1 columna */}
-        {gameCard && <SystemCardView c={gameCard} />}
+        {/* Idiomas — 3 columnas (pertenece a Hobbies Mentales) */}
+        {idiomasCard && (
+          <div className="col-span-3">
+            <SystemCardView c={idiomasCard} />
+          </div>
+        )}
       </div>
 
-      {/* === Hobbies Ocio === */}
-      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Hobbies Ocio</p>
-      <div className="flex justify-center gap-3">
-        <Card className="p-3 w-48 ring-2 ring-purple-500/20">
-          <div className="flex items-center gap-2 mb-2">
-            <Gamepad className="h-5 w-5 text-purple-500" />
-            <span className="text-xs font-bold">Gaming</span>
+      {/* === Gym === */}
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Entrenamiento</p>
+      <div className="grid grid-cols-3 gap-3">
+        {gymCard && (
+          <div className="col-span-3">
+            <SystemCardView c={gymCard} />
           </div>
-          <p className="text-lg font-bold">{gamingThisWeek}</p>
-          <p className="text-[10px] text-muted-foreground">veces esta semana</p>
-          {lastGamingDate && (
-            <p className="text-[9px] text-muted-foreground mt-1">Último: {format(new Date(lastGamingDate), "dd MMM", { locale: es })}</p>
-          )}
-        </Card>
-        <Card className="p-3 w-48 ring-2 ring-blue-500/20">
-          <div className="flex items-center gap-2 mb-2">
-            <Tv className="h-5 w-5 text-blue-500" />
-            <span className="text-xs font-bold">Series</span>
-          </div>
-          <p className="text-lg font-bold">{seriesThisWeek}</p>
-          <p className="text-[10px] text-muted-foreground">veces esta semana</p>
-          {lastSeriesDate && (
-            <p className="text-[9px] text-muted-foreground mt-1">Último: {format(new Date(lastSeriesDate), "dd MMM", { locale: es })}</p>
-          )}
-        </Card>
+        )}
       </div>
     </Card>
   );
