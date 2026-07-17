@@ -137,6 +137,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/confidence-steps', label: 'Escalones', icon: Target },
       { path: '/sprint', label: 'Sprint', icon: Target },
       { path: '/vida-daniel', label: 'Estadísticas', icon: BarChart3 },
+      { path: '/estadisticas-esfuerzo', label: 'Esfuerzo', icon: Activity },
       { path: '/periodic-review', label: 'Revisión Periódica', icon: Sparkles },
       { path: '/performance-modes', label: 'Modos', icon: Zap },
       { path: '/tools', label: 'Herramientas', icon: Wrench },
