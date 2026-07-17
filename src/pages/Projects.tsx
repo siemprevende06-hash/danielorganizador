@@ -56,7 +56,7 @@ export default function ProjectsPage() {
     if (!file) return;
     const imageUrl = await uploadImage(file, 'project-covers');
     if (imageUrl) {
-      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, coverImage: imageUrl } : p));
+      updateProject(projectId, { coverImage: imageUrl });
       toast({ title: 'Imagen actualizada' });
     }
   };
