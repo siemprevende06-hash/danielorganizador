@@ -32,6 +32,7 @@ import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
 import { SostenSection } from "@/components/dashboard/SostenSection";
 import { MiniHabitsSection } from "@/components/dashboard/MiniHabitsSection";
 import { FocusIndicatorsSection } from "@/components/today/FocusIndicatorsSection";
+import { EnfoqueSection } from "@/components/today/EnfoqueSection";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTimeframe } from "@/contexts/TimeframeContext";
 import { useAreaScores } from "@/hooks/useAreaScores";
@@ -175,6 +176,8 @@ export default function Index() {
         <RealStatsDashboard timeframe="today" />
 
         <FocusIndicatorsSection />
+
+        <EnfoqueSection />
 
         <MySystemsSection />
 
