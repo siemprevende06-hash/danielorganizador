@@ -8,6 +8,7 @@ import { TaskAccordion } from '@/components/today/TaskAccordion';
 import { TodayWorkout } from '@/components/today/TodayWorkout';
 import { SystemHabitGroup, type SystemGroup } from '@/components/systems/SystemHabitGroup';
 import { SystemsStatsPanel } from '@/components/systems/SystemsStatsPanel';
+import { EnfoqueSection } from '@/components/today/EnfoqueSection';
 import { HobbyCards } from '@/components/systems/HobbyCards';
 import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
@@ -545,73 +546,7 @@ export default function DailyView() {
 
         {/* ===== SECCIÓN: ENFOQUE ===== */}
         {activeSection === 'enfoque' && (
-          <>
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-              <CardContent className="p-3 flex items-center gap-4">
-                <div className="relative w-12 h-12 shrink-0">
-                  <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
-                    <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="3" />
-                    <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" className="text-purple-500" strokeWidth="3"
-                      strokeDasharray={`${2 * Math.PI * 16}`}
-                      strokeDashoffset={`${2 * Math.PI * 16 * (1 - Math.min(plannedTasks.filter(t => t.completed).length / Math.max(plannedTasks.length, 1) * 100, 100) / 100)}`} />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums">{plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0}%</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold">Tareas del Día</p>
-                  <p className="text-[10px] text-muted-foreground">{plannedTasks.filter(t => t.completed).length}/{plannedTasks.length} completadas</p>
-                </div>
-              </CardContent>
-            </Card>
-            {(['universidad', 'emprendimiento', 'proyectos', 'general'] as const).some(k => (groupedTasks[k]?.length ?? 0) > 0) && (
-              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-                <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Focus className="h-4 w-4 text-indigo-500" />
-                    <h2 className="text-sm font-semibold">Tareas del Día</h2>
-                  </div>
-                  <div className="space-y-2.5">
-                    {(['universidad', 'emprendimiento', 'proyectos', 'general'] as const).map(source => {
-                      const sourceTasks = groupedTasks[source];
-                      if (!sourceTasks?.length) return null;
-                      const cfg = SOURCE_CONFIG[source] || { label: source, icon: <ListTodo className="h-3.5 w-3.5" />, color: 'text-muted-foreground' };
-                      const priorityColors: Record<string, string> = { high: 'border-l-red-400 bg-red-50/30', medium: 'border-l-amber-300 bg-amber-50/20', low: 'border-l-gray-200' };
-                      const priorityLabel: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
-                      return (
-                        <div key={source} className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            <span className={cfg.color}>{cfg.icon}</span>
-                            <span>{cfg.label}</span>
-                            <span className="text-[9px] text-muted-foreground/60">({sourceTasks.length})</span>
-                          </div>
-                          <div className="space-y-0.5">
-                            {sourceTasks.map(task => (
-                              <div key={task.id} className={cn("flex items-center gap-2 py-1 px-2 rounded-lg border-l-2 text-xs", priorityColors[task.priority || 'medium'])}>
-                                <span className="flex-1 truncate">{task.title}</span>
-                                {task.priority && task.priority !== 'low' && (
-                                  <span className={cn("text-[9px] font-medium shrink-0", task.priority === 'high' ? 'text-red-500' : 'text-amber-500')}>
-                                    {priorityLabel[task.priority]}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Focus className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS</h2>
-              </div>
-              <QuickStatsGrid timeframe="today" />
-            </Card>
-          </>
+          <EnfoqueSection />
         )}
       </div>
     </div>
