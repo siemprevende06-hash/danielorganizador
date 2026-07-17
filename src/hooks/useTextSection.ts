@@ -1,19 +1,18 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-/**
- * Hook genérico para persistir contenido JSON libre en `text_sections`.
- * Reemplaza usos previos de localStorage para secciones editables tipo
- * Motivos, Realidad, HabilidadesValiosas, Tools (ideal partner), etc.
- */
 export function useTextSection<T>(sectionKey: string, defaultValue: T) {
   const [data, setData] = useState<T>(defaultValue);
   const [loading, setLoading] = useState(true);
   const loadedRef = useRef(false);
+  const userChangedRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    loadedRef.current = true;
+
     (async () => {
       try {
         const { data: row } = await supabase
@@ -21,20 +20,22 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
           .select("content")
           .eq("section_key", sectionKey)
           .maybeSingle();
+
         if (!cancelled) {
-          if (row?.content !== undefined && row?.content !== null) {
-            setData(row.content as T);
+          if (!userChangedRef.current) {
+            if (row?.content !== undefined && row?.content !== null) {
+              setData(row.content as T);
+            }
           }
-          loadedRef.current = true;
           setLoading(false);
         }
       } catch (e) {
         if (!cancelled) {
-          loadedRef.current = true;
           setLoading(false);
         }
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -54,17 +55,18 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
         } catch (e) {
           console.warn("text_sections upsert failed", e);
         }
-      }, 400);
+      }, 200);
     },
     [sectionKey]
   );
 
   const update = useCallback(
     (updater: T | ((prev: T) => T)) => {
+      userChangedRef.current = true;
       setData((prev) => {
         const next =
           typeof updater === "function" ? (updater as (p: T) => T)(prev) : updater;
-        if (loadedRef.current) persist(next);
+        persist(next);
         return next;
       });
     },

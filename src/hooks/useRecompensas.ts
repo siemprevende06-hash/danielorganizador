@@ -4,6 +4,8 @@ import { useAreaScores } from "./useAreaScores"
 import { useDailyScore } from "./useDailyScore"
 import { useTimeframe } from "@/contexts/TimeframeContext"
 import { RECOMPENSAS_DEFAULT, type Recompensa, type Canje } from "@/data/recompensas"
+import { getCached, setCache } from "@/lib/offlineCache"
+import { cachedMutation } from "@/lib/supabaseCache"
 
 interface DailyEarning {
   date: string
@@ -16,6 +18,7 @@ function todayKey(): string {
 
 const CATALOGO_KEY = "recompensas_catalogo"
 const LAST_EARNED_KEY = "recompensas_last_earned"
+const CACHE_PREFIX = "recompensas_"
 
 async function getSetting<T>(key: string): Promise<T | null> {
   try {
@@ -28,20 +31,18 @@ async function getSetting<T>(key: string): Promise<T | null> {
     const v: any = data.setting_value
     return (v?.value ?? v) as T
   } catch {
-    return null
+    const cached = await getCached<T>(CACHE_PREFIX, key)
+    return cached ?? null
   }
 }
 
 async function setSetting(key: string, value: any) {
-  try {
-    await supabase
-      .from("app_settings")
-      .upsert(
-        { setting_key: key, setting_value: { value } as any },
-        { onConflict: "user_id,setting_key" }
-      )
-  } catch (e) {
-    console.warn("app_settings upsert failed", e)
+  const result = await cachedMutation("app_settings", "upsert",
+    { setting_key: key, setting_value: { value } as any },
+    undefined, "user_id,setting_key"
+  )
+  if (result.queued) {
+    await setCache(CACHE_PREFIX, key, value, 300_000)
   }
 }
 
@@ -51,31 +52,28 @@ async function loadBalance(): Promise<number> {
       .from("user_settings")
       .select("id, rewards_balance")
       .maybeSingle()
-    return (data as any)?.rewards_balance ?? 0
+    const bal = (data as any)?.rewards_balance ?? 0
+    await setCache(CACHE_PREFIX, "balance", bal, 300_000)
+    return bal
   } catch {
-    return 0
+    const cached = await getCached<number>(CACHE_PREFIX, "balance")
+    return cached ?? 0
   }
 }
 
 async function saveBalance(balance: number) {
-  try {
-    const { data } = await supabase
-      .from("user_settings")
-      .select("id")
-      .maybeSingle()
-    if (data?.id) {
-      await supabase
-        .from("user_settings")
-        .update({ rewards_balance: balance })
-        .eq("id", data.id)
-    } else {
-      await supabase
-        .from("user_settings")
-        .insert({ user_id: crypto.randomUUID(), rewards_balance: balance } as any)
-    }
-  } catch (e) {
-    console.warn("saveBalance error", e)
+  const { data } = await supabase.from("user_settings").select("id").maybeSingle()
+  if (data?.id) {
+    await cachedMutation("user_settings", "update",
+      { rewards_balance: balance } as any,
+      { id: data.id }
+    )
+  } else {
+    await cachedMutation("user_settings", "insert",
+      { user_id: crypto.randomUUID(), rewards_balance: balance } as any
+    )
   }
+  await setCache(CACHE_PREFIX, "balance", balance, 300_000)
 }
 
 async function loadCanjes(): Promise<Canje[]> {
@@ -84,18 +82,19 @@ async function loadCanjes(): Promise<Canje[]> {
       .from("rewards_redemptions")
       .select("*")
       .order("fecha", { ascending: false })
-    return (
-      data?.map((r: any) => ({
-        id: r.id,
-        recompensaId: r.recompensa_id,
-        nombre: r.nombre,
-        icono: r.icono,
-        costo: r.costo,
-        fecha: r.fecha,
-      })) ?? []
-    )
+    const list = (data?.map((r: any) => ({
+      id: r.id,
+      recompensaId: r.recompensa_id,
+      nombre: r.nombre,
+      icono: r.icono,
+      costo: r.costo,
+      fecha: r.fecha,
+    })) ?? [])
+    await setCache(CACHE_PREFIX, "canjes", list, 300_000)
+    return list
   } catch {
-    return []
+    const cached = await getCached<Canje[]>(CACHE_PREFIX, "canjes")
+    return cached ?? []
   }
 }
 
@@ -125,8 +124,6 @@ export function useRecompensas() {
       setLastEarned(le)
       if (cat && Array.isArray(cat) && cat.length > 0) {
         setCatalogo(cat)
-      } else {
-        await setSetting(CATALOGO_KEY, RECOMPENSAS_DEFAULT)
       }
     })()
   }, [])
@@ -176,18 +173,14 @@ export function useRecompensas() {
       setCanjes(nuevosCanjes)
       setBalance(nuevoBalance)
       saveBalance(nuevoBalance)
-      supabase
-        .from("rewards_redemptions")
-        .insert({
-          recompensa_id: recompensa.id,
-          nombre: recompensa.nombre,
-          icono: recompensa.icono,
-          costo: recompensa.costo,
-          fecha: nuevoCanje.fecha,
-        } as any)
-        .then(({ error }) => {
-          if (error) console.warn("insert redemption error", error)
-        })
+
+      cachedMutation("rewards_redemptions", "insert", {
+        recompensa_id: recompensa.id,
+        nombre: recompensa.nombre,
+        icono: recompensa.icono,
+        costo: recompensa.costo,
+        fecha: nuevoCanje.fecha,
+      } as any)
 
       return true
     },

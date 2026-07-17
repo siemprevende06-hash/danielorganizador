@@ -74,7 +74,7 @@ const MONTH_NAMES_SHORT = [
 ];
 
 export default function ObjetivoVision1Ano() {
-  const { data: sections, setData: setSections } = useTextSection<VisionSection[]>(
+  const { data: sections, setData: setSections, loading } = useTextSection<VisionSection[]>(
     "objetivo-vision-data",
     []
   );
@@ -200,6 +200,14 @@ export default function ObjetivoVision1Ano() {
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">

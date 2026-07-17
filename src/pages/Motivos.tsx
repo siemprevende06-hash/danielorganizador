@@ -43,7 +43,7 @@ function makeCards(rows: number): MotivoCard[] {
 const ROW_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
 
 export default function Motivos() {
-  const { data: sections, setData: setSections } = useTextSection<MotivoSection[]>(
+  const { data: sections, setData: setSections, loading } = useTextSection<MotivoSection[]>(
     "motivos-data",
     []
   );
@@ -139,6 +139,14 @@ export default function Motivos() {
     if (el) inputRefs.current.set(cardId, el);
     else inputRefs.current.delete(cardId);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
