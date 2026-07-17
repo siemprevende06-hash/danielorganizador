@@ -170,7 +170,7 @@ const App = () => (
               <AppContent />
             </SidebarProvider>
           </TimeframeProvider>
-        </BrowserRouter>
+        </HashRouter>
       </OfflineProvider>
     </TooltipProvider>
   </QueryClientProvider>
