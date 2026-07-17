@@ -11,6 +11,9 @@ import { useActiveSelection } from "@/hooks/useActiveSelection";
 import { useUniversity } from "@/hooks/useUniversity";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { DailyPlanChecklist } from "@/components/routine/DailyPlanChecklist";
+import { isOnline } from "@/lib/isOnline";
+import { getCached, setCache } from "@/lib/offlineCache";
 
 function semaphore(progress: number) {
   if (progress >= 80) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Completado" };
@@ -45,6 +48,74 @@ export function FocusIndicatorsSection() {
   const [entInfo, setEntInfo] = useState<ActiveInfo | null>(null);
   const [projectInfo, setProjectInfo] = useState<ActiveInfo | null>(null);
   const [generalTasks, setGeneralTasks] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+
+  // Plan del Día state (shared via localStorage with DailyRoutine)
+  interface TaskItem {
+    id: string;
+    title: string;
+    description?: string;
+    source: "tasks" | "entrepreneurship" | "project" | "university";
+    sourceId?: string;
+    sourceName?: string;
+    dueDate?: string;
+    completed?: boolean;
+  }
+  const DAILY_PLAN_KEY = "dailyPlanTasks";
+  const [dailyTasks, setDailyTasks] = useState<TaskItem[]>([]);
+  const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
+  const [planDate, setPlanDate] = useState<"today" | "tomorrow">("today");
+
+  useEffect(() => {
+    const raw = localStorage.getItem(DAILY_PLAN_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        setDailyTasks(parsed.tasks || []);
+        setCompletedTaskIds(new Set(parsed.completedIds || []));
+        if (parsed.planDate) setPlanDate(parsed.planDate);
+      } catch {}
+    }
+  }, []);
+
+  const persistPlan = (tasks: TaskItem[], completed: Set<string>, date: "today" | "tomorrow") => {
+    localStorage.setItem(DAILY_PLAN_KEY, JSON.stringify({ tasks, completedIds: [...completed], planDate: date }));
+    setCache("daily_plan", "checklist", { tasks, completedIds: [...completed], planDate: date }, 300000);
+  };
+
+  const handleTasksChange = (tasks: TaskItem[]) => {
+    setDailyTasks(tasks);
+    persistPlan(tasks, completedTaskIds, planDate);
+  };
+
+  const handleToggleComplete = (taskId: string) => {
+    const next = new Set(completedTaskIds);
+    if (next.has(taskId)) next.delete(taskId);
+    else next.add(taskId);
+    setCompletedTaskIds(next);
+    persistPlan(dailyTasks, next, planDate);
+  };
+
+  const handleRemoveTask = (taskId: string) => {
+    const filtered = dailyTasks.filter(t => t.id !== taskId);
+    setDailyTasks(filtered);
+    const next = new Set(completedTaskIds);
+    next.delete(taskId);
+    setCompletedTaskIds(next);
+    persistPlan(filtered, next, planDate);
+  };
+
+  useEffect(() => {
+    if (!isOnline()) {
+      getCached<{ tasks: TaskItem[]; completedIds: string[]; planDate: "today" | "tomorrow" }>("daily_plan", "checklist")
+        .then(cached => {
+          if (cached) {
+            setDailyTasks(cached.tasks || []);
+            setCompletedTaskIds(new Set(cached.completedIds || []));
+            if (cached.planDate) setPlanDate(cached.planDate);
+          }
+        });
+    }
+  }, []);
 
   // Universidad — from active subject
   const activeSubject = subjects.find((s) => s.id === activeSubjectId) || null;
@@ -150,6 +221,19 @@ export function FocusIndicatorsSection() {
         <CalendarDays className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS · HOY</h2>
       </div>
+
+      <DailyPlanChecklist
+        tasks={dailyTasks}
+        completedTaskIds={completedTaskIds}
+        onTasksChange={handleTasksChange}
+        onToggleComplete={handleToggleComplete}
+        onRemoveTask={handleRemoveTask}
+        planDate={planDate}
+        onPlanDateChange={(date) => {
+          setPlanDate(date);
+          persistPlan(dailyTasks, completedTaskIds, date);
+        }}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {areas.map((area) => {
