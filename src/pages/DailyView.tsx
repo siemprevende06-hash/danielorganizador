@@ -9,6 +9,7 @@ import { TodayWorkout } from '@/components/today/TodayWorkout';
 import { SystemHabitGroup, type SystemGroup } from '@/components/systems/SystemHabitGroup';
 import { SystemsStatsPanel } from '@/components/systems/SystemsStatsPanel';
 import { EnfoqueSection } from '@/components/today/EnfoqueSection';
+import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { HobbyCards } from '@/components/systems/HobbyCards';
 import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
@@ -545,11 +546,19 @@ export default function DailyView() {
 
         {/* ===== SECCIÓN: ENFOQUE ===== */}
         {activeSection === 'enfoque' && (
-          <EnfoqueSection
-            blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
-            tasksByBlock={tasksByBlock}
-            onRemoveTask={removeTaskFromBlock}
-          />
+          <>
+            <EnfoqueSection
+              blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
+              tasksByBlock={tasksByBlock}
+              onRemoveTask={removeTaskFromBlock}
+            />
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-xs font-bold uppercase tracking-wide">CALENDARIO MENSUAL</h2>
+              </div>
+              <NotionCalendar />
+            </div>
+          </>
         )}
       </div>
     </div>
