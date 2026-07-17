@@ -79,7 +79,7 @@ export function FocusIndicatorsSection() {
         const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
         let list: ProjectStored[] = [];
         if (data?.setting_value && Array.isArray(data.setting_value)) {
-          list = data.setting_value;
+          list = data.setting_value as unknown as ProjectStored[];
         } else {
           const stored = localStorage.getItem("userProjects");
           if (stored) list = JSON.parse(stored);
