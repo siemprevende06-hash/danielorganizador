@@ -65,57 +65,71 @@ export function FocusIndicatorsSection() {
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
   const [planDate, setPlanDate] = useState<"today" | "tomorrow">("today");
 
+  const getDateKey = (date: "today" | "tomorrow") => {
+    const d = date === "today" ? new Date() : new Date(Date.now() + 86400000);
+    return `${DAILY_PLAN_KEY}_${d.toISOString().split('T')[0]}`;
+  };
+
   useEffect(() => {
-    const raw = localStorage.getItem(DAILY_PLAN_KEY);
-    if (raw) {
+    const stored = localStorage.getItem(getDateKey(planDate));
+    if (stored) {
       try {
-        const parsed = JSON.parse(raw);
+        const parsed = JSON.parse(stored);
         setDailyTasks(parsed.tasks || []);
         setCompletedTaskIds(new Set(parsed.completedIds || []));
-        if (parsed.planDate) setPlanDate(parsed.planDate);
-      } catch {}
+      } catch {
+        setDailyTasks([]);
+        setCompletedTaskIds(new Set());
+      }
+    } else {
+      setDailyTasks([]);
+      setCompletedTaskIds(new Set());
     }
-  }, []);
+  }, [planDate]);
 
-  const persistPlan = (tasks: TaskItem[], completed: Set<string>, date: "today" | "tomorrow") => {
-    localStorage.setItem(DAILY_PLAN_KEY, JSON.stringify({ tasks, completedIds: [...completed], planDate: date }));
-    setCache("daily_plan", "checklist", { tasks, completedIds: [...completed], planDate: date }, 300000);
-  };
+  useEffect(() => {
+    if (dailyTasks.length > 0 || completedTaskIds.size > 0) {
+      localStorage.setItem(getDateKey(planDate), JSON.stringify({
+        tasks: dailyTasks,
+        completedIds: Array.from(completedTaskIds),
+      }));
+      setCache("daily_plan", `checklist_${getDateKey(planDate)}`, { tasks: dailyTasks, completedIds: [...completedTaskIds] }, 300000);
+    }
+  }, [dailyTasks, completedTaskIds, planDate]);
 
   const handleTasksChange = (tasks: TaskItem[]) => {
     setDailyTasks(tasks);
-    persistPlan(tasks, completedTaskIds, planDate);
   };
 
   const handleToggleComplete = (taskId: string) => {
-    const next = new Set(completedTaskIds);
-    if (next.has(taskId)) next.delete(taskId);
-    else next.add(taskId);
-    setCompletedTaskIds(next);
-    persistPlan(dailyTasks, next, planDate);
+    setCompletedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
   };
 
   const handleRemoveTask = (taskId: string) => {
-    const filtered = dailyTasks.filter(t => t.id !== taskId);
-    setDailyTasks(filtered);
-    const next = new Set(completedTaskIds);
-    next.delete(taskId);
-    setCompletedTaskIds(next);
-    persistPlan(filtered, next, planDate);
+    setDailyTasks(prev => prev.filter(t => t.id !== taskId));
+    setCompletedTaskIds(prev => {
+      const next = new Set(prev);
+      next.delete(taskId);
+      return next;
+    });
   };
 
   useEffect(() => {
     if (!isOnline()) {
-      getCached<{ tasks: TaskItem[]; completedIds: string[]; planDate: "today" | "tomorrow" }>("daily_plan", "checklist")
+      getCached<{ tasks: TaskItem[]; completedIds: string[] }>("daily_plan", `checklist_${getDateKey(planDate)}`)
         .then(cached => {
           if (cached) {
             setDailyTasks(cached.tasks || []);
             setCompletedTaskIds(new Set(cached.completedIds || []));
-            if (cached.planDate) setPlanDate(cached.planDate);
           }
         });
     }
-  }, []);
+  }, [planDate]);
 
   // Universidad — from active subject
   const activeSubject = subjects.find((s) => s.id === activeSubjectId) || null;
