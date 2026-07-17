@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { getCubaDate } from '@/lib/cubaTime';
+import { WeekStreakBar } from '@/components/systems/WeekStreakBar';
+import { ChevronDown, ChevronUp, Flame } from 'lucide-react';
 
 interface Habit {
   id: string;
@@ -31,6 +33,7 @@ const streakKey = (id: string) => `streak:enh_${id}`;
 export const EnhancedHabitsSchedule = () => {
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
   const [rowId, setRowId] = useState<string | null>(null);
+  const [expandedHabit, setExpandedHabit] = useState<string | null>(null);
   const today = getCubaDate();
 
   const load = useCallback(async () => {
@@ -108,23 +111,44 @@ export const EnhancedHabitsSchedule = () => {
       <div className="space-y-1 pl-6">
         {list.map(habit => {
           const isDone = !!completed[habit.id];
+          const habitStreakId = `enh_${habit.id}`;
+          const isExpanded = expandedHabit === habit.id;
           return (
-            <div
-              key={habit.id}
-              className={cn(
-                "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
-                isDone && "bg-green-500/10"
+            <div key={habit.id}>
+              <div
+                className={cn(
+                  "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
+                  isDone && "bg-green-500/10"
+                )}
+              >
+                <Checkbox
+                  checked={isDone}
+                  onCheckedChange={() => toggleHabit(habit.id)}
+                  className="h-4 w-4"
+                />
+                <span className={cn("text-sm flex-1", isDone && "line-through text-muted-foreground")}>
+                  {habit.title}
+                </span>
+                <span className="text-xs text-muted-foreground">{habit.time}</span>
+                <button
+                  onClick={() => setExpandedHabit(isExpanded ? null : habit.id)}
+                  className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted/40 text-muted-foreground transition-colors"
+                  title="Ver racha semanal"
+                >
+                  {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <Flame className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              {isExpanded && (
+                <div className="pl-2 pr-2 pb-2 pt-1">
+                  <WeekStreakBar
+                    habitId={habitStreakId}
+                    todayCompleted={isDone}
+                    compact
+                    hideStreak
+                    className="pl-6"
+                  />
+                </div>
               )}
-            >
-              <Checkbox
-                checked={isDone}
-                onCheckedChange={() => toggleHabit(habit.id)}
-                className="h-4 w-4"
-              />
-              <span className={cn("text-sm flex-1", isDone && "line-through text-muted-foreground")}>
-                {habit.title}
-              </span>
-              <span className="text-xs text-muted-foreground">{habit.time}</span>
             </div>
           );
         })}
