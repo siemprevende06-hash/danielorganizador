@@ -236,19 +236,6 @@ export function FocusIndicatorsSection() {
         <h2 className="text-sm font-bold uppercase tracking-wide">FOCUS · HOY</h2>
       </div>
 
-      <DailyPlanChecklist
-        tasks={dailyTasks}
-        completedTaskIds={completedTaskIds}
-        onTasksChange={handleTasksChange}
-        onToggleComplete={handleToggleComplete}
-        onRemoveTask={handleRemoveTask}
-        planDate={planDate}
-        onPlanDateChange={(date) => {
-          setPlanDate(date);
-          persistPlan(dailyTasks, completedTaskIds, date);
-        }}
-      />
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {areas.map((area) => {
           const sem = semaphore(area.progress);
@@ -364,6 +351,17 @@ export function FocusIndicatorsSection() {
           <span className="text-[10px] text-muted-foreground tabular-nums">{sostenPct}%</span>
         </div>
       </Card>
+    </div>
+
+      <DailyPlanChecklist
+        tasks={dailyTasks}
+        completedTaskIds={completedTaskIds}
+        onTasksChange={handleTasksChange}
+        onToggleComplete={handleToggleComplete}
+        onRemoveTask={handleRemoveTask}
+        planDate={planDate}
+        onPlanDateChange={setPlanDate}
+      />
     </div>
   );
 }

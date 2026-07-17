@@ -50,7 +50,7 @@ const TrendIndicator = ({ value }: { value: number }) => {
 };
 
 const EmptyChart = ({ message }: { message: string }) => (
-  <div className="flex flex-col items-center justify-center h-[260px] text-zinc-400 dark:text-zinc-500 gap-2">
+  <div className="flex flex-col items-center justify-center aspect-[4/3] sm:aspect-video text-zinc-400 dark:text-zinc-500 gap-2">
     <Activity className="h-8 w-8" />
     <span className="text-sm">{message}</span>
   </div>
@@ -71,7 +71,8 @@ export const MonthlySummaryChart = ({ data }: { data: MonthlySummaryData[] }) =>
           Gastos
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={260}>
+      <div className="aspect-[4/3] sm:aspect-video">
+        <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} barGap={4} barCategoryGap="20%">
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" vertical={false} />
           <XAxis
@@ -91,6 +92,7 @@ export const MonthlySummaryChart = ({ data }: { data: MonthlySummaryData[] }) =>
           <Bar dataKey="expense" name="Gastos" fill="#FF453A" radius={[4, 4, 0, 0]} maxBarSize={32} />
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 };
@@ -102,8 +104,8 @@ export const CategorySpendChart = ({ data }: { data: CategoryData[] }) => {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative">
-        <ResponsiveContainer width="100%" height={200}>
+      <div className="relative w-full max-w-[260px] mx-auto aspect-square">
+        <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
@@ -150,7 +152,8 @@ export const WalletDistributionChart = ({ data }: { data: WalletDistData[] }) =>
 
   return (
     <div className="flex flex-col items-center">
-      <ResponsiveContainer width="100%" height={200}>
+      <div className="w-full max-w-[260px] mx-auto aspect-square">
+        <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={data}
@@ -167,6 +170,7 @@ export const WalletDistributionChart = ({ data }: { data: WalletDistData[] }) =>
           <Tooltip content={<PieTooltip />} />
         </PieChart>
       </ResponsiveContainer>
+      </div>
       <div className="w-full space-y-1.5 mt-2">
         {data.map((entry, index) => {
           const pct = ((entry.value / total) * 100).toFixed(1);
@@ -187,7 +191,8 @@ export const CashFlowTrendChart = ({ data }: { data: { month: string; balance: n
   if (data.length === 0) return <EmptyChart message="Sin datos suficientes" />;
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <div className="aspect-[4/3] sm:aspect-video">
+    <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data}>
         <defs>
           <linearGradient id="cashflowGrad" x1="0" y1="0" x2="0" y2="1">
@@ -202,6 +207,7 @@ export const CashFlowTrendChart = ({ data }: { data: { month: string; balance: n
         <Area type="monotone" dataKey="balance" name="Balance" stroke="#0A84FF" fill="url(#cashflowGrad)" strokeWidth={2.5} dot={{ fill: "#0A84FF", r: 3, strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 5, fill: "#0A84FF", strokeWidth: 2, stroke: "#fff" }} />
       </AreaChart>
     </ResponsiveContainer>
+    </div>
   );
 };
 
@@ -216,8 +222,8 @@ export const DistributionBagChart = ({ data }: { data: { name: string; percentag
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative">
-        <ResponsiveContainer width="100%" height={180}>
+      <div className="relative w-full max-w-[220px] mx-auto aspect-square">
+        <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" strokeWidth={0}>
               {chartData.map((entry, index) => (
