@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ---------- Sostén ----------
