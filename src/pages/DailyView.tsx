@@ -27,7 +27,7 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -175,12 +175,16 @@ export default function DailyView() {
     }
   }, [planRoutineType, setRoutineType]);
 
-  const [activeSection, setActiveSection] = useState<'tasks' | 'sosten' | 'mejora' | 'enfoque'>('tasks');
+  const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten'>('tasks');
+  const completedHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.filter(h => data.completions?.[h.id]).length, 0);
+  const totalHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.length, 0);
+  const mejoraMinutes = (data.timeData?.lectura || 0) + (data.timeData?.musica || 0) + (data.timeData?.ajedrez || 0) + (data.workoutDuration || 0);
+  const sostenMinutes = Object.entries(data.timeData || {}).filter(([k]) => !['lectura', 'musica', 'ajedrez'].includes(k)).reduce((s, [, v]) => s + v, 0);
   const SECTIONS = [
-    { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" /> },
-    { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" /> },
-    { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" /> },
-    { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" /> },
+    { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: data.workoutDuration || 0 },
+    { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: 0 },
+    { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: mejoraMinutes },
+    { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: sostenMinutes },
   ];
 
   if (loading) {
@@ -294,22 +298,64 @@ export default function DailyView() {
           </CardContent>
         </Card>
 
-        {/* Section tabs */}
-        <div className="flex gap-1 bg-muted/30 rounded-2xl p-1 overflow-x-auto">
-          {SECTIONS.map(s => (
-            <button key={s.id} onClick={() => setActiveSection(s.id)}
-              className={cn("flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap",
-                activeSection === s.id ? "bg-white dark:bg-zinc-800 shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}>
-              {s.icon}
-              <span>{s.label}</span>
-            </button>
-          ))}
+        {/* Section tabs as cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {SECTIONS.map(s => {
+            const isActive = activeSection === s.id;
+            return (
+              <button key={s.id} onClick={() => setActiveSection(s.id)}
+                className={cn(
+                  "relative rounded-2xl p-3 text-left transition-all border-0 backdrop-blur-xl overflow-hidden",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
+                    : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                )}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={cn("text-lg", isActive ? "text-primary-foreground" : "text-primary")}>{s.icon}</span>
+                  {(s.pct > 0 || s.time > 0) && (
+                    <div className="relative w-8 h-8">
+                      <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+                        <circle cx="16" cy="16" r="12" fill="none" stroke={isActive ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.08)"} strokeWidth="3" />
+                        <circle cx="16" cy="16" r="12" fill="none" stroke={isActive ? "rgba(255,255,255,0.8)" : "currentColor"} strokeWidth="3"
+                          strokeDasharray={`${2 * Math.PI * 12}`}
+                          strokeDashoffset={`${2 * Math.PI * 12 * (1 - Math.min(s.pct, 100) / 100)}`}
+                          className={cn(isActive ? "" : "text-primary")} />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold tabular-nums">{s.pct}%</span>
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs font-semibold leading-tight">{s.label}</div>
+                {s.time > 0 && (
+                  <div className={cn("text-[9px] mt-0.5 flex items-center gap-1", isActive ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                    <Clock className="h-2.5 w-2.5" />{s.time} min
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* ===== SECCIÓN: TAREAS Y HORARIO ===== */}
         {activeSection === 'tasks' && (
           <>
+            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-3 flex items-center gap-4">
+                <div className="relative w-12 h-12 shrink-0">
+                  <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="3" />
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" className="text-indigo-500" strokeWidth="3"
+                      strokeDasharray={`${2 * Math.PI * 16}`}
+                      strokeDashoffset={`${2 * Math.PI * 16 * (1 - Math.min(SECTIONS[0].pct, 100) / 100)}`} />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums">{SECTIONS[0].pct}%</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold">Progreso del Día</p>
+                  <p className="text-[10px] text-muted-foreground">{plannedTasks.length} tareas · {data.workoutDuration || 0} min ejercicio</p>
+                </div>
+              </CardContent>
+            </Card>
             <DailyGuide />
             {Object.keys(groupedTasks).length > 0 && (
               <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
@@ -416,6 +462,23 @@ export default function DailyView() {
         {/* ===== SECCIÓN: SOSTÉN ===== */}
         {activeSection === 'sosten' && (
           <>
+            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-3 flex items-center gap-4">
+                <div className="relative w-12 h-12 shrink-0">
+                  <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="3" />
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" className="text-blue-500" strokeWidth="3"
+                      strokeDasharray={`${2 * Math.PI * 16}`}
+                      strokeDashoffset={`${2 * Math.PI * 16 * (1 - Math.min(SECTIONS[3].pct, 100) / 100)}`} />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums">{SECTIONS[3].pct}%</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold">Hoy</p>
+                  <p className="text-[10px] text-muted-foreground">{completedHabitsAll}/{totalHabitsAll} hábitos · {sostenMinutes} min</p>
+                </div>
+              </CardContent>
+            </Card>
             <HealthSection />
             <Card className="border-blue-500/20">
               <CardHeader className="pb-3">
@@ -437,6 +500,23 @@ export default function DailyView() {
         {/* ===== SECCIÓN: MEJORA ===== */}
         {activeSection === 'mejora' && (
           <>
+            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-3 flex items-center gap-4">
+                <div className="relative w-12 h-12 shrink-0">
+                  <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="3" />
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" className="text-purple-500" strokeWidth="3"
+                      strokeDasharray={`${2 * Math.PI * 16}`}
+                      strokeDashoffset={`${2 * Math.PI * 16 * (1 - Math.min(SECTIONS[2].pct, 100) / 100)}`} />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums">{SECTIONS[2].pct}%</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold">Hoy</p>
+                  <p className="text-[10px] text-muted-foreground">{completedHabitsAll}/{totalHabitsAll} hábitos · {mejoraMinutes} min invertidos</p>
+                </div>
+              </CardContent>
+            </Card>
             <MySystemsSection />
             <Card className="border-purple-500/20">
               <CardHeader className="pb-3">
@@ -466,6 +546,23 @@ export default function DailyView() {
         {/* ===== SECCIÓN: ENFOQUE ===== */}
         {activeSection === 'enfoque' && (
           <>
+            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-3 flex items-center gap-4">
+                <div className="relative w-12 h-12 shrink-0">
+                  <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="3" />
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" className="text-purple-500" strokeWidth="3"
+                      strokeDasharray={`${2 * Math.PI * 16}`}
+                      strokeDashoffset={`${2 * Math.PI * 16 * (1 - Math.min(plannedTasks.filter(t => t.completed).length / Math.max(plannedTasks.length, 1) * 100, 100) / 100)}`} />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums">{plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0}%</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold">Tareas del Día</p>
+                  <p className="text-[10px] text-muted-foreground">{plannedTasks.filter(t => t.completed).length}/{plannedTasks.length} completadas</p>
+                </div>
+              </CardContent>
+            </Card>
             {(['universidad', 'emprendimiento', 'proyectos', 'general'] as const).some(k => (groupedTasks[k]?.length ?? 0) > 0) && (
               <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
