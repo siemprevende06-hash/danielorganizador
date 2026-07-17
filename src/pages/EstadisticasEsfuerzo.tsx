@@ -626,25 +626,26 @@ export default function EstadisticasEsfuerzo() {
                         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tendencias Individuales — Sostén (% cumplimiento semanal)</h3>
                       </div>
                       {SOSTEN_GROUPS.map(group => (
-                        <div key={group.label} className="mb-4">
+                        <div key={group.label} className="mb-6">
                           <p className="text-[10px] font-medium text-muted-foreground/70 mb-2 px-1">{group.label}</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
                             {group.habits.map(habit => {
                               const habitSeries = weeklyTrends.map(w => ({ label: w.label, value: w.perHabitCompletions[habit.id] || 0 }));
                               const lastVal = habitSeries.length > 0 ? habitSeries[habitSeries.length - 1].value : 0;
                               return (
-                                <div key={habit.id} className="bg-muted/10 rounded-lg p-2">
-                                  <p className="text-[9px] font-medium mb-1 text-center truncate">{habit.label}</p>
-                                  <div className="h-20">
+                                <div key={habit.id} className="bg-muted/10 rounded-lg p-3">
+                                  <p className="text-xs font-medium mb-2 text-center">{habit.label}</p>
+                                  <div className="h-40">
                                     <ResponsiveContainer width="100%" height="100%">
-                                      <LineChart data={habitSeries} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
-                                        <XAxis dataKey="label" tick={false} />
-                                        <YAxis tick={false} domain={[0, 100]} />
-                                        <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                                      <LineChart data={habitSeries} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
+                                        <XAxis dataKey="label" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
+                                        <YAxis tick={{ fontSize: 9 }} domain={[0, 100]} tickFormatter={v => `${v}%`} />
+                                        <Tooltip contentStyle={{ fontSize: 10 }} formatter={(v: number) => [`${v}%`, habit.label]} />
+                                        <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                                       </LineChart>
                                     </ResponsiveContainer>
                                   </div>
-                                  <p className="text-[8px] text-muted-foreground text-center mt-0.5 tabular-nums">{lastVal}%</p>
+                                  <p className="text-[9px] text-muted-foreground text-center mt-1 tabular-nums font-medium">Últ: {lastVal}%</p>
                                 </div>
                               );
                             })}
@@ -659,26 +660,27 @@ export default function EstadisticasEsfuerzo() {
                         <TrendingUp className="h-3.5 w-3.5 text-purple-500" />
                         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tendencias Individuales — Mejora (min/semana)</h3>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {MEJORA_HABITS.map(habit => {
                           const habitSeries = weeklyTrends.map(w => ({ label: w.label, value: w.habitMinutes[habit.id] || 0 }));
                           const lastVal = habitSeries.length > 0 ? habitSeries[habitSeries.length - 1].value : 0;
                           return (
-                            <div key={habit.id} className="bg-muted/10 rounded-lg p-2">
-                              <div className="flex items-center gap-1 mb-1 justify-center">
-                                <habit.icon className="h-3 w-3 text-purple-500" />
-                                <p className="text-[9px] font-medium">{habit.label}</p>
+                            <div key={habit.id} className="bg-muted/10 rounded-lg p-3">
+                              <div className="flex items-center gap-1.5 mb-2 justify-center">
+                                <habit.icon className="h-4 w-4 text-purple-500" />
+                                <p className="text-xs font-medium">{habit.label}</p>
                               </div>
-                              <div className="h-20">
+                              <div className="h-40">
                                 <ResponsiveContainer width="100%" height="100%">
-                                  <LineChart data={habitSeries} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
-                                    <XAxis dataKey="label" tick={false} />
-                                    <YAxis tick={false} />
-                                    <Line type="monotone" dataKey="value" stroke="#a855f7" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                                  <LineChart data={habitSeries} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
+                                    <XAxis dataKey="label" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
+                                    <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `${v}'`} />
+                                    <Tooltip contentStyle={{ fontSize: 10 }} formatter={(v: number) => [`${v} min`, habit.label]} />
+                                    <Line type="monotone" dataKey="value" stroke="#a855f7" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                                   </LineChart>
                                 </ResponsiveContainer>
                               </div>
-                              <p className="text-[8px] text-muted-foreground text-center mt-0.5 tabular-nums">{lastVal}min</p>
+                              <p className="text-[9px] text-muted-foreground text-center mt-1 tabular-nums font-medium">Últ: {lastVal}min</p>
                             </div>
                           );
                         })}
