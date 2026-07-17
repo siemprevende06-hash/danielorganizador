@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { BookText, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { BookText, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
 
@@ -23,18 +26,38 @@ const SKILLS: Skill[] = [
 interface Props {
   completions: Record<string, boolean>;
   onToggle: (id: string) => void;
+  timeMinutes?: number;
+  onTimeChange?: (minutes: number) => void;
+  onSaveTime?: (minutes: number) => void;
 }
 
-export const LanguageSkillCards = ({ completions, onToggle }: Props) => {
+export const LanguageSkillCards = ({ completions, onToggle, timeMinutes = 0, onTimeChange, onSaveTime }: Props) => {
   const doneCount = SKILLS.filter(s => completions[`idioma-${s.id}`]).length;
   const pct = Math.round((doneCount / SKILLS.length) * 100);
+  const [localTime, setLocalTime] = useState(timeMinutes);
 
-  // Color semáforo de la tarjeta global
+  useEffect(() => { setLocalTime(timeMinutes); }, [timeMinutes]);
+
+  const minTime = 30;
+  const maxTime = 90;
+  const timeRatio = Math.max(0, Math.min(1, (localTime - minTime) / (maxTime - minTime)));
+  const timeColor = localTime >= maxTime
+    ? "ring-green-500/60"
+    : localTime >= minTime
+    ? "ring-blue-500/60"
+    : "ring-red-500/40";
+
   const ring = doneCount === 0
     ? "ring-red-500/40"
     : doneCount >= SKILLS.length
     ? "ring-green-500/60"
     : "ring-blue-500/60";
+
+  const handleSave = () => {
+    if (onSaveTime && localTime !== timeMinutes) {
+      onSaveTime(localTime);
+    }
+  };
 
   return (
     <Card className={cn("p-3 ring-2 transition-all space-y-3", ring, "bg-emerald-500/5")}>
@@ -78,6 +101,28 @@ export const LanguageSkillCards = ({ completions, onToggle }: Props) => {
             </button>
           );
         })}
+      </div>
+
+      {/* Time input */}
+      <div className={cn("flex items-center gap-2 p-2 rounded-lg ring-2 transition-all", timeColor)}>
+        <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="text-[11px] font-medium text-muted-foreground shrink-0">Tiempo</span>
+        <Input
+          type="number"
+          min={0}
+          max={120}
+          value={localTime || ""}
+          onChange={e => { const v = parseInt(e.target.value) || 0; setLocalTime(v); if (onTimeChange) onTimeChange(v); }}
+          className="h-7 w-14 text-xs text-center font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+        <span className="text-[10px] text-muted-foreground">min</span>
+        <div className="flex-1" />
+        <div className="flex items-center gap-1">
+          <span className={cn("text-[9px] font-medium", localTime >= maxTime ? "text-green-600" : localTime >= minTime ? "text-blue-600" : "text-red-500")}>
+            {localTime >= maxTime ? "Máx ✓" : localTime >= minTime ? "Mín ✓" : "—"}
+          </span>
+          <div className={cn("w-2 h-2 rounded-full", localTime >= maxTime ? "bg-green-500" : localTime >= minTime ? "bg-blue-500" : "bg-red-500")} />
+        </div>
       </div>
 
       <WeekStreakBar habitId="idiomas" todayValue={doneCount} todayCompleted={doneCount > 0} minThreshold={1} maxThreshold={SKILLS.length} compact />

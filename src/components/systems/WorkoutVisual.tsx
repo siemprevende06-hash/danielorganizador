@@ -91,6 +91,22 @@ export const WorkoutVisual = ({
       </div>
 
       <div className="p-3 space-y-3">
+        {/* Toggle completed */}
+        <div className="flex items-center gap-2">
+          <button onClick={onToggleCompleted}
+            className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border",
+              completed ? "bg-green-500 text-white border-green-500" : "bg-muted text-muted-foreground border-border hover:border-green-400"
+            )}>
+            <div className={cn("w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center",
+              completed ? "border-white" : "border-muted-foreground/50"
+            )}>
+              {completed && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </div>
+            {completed ? "Hecho" : "Sin hacer"}
+          </button>
+          <span className="text-[9px] text-muted-foreground">Marca si entrenaste hoy</span>
+        </div>
+
         {/* Selector de intensidad como chips */}
         <div>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Intensidad</p>

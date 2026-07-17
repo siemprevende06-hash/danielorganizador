@@ -536,7 +536,7 @@ export default function DailyView() {
                 <HobbyCards todayMinutes={{ lectura: data.timeData["lectura"] || 0, musica: data.timeData["musica"] || 0, ajedrez: data.timeData["ajedrez"] || 0 }} countData={{ ajedrez: data.countData["ajedrez"] || 0 }} onTimeChange={setTimeValue} onCountChange={setCountValue} />
               </div>
               <div>
-                <LanguageSkillCards completions={{}} onToggle={() => {}} />
+                <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} timeMinutes={data.timeData?.idiomas || 0} onSaveTime={(m) => setTimeValue('idiomas', m)} />
               </div>
             </CardContent>
           </Card>
