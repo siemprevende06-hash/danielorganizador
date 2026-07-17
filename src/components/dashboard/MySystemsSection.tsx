@@ -234,6 +234,15 @@ export function MySystemsSection() {
         {cards.map(c => <SystemCardView key={c.id} c={c} />)}
       </div>
 
+      {/* Idiomas — entre secciones, pertenece a Hobbies Mentales */}
+      {idiomasCard && (
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="col-span-3">
+            <SystemCardView c={idiomasCard} />
+          </div>
+        </div>
+      )}
+
       {/* === Hobbies Artísticos === */}
       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Hobbies Artísticos</p>
       <div className="grid grid-cols-3 gap-3 mb-5">
@@ -284,12 +293,6 @@ export function MySystemsSection() {
             <WeekStreakBar habitId="musica" todayValue={musicaMin} minThreshold={15} maxThreshold={30} compact hideStreak />
           </Card>
         </Link>
-        {/* Idiomas — 3 columnas (pertenece a Hobbies Mentales) */}
-        {idiomasCard && (
-          <div className="col-span-3">
-            <SystemCardView c={idiomasCard} />
-          </div>
-        )}
       </div>
 
       {/* === Gym === */}
