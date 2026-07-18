@@ -136,7 +136,10 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
     return filtered;
   }, [tasksByBlock]);
 
-  // Tareas no asignadas a bloques — solo con fecha de hoy
+  // Tareas no asignadas a bloques:
+  //  - Sin due_date (tareas activas generales) → se muestran
+  //  - Con due_date = hoy → se muestran
+  //  - Con due_date de otro día → se ocultan
   const todayTasks = useMemo(() => {
     const assignedIds = new Set<string>();
     if (tasksByBlock) {
@@ -144,7 +147,12 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
         blockTasks.forEach(t => assignedIds.add(t.id));
       }
     }
-    return tasks.filter(t => !assignedIds.has(t.id) && t.due_date && t.due_date.startsWith(todayStr));
+    return tasks.filter(t => {
+      if (t.completed) return false;
+      if (assignedIds.has(t.id)) return false;
+      if (!t.due_date) return true;
+      return t.due_date.startsWith(todayStr);
+    });
   }, [tasks, tasksByBlock, todayStr]);
 
   // Universidad — active subject info
