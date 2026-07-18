@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, GraduationCap, Briefcase, Code2, Clock, Target, Shield, ListChecks, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CalendarDays, GraduationCap, Briefcase, Code2, Clock, Target, Shield, ListChecks, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCombinedFocusTime } from "@/hooks/useCombinedFocusTime";
 import { useSystemsTracking } from "@/hooks/useSystemsTracking";
@@ -11,7 +12,7 @@ import { useActiveSelection } from "@/hooks/useActiveSelection";
 import { useUniversity } from "@/hooks/useUniversity";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { DailyPlanChecklist } from "@/components/routine/DailyPlanChecklist";
+import { DailyTaskSelector } from "@/components/routine/DailyTaskSelector";
 import { isOnline } from "@/lib/isOnline";
 import { getCached, setCache } from "@/lib/offlineCache";
 
@@ -351,15 +352,109 @@ export function FocusIndicatorsSection() {
           <span className="text-[10px] text-muted-foreground tabular-nums">{sostenPct}%</span>
         </div>
       </Card>
-      <DailyPlanChecklist
-        tasks={dailyTasks}
-        completedTaskIds={completedTaskIds}
-        onTasksChange={handleTasksChange}
-        onToggleComplete={handleToggleComplete}
-        onRemoveTask={handleRemoveTask}
-        planDate={planDate}
-        onPlanDateChange={setPlanDate}
-      />
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+              Plan del Día
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button
+                variant={planDate === "today" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPlanDate("today")}
+              >
+                Hoy
+              </Button>
+              <Button
+                variant={planDate === "tomorrow" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPlanDate("tomorrow")}
+              >
+                Mañana
+              </Button>
+            </div>
+          </div>
+          {dailyTasks.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progreso</span>
+                <span className="font-medium">{completedTaskIds.size}/{dailyTasks.length}</span>
+              </div>
+              <Progress value={dailyTasks.length > 0 ? (completedTaskIds.size / dailyTasks.length) * 100 : 0} className="h-2" />
+            </div>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {dailyTasks.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="mb-4">No hay tareas planificadas para {planDate === "today" ? "hoy" : "mañana"}</p>
+              <DailyTaskSelector
+                selectedTasks={dailyTasks}
+                onTasksChange={handleTasksChange}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {dailyTasks.map(task => (
+                  <div
+                    key={task.id}
+                    className={cn(
+                      "flex items-start gap-3 p-3 rounded-lg border transition-all",
+                      completedTaskIds.has(task.id)
+                        ? "bg-green-500/10 border-green-500/30"
+                        : "hover:bg-muted/50"
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={completedTaskIds.has(task.id)}
+                      onChange={() => handleToggleComplete(task.id)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        "font-medium text-sm",
+                        completedTaskIds.has(task.id) && "line-through text-muted-foreground"
+                      )}>
+                        {task.title}
+                      </p>
+                      {task.sourceName && (
+                        <Badge variant="outline" className="mt-1 text-xs">{task.sourceName}</Badge>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemoveTask(task.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2">
+                <DailyTaskSelector
+                  selectedTasks={dailyTasks}
+                  onTasksChange={handleTasksChange}
+                />
+              </div>
+            </>
+          )}
+          {dailyTasks.length > 0 && completedTaskIds.size === dailyTasks.length && (
+            <div className="text-center py-4 bg-green-500/10 rounded-lg border border-green-500/30">
+              <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
+              <p className="font-medium text-green-600 dark:text-green-400">
+                ¡Todas las tareas completadas!
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
