@@ -50,6 +50,7 @@ export default function Realidad() {
   );
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const { uploadImage } = useImageUpload();
 
