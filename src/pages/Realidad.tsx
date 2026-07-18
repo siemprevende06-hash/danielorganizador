@@ -323,6 +323,7 @@ export default function Realidad() {
           </Card>
         ))}
       </div>
+      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }
