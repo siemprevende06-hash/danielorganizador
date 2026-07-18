@@ -84,6 +84,7 @@ export default function ObjetivoVision1Ano() {
     "objetivo-vision-notas", ""
   );
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [today, setToday] = useState(new Date());
   const [showAllMonths, setShowAllMonths] = useState(false);
   const notesTimerRef = useRef<ReturnType<typeof setTimeout>>();
