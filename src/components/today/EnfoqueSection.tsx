@@ -11,7 +11,6 @@ import {
   Focus, Clock, Target, ArrowRight, Save, CalendarDays, CheckCircle2, X, Sun, Moon, Coffee, Book, Music, Dumbbell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDailyPlanData } from "@/hooks/useDailyPlanData";
 import { useCombinedFocusTime } from "@/hooks/useCombinedFocusTime";
 import { useActiveSelection } from "@/hooks/useActiveSelection";
 import { useUniversity } from "@/hooks/useUniversity";
@@ -39,6 +38,7 @@ interface EnfoqueSectionProps {
   blocks?: RoutineBlock[];
   tasksByBlock?: Record<string, TaskItem[]>;
   onRemoveTask?: (taskId: string) => void;
+  tasks?: TaskItem[];
 }
 
 const AREA_CARD_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; gradient: string; color: string; bg: string; route: string }> = {
@@ -110,9 +110,9 @@ const parseTime = (timeStr: string): number => {
 // ============================================================
 //  ENFOQUE SECTION — Bloques + Tarjetas de enfoque
 // ============================================================
-export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSectionProps) {
+export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: propTasks }: EnfoqueSectionProps) {
   const navigate = useNavigate();
-  const { tasks } = useDailyPlanData(new Date());
+  const tasks = propTasks ?? [];
   const { areas, loading, setManualTime } = useCombinedFocusTime();
   const { subjects } = useUniversity();
   const { value: activeSubjectId } = useActiveSelection("activeSubjectId");
@@ -124,22 +124,18 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // Solo tareas con due_date = hoy (mismo criterio que página Tareas > pestaña Hoy)
-  const dueToday = useMemo(() => {
-    const idSet = new Set<string>(tasks.filter(t => t.due_date && t.due_date.startsWith(todayStr) && !t.completed).map(t => t.id));
-    return idSet;
-  }, [tasks, todayStr]);
-
+  // Tareas asignadas a bloques — se muestran siempre (son el plan de hoy)
   const todayTasksByBlock = useMemo(() => {
     if (!tasksByBlock) return undefined;
     const filtered: Record<string, TaskItem[]> = {};
     for (const [blockId, blockTasks] of Object.entries(tasksByBlock)) {
-      const ok = blockTasks.filter(t => dueToday.has(t.id));
+      const ok = blockTasks.filter(t => !t.completed);
       if (ok.length > 0) filtered[blockId] = ok;
     }
     return filtered;
-  }, [tasksByBlock, dueToday]);
+  }, [tasksByBlock]);
 
+  // Tareas NO asignadas a bloques — solo con due_date = hoy (como Tasks > Hoy)
   const todayTasks = useMemo(() => {
     const assignedIds = new Set<string>();
     if (tasksByBlock) {
@@ -147,8 +143,8 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
         blockTasks.forEach(t => assignedIds.add(t.id));
       }
     }
-    return tasks.filter(t => dueToday.has(t.id) && !assignedIds.has(t.id));
-  }, [tasks, tasksByBlock, dueToday]);
+    return tasks.filter(t => !assignedIds.has(t.id) && !t.completed && t.due_date && t.due_date.startsWith(todayStr));
+  }, [tasks, tasksByBlock, todayStr]);
 
   // Universidad — active subject info
   const activeSubject = subjects.find((s) => s.id === activeSubjectId) || null;

@@ -551,6 +551,7 @@ export default function DailyView() {
               blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
               tasksByBlock={tasksByBlock}
               onRemoveTask={removeTaskFromBlock}
+              tasks={tasks}
             />
             <div>
               <div className="flex items-center gap-2 mb-3">
