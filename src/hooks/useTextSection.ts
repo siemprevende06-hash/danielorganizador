@@ -23,7 +23,7 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
       try {
         const { data: row } = await supabase
           .from("text_sections")
-          .select("content")
+          .select("*")
           .eq("section_key", sectionKey)
           .maybeSingle();
 
@@ -49,12 +49,22 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
 
   const doSave = useCallback(async (value: T) => {
     try {
-      await supabase
+      const { data: existing } = await supabase
         .from("text_sections")
-        .upsert(
-          { section_key: latestKey.current, content: value as any },
-          { onConflict: "user_id,section_key" }
-        );
+        .select("id")
+        .eq("section_key", latestKey.current)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("text_sections")
+          .update({ content: value as any, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      } else {
+        await supabase
+          .from("text_sections")
+          .insert({ section_key: latestKey.current, content: value as any });
+      }
     } catch (e) {
       console.warn("text_sections upsert failed", e);
     }
@@ -111,12 +121,27 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
   const saveNow = useCallback(async (): Promise<boolean> => {
     setSaving(true);
     try {
-      const { error } = await supabase
+      const currentData = latestData.current;
+      const { data: existing } = await supabase
         .from("text_sections")
-        .upsert(
-          { section_key: sectionKey, content: latestData.current as any },
-          { onConflict: "user_id,section_key" }
-        );
+        .select("id")
+        .eq("section_key", sectionKey)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        const result = await supabase
+          .from("text_sections")
+          .update({ content: currentData as any, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+        error = result.error;
+      } else {
+        const result = await supabase
+          .from("text_sections")
+          .insert({ section_key: sectionKey, content: currentData as any });
+        error = result.error;
+      }
+
       if (error) {
         toast.error(`Error al guardar: ${error.message}`);
         return false;
