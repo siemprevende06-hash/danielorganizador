@@ -13,6 +13,7 @@ import { useUniversity } from "@/hooks/useUniversity";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { DailyTaskSelector } from "@/components/routine/DailyTaskSelector";
+import { TodayTasksByCategory } from "@/components/today/TodayTasksByCategory";
 import { isOnline } from "@/lib/isOnline";
 import { getCached, setCache } from "@/lib/offlineCache";
 
