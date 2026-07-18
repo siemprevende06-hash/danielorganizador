@@ -124,12 +124,9 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // Filter tasks by today's date
+  // Filter tasks by today's date — solo tareas con fecha de hoy
   const todayTasks = useMemo(() => {
-    return tasks.filter(t => {
-      if (!t.due_date) return true;
-      return t.due_date.startsWith(todayStr);
-    });
+    return tasks.filter(t => t.due_date && t.due_date.startsWith(todayStr));
   }, [tasks, todayStr]);
 
   // Filter tasksByBlock to only include today's tasks
@@ -137,10 +134,7 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
     if (!tasksByBlock) return undefined;
     const filtered: Record<string, TaskItem[]> = {};
     for (const [blockId, blockTasks] of Object.entries(tasksByBlock)) {
-      const filteredTasks = blockTasks.filter(t => {
-        if (!t.due_date) return true;
-        return t.due_date.startsWith(todayStr);
-      });
+      const filteredTasks = blockTasks.filter(t => t.due_date && t.due_date.startsWith(todayStr));
       if (filteredTasks.length > 0) {
         filtered[blockId] = filteredTasks;
       }
@@ -213,10 +207,16 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
     proyectos: projectInfo,
   };
 
-  // Sort blocks by start time
+  // Filter + sort work blocks by start time
+  const WORK_FOCUSES = ['universidad', 'emprendimiento', 'proyectos', 'idiomas'];
   const sortedBlocks = useMemo(() => {
     if (!blocks) return [];
-    return [...blocks].sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+    return [...blocks].filter(b => {
+      const focus = b.currentFocus || b.defaultFocus;
+      if (focus && WORK_FOCUSES.includes(focus)) return true;
+      const t = b.title.toLowerCase();
+      return t.includes('deep work') || t.includes('work-') || t.includes('trabajo') || (t.includes('bloque') && !t.includes('alistamiento'));
+    }).sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
   }, [blocks]);
 
   const hasBlocksContent = sortedBlocks.length > 0 && todayTasksByBlock &&
