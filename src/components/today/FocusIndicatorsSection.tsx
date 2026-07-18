@@ -340,6 +340,8 @@ export function FocusIndicatorsSection() {
         </div>
       </Card>
 
+      <TodayTasksByCategory />
+
       <Card className="p-3 bg-muted/10">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
