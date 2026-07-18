@@ -13,8 +13,8 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "prompt",
-      includeAssets: ["pwa-192x192.png", "pwa-512x512.png", "pwa-512x512-maskable.png", "app-icon.svg", "robots.txt", "favicon.ico", "favicon.svg"],
+      registerType: "autoUpdate",
+      includeAssets: ["pwa-192x192.png", "pwa-512x512.png", "pwa-512x512-maskable.png", "app-icon.svg", "robots.txt", "favicon.ico", "favicon.svg", "placeholder.svg", "vite.svg"],
       devOptions: { enabled: true, type: "module" },
       manifest: {
         name: "Daniel Organizador",
@@ -143,24 +143,23 @@ export default defineConfig(({ mode }) => ({
           },
           {
             urlPattern: /\.(?:js|css|woff2?|ttf|otf|eot)$/i,
-            handler: "NetworkFirst",
+            handler: "StaleWhileRevalidate",
             options: {
               cacheName: "static-assets-v2",
               expiration: {
                 maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 7,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
               },
-              networkTimeoutSeconds: 5,
             },
           },
           {
             urlPattern: /\.(?:json|xml)$/i,
-            handler: "NetworkFirst",
+            handler: "StaleWhileRevalidate",
             options: {
               cacheName: "data-files",
               expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24,
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
               },
             },
           },

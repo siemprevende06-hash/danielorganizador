@@ -29,25 +29,11 @@ if (isPreviewHost || isInIframe) {
     navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
   }
 } else if ("serviceWorker" in navigator) {
-  // If there's a waiting service worker, activate it via reload (once per session)
-  if (!sessionStorage.getItem('pwa_updated')) {
-    navigator.serviceWorker.getRegistrations().then(rs => {
-      if (rs.some(r => r.waiting)) {
-        sessionStorage.setItem('pwa_updated', '1');
-        window.location.reload();
-      }
-    });
-  }
   clearOldCaches();
   import("virtual:pwa-register").then(({ registerSW }) => {
     const updateSW = registerSW({
-      immediate: true,
-      onNeedRefresh(updateCb) {
-        updateCb(true);
-        setTimeout(() => window.location.reload(), 300);
-      },
       onOfflineReady() {
-        console.log("[PWA] App lista para usar offline");
+        toast("App lista para usar sin conexión", { duration: 4000 });
       },
       onRegisteredSW(_swUrl, registration) {
         if (registration) {
@@ -56,7 +42,6 @@ if (isPreviewHost || isInIframe) {
         }
       },
     });
-    (window as any).__pwaUpdateSW = updateSW;
     (window as any).__pwaCheckForUpdates = async () => {
       try {
         const reg = await navigator.serviceWorker.getRegistration();
@@ -64,7 +49,7 @@ if (isPreviewHost || isInIframe) {
           await reg.update();
           if (reg.waiting) {
             if (updateSW) updateSW(true);
-            setTimeout(() => window.location.reload(), 300);
+            window.location.reload();
           } else {
             toast("Ya estás en la versión más reciente");
           }
