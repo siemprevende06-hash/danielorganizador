@@ -323,6 +323,7 @@ export default function Motivos() {
           </Card>
         ))}
       </div>
+      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }
