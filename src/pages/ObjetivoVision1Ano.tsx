@@ -489,6 +489,7 @@ export default function ObjetivoVision1Ano() {
           </Card>
         ))}
       </div>
+      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }
