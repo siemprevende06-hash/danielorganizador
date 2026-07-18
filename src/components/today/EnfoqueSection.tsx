@@ -222,12 +222,17 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
   const hasBlocksContent = sortedBlocks.length > 0 && todayTasksByBlock &&
     Object.values(todayTasksByBlock).some(t => t.length > 0);
 
-  // Group non-block tasks by source for fallback display
+  // Group non-block tasks by source
   const groupedTasks = useMemo(() => {
-    if (blocks) return {}; // Don't show grouped when blocks are shown
+    const assignedIds = new Set<string>();
+    if (tasksByBlock) {
+      for (const blockTasks of Object.values(tasksByBlock)) {
+        blockTasks.forEach(t => assignedIds.add(t.id));
+      }
+    }
     const groups: Record<string, typeof todayTasks> = {};
     for (const task of todayTasks) {
-      if (task.completed || task.routine_block_id) continue;
+      if (task.completed || assignedIds.has(task.id)) continue;
       const key = task.source === 'university' ? 'universidad'
         : task.source === 'entrepreneurship' ? 'emprendimiento'
           : task.source === 'projects' ? 'proyectos'
@@ -307,8 +312,8 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
         </Card>
       )}
 
-      {/* ===== TAREAS DEL DÍA AGRUPADAS (fallback cuando no hay bloques) ===== */}
-      {!blocks && taskCount > 0 && (
+      {/* ===== TAREAS DEL DÍA AGRUPADAS ===== */}
+      {taskCount > 0 && (
         <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
           <CardContent className="p-4 space-y-3">
