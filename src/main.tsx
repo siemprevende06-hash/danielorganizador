@@ -19,9 +19,16 @@ const isPreviewHost =
 
 async function clearOldCaches() {
   if (!("caches" in window)) return;
-  const expectedCaches = ["supabase-api", "supabase-storage", "images", "static-assets-v2", "data-files", "workbox-precache-v2"];
+  // Keep all workbox-* caches (precache + runtime) and our named runtime caches.
+  const keep = new Set(["supabase-api", "supabase-storage", "images", "static-assets-v2", "data-files"]);
   const names = await caches.keys();
-  await Promise.all(names.map(n => { if (!expectedCaches.includes(n)) return caches.delete(n); }));
+  await Promise.all(
+    names.map(n => {
+      if (n.startsWith("workbox-")) return;
+      if (keep.has(n)) return;
+      return caches.delete(n);
+    })
+  );
 }
 
 if (isPreviewHost || isInIframe) {
