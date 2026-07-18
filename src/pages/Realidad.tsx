@@ -12,7 +12,8 @@ import {
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { cacheImageNow, precacheImages } from "@/lib/imageCache";
 import { useTextSection } from "@/hooks/useTextSection";
-import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon } from "lucide-react";
+import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2 } from "lucide-react";
+import { ImageLightbox } from "@/components/ImageLightbox";
 import { toast } from "sonner";
 
 interface RealidadCard {
@@ -49,6 +50,7 @@ export default function Realidad() {
   );
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const { uploadImage } = useImageUpload();
 
@@ -279,13 +281,20 @@ export default function Realidad() {
                         />
                         <button
                           onClick={() => clearImage(section.id, card.id)}
-                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
                         >
                           <X className="h-3 w-3" />
                         </button>
                         <button
+                          onClick={() => setLightboxSrc(card.image_url)}
+                          className="absolute top-1.5 left-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                          aria-label="Ampliar imagen"
+                        >
+                          <Maximize2 className="h-3 w-3" />
+                        </button>
+                        <button
                           onClick={() => inputRefs.current.get(card.id)?.click()}
-                          className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors"
+                          className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors z-10"
                           aria-label="Cambiar imagen"
                         />
                       </>
@@ -314,6 +323,7 @@ export default function Realidad() {
           </Card>
         ))}
       </div>
+      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }

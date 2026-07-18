@@ -13,6 +13,7 @@ import { useUniversity } from "@/hooks/useUniversity";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { DailyTaskSelector } from "@/components/routine/DailyTaskSelector";
+import { TodayTasksByCategory } from "@/components/today/TodayTasksByCategory";
 import { isOnline } from "@/lib/isOnline";
 import { getCached, setCache } from "@/lib/offlineCache";
 
@@ -338,6 +339,8 @@ export function FocusIndicatorsSection() {
           />
         </div>
       </Card>
+
+      <TodayTasksByCategory />
 
       <Card className="p-3 bg-muted/10">
         <div className="flex items-center gap-3">
