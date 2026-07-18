@@ -30,35 +30,52 @@ if (isPreviewHost || isInIframe) {
   }
 } else if ("serviceWorker" in navigator) {
   clearOldCaches();
-  import("virtual:pwa-register").then(({ registerSW }) => {
-    const updateSW = registerSW({
-      onOfflineReady() {
+
+  async function registerSW() {
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      console.log("[PWA] Service Worker registrado");
+
+      if (registration.active) {
         toast("App lista para usar sin conexión", { duration: 4000 });
-      },
-      onRegisteredSW(_swUrl, registration) {
-        if (registration) {
-          setTimeout(() => registration.update(), 2000);
-          setInterval(() => registration.update().catch(() => {}), 2 * 60 * 1000);
-        }
-      },
-    });
-    (window as any).__pwaCheckForUpdates = async () => {
-      try {
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) {
-          await reg.update();
-          if (reg.waiting) {
-            if (updateSW) updateSW(true);
-            toast("Nueva versión instalada. Se aplicará al recargar la página.", { duration: 6000 });
-          } else {
-            toast("Ya estás en la versión más reciente");
-          }
-        }
-      } catch {
-        toast("Error al buscar actualizaciones");
       }
-    };
-  }).catch(() => {});
+
+      registration.addEventListener("updatefound", () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "activated") {
+              toast("App lista para usar sin conexión", { duration: 4000 });
+            }
+          });
+        }
+      });
+
+      setTimeout(() => registration.update(), 2000);
+      setInterval(() => registration.update().catch(() => {}), 2 * 60 * 1000);
+    } catch (err) {
+      console.error("[PWA] Error al registrar SW:", err);
+    }
+  }
+
+  registerSW();
+
+  (window as any).__pwaCheckForUpdates = async () => {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.update();
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: "SKIP_WAITING" });
+          toast("Nueva versión instalada. Se aplicará al recargar.", { duration: 6000 });
+        } else {
+          toast("Ya estás en la versión más reciente");
+        }
+      }
+    } catch {
+      toast("Error al buscar actualizaciones");
+    }
+  };
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
