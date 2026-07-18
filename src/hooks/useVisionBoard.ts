@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface VisionCard {
@@ -10,6 +10,31 @@ export interface VisionCard {
 export const useVisionBoard = (boardType: string = 'main') => {
   const [cards, setCards] = useState<VisionCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const latestBoardType = useRef(boardType);
+  latestBoardType.current = boardType;
+
+  const saveBoard = useCallback(async (newCards: VisionCard[]) => {
+    try {
+      await supabase
+        .from('vision_boards')
+        .update({ cards: newCards as any })
+        .eq('board_type', latestBoardType.current);
+    } catch (error) {
+      console.error('Error updating vision board:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        // Flush handled by latest state in updateCards
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     const loadBoard = async () => {
@@ -27,7 +52,6 @@ export const useVisionBoard = (boardType: string = 'main') => {
           const cardsData = data.cards as unknown as VisionCard[];
           setCards(cardsData || []);
         } else {
-          // Initialize with 18 empty cards
           const initialCards = Array.from({ length: 18 }, (_, i) => ({
             id: `vision-card-${i}`,
             image: null,
@@ -51,15 +75,8 @@ export const useVisionBoard = (boardType: string = 'main') => {
 
   const updateCards = useCallback(async (newCards: VisionCard[]) => {
     setCards(newCards);
-    try {
-      await supabase
-        .from('vision_boards')
-        .update({ cards: newCards as any })
-        .eq('board_type', boardType);
-    } catch (error) {
-      console.error('Error updating vision board:', error);
-    }
-  }, [boardType]);
+    saveBoard(newCards);
+  }, [saveBoard]);
 
   const updateCard = useCallback(async (cardId: string, updates: Partial<VisionCard>) => {
     const newCards = cards.map(card =>

@@ -10,7 +10,9 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
   const userChangedRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestData = useRef(data);
+  const latestKey = useRef(sectionKey);
   latestData.current = data;
+  latestKey.current = sectionKey;
 
   useEffect(() => {
     let cancelled = false;
@@ -45,23 +47,52 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
     };
   }, [sectionKey]);
 
+  const doSave = useCallback(async (value: T) => {
+    try {
+      await supabase
+        .from("text_sections")
+        .upsert(
+          { section_key: latestKey.current, content: value as any },
+          { onConflict: "user_id,section_key" }
+        );
+    } catch (e) {
+      console.warn("text_sections upsert failed", e);
+    }
+  }, []);
+
+  const flush = useCallback(() => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      const currentData = latestData.current;
+      if (currentData !== defaultValue) {
+        doSave(currentData);
+      }
+    }
+  }, [doSave, defaultValue]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flush();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      flush();
+    };
+  }, [flush]);
+
   const persist = useCallback(
     (next: T) => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(async () => {
-        try {
-          await supabase
-            .from("text_sections")
-            .upsert(
-              { section_key: sectionKey, content: next as any },
-              { onConflict: "user_id,section_key" }
-            );
-        } catch (e) {
-          console.warn("text_sections upsert failed", e);
-        }
+      saveTimer.current = setTimeout(() => {
+        saveTimer.current = null;
+        doSave(next);
       }, 200);
     },
-    [sectionKey]
+    [doSave]
   );
 
   const update = useCallback(

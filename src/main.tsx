@@ -49,7 +49,7 @@ if (isPreviewHost || isInIframe) {
           await reg.update();
           if (reg.waiting) {
             if (updateSW) updateSW(true);
-            window.location.reload();
+            toast("Nueva versión instalada. Se aplicará al recargar la página.", { duration: 6000 });
           } else {
             toast("Ya estás en la versión más reciente");
           }
