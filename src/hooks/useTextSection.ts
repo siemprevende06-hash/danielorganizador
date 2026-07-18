@@ -2,8 +2,29 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+const LS_PREFIX = "text_sections_";
+
+function getLocalData<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    if (!raw) return null;
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function setLocalData<T>(key: string, data: T): void {
+  try {
+    localStorage.setItem(LS_PREFIX + key, JSON.stringify(data));
+  } catch {}
+}
+
 export function useTextSection<T>(sectionKey: string, defaultValue: T) {
-  const [data, setData] = useState<T>(defaultValue);
+  const [data, setData] = useState<T>(() => {
+    const local = getLocalData<T>(sectionKey);
+    return local ?? defaultValue;
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const loadedRef = useRef(false);
@@ -31,6 +52,7 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
           if (!userChangedRef.current) {
             if (row?.content !== undefined && row?.content !== null) {
               setData(row.content as T);
+              setLocalData(sectionKey, row.content as T);
             }
           }
           setLoading(false);
@@ -49,6 +71,8 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
 
   const doSave = useCallback(async (value: T) => {
     try {
+      setLocalData(latestKey.current, value);
+
       const { data: existing } = await supabase
         .from("text_sections")
         .select("id")
@@ -122,6 +146,9 @@ export function useTextSection<T>(sectionKey: string, defaultValue: T) {
     setSaving(true);
     try {
       const currentData = latestData.current;
+
+      setLocalData(sectionKey, currentData);
+
       const { data: existing } = await supabase
         .from("text_sections")
         .select("id")
