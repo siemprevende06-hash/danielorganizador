@@ -124,22 +124,22 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // Tareas asignadas a bloques (ya son del plan de hoy) — se muestran siempre
+  // Solo tareas con due_date = hoy (mismo criterio que página Tareas > pestaña Hoy)
+  const dueToday = useMemo(() => {
+    const idSet = new Set<string>(tasks.filter(t => t.due_date && t.due_date.startsWith(todayStr) && !t.completed).map(t => t.id));
+    return idSet;
+  }, [tasks, todayStr]);
+
   const todayTasksByBlock = useMemo(() => {
     if (!tasksByBlock) return undefined;
     const filtered: Record<string, TaskItem[]> = {};
     for (const [blockId, blockTasks] of Object.entries(tasksByBlock)) {
-      if (blockTasks.length > 0) {
-        filtered[blockId] = blockTasks;
-      }
+      const ok = blockTasks.filter(t => dueToday.has(t.id));
+      if (ok.length > 0) filtered[blockId] = ok;
     }
     return filtered;
-  }, [tasksByBlock]);
+  }, [tasksByBlock, dueToday]);
 
-  // Tareas no asignadas a bloques:
-  //  - Sin due_date (tareas activas generales) → se muestran
-  //  - Con due_date = hoy → se muestran
-  //  - Con due_date de otro día → se ocultan
   const todayTasks = useMemo(() => {
     const assignedIds = new Set<string>();
     if (tasksByBlock) {
@@ -147,13 +147,8 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask }: EnfoqueSe
         blockTasks.forEach(t => assignedIds.add(t.id));
       }
     }
-    return tasks.filter(t => {
-      if (t.completed) return false;
-      if (assignedIds.has(t.id)) return false;
-      if (!t.due_date) return true;
-      return t.due_date.startsWith(todayStr);
-    });
-  }, [tasks, tasksByBlock, todayStr]);
+    return tasks.filter(t => dueToday.has(t.id) && !assignedIds.has(t.id));
+  }, [tasks, tasksByBlock, dueToday]);
 
   // Universidad — active subject info
   const activeSubject = subjects.find((s) => s.id === activeSubjectId) || null;
