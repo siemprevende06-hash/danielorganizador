@@ -60,9 +60,18 @@ export function useDailyPlanData(date?: Date) {
   const loadTasks = async () => {
     setTasksLoading(true);
     try {
+      const dayStart = `${dateStr}T00:00:00`;
+      const dayEnd = `${dateStr}T23:59:59`;
       const [{ data: regularTasks }, { data: entrepreneurshipTasks }, { data: entrepreneurships }] = await Promise.all([
-        supabase.from('tasks').select('id, title, description, source, completed, due_date, priority, area_id, routine_block_id'),
-        supabase.from('entrepreneurship_tasks').select('id, title, completed, due_date, entrepreneurship_id, routine_block_id'),
+        supabase
+          .from('tasks')
+          .select('id, title, description, source, completed, due_date, priority, area_id, routine_block_id')
+          .gte('due_date', dayStart)
+          .lte('due_date', dayEnd),
+        supabase
+          .from('entrepreneurship_tasks')
+          .select('id, title, completed, due_date, entrepreneurship_id, routine_block_id')
+          .eq('due_date', dateStr),
         supabase.from('entrepreneurships').select('id, name'),
       ]);
 
