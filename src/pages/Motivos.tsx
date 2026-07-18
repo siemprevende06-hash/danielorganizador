@@ -12,7 +12,8 @@ import {
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { cacheImageNow, precacheImages } from "@/lib/imageCache";
 import { useTextSection } from "@/hooks/useTextSection";
-import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon } from "lucide-react";
+import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2 } from "lucide-react";
+import { ImageLightbox } from "@/components/ImageLightbox";
 import { toast } from "sonner";
 
 interface MotivoCard {
