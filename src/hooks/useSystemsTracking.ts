@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
 import { getCached, setCache, clearTableCache } from "@/lib/offlineCache";
@@ -65,6 +65,18 @@ export function useSystemsTracking() {
   const [loading, setLoading] = useState(true);
   const [recordId, setRecordId] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(todayKey());
+  const dataRef = useRef(data);
+  dataRef.current = data;
+
+  // Save on unmount to avoid losing pending changes
+  useEffect(() => {
+    return () => {
+      if (!loading) {
+        save(dataRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reset visual + recarga de la fila correcta al pasar la medianoche
   useMidnightReset(useCallback(() => {
@@ -160,7 +172,7 @@ export function useSystemsTracking() {
   // Debounced save
   useEffect(() => {
     if (loading) return;
-    const t = setTimeout(() => save(data), 500);
+    const t = setTimeout(() => save(data), 100);
     return () => clearTimeout(t);
   }, [data, loading, save]);
 
