@@ -98,12 +98,20 @@ function parseMinutes(time: string) {
 }
 
 function eventsOverlapBlock(event: CalendarEvent, blockStart: string, blockEnd: string) {
-  if (!event.start_time || !event.end_time) return false;
-  const eStart = parseMinutes(event.start_time);
-  const eEnd = parseMinutes(event.end_time);
-  const bStart = parseMinutes(blockStart);
-  const bEnd = parseMinutes(blockEnd);
-  return eStart < bEnd && eEnd > bStart;
+  if (event.start_time && event.end_time) {
+    const eStart = parseMinutes(event.start_time);
+    const eEnd = parseMinutes(event.end_time);
+    const bStart = parseMinutes(blockStart);
+    const bEnd = parseMinutes(blockEnd);
+    return eStart < bEnd && eEnd > bStart;
+  }
+  // All-day event: show on first block only
+  return false;
+}
+
+function isFirstBlockOfDay(event: CalendarEvent, blocks: RoutineBlock[], blockIndex: number) {
+  if (event.start_time && event.end_time) return true;
+  return blockIndex === 0;
 }
 
 const SOURCE_STYLES: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -233,6 +241,9 @@ export function DailyTimelinePlanner({
     setDragOverBlockId(null);
   };
 
+  const allDayEvents = events.filter(e => !e.start_time || !e.end_time);
+  const timedEvents = events.filter(e => e.start_time && e.end_time);
+
   return (
     <Card className="p-3 md:p-4">
       <div className="flex items-center justify-between mb-3">
@@ -247,6 +258,20 @@ export function DailyTimelinePlanner({
           {format(new Date(), 'h:mm a')}
         </Badge>
       </div>
+
+      {allDayEvents.length > 0 && (
+        <div className="mb-3 space-y-1">
+          {allDayEvents.map(ev => {
+            const ec = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.default;
+            return (
+              <div key={ev.id} className={cn("flex items-center gap-2 py-1 px-2 rounded-lg border-l-2 text-xs", ec.bg, ec.border)}>
+                <span className="font-medium truncate flex-1">{ev.title}</span>
+                <span className={cn("text-[9px] font-medium", ec.text)}>{EVENT_CATEGORY_NAMES[ev.category] || ev.category}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="relative space-y-1">
         {sortedBlocks.map((block, index) => {
@@ -280,7 +305,7 @@ export function DailyTimelinePlanner({
                 </div>
 
                 {(() => {
-                  const blockEvents = events.filter(e => eventsOverlapBlock(e, block.startTime, block.endTime));
+                  const blockEvents = timedEvents.filter(e => eventsOverlapBlock(e, block.startTime, block.endTime));
                   return (
                 <div className={cn(
                   "flex-1 border-l-[3px] rounded-lg border transition-all relative",
