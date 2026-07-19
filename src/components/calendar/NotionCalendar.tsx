@@ -31,10 +31,14 @@ export default function NotionCalendar() {
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState('default');
   const [newDescription, setNewDescription] = useState('');
+  const [newStartTime, setNewStartTime] = useState('');
+  const [newEndTime, setNewEndTime] = useState('');
   const [editMode, setEditMode] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
   const { events, addEvent, updateEvent, deleteEvent, getEventsForDay } = useCalendarEvents(currentMonth);
 
   const monthStart = startOfMonth(currentMonth);
@@ -53,10 +57,12 @@ export default function NotionCalendar() {
 
   const handleAddEvent = async () => {
     if (!newTitle.trim() || !selectedDate) return;
-    await addEvent(newTitle.trim(), selectedDate, newCategory, newDescription || undefined);
+    await addEvent(newTitle.trim(), selectedDate, newCategory, newDescription || undefined, newStartTime || undefined, newEndTime || undefined);
     setNewTitle('');
     setNewDescription('');
     setNewCategory('default');
+    setNewStartTime('');
+    setNewEndTime('');
   };
 
   const handleUpdateEvent = async (id: string) => {
@@ -64,6 +70,8 @@ export default function NotionCalendar() {
       title: editTitle,
       category: editCategory,
       description: editDescription || null,
+      start_time: editStartTime || null,
+      end_time: editEndTime || null,
     });
     setEditMode(null);
   };
@@ -155,31 +163,49 @@ export default function NotionCalendar() {
             </div>
 
             {/* Add new event */}
-            <div className="flex gap-1.5 mb-3">
-              <Input
-                placeholder="Nuevo evento..."
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                className="h-7 text-[10px] flex-1"
-                onKeyDown={e => { if (e.key === 'Enter') handleAddEvent(); }}
-              />
-              <Select value={newCategory} onValueChange={setNewCategory}>
-                <SelectTrigger className="h-7 w-20 text-[10px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map(c => (
-                    <SelectItem key={c.value} value={c.value} className="text-[10px]">
-                      <span className="flex items-center gap-1">
-                        <span className={cn('w-2 h-2 rounded-full', c.color)} /> {c.label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleAddEvent}>
-                <Plus className="h-3 w-3" />
-              </Button>
+            <div className="space-y-1.5 mb-3">
+              <div className="flex gap-1.5">
+                <Input
+                  placeholder="Nuevo evento..."
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  className="h-7 text-[10px] flex-1"
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddEvent(); }}
+                />
+                <Select value={newCategory} onValueChange={setNewCategory}>
+                  <SelectTrigger className="h-7 w-20 text-[10px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(c => (
+                      <SelectItem key={c.value} value={c.value} className="text-[10px]">
+                        <span className="flex items-center gap-1">
+                          <span className={cn('w-2 h-2 rounded-full', c.color)} /> {c.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleAddEvent}>
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex gap-1.5">
+                <Input
+                  type="time"
+                  value={newStartTime}
+                  onChange={e => setNewStartTime(e.target.value)}
+                  className="h-6 text-[9px] w-24"
+                />
+                <span className="text-[9px] text-muted-foreground self-center">a</span>
+                <Input
+                  type="time"
+                  value={newEndTime}
+                  onChange={e => setNewEndTime(e.target.value)}
+                  className="h-6 text-[9px] w-24"
+                />
+                <span className="text-[9px] text-muted-foreground self-center">(opcional)</span>
+              </div>
             </div>
 
             {/* Event list */}
@@ -191,26 +217,44 @@ export default function NotionCalendar() {
                 <div key={ev.id} className="group flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-accent/30 transition-colors">
                   <span className={cn('w-2 h-2 rounded-full shrink-0', getCategoryColor(ev.category))} />
                   {editMode === ev.id ? (
-                    <div className="flex-1 flex gap-1 items-center">
-                      <Input
-                        value={editTitle}
-                        onChange={e => setEditTitle(e.target.value)}
-                        className="h-6 text-[10px] flex-1"
-                        autoFocus
-                      />
-                      <Select value={editCategory} onValueChange={setEditCategory}>
-                        <SelectTrigger className="h-6 w-16 text-[9px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CATEGORIES.map(c => (
-                            <SelectItem key={c.value} value={c.value} className="text-[10px]">{c.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleUpdateEvent(ev.id)}>
-                        <Check className="h-3 w-3 text-green-500" />
-                      </Button>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex gap-1 items-center">
+                        <Input
+                          value={editTitle}
+                          onChange={e => setEditTitle(e.target.value)}
+                          className="h-6 text-[10px] flex-1"
+                          autoFocus
+                        />
+                        <Select value={editCategory} onValueChange={setEditCategory}>
+                          <SelectTrigger className="h-6 w-16 text-[9px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIES.map(c => (
+                              <SelectItem key={c.value} value={c.value} className="text-[10px]">{c.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleUpdateEvent(ev.id)}>
+                          <Check className="h-3 w-3 text-green-500" />
+                        </Button>
+                      </div>
+                      <div className="flex gap-1 items-center">
+                        <Input
+                          type="time"
+                          value={editStartTime}
+                          onChange={e => setEditStartTime(e.target.value)}
+                          className="h-5 text-[8px] w-20"
+                        />
+                        <span className="text-[8px] text-muted-foreground">a</span>
+                        <Input
+                          type="time"
+                          value={editEndTime}
+                          onChange={e => setEditEndTime(e.target.value)}
+                          className="h-5 text-[8px] w-20"
+                        />
+                        <span className="text-[8px] text-muted-foreground">(opcional)</span>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -220,7 +264,7 @@ export default function NotionCalendar() {
                       </Badge>
                       <button
                         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-accent rounded"
-                        onClick={() => { setEditMode(ev.id); setEditTitle(ev.title); setEditCategory(ev.category); setEditDescription(ev.description || ''); }}
+                        onClick={() => { setEditMode(ev.id); setEditTitle(ev.title); setEditCategory(ev.category); setEditDescription(ev.description || ''); setEditStartTime(ev.start_time || ''); setEditEndTime(ev.end_time || ''); }}
                       >
                         <Edit3 className="h-2.5 w-2.5 text-muted-foreground" />
                       </button>

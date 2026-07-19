@@ -122,7 +122,7 @@ export default function DailyView() {
 
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   useEffect(() => {
-    supabase.from('calendar_events').select('*').eq('event_date', format(new Date(), 'yyyy-MM-dd')).order('event_date').then(({ data }) => { if (data) setTodayEvents(data); });
+    supabase.from('calendar_events').select('*').eq('event_date', format(new Date(), 'yyyy-MM-dd')).order('start_time').then(({ data }) => { if (data) setTodayEvents(data); });
   }, []);
 
   const plannedTaskIds = useMemo(() => {
@@ -404,29 +404,7 @@ export default function DailyView() {
               </Card>
             )}
 
-            {todayEvents.length > 0 && (
-              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-                <div className="h-1 bg-gradient-to-r from-sky-500 to-cyan-400" />
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-sky-500" />
-                    <h2 className="text-sm font-semibold">Eventos de Hoy</h2>
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
-                      {todayEvents.length}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    {todayEvents.map((ev: any) => (
-                      <div key={ev.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/20 text-xs">
-                        <span className="font-medium text-muted-foreground shrink-0">{ev.event_date?.slice(11, 16) || 'Todo el día'}</span>
-                        <span className="flex-1 truncate">{ev.title}</span>
-                        {ev.category && <Badge variant="outline" className="text-[9px] px-1">{ev.category}</Badge>}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+
 
             {/* Routine Selector */}
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -450,7 +428,7 @@ export default function DailyView() {
             <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock} />
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} />
+              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} />
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
                 <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} />
               </div>

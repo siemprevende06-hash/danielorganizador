@@ -17,6 +17,15 @@ import { useWorkoutTracking } from '@/hooks/useWorkoutTracking';
 import { useReadingLibrary } from '@/hooks/useReadingLibrary';
 import { useMusicRepertoire } from '@/hooks/useMusicRepertoire';
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string | null;
+  category: string;
+  start_time: string | null;
+  end_time: string | null;
+}
+
 interface Props {
   blocks: RoutineBlock[];
   tasksByBlock: Record<string, TaskItem[]>;
@@ -25,6 +34,7 @@ interface Props {
   onDropTask: (taskId: string, blockId: string) => void;
   onRemoveTask: (taskId: string) => void;
   onUpdateFocus?: (blockId: string, focus: string) => void;
+  events?: CalendarEvent[];
 }
 
 const FOCUS_OPTIONS = [
@@ -55,6 +65,46 @@ const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; la
   hobbys: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Hobbys' },
   default: { border: 'border-l-muted-foreground/30', bg: 'bg-muted/30', dot: 'bg-muted-foreground', label: 'Otros' },
 };
+
+const EVENT_CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  default: { bg: 'bg-blue-500/20', border: 'border-l-blue-500', text: 'text-blue-600' },
+  universidad: { bg: 'bg-blue-500/20', border: 'border-l-blue-500', text: 'text-blue-600' },
+  emprendimiento: { bg: 'bg-purple-500/20', border: 'border-l-purple-500', text: 'text-purple-600' },
+  gym: { bg: 'bg-red-500/20', border: 'border-l-red-500', text: 'text-red-600' },
+  idiomas: { bg: 'bg-emerald-500/20', border: 'border-l-emerald-500', text: 'text-emerald-600' },
+  proyectos: { bg: 'bg-amber-500/20', border: 'border-l-amber-500', text: 'text-amber-600' },
+  lectura: { bg: 'bg-cyan-500/20', border: 'border-l-cyan-500', text: 'text-cyan-600' },
+  musica: { bg: 'bg-pink-500/20', border: 'border-l-pink-500', text: 'text-pink-600' },
+  salud: { bg: 'bg-green-500/20', border: 'border-l-green-500', text: 'text-green-600' },
+  social: { bg: 'bg-orange-500/20', border: 'border-l-orange-500', text: 'text-orange-600' },
+  finanzas: { bg: 'bg-yellow-500/20', border: 'border-l-yellow-500', text: 'text-yellow-600' },
+};
+
+const EVENT_CATEGORY_NAMES: Record<string, string> = {
+  default: 'General', universidad: 'Uni', emprendimiento: 'Emp', gym: 'Gym',
+  idiomas: 'Idiomas', proyectos: 'Proy', lectura: 'Lect', musica: 'Mus',
+  salud: 'Salud', social: 'Social', finanzas: 'Fin',
+};
+
+function formatHour(time: string) {
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
+function parseMinutes(time: string) {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function eventsOverlapBlock(event: CalendarEvent, blockStart: string, blockEnd: string) {
+  if (!event.start_time || !event.end_time) return false;
+  const eStart = parseMinutes(event.start_time);
+  const eEnd = parseMinutes(event.end_time);
+  const bStart = parseMinutes(blockStart);
+  const bEnd = parseMinutes(blockEnd);
+  return eStart < bEnd && eEnd > bStart;
+}
 
 const SOURCE_STYLES: Record<string, { icon: React.ReactNode; color: string }> = {
   university: { icon: <BookOpen className="h-3 w-3" />, color: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
@@ -123,6 +173,7 @@ export function DailyTimelinePlanner({
   onDropTask,
   onRemoveTask,
   onUpdateFocus,
+  events = [],
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -228,8 +279,11 @@ export function DailyTimelinePlanner({
                   {formatTime(block.startTime)}
                 </div>
 
+                {(() => {
+                  const blockEvents = events.filter(e => eventsOverlapBlock(e, block.startTime, block.endTime));
+                  return (
                 <div className={cn(
-                  "flex-1 border-l-[3px] rounded-lg border transition-all",
+                  "flex-1 border-l-[3px] rounded-lg border transition-all relative",
                   colors.border,
                   completed && "opacity-70",
                   isCurrent && "ring-2 ring-primary shadow-md",
@@ -351,6 +405,31 @@ export function DailyTimelinePlanner({
 
                   {isCurrent && (
                     <div className="h-0.5 bg-primary rounded-full" />
+                  )}
+
+                  {blockEvents.length > 0 && (
+                    <div className="absolute right-0 top-0 bottom-0 w-[35%] pointer-events-none overflow-hidden rounded-r-lg">
+                      {blockEvents.map(ev => {
+                        const ec = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.default;
+                        return (
+                          <div
+                            key={ev.id}
+                            className={cn("absolute inset-0 border-l-2 flex flex-col justify-center px-2", ec.bg, ec.border)}
+                            title={`${ev.title}${ev.start_time ? ` (${formatHour(ev.start_time)} - ${formatHour(ev.end_time!)})` : ''}`}
+                          >
+                            <span className="text-[9px] font-bold truncate leading-tight">{ev.title}</span>
+                            {ev.start_time && (
+                              <span className="text-[7px] text-muted-foreground font-mono leading-tight">
+                                {formatHour(ev.start_time)} - {formatHour(ev.end_time!)}
+                              </span>
+                            )}
+                            <span className={cn("text-[7px] font-medium leading-tight", ec.text)}>
+                              {EVENT_CATEGORY_NAMES[ev.category] || ev.category}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </div>

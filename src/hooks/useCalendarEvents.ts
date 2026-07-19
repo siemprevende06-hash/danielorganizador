@@ -9,6 +9,8 @@ export interface CalendarEvent {
   description: string | null;
   event_date: string;
   category: string;
+  start_time: string | null;
+  end_time: string | null;
   created_at: string;
 }
 
@@ -59,10 +61,10 @@ export function useCalendarEvents(month: Date) {
     loadEvents();
   }, [loadEvents]);
 
-  const addEvent = async (title: string, eventDate: string, category?: string, description?: string) => {
+  const addEvent = async (title: string, eventDate: string, category?: string, description?: string, startTime?: string, endTime?: string) => {
     const { data, error } = await supabase
       .from('calendar_events')
-      .insert({ title, event_date: eventDate, category: category || 'default', description })
+      .insert({ title, event_date: eventDate, category: category || 'default', description, start_time: startTime || null, end_time: endTime || null })
       .select()
       .single();
 
