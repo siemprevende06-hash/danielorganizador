@@ -401,7 +401,7 @@ export default function EstadisticasEsfuerzo() {
                     </thead>
                     <tbody>
                       {monthDays.map((day, idx) => {
-                        const vals = MEJORA_HABITS.map(h => (day.time_data?.[h.id] as number) || 0);
+                        const vals = MEJORA_HABITS.map(h => h.id === 'entrenamiento-fisico' ? (day.workout_duration || 0) : ((day.time_data?.[h.id] as number) || 0));
                         const total = vals.reduce((s, v) => s + v, 0) + (day.workout_duration || 0);
                         return (
                           <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-900/50" : "bg-muted/5")}>
@@ -435,7 +435,9 @@ export default function EstadisticasEsfuerzo() {
                       <tr className="bg-muted/20 font-bold text-[9px]">
                         <td className="sticky left-0 bg-muted/20 px-2 py-1.5 z-10 border border-border/20">Total mes</td>
                         {MEJORA_HABITS.map(h => {
-                          const total = monthDays.reduce((s, d) => s + ((d.time_data?.[h.id] as number) || 0), 0);
+                          const total = h.id === 'entrenamiento-fisico'
+                            ? monthDays.reduce((s, d) => s + (d.workout_duration || 0), 0)
+                            : monthDays.reduce((s, d) => s + ((d.time_data?.[h.id] as number) || 0), 0);
                           return (
                             <td key={h.id} className="text-center px-2 py-1.5 border border-border/20">{total > 0 ? `${total}'` : '—'}</td>
                           );
