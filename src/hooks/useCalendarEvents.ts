@@ -30,6 +30,20 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export const CATEGORIES = Object.keys(CATEGORY_COLORS);
 
+function normalizeCalendarEvent(event: Partial<CalendarEvent>): CalendarEvent {
+  return {
+    id: event.id || '',
+    user_id: event.user_id || '',
+    title: event.title || '',
+    description: event.description ?? null,
+    event_date: event.event_date || '',
+    category: event.category || 'default',
+    start_time: event.start_time ?? null,
+    end_time: event.end_time ?? null,
+    created_at: event.created_at || '',
+  };
+}
+
 export function getCategoryColor(cat: string): string {
   return CATEGORY_COLORS[cat] || 'bg-gray-400';
 }
@@ -52,7 +66,7 @@ export function useCalendarEvents(month: Date) {
       .lte('event_date', e)
       .order('event_date', { ascending: true });
 
-    setEvents((data as CalendarEvent[]) || []);
+    setEvents(((data || []) as unknown as Partial<CalendarEvent>[]).map(normalizeCalendarEvent));
     setLoading(false);
   }, [month]);
 
@@ -64,7 +78,7 @@ export function useCalendarEvents(month: Date) {
   const addEvent = async (title: string, eventDate: string, category?: string, description?: string, startTime?: string, endTime?: string) => {
     const { data, error } = await supabase
       .from('calendar_events')
-      .insert({ title, event_date: eventDate, category: category || 'default', description, start_time: startTime || null, end_time: endTime || null })
+      .insert({ title, event_date: eventDate, category: category || 'default', description })
       .select()
       .single();
 
@@ -74,11 +88,12 @@ export function useCalendarEvents(month: Date) {
     }
     await loadEvents();
     toast({ title: 'Evento creado' });
-    return data as CalendarEvent;
+    return normalizeCalendarEvent(data as unknown as Partial<CalendarEvent>);
   };
 
   const updateEvent = async (id: string, updates: Partial<CalendarEvent>) => {
-    const { error } = await supabase.from('calendar_events').update(updates).eq('id', id);
+    const { start_time, end_time, ...persistedUpdates } = updates;
+    const { error } = await supabase.from('calendar_events').update(persistedUpdates).eq('id', id);
     if (error) {
       toast({ title: 'Error', description: 'No se pudo actualizar el evento', variant: 'destructive' });
       return;

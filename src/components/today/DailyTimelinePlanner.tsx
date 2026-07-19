@@ -432,6 +432,8 @@ export function DailyTimelinePlanner({
                     </div>
                   )}
                 </div>
+                  );
+                })()}
               </div>
             </div>
           );
