@@ -15,6 +15,7 @@ import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
 import { HealthSection } from '@/components/dashboard/HealthSection';
+import { Input } from '@/components/ui/input';
 import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
 import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
@@ -28,7 +29,7 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2 } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -535,6 +536,29 @@ export default function DailyView() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Hobbys</p>
                 <HobbyCards todayMinutes={{ lectura: data.timeData["lectura"] || 0, musica: data.timeData["musica"] || 0, ajedrez: data.timeData["ajedrez"] || 0 }} countData={{ ajedrez: data.countData["ajedrez"] || 0 }} onTimeChange={setTimeValue} onCountChange={setCountValue} />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Gaming</p>
+                <Card className="p-3 ring-2 ring-purple-500/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Gamepad2 className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-semibold">Game (Seducción)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        min={0}
+                        value={data.timeData["game"] || ""}
+                        onChange={e => setTimeValue("game", parseInt(e.target.value) || 0)}
+                        placeholder="min"
+                        className="w-16 h-7 text-xs text-center"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">Tiempo diario para aprender seducción</p>
+                </Card>
               </div>
               <div>
                 <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} timeMinutes={data.timeData?.idiomas || 0} onSaveTime={(m) => setTimeValue('idiomas', m)} />

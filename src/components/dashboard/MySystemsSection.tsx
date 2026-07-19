@@ -106,9 +106,8 @@ export function MySystemsSection() {
       try {
         const today = todayKey();
         const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
-        const [trackingR, langR, streaksR] = await Promise.all([
+        const [trackingR, streaksR] = await Promise.all([
           supabase.from("daily_systems_tracking").select("*").gte("tracking_date", start).lte("tracking_date", today),
-          supabase.from("language_sessions").select("session_date, duration_minutes").gte("session_date", start),
           supabase.from("system_habit_streaks").select("*"),
         ]);
         const rows = trackingR.data || [];
@@ -116,11 +115,10 @@ export function MySystemsSection() {
         (streaksR.data || []).forEach((s: any) => streaks[s.habit_id] = s.current_streak || 0);
         await setCache("daily_systems_tracking", `systems_7d_${today}`, rows);
         await setCache("system_habit_streaks", "all", streaksR.data || []);
-        if (langR.data) await setCache("language_sessions", `week_${start}`, langR.data);
         const todayRow = rows.find((r: any) => r.tracking_date === today);
         const td = (todayRow?.time_data as any) || {};
         setMusicaMin(Number(td["musica"]) || 0);
-        const result = buildCards(rows, streaks, langR.data || [], today);
+        const result = buildCards(rows, streaks, today);
         setCards(result.cards);
         setIdiomasCard(result.idiomasCard);
         setGymCard(result.gymCard);
@@ -129,14 +127,13 @@ export function MySystemsSection() {
         const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
         const cachedRows = await getCached<any[]>("daily_systems_tracking", `systems_7d_${today}`);
         const cachedStreaks = await getCached<any[]>("system_habit_streaks", "all");
-        const cachedLang = await getCached<any[]>("language_sessions", `week_${start}`);
         if (cachedRows) {
           const sMap: Record<string, number> = {};
           (cachedStreaks || []).forEach((s: any) => sMap[s.habit_id] = s.current_streak || 0);
           const todayRow = cachedRows.find((r: any) => r.tracking_date === today);
           const td = (todayRow?.time_data as any) || {};
           setMusicaMin(Number(td["musica"]) || 0);
-          const result = buildCards(cachedRows, sMap, cachedLang || [], today);
+          const result = buildCards(cachedRows, sMap, today);
           setCards(result.cards);
           setIdiomasCard(result.idiomasCard);
           setGymCard(result.gymCard);
@@ -146,7 +143,7 @@ export function MySystemsSection() {
     })();
   }, []);
 
-  function buildCards(rows: any[], streaks: Record<string, number>, langData: any[], today: string) {
+  function buildCards(rows: any[], streaks: Record<string, number>, today: string) {
     const minutesByDay = (key: string) => {
       const arr: number[] = [];
       for (let i = 6; i >= 0; i--) {
@@ -158,21 +155,21 @@ export function MySystemsSection() {
       return arr;
     };
 
-    const langDaily: Record<string, number> = {};
-    (langData || []).forEach((s: any) => {
-      langDaily[s.session_date] = (langDaily[s.session_date] || 0) + (s.duration_minutes || 0);
-    });
-    const langSpark: number[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-      langSpark.push(langDaily[d] || 0);
-    }
+    const gymByDay = () => {
+      const arr: number[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+        const row = rows.find((r: any) => r.tracking_date === d);
+        arr.push(Number(row?.workout_duration) || 0);
+      }
+      return arr;
+    };
 
     const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
     const last = (a: number[]) => a[a.length - 1] || 0;
 
     const gameSpark = minutesByDay("game");
-    const gymSpark = minutesByDay("gym");
+    const gymSpark = gymByDay();
 
     const cards: SystemCard[] = [
       {
@@ -198,12 +195,13 @@ export function MySystemsSection() {
       },
     ];
 
+    const idiomasSpark = minutesByDay("idiomas");
     const iCard: SystemCard = {
       id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard",
       schedule: "5:00 - 6:30 PM",
-      todayValue: last(langSpark), unit: "min",
+      todayValue: last(idiomasSpark), unit: "min",
       minThreshold: 30, maxThreshold: 90,
-      weekTotal: sum(langSpark), streak: streaks.idiomas || 0, spark: langSpark,
+      weekTotal: sum(idiomasSpark), streak: streaks.idiomas || 0, spark: idiomasSpark,
     };
 
     const gCard: SystemCard = {
