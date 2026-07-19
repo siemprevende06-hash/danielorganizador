@@ -561,7 +561,7 @@ export default function DailyView() {
                 </Card>
               </div>
               <div>
-                <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} timeMinutes={data.timeData?.idiomas || 0} onSaveTime={(m) => setTimeValue('idiomas', m)} />
+                <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} timeMinutes={data.timeData?.idiomas || 0} onTimeChange={(m) => setTimeValue('idiomas', m)} />
               </div>
             </CardContent>
           </Card>

@@ -382,7 +382,7 @@ export default function Systems() {
           </div>
 
           {/* Idiomas: 6 habilidades */}
-          <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} timeMinutes={data.timeData?.idiomas || 0} onSaveTime={(m) => setTimeValue('idiomas', m)} />
+          <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} timeMinutes={data.timeData?.idiomas || 0} onTimeChange={(m) => setTimeValue('idiomas', m)} />
         </MacroSectionCard>
 
         {/* === SECCIÓN 3: FOCO === */}
