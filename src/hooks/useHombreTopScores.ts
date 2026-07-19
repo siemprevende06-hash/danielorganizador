@@ -13,17 +13,6 @@ export const HOMBRE_TOP_AREAS = [
   { id: "lealtad", label: "LEALTAD / COMPROMISO" },
 ]
 
-export const HOMBRE_BASELINE_NOTAS: Record<string, number> = {
-  liderazgo: 6,
-  seguridad: 4,
-  estatus: 5,
-  provision: 5,
-  fortaleza: 3,
-  ie: 5,
-  carisma: 8,
-  lealtad: 5,
-}
-
 function scoreTo10(raw: number): number {
   return Math.min(10, Math.max(0, Math.round(raw / 10)))
 }
@@ -81,14 +70,14 @@ export function useHombreTopScores(
 
   const hasRealData = areaScores.some((a) => a.esfuerzo > 0)
 
-  const esfuerzoValues = HOMBRE_TOP_AREAS.map((area, i) => {
+  const esfuerzoValues = HOMBRE_TOP_AREAS.map((_, i) => {
     if (hasRealData) return scoreTo10(rawEsfuerzo[i])
-    return HOMBRE_BASELINE_NOTAS[area.id] ?? 5
+    return 0
   })
 
-  const resultadosValues = HOMBRE_TOP_AREAS.map((area, i) => {
+  const resultadosValues = HOMBRE_TOP_AREAS.map((_, i) => {
     if (hasRealData) return scoreTo10(rawResultados[i])
-    return HOMBRE_BASELINE_NOTAS[area.id] ?? 5
+    return 0
   })
 
   const esfuerzoAvg = Math.round(esfuerzoValues.reduce((a, b) => a + b, 0) / esfuerzoValues.length)

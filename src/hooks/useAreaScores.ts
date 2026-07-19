@@ -14,19 +14,6 @@ export interface AreaScore {
   sub: { id: string; label: string; esfuerzo: number; resultados: number; unit: string }[]
 }
 
-const AREA_BASELINE_SCORES: Record<string, number> = {
-  salud: 40,
-  "fuerza-mental": 50,
-  proposito: 70,
-  apariencia: 50,
-  desarrollo: 70,
-  profesional: 50,
-  finanzas: 50,
-  familia: 50,
-  amor: 20,
-  ocio: 50,
-}
-
 function buildEffortGroups(areas: PointBArea[]): Record<string, string[]> {
   const groups: Record<string, string[]> = {}
   for (const area of areas) {
@@ -77,21 +64,18 @@ export function useAreaScores(
 
   useEffect(() => {
     const computed: AreaScore[] = POINT_B_AREAS.map(area => {
-      const realScore = effortScores[area.id]
-      const hasRealData = realScore !== undefined && realScore > 0
-      const areaEsfuerzo = area.effortTrackingIds.length > 0 && hasRealData
+      const realScore = effortScores[area.id] ?? 0
+      const areaEsfuerzo = area.effortTrackingIds.length > 0
         ? realScore
-        : (AREA_BASELINE_SCORES[area.id] ?? 50)
+        : 0
 
       const areaResultados = calcResultadosForArea(area)
 
       const subScores = area.sub.map(sub => {
-        const subReal = effortScores[area.id]
-        const subHasReal = subReal !== undefined && subReal > 0 && sub.trackingIds.length > 0
         return {
           id: sub.id,
           label: sub.label,
-          esfuerzo: subHasReal ? subReal : (AREA_BASELINE_SCORES[area.id] ?? 50),
+          esfuerzo: sub.trackingIds.length > 0 ? realScore : 0,
           resultados: calcSubResultados(sub),
           unit: sub.unit,
         }
