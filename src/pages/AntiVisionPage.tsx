@@ -11,8 +11,10 @@ import {
 } from "@/components/ui/select";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { cacheImageNow, precacheImages } from "@/lib/imageCache";
+import { storeImageFromFile, removeImageBlob } from "@/lib/imageStore";
 import { useTextSection } from "@/hooks/useTextSection";
 import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon } from "lucide-react";
+import { CachedImage } from "@/components/CachedImage";
 import { toast } from "sonner";
 
 interface AntiVisionCard {
@@ -55,6 +57,27 @@ export default function AntiVisionPage() {
   useEffect(() => {
     const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
     precacheImages(urls);
+  }, [sections]);
+
+  useEffect(() => {
+    const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
+    const valid = urls.filter(Boolean) as string[];
+    if (valid.length === 0) return;
+    Promise.allSettled(
+      valid.map(async (url) => {
+        const { getImageBlob } = await import("@/lib/imageStore");
+        const existing = await getImageBlob(url);
+        if (existing) return;
+        try {
+          const response = await fetch(url, { mode: "cors" });
+          if (response.ok) {
+            const blob = await response.blob();
+            const { storeImageBlob } = await import("@/lib/imageStore");
+            await storeImageBlob(url, blob);
+          }
+        } catch {}
+      })
+    );
   }, [sections]);
 
   const persist = useCallback((next: AntiVisionSection[]) => {
@@ -104,6 +127,7 @@ export default function AntiVisionPage() {
     const url = await uploadImage(file, "antivision");
     if (url) {
       cacheImageNow(url);
+      storeImageFromFile(url, file);
       persist(
         sections.map((s) =>
           s.id === sectionId
@@ -121,6 +145,10 @@ export default function AntiVisionPage() {
   };
 
   const clearImage = (sectionId: string, cardId: string) => {
+    const card = sections.find(s => s.id === sectionId)?.cards.find(c => c.id === cardId);
+    if (card?.image_url) {
+      removeImageBlob(card.image_url);
+    }
     persist(
       sections.map((s) =>
         s.id === sectionId
@@ -254,7 +282,7 @@ export default function AntiVisionPage() {
 
                     {card.image_url ? (
                       <>
-                        <img
+                        <CachedImage
                           src={card.image_url}
                           alt=""
                           className="w-full h-full object-cover"

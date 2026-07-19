@@ -12,9 +12,11 @@ import {
 } from "@/components/ui/select";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { cacheImageNow, precacheImages } from "@/lib/imageCache";
+import { storeImageFromFile, removeImageBlob } from "@/lib/imageStore";
 import { useTextSection } from "@/hooks/useTextSection";
 import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, ChevronDown, ChevronUp, StickyNote, Maximize2 } from "lucide-react";
 import { ImageLightbox } from "@/components/ImageLightbox";
+import { CachedImage } from "@/components/CachedImage";
 import { toast } from "sonner";
 
 interface VisionCard {
@@ -101,6 +103,27 @@ export default function ObjetivoVision1Ano() {
     precacheImages(urls);
   }, [sections]);
 
+  useEffect(() => {
+    const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
+    const valid = urls.filter(Boolean) as string[];
+    if (valid.length === 0) return;
+    Promise.allSettled(
+      valid.map(async (url) => {
+        const { getImageBlob } = await import("@/lib/imageStore");
+        const existing = await getImageBlob(url);
+        if (existing) return;
+        try {
+          const response = await fetch(url, { mode: "cors" });
+          if (response.ok) {
+            const blob = await response.blob();
+            const { storeImageBlob } = await import("@/lib/imageStore");
+            await storeImageBlob(url, blob);
+          }
+        } catch {}
+      })
+    );
+  }, [sections]);
+
   const dayNumber = useMemo(() => getDayNumber(today), [today]);
   const progress = (dayNumber / TOTAL_DAYS) * 100;
   const months = useMemo(() => getMonthsInRange(), []);
@@ -158,6 +181,7 @@ export default function ObjetivoVision1Ano() {
     const url = await uploadImage(file, "objetivo-vision");
     if (url) {
       cacheImageNow(url);
+      storeImageFromFile(url, file);
       persist(
         sections.map((s) =>
           s.id === sectionId
@@ -170,6 +194,10 @@ export default function ObjetivoVision1Ano() {
   };
 
   const clearImage = (sectionId: string, cardId: string) => {
+    const card = sections.find(s => s.id === sectionId)?.cards.find(c => c.id === cardId);
+    if (card?.image_url) {
+      removeImageBlob(card.image_url);
+    }
     persist(
       sections.map((s) =>
         s.id === sectionId
@@ -446,7 +474,7 @@ export default function ObjetivoVision1Ano() {
                     />
                     {card.image_url ? (
                       <>
-                        <img src={card.image_url} alt="" className="w-full h-full object-cover" />
+                        <CachedImage src={card.image_url} alt="" className="w-full h-full object-cover" />
                         <button
                           onClick={() => clearImage(section.id, card.id)}
                           className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"

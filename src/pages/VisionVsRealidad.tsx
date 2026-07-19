@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { cacheImageNow, precacheImages } from "@/lib/imageCache";
+import { storeImageFromFile, removeImageBlob } from "@/lib/imageStore";
 import { useTextSection } from "@/hooks/useTextSection";
 import { cn } from "@/lib/utils";
 import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2 } from "lucide-react";
 import { ImageLightbox } from "@/components/ImageLightbox";
+import { CachedImage } from "@/components/CachedImage";
 import { toast } from "sonner";
 
 interface VrCard {
@@ -57,6 +59,27 @@ export default function VisionVsRealidad() {
     precacheImages(urls);
   }, [sections]);
 
+  useEffect(() => {
+    const urls = sections.flatMap((s) => [...s.vision, ...s.reality].map((c) => c.image_url));
+    const valid = urls.filter(Boolean) as string[];
+    if (valid.length === 0) return;
+    Promise.allSettled(
+      valid.map(async (url) => {
+        const { getImageBlob } = await import("@/lib/imageStore");
+        const existing = await getImageBlob(url);
+        if (existing) return;
+        try {
+          const response = await fetch(url, { mode: "cors" });
+          if (response.ok) {
+            const blob = await response.blob();
+            const { storeImageBlob } = await import("@/lib/imageStore");
+            await storeImageBlob(url, blob);
+          }
+        } catch {}
+      })
+    );
+  }, [sections]);
+
   const persist = useCallback((next: VrSection[]) => {
     setSections(next);
   }, [setSections]);
@@ -87,6 +110,7 @@ export default function VisionVsRealidad() {
     const url = await uploadImage(file, folder);
     if (url) {
       cacheImageNow(url);
+      storeImageFromFile(url, file);
       persist(
         sections.map((s) =>
           s.id === sectionId
@@ -104,6 +128,10 @@ export default function VisionVsRealidad() {
   };
 
   const clearImage = (sectionId: string, cardId: string, side: "vision" | "reality") => {
+    const card = sections.find(s => s.id === sectionId)?.[side].find(c => c.id === cardId);
+    if (card?.image_url) {
+      removeImageBlob(card.image_url);
+    }
     persist(
       sections.map((s) =>
         s.id === sectionId
@@ -154,7 +182,7 @@ export default function VisionVsRealidad() {
 
                 {card.image_url ? (
                   <>
-                    <img
+                    <CachedImage
                       src={card.image_url}
                       alt=""
                       className="w-full h-full object-cover"
