@@ -291,7 +291,7 @@ export default function Realidad() {
                     <input
                       ref={(el) => setInputRef(card.id, el)}
                       type="file"
-                      accept=".gif,.jpg,.jpeg,.png,.webp,.bmp,.svg,.heic,.heif"
+                      
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
