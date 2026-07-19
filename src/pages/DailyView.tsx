@@ -122,7 +122,7 @@ export default function DailyView() {
 
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   useEffect(() => {
-    supabase.from('calendar_events').select('*').eq('event_date', format(new Date(), 'yyyy-MM-dd')).order('start_time').then(({ data }) => { if (data) setTodayEvents(data); });
+    supabase.from('calendar_events').select('*').eq('event_date', format(new Date(), 'yyyy-MM-dd')).order('event_date').then(({ data }) => { if (data) setTodayEvents(data); });
   }, []);
 
   const plannedTaskIds = useMemo(() => {
