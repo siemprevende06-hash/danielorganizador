@@ -5,6 +5,15 @@ import { getCached, setCache, clearTableCache } from "@/lib/offlineCache";
 import { cachedMutation } from "@/lib/supabaseCache";
 import { getCubaDate } from "@/lib/cubaTime";
 
+const DEFAULT_TIME_GOALS: Record<string, number> = {
+  universidad: 120, emprendimiento: 60, proyectos: 60,
+  lectura: 30, ajedrez: 15, idiomas: 60,
+  piano: 30, guitarra: 30, dibujo: 60,
+  gym: 60, calistenia: 30, boxeo: 60,
+  skincare_am: 10, skincare_pm: 10,
+  finanzas: 15,
+}
+
 const todayKey = () => getCubaDate();
 
 // Umbrales por defecto para computar "min"/"max" en la racha semanal.
@@ -131,6 +140,49 @@ export function useSystemsTracking() {
     load();
   }, [currentDate]);
 
+  // Sync time_data + completions to daily_area_stats so the Wheel of Life sees real data
+  const syncToAreaStats = useCallback(async (newData: SystemsData) => {
+    const today = todayKey();
+    const areaUpdates = new Map<string, { time_spent_minutes: number; completed: boolean; completed_at: string | null }>()
+
+    for (const [id, minutes] of Object.entries(newData.timeData)) {
+      areaUpdates.set(id, {
+        time_spent_minutes: minutes,
+        completed: areaUpdates.get(id)?.completed ?? !!newData.completions[id],
+        completed_at: areaUpdates.get(id)?.completed_at ?? (newData.completions[id] ? new Date().toISOString() : null),
+      })
+    }
+
+    for (const [id, done] of Object.entries(newData.completions)) {
+      if (!areaUpdates.has(id)) {
+        areaUpdates.set(id, {
+          time_spent_minutes: newData.timeData[id] ?? 0,
+          completed: done,
+          completed_at: done ? new Date().toISOString() : null,
+        })
+      } else {
+        const existing = areaUpdates.get(id)!
+        existing.completed = done
+        existing.completed_at = done ? new Date().toISOString() : null
+      }
+    }
+
+    for (const [areaId, vals] of areaUpdates) {
+      try {
+        await supabase.from("daily_area_stats").upsert({
+          area_id: areaId,
+          stat_date: today,
+          time_spent_minutes: vals.time_spent_minutes,
+          time_goal_minutes: DEFAULT_TIME_GOALS[areaId] ?? 30,
+          completed: vals.completed,
+          completed_at: vals.completed_at,
+        }, { onConflict: "area_id,stat_date" })
+      } catch (err) {
+        console.warn("[syncToAreaStats] error for", areaId, err)
+      }
+    }
+  }, [])
+
   // Save to DB (debounced) with offline queue fallback
   const save = useCallback(async (newData: SystemsData) => {
     const today = todayKey();
@@ -167,7 +219,9 @@ export function useSystemsTracking() {
         await cachedMutation("daily_systems_tracking", "upsert", payload, undefined, "tracking_date");
       }
     }
-  }, [recordId]);
+
+    syncToAreaStats(newData)
+  }, [recordId, syncToAreaStats]);
 
   // Debounced save
   useEffect(() => {
