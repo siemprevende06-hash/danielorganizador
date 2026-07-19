@@ -226,6 +226,7 @@ export default function Finance() {
   const [goalToDelete, setGoalToDelete] = useState<FinancialGoal | null>(null);
   const [goalToDeposit, setGoalToDeposit] = useState<FinancialGoal | null>(null);
   const [depositAmount, setDepositAmount] = useState(0);
+  const [depositWalletId, setDepositWalletId] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
   const [isWalletCreateDialogOpen, setIsWalletCreateDialogOpen] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
@@ -604,10 +605,34 @@ export default function Finance() {
 
   const handleDepositToGoal = () => {
     if (!goalToDeposit || depositAmount <= 0) return;
+    if (!depositWalletId) {
+      toast({ title: "Selecciona una billetera", description: "Elige de qué billetera saldrá el dinero.", variant: "destructive" });
+      return;
+    }
+    const wallet = wallets.find(w => w.id === depositWalletId);
+    if (!wallet) { toast({ title: "Billetera no encontrada", variant: "destructive" }); return; }
+    if (wallet.balance < depositAmount) {
+      toast({ title: "Saldo insuficiente", description: `"${wallet.name}" no tiene ${depositAmount.toLocaleString("es-ES")} CUP disponibles.`, variant: "destructive" });
+      return;
+    }
     const newAmount = goalToDeposit.currentAmount + depositAmount;
     updateFinancialGoal(goalToDeposit.id, { currentAmount: Math.min(newAmount, goalToDeposit.targetAmount) });
+    updateWalletBalance(depositWalletId, wallet.balance - depositAmount);
+    addTransaction({
+      description: `Abono a meta: ${goalToDeposit.name}`,
+      amount: depositAmount,
+      date: new Date(),
+      walletId: depositWalletId,
+      categoryId: 'cat-transfer',
+      type: 'expense',
+      transferId: undefined,
+      loanId: undefined,
+      distributed: false,
+    });
+    toast({ title: "Abono registrado", description: `${depositAmount.toLocaleString("es-ES")} CUP para "${goalToDeposit.name}"` });
     setGoalToDeposit(null);
     setDepositAmount(0);
+    setDepositWalletId("");
   };
 
   const onWalletCreateSubmit = async (data: z.infer<typeof walletCreateSchema>) => {
@@ -1290,7 +1315,7 @@ export default function Finance() {
                           <Button
                             size="sm"
                             className="rounded-full text-[10px] h-7 bg-blue-600 hover:bg-blue-700 text-white"
-                            onClick={() => { setGoalToDeposit(goal); setDepositAmount(0); }}
+                            onClick={() => { setGoalToDeposit(goal); setDepositAmount(0); setDepositWalletId(""); }}
                           >
                             <PiggyBank className="h-3 w-3 mr-1" /> Abonar
                           </Button>
@@ -1892,7 +1917,7 @@ export default function Finance() {
         </AlertDialog>
 
         {/* Deposit to Goal Dialog */}
-        <Dialog open={!!goalToDeposit} onOpenChange={(open) => { if (!open) { setGoalToDeposit(null); setDepositAmount(0); } }}>
+        <Dialog open={!!goalToDeposit} onOpenChange={(open) => { if (!open) { setGoalToDeposit(null); setDepositAmount(0); setDepositWalletId(""); } }}>
           <DialogContent className="rounded-2xl max-w-sm">
             <DialogHeader>
               <DialogTitle>Abonar a Meta</DialogTitle>
@@ -1929,6 +1954,24 @@ export default function Finance() {
                     placeholder="Ej: 5000"
                     step="0.01"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="deposit-wallet">Desde billetera</Label>
+                  <Select onValueChange={setDepositWalletId} value={depositWalletId}>
+                    <SelectTrigger id="deposit-wallet" className="rounded-xl mt-1">
+                      <SelectValue placeholder="Selecciona billetera..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {wallets.map(w => (
+                        <SelectItem key={w.id} value={w.id}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{w.name}</span>
+                            <span className="text-zinc-400 ml-2">{(w.balance * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex gap-2">
                   {[1000, 5000, 10000, 50000].map(amount => (
