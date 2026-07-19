@@ -2404,6 +2404,7 @@ export type Database = {
           description: string | null
           id: string
           status: string
+          tasks: Json
           title: string
           updated_at: string
           user_id: string | null
@@ -2414,6 +2415,7 @@ export type Database = {
           description?: string | null
           id?: string
           status?: string
+          tasks?: Json
           title: string
           updated_at?: string
           user_id?: string | null
@@ -2424,6 +2426,7 @@ export type Database = {
           description?: string | null
           id?: string
           status?: string
+          tasks?: Json
           title?: string
           updated_at?: string
           user_id?: string | null
