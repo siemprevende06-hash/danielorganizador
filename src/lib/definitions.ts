@@ -117,6 +117,16 @@ export interface DistributionBag {
   balance?: number;
 }
 
+export interface FinancialGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  icon: string;
+  color: string;
+  createdAt: Date;
+}
+
 export interface Transaction {
   id: string;
   description: string;

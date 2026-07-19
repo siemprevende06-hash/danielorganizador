@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { wallets as initialWallets, defaultDistributionBags } from '@/lib/data';
-import type { Wallet, Transaction, Loan, DistributionBag, Debt } from '@/lib/definitions';
+import type { Wallet, Transaction, Loan, DistributionBag, Debt, FinancialGoal } from '@/lib/definitions';
 import type { LucideIcon } from 'lucide-react';
 import { Banknote, CreditCard, PiggyBank, Target, Wallet as WalletIcon, Shield, TrendingUp, Home, Gamepad2, BookOpen, Heart, GraduationCap, Sparkles, DollarSign, Plane, Coffee } from 'lucide-react';
 
@@ -31,6 +31,7 @@ export const useFinance = () => {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [distributionBags, setDistributionBags] = useState<DistributionBag[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [exchangeRate, setExchangeRateState] = useState(360);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -48,6 +49,7 @@ export const useFinance = () => {
         const storedLoans = loadFromLocal<Loan[]>('loans', []);
         const storedDebts = loadFromLocal<Debt[]>('debts', []);
         const storedBags = loadFromLocal<DistributionBag[]>('distributionBags', defaultDistributionBags.map(b => ({ ...b, id: genId(), balance: 0 })));
+        const storedGoals = loadFromLocal<FinancialGoal[]>('financialGoals', []);
         const storedRate = loadFromLocal<number>('exchangeRate', 360);
 
         if (storedWallets.length > 0) setWallets(storedWallets);
@@ -73,6 +75,7 @@ export const useFinance = () => {
           saveToLocal('distributionBags', defaults);
         }
 
+        setFinancialGoals(storedGoals.map(g => ({ ...g, createdAt: new Date(g.createdAt) })));
         setExchangeRateState(storedRate);
       } catch (error) {
         console.error('Error loading finance data:', error);
@@ -188,6 +191,32 @@ export const useFinance = () => {
     });
   }, []);
 
+  const addFinancialGoal = useCallback(async (goal: Omit<FinancialGoal, 'id'>) => {
+    const newGoal: FinancialGoal = { ...goal, id: genId() };
+    setFinancialGoals(prev => {
+      const updated = [...prev, newGoal];
+      saveToLocal('financialGoals', updated);
+      return updated;
+    });
+    return newGoal;
+  }, []);
+
+  const updateFinancialGoal = useCallback(async (goalId: string, updates: Partial<FinancialGoal>) => {
+    setFinancialGoals(prev => {
+      const updated = prev.map(g => g.id === goalId ? { ...g, ...updates } : g);
+      saveToLocal('financialGoals', updated);
+      return updated;
+    });
+  }, []);
+
+  const deleteFinancialGoal = useCallback(async (goalId: string) => {
+    setFinancialGoals(prev => {
+      const updated = prev.filter(g => g.id !== goalId);
+      saveToLocal('financialGoals', updated);
+      return updated;
+    });
+  }, []);
+
   const setDistributionBagsState = useCallback((bags: DistributionBag[] | ((prev: DistributionBag[]) => DistributionBag[])) => {
     setDistributionBags(bags);
   }, []);
@@ -214,6 +243,7 @@ export const useFinance = () => {
     loans,
     debts,
     distributionBags,
+    financialGoals,
     exchangeRate,
     setExchangeRate,
     isLoading,
@@ -234,5 +264,8 @@ export const useFinance = () => {
     addDistributionBag,
     updateDistributionBag,
     deleteDistributionBag,
+    addFinancialGoal,
+    updateFinancialGoal,
+    deleteFinancialGoal,
   };
 };

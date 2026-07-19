@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { wallets as initialWallets, transactionCategories, defaultDistributionBags } from '@/lib/data';
-import type { Wallet, Transaction, Loan, DistributionBag, Debt } from '@/lib/definitions';
+import type { Wallet, Transaction, Loan, DistributionBag, Debt, FinancialGoal } from '@/lib/definitions';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,7 +30,7 @@ import {
   ArrowRightLeft, Download, Upload, DollarSign, Trash2, Plus, TrendingUp as TrendingUpIcon,
   LandPlot, BadgePercent, Scale, Target,
   Shield, Home, Gamepad2, BookOpen, PiggyBank, Heart,
-  GraduationCap, Sparkles, Plane, Coffee, Banknote, CreditCard, Settings, X,
+  GraduationCap, Sparkles, Plane, Coffee, Banknote, CreditCard, Settings, X, Car,
 } from 'lucide-react';
 import { format, isThisMonth, startOfMonth, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -121,6 +121,13 @@ const bagSchema = z.object({
   balance: z.coerce.number().optional(),
 });
 
+const goalSchema = z.object({
+  name: z.string().min(1, 'El nombre es obligatorio.'),
+  targetAmount: z.coerce.number().positive('La meta debe ser positiva.'),
+  icon: z.string().min(1, 'Selecciona un icono.'),
+  color: z.string().min(1, 'Selecciona un color.'),
+});
+
 const budgetSchema = z.object({
   categoryId: z.string(),
   amount: z.coerce.number().min(0),
@@ -185,12 +192,13 @@ function BudgetCategoryForm({
 
 export default function Finance() {
   const {
-    wallets, transactions, loans, debts, distributionBags, exchangeRate,
+    wallets, transactions, loans, debts, distributionBags, financialGoals, exchangeRate,
     setExchangeRate, isLoading, setWallets, setTransactions, setLoans,
     setDebts, setDistributionBags, addTransaction, deleteTransaction,
     updateWalletBalance, updateWallet, addLoan, updateLoan,
     addDebt, updateDebt, deleteDebt, addDistributionBag,
     updateDistributionBag, deleteDistributionBag,
+    addFinancialGoal, updateFinancialGoal, deleteFinancialGoal,
   } = useFinance();
 
   const { toast } = useToast();
@@ -213,6 +221,11 @@ export default function Finance() {
   const [editingBag, setEditingBag] = useState<DistributionBag | null>(null);
   const [bagToDelete, setBagToDelete] = useState<DistributionBag | null>(null);
   const [isDistributeIncomeDialogOpen, setIsDistributeIncomeDialogOpen] = useState(false);
+  const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+  const [goalToDelete, setGoalToDelete] = useState<FinancialGoal | null>(null);
+  const [goalToDeposit, setGoalToDeposit] = useState<FinancialGoal | null>(null);
+  const [depositAmount, setDepositAmount] = useState(0);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isWalletCreateDialogOpen, setIsWalletCreateDialogOpen] = useState(false);
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
@@ -271,6 +284,11 @@ export default function Finance() {
   const bagForm = useForm<z.infer<typeof bagSchema>>({
     resolver: zodResolver(bagSchema),
     defaultValues: { name: '', percentage: 10, description: '', icon: 'Target', color: 'blue', balance: 0 },
+  });
+
+  const goalForm = useForm<z.infer<typeof goalSchema>>({
+    resolver: zodResolver(goalSchema),
+    defaultValues: { name: '', targetAmount: 0, icon: 'Target', color: 'blue' },
   });
 
   const walletCreateForm = useForm<z.infer<typeof walletCreateSchema>>({
@@ -374,7 +392,7 @@ export default function Finance() {
   const iconMap: Record<string, LucideIcon> = {
     Shield, TrendingUp: TrendingUpIcon, Home, Gamepad2, BookOpen, PiggyBank, Heart,
     GraduationCap, Sparkles, DollarSign, Plane, Coffee, Target, Wallet: WalletIcon,
-    Banknote, CreditCard,
+    Banknote, CreditCard, Car,
   };
 
   const bagColorMap: Record<string, { bg: string; text: string; badge: string; bar: string }> = {
@@ -565,6 +583,31 @@ export default function Finance() {
     if (!bagToDelete) return;
     deleteDistributionBag(bagToDelete.id);
     setBagToDelete(null);
+  };
+
+  const onGoalSubmit = async (data: z.infer<typeof goalSchema>) => {
+    if (editingGoal) {
+      await updateFinancialGoal(editingGoal.id, { name: data.name, targetAmount: data.targetAmount, icon: data.icon, color: data.color });
+    } else {
+      await addFinancialGoal({ name: data.name, targetAmount: data.targetAmount, currentAmount: 0, icon: data.icon, color: data.color, createdAt: new Date() });
+    }
+    setIsGoalDialogOpen(false);
+    setEditingGoal(null);
+    goalForm.reset();
+  };
+
+  const handleDeleteGoal = () => {
+    if (!goalToDelete) return;
+    deleteFinancialGoal(goalToDelete.id);
+    setGoalToDelete(null);
+  };
+
+  const handleDepositToGoal = () => {
+    if (!goalToDeposit || depositAmount <= 0) return;
+    const newAmount = goalToDeposit.currentAmount + depositAmount;
+    updateFinancialGoal(goalToDeposit.id, { currentAmount: Math.min(newAmount, goalToDeposit.targetAmount) });
+    setGoalToDeposit(null);
+    setDepositAmount(0);
   };
 
   const onWalletCreateSubmit = async (data: z.infer<typeof walletCreateSchema>) => {
@@ -1137,7 +1180,7 @@ export default function Finance() {
                     })}
                   </div>
                 </div>
-                <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
+                <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
                   {distributionBags.map((bag, idx) => {
                     const IconComponent = iconMap[bag.icon] || WalletIcon;
                     const color = bagColorMap[bag.color] || bagColorMap.blue;
@@ -1171,6 +1214,92 @@ export default function Finance() {
                   })}
                 </div>
               </div>
+            </div>
+          )}
+        </section>
+
+        {/* Financial Goals Section */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Metas Financieras</h2>
+              <p className="text-[10px] sm:text-xs text-zinc-400">Alcanza tus objetivos de ahorro</p>
+            </div>
+            {isEditMode && (
+              <Button size="sm" className="rounded-full text-[10px] h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => { setEditingGoal(null); goalForm.reset({ name: '', targetAmount: 0, icon: 'Target', color: 'blue' }); setIsGoalDialogOpen(true); }}>
+                <Plus className="mr-1 h-3 w-3" /> Meta
+              </Button>
+            )}
+          </div>
+
+          {financialGoals.length === 0 ? (
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <CardContent className="p-6 text-center text-xs text-zinc-400">
+                {isEditMode ? 'Crea tu primera meta financiera.' : 'No hay metas financieras definidas.'}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {financialGoals.map((goal) => {
+                const IconComponent = iconMap[goal.icon] || PiggyBank;
+                const color = bagColorMap[goal.color] || bagColorMap.blue;
+                const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
+                return (
+                  <Card key={goal.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl hover:shadow-md transition-all duration-200">
+                    <CardContent className="p-3 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("p-1.5 rounded-xl", color.bg)}>
+                            <IconComponent className={cn("h-4 w-4", color.text)} />
+                          </div>
+                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{goal.name}</span>
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          {isEditMode && (
+                            <>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-zinc-400 hover:text-zinc-700" onClick={() => { setEditingGoal(goal); goalForm.reset({ name: goal.name, targetAmount: goal.targetAmount, icon: goal.icon, color: goal.color }); setIsGoalDialogOpen(true); }}>
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-red-400 hover:text-red-600" onClick={() => setGoalToDelete(goal)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            {goal.currentAmount.toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP
+                          </span>
+                          <span className="text-zinc-700 dark:text-zinc-300 font-semibold">
+                            {goal.targetAmount.toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP
+                          </span>
+                        </div>
+                        <div className="relative h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div
+                            className={cn("h-full rounded-full transition-all duration-500", color.bar)}
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={cn("text-[10px] font-semibold text-white px-1.5 py-0.5 rounded-full", color.badge)}>
+                            {Math.round(progress)}%
+                          </span>
+                          <Button
+                            size="sm"
+                            className="rounded-full text-[10px] h-7 bg-blue-600 hover:bg-blue-700 text-white"
+                            onClick={() => { setGoalToDeposit(goal); setDepositAmount(0); }}
+                          >
+                            <PiggyBank className="h-3 w-3 mr-1" /> Abonar
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </section>
@@ -1699,6 +1828,125 @@ export default function Finance() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Goal Dialog */}
+        <Dialog open={isGoalDialogOpen} onOpenChange={(open) => { if (!open) { setIsGoalDialogOpen(false); setEditingGoal(null); } }}>
+          <DialogContent className="rounded-2xl max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingGoal ? "Editar Meta" : "Nueva Meta Financiera"}</DialogTitle>
+              <DialogDescription>{editingGoal ? "Modifica los detalles de la meta." : "Define un objetivo de ahorro."}</DialogDescription>
+            </DialogHeader>
+            <Form {...goalForm}>
+              <form onSubmit={goalForm.handleSubmit(onGoalSubmit)} className="space-y-3">
+                <FormField control={goalForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} placeholder="Ej: Viaje a Japón" /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={goalForm.control} name="targetAmount" render={({ field }) => (<FormItem><FormLabel>Meta (CUP)</FormLabel><FormControl><Input type="number" {...field} step="0.01" placeholder="Ej: 100000" /></FormControl><FormMessage /></FormItem>)}/>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField control={goalForm.control} name="icon" render={({ field }) => (
+                    <FormItem><FormLabel>Icono</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="rounded-xl"><SelectValue placeholder="Icono" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {["Target","PiggyBank","Plane","Heart","GraduationCap","Home","Car","Shield","Sparkles","DollarSign"].map(key => (
+                            <SelectItem key={key} value={key}>{key}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}/>
+                  <FormField control={goalForm.control} name="color" render={({ field }) => (
+                    <FormItem><FormLabel>Color</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="rounded-xl"><SelectValue placeholder="Color" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {[{k:"rose",c:"bg-rose-500"},{k:"blue",c:"bg-blue-500"},{k:"amber",c:"bg-amber-500"},{k:"green",c:"bg-green-500"},{k:"violet",c:"bg-violet-500"},{k:"orange",c:"bg-orange-500"}].map(({k,c}) => (
+                            <SelectItem key={k} value={k}><div className="flex items-center gap-2"><div className={`w-4 h-4 rounded-full ${c}`} /><span className="capitalize">{k}</span></div></SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}/>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" className="rounded-full" onClick={() => { setIsGoalDialogOpen(false); setEditingGoal(null); }}>Cancelar</Button>
+                  <Button type="submit" className="rounded-full">{editingGoal ? "Guardar" : "Crear Meta"}</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Goal Dialog */}
+        <AlertDialog open={!!goalToDelete} onOpenChange={(open) => { if (!open) setGoalToDelete(null); }}>
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar meta?</AlertDialogTitle>
+              <AlertDialogDescription>Se eliminará "{goalToDelete?.name}" de tus metas financieras.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteGoal} className="rounded-full bg-red-500 hover:bg-red-600">Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Deposit to Goal Dialog */}
+        <Dialog open={!!goalToDeposit} onOpenChange={(open) => { if (!open) { setGoalToDeposit(null); setDepositAmount(0); } }}>
+          <DialogContent className="rounded-2xl max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Abonar a Meta</DialogTitle>
+              <DialogDescription>{goalToDeposit && `Añade dinero a "${goalToDeposit.name}"`}</DialogDescription>
+            </DialogHeader>
+            {goalToDeposit && (
+              <div className="space-y-3">
+                <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-400">Progreso actual</span>
+                    <span className={cn("text-[10px] font-semibold text-white px-1.5 py-0.5 rounded-full", bagColorMap[goalToDeposit.color]?.badge || "bg-blue-500")}>
+                      {goalToDeposit.targetAmount > 0 ? Math.round((goalToDeposit.currentAmount / goalToDeposit.targetAmount) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="relative h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-500", bagColorMap[goalToDeposit.color]?.bar || "bg-blue-500")}
+                      style={{ width: `${Math.min((goalToDeposit.currentAmount / goalToDeposit.targetAmount) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-zinc-500">
+                    <span>{goalToDeposit.currentAmount.toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP</span>
+                    <span className="font-semibold text-zinc-700 dark:text-zinc-300">{goalToDeposit.targetAmount.toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP</span>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="deposit-amount">Cantidad a abonar (CUP)</Label>
+                  <Input
+                    id="deposit-amount"
+                    type="number"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)}
+                    className="rounded-xl mt-1"
+                    placeholder="Ej: 5000"
+                    step="0.01"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {[1000, 5000, 10000, 50000].map(amount => (
+                    <Button key={amount} type="button" variant="outline" size="sm" className="rounded-full text-[10px] h-7" onClick={() => setDepositAmount(amount)}>
+                      +{amount.toLocaleString("es-ES")}
+                    </Button>
+                  ))}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" className="rounded-full" onClick={() => { setGoalToDeposit(null); setDepositAmount(0); }}>Cancelar</Button>
+                  <Button className="rounded-full bg-blue-600 hover:bg-blue-700 text-white" disabled={depositAmount <= 0} onClick={handleDepositToGoal}>
+                    <PiggyBank className="h-4 w-4 mr-1" /> Abonar {depositAmount.toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Distribute Income Dialog */}
         <Dialog open={isDistributeIncomeDialogOpen} onOpenChange={setIsDistributeIncomeDialogOpen}>
