@@ -45,6 +45,7 @@ const MEJORA_HABITS = [
   { id: 'musica', label: 'Música', icon: Music, hasTime: true },
   { id: 'ajedrez', label: 'Ajedrez', icon: Gamepad2, hasTime: true, hasCount: true, countLabel: 'part.' },
   { id: 'idiomas', label: 'Idiomas', icon: Globe, hasTime: true },
+  { id: 'game', label: 'Game (Seducción)', icon: Gamepad2, hasTime: true },
   { id: 'entrenamiento-fisico', label: 'Entreno', icon: Dumbbell, hasTime: true },
 ];
 
