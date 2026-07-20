@@ -201,6 +201,8 @@ export default function Finance() {
     addFinancialGoal, updateFinancialGoal, deleteFinancialGoal,
   } = useFinance();
 
+  const toUSD = (amount: number, currency: string) => currency === 'CUP' ? amount / exchangeRate : amount;
+
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
 
@@ -415,13 +417,15 @@ export default function Finance() {
     const wallet = wallets.find(w => w.id === data.walletId);
     if (!wallet) return;
 
-    if (data.type === 'expense' && wallet.balance < data.amount) {
+    const amountUSD = toUSD(data.amount, data.currency);
+
+    if (data.type === 'expense' && wallet.balance < amountUSD) {
       toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
       return;
     }
 
-    const newBalance = data.type === 'expense' ? wallet.balance - data.amount : wallet.balance + data.amount;
-    await addTransaction({ description: data.description, amount: data.amount, date: data.date, walletId: data.walletId, categoryId: data.categoryId, type: data.type, transferId: undefined, loanId: undefined, distributed: false });
+    const newBalance = data.type === 'expense' ? wallet.balance - amountUSD : wallet.balance + amountUSD;
+    await addTransaction({ description: data.description, amount: amountUSD, date: data.date, walletId: data.walletId, categoryId: data.categoryId, type: data.type, transferId: undefined, loanId: undefined, distributed: false });
     await updateWalletBalance(data.walletId, newBalance);
 
     toast({ title: "Transacción registrada", description: `${data.type === 'expense' ? 'Gasto' : 'Ingreso'} de ${data.amount} ${data.currency}` });
@@ -434,22 +438,24 @@ export default function Finance() {
     const toWallet = wallets.find(w => w.id === data.toWalletId);
     if (!fromWallet || !toWallet) return;
 
-    if (fromWallet.balance < data.amount) {
+    const amountUSD = toUSD(data.amount, data.currency);
+
+    if (fromWallet.balance < amountUSD) {
       toast({ title: "Saldo insuficiente", description: "La billetera de origen no tiene suficiente balance.", variant: "destructive" });
       return;
     }
 
     const transferId = crypto.randomUUID();
     await addTransaction({
-      description: `Traspaso a ${toWallet.name}`, amount: data.amount,
+      description: `Traspaso a ${toWallet.name}`, amount: amountUSD,
       date: new Date(), walletId: data.fromWalletId, categoryId: 'cat-transfer', type: 'expense', transferId, distributed: false,
     });
     await addTransaction({
-      description: `Traspaso desde ${fromWallet.name}`, amount: data.amount,
+      description: `Traspaso desde ${fromWallet.name}`, amount: amountUSD,
       date: new Date(), walletId: data.toWalletId, categoryId: 'cat-transfer', type: 'income', transferId, distributed: false,
     });
-    await updateWalletBalance(data.fromWalletId, fromWallet.balance - data.amount);
-    await updateWalletBalance(data.toWalletId, toWallet.balance + data.amount);
+    await updateWalletBalance(data.fromWalletId, fromWallet.balance - amountUSD);
+    await updateWalletBalance(data.toWalletId, toWallet.balance + amountUSD);
 
     toast({ title: "Traspaso realizado", description: `${data.amount} ${data.currency} transferidos` });
     setIsTransferDialogOpen(false);
@@ -460,18 +466,20 @@ export default function Finance() {
     const wallet = wallets.find(w => w.id === data.walletId);
     if (!wallet) return;
 
-    if (wallet.balance < data.amount) {
+    const amountUSD = toUSD(data.amount, data.currency);
+
+    if (wallet.balance < amountUSD) {
       toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
       return;
     }
 
     await addTransaction({
-      description: `Préstamo a ${data.person}: ${data.description}`, amount: data.amount,
+      description: `Préstamo a ${data.person}: ${data.description}`, amount: amountUSD,
       date: new Date(), walletId: data.walletId, categoryId: 'cat-loan', type: 'expense',
       loanId: crypto.randomUUID(), distributed: false,
     });
-    await addLoan({ person: data.person, description: data.description, totalAmount: data.amount, paidAmount: 0, walletId: data.walletId, date: new Date(), status: 'outstanding' });
-    await updateWalletBalance(data.walletId, wallet.balance - data.amount);
+    await addLoan({ person: data.person, description: data.description, totalAmount: amountUSD, paidAmount: 0, walletId: data.walletId, date: new Date(), status: 'outstanding' });
+    await updateWalletBalance(data.walletId, wallet.balance - amountUSD);
 
     toast({ title: "Préstamo registrado", description: `Préstamo a ${data.person} por ${data.amount} ${data.currency}` });
     setIsLoanDialogOpen(false);
@@ -482,7 +490,9 @@ export default function Finance() {
     const wallet = wallets.find(w => w.id === data.walletId);
     if (!wallet) return;
 
-    await addDebt({ person: data.person, description: data.description, totalAmount: data.amount, paidAmount: 0, walletId: data.walletId, date: new Date(), dueDate: data.dueDate, status: 'outstanding' });
+    const amountUSD = toUSD(data.amount, data.currency);
+
+    await addDebt({ person: data.person, description: data.description, totalAmount: amountUSD, paidAmount: 0, walletId: data.walletId, date: new Date(), dueDate: data.dueDate, status: 'outstanding' });
 
     toast({ title: "Deuda registrada", description: `Deuda con ${data.person} por ${data.amount} ${data.currency}` });
     setIsDebtDialogOpen(false);
@@ -491,7 +501,8 @@ export default function Finance() {
 
   const onLoanPaymentSubmit = async (data: z.infer<typeof loanPaymentSchema>) => {
     if (!loanToPay) return;
-    const newPaid = loanToPay.paidAmount + data.amount;
+    const amountUSD = toUSD(data.amount, data.currency);
+    const newPaid = loanToPay.paidAmount + amountUSD;
     const status = newPaid >= loanToPay.totalAmount ? 'paid' : 'outstanding';
     await updateLoan(loanToPay.id, { paidAmount: newPaid, status });
 
@@ -506,15 +517,17 @@ export default function Finance() {
     const wallet = wallets.find(w => w.id === debtToPay.walletId);
     if (!wallet) return;
 
-    if (wallet.balance < data.amount) {
+    const amountUSD = toUSD(data.amount, data.currency);
+
+    if (wallet.balance < amountUSD) {
       toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
       return;
     }
 
-    const newPaid = debtToPay.paidAmount + data.amount;
+    const newPaid = debtToPay.paidAmount + amountUSD;
     const status = newPaid >= debtToPay.totalAmount ? 'paid' : 'outstanding';
     await updateDebt(debtToPay.id, { paidAmount: newPaid, status });
-    await updateWalletBalance(debtToPay.walletId, wallet.balance - data.amount);
+    await updateWalletBalance(debtToPay.walletId, wallet.balance - amountUSD);
 
     toast({ title: "Pago registrado", description: `Pagado ${data.amount} ${data.currency} a ${debtToPay.person}` });
     setIsDebtPaymentDialogOpen(false);
