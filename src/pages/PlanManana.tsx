@@ -5,18 +5,25 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { lifeAreas } from "@/lib/data";
+import { flattenAreas } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
 import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
 import {
   Sun, Moon, Clock, Target, ListTodo, Briefcase, GraduationCap,
   Languages, FolderKanban, Save, Dumbbell, Coffee, BookOpen, ChevronDown,
-  ChevronRight, Brain, Sparkles, Utensils, Gamepad2, BarChart3, Zap
+  ChevronRight, Brain, Sparkles, Utensils, Gamepad2, BarChart3, Zap,
+  PlusCircle, Loader2, GripVertical
 } from "lucide-react";
 
 interface TaskItem {
@@ -61,6 +68,16 @@ const AREAS = [
   { id: "idiomas", label: "Idiomas", icon: Languages, color: "bg-cyan-500/15 text-cyan-500" },
 ];
 
+const POOL_SOURCE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  general: { label: 'General', icon: <ListTodo className="h-3 w-3" />, color: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
+  university: { label: 'Universidad', icon: <GraduationCap className="h-3 w-3" />, color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+  entrepreneurship: { label: 'Emprendimiento', icon: <Briefcase className="h-3 w-3" />, color: 'bg-purple-500/15 text-purple-400 border-purple-500/30' },
+  project: { label: 'Proyecto', icon: <FolderKanban className="h-3 w-3" />, color: 'bg-orange-500/15 text-orange-400 border-orange-500/30' },
+  idiomas: { label: 'Idiomas', icon: <Languages className="h-3 w-3" />, color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30' },
+};
+
+const POOL_SOURCE_ORDER = ['university', 'entrepreneurship', 'project', 'idiomas', 'general'];
+
 const getBlockIcon = (title: string) => {
   const l = title.toLowerCase();
   if (l.includes("gym") || l.includes("ejercicio")) return <Dumbbell className="h-3.5 w-3.5" />;
@@ -99,6 +116,17 @@ export default function PlanManana() {
 
   const [systemIntensity, setSystemIntensity] = useState<Record<string, string>>({});
   const [areaCollapsed, setAreaCollapsed] = useState<Record<string, boolean>>({});
+
+  // Create task dialog
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high'>('medium');
+  const [newDueDate, setNewDueDate] = useState('');
+  const [newAreaId, setNewAreaId] = useState<string>('');
+  const [creating, setCreating] = useState(false);
+
+  const allAreas = useMemo(() => flattenAreas(lifeAreas), []);
 
   const [saving, setSaving] = useState(false);
   const [languageChoice, setLanguageChoice] = useState<string>("ingles");
@@ -201,15 +229,78 @@ export default function PlanManana() {
     setSelectedTasks(prev => { const n = new Set(prev); n.add(taskId); return n; });
   };
 
+  const handleCreateTask = async () => {
+    if (!newTitle.trim()) return;
+    setCreating(true);
+    try {
+      const { error } = await supabase.from('tasks').insert({
+        title: newTitle.trim(),
+        description: newDescription.trim() || null,
+        priority: newPriority,
+        due_date: newDueDate || null,
+        area_id: newAreaId || null,
+        completed: false,
+        source: 'general',
+        status: 'pendiente',
+      });
+      if (error) throw error;
+      toast.success('Tarea creada');
+      setIsCreateOpen(false);
+      setNewTitle(''); setNewDescription(''); setNewPriority('medium'); setNewDueDate(''); setNewAreaId('');
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Error al crear tarea');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const resetCreateForm = () => {
+    setNewTitle(''); setNewDescription(''); setNewPriority('medium'); setNewDueDate(''); setNewAreaId('');
+  };
+
+  const handlePoolDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData('text/plain', taskId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
   const getTaskLabel = (taskId: string): string => {
     const all = [...tasks, ...entreTasks, ...uniTasks, ...projects.flatMap(p => p.tasks)];
     const t = all.find(t => t.id === taskId) || tasks.find(t => t.id === taskId);
     return t?.title || taskId;
   };
 
+  const selectedPoolTasks = useMemo(() => {
+    const assignedIds = new Set(Object.values(blockAssignments).flat());
+    const pool: { id: string; title: string; source: string }[] = [];
+    tasks.forEach(t => {
+      if (selectedTasks.has(t.id) && !assignedIds.has(t.id))
+        pool.push({ id: t.id, title: t.title, source: t.area_id === 'idiomas' || t.source === 'idiomas' ? 'idiomas' : t.source || 'general' });
+    });
+    entreTasks.forEach(t => {
+      if (selectedTasks.has(t.id) && !assignedIds.has(t.id))
+        pool.push({ id: t.id, title: t.title, source: 'entrepreneurship' });
+    });
+    uniTasks.forEach(t => {
+      if (selectedTasks.has(t.id) && !assignedIds.has(t.id))
+        pool.push({ id: t.id, title: t.title, source: 'university' });
+    });
+    projects.forEach(p => {
+      p.tasks.forEach(t => {
+        if (selectedTasks.has(t.id) && !assignedIds.has(t.id))
+          pool.push({ id: t.id, title: t.title, source: 'project' });
+      });
+    });
+    return pool;
+  }, [selectedTasks, blockAssignments, tasks, entreTasks, uniTasks, projects]);
+
   const getTaskSource = (taskId: string): string => {
     const t = tasks.find(t => t.id === taskId);
-    return t?.source || "";
+    if (t) return t.area_id === 'idiomas' || t.source === 'idiomas' ? 'idiomas' : t.source || 'general';
+    if (entreTasks.some(t => t.id === taskId)) return 'entrepreneurship';
+    if (uniTasks.some(t => t.id === taskId)) return 'university';
+    if (projects.some(p => p.tasks.some(t => t.id === taskId))) return 'project';
+    return 'general';
   };
 
   const savePlan = async () => {
@@ -273,9 +364,14 @@ export default function PlanManana() {
               <Clock className="h-3.5 w-3.5" /> {tomorrowCapitalized}
             </p>
           </div>
-          <Button onClick={savePlan} disabled={saving} size="sm" className="h-8 rounded-full gap-1.5">
-            <Save className="h-3.5 w-3.5" /> {saving ? "Guardando..." : "Guardar Plan"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-8 rounded-full gap-1.5" onClick={() => { resetCreateForm(); setIsCreateOpen(true); }}>
+              <PlusCircle className="h-3.5 w-3.5" /> Nueva
+            </Button>
+            <Button onClick={savePlan} disabled={saving} size="sm" className="h-8 rounded-full gap-1.5">
+              <Save className="h-3.5 w-3.5" /> {saving ? "Guardando..." : "Guardar Plan"}
+            </Button>
+          </div>
         </div>
 
         {/* Routine Type */}
@@ -505,29 +601,61 @@ export default function PlanManana() {
               </CardContent>
             </Card>
 
-            {/* Assignment: selected tasks to blocks */}
-            {selectedTasks.size > 0 && (
-              <Card className="border border-dashed border-indigo-300 dark:border-indigo-700 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-xl">
+            {/* Selected Tasks Pool — grouped by source, draggable to timeline */}
+            {selectedPoolTasks.length > 0 && (
+              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 shadow-sm rounded-2xl overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
                 <CardContent className="p-3 space-y-2">
-                  <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                    {selectedTasks.size} tarea(s) sin bloque — asigna a un bloque arrastrando o usando el selector:
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                      <Target className="h-3.5 w-3.5 text-indigo-500" />
+                      Tareas seleccionadas
+                    </h3>
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                      {selectedPoolTasks.length}
+                    </Badge>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">
+                    Arrástralas a los bloques de la rutina para asignarlas
                   </p>
-                  <div className="flex flex-wrap gap-1">
-                    {[...selectedTasks].map(taskId => (
-                      <Badge key={taskId} variant="outline" className="text-[9px] px-1.5 py-0 gap-1">
-                        {getTaskLabel(taskId)}
-                        <Select onValueChange={(blockId) => assignTaskToBlock(taskId, blockId)}>
-                          <SelectTrigger className="h-4 w-4 border-0 p-0 m-0 bg-transparent [&>svg]:hidden">
-                            <span className="text-[10px]">+</span>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {blocks.map(b => (
-                              <SelectItem key={b.id} value={b.id} className="text-xs">{b.title}</SelectItem>
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                    {POOL_SOURCE_ORDER.map(source => {
+                      const sectionTasks = selectedPoolTasks.filter(t => t.source === source);
+                      if (sectionTasks.length === 0) return null;
+                      const cfg = POOL_SOURCE_CONFIG[source] || POOL_SOURCE_CONFIG.general;
+                      return (
+                        <div key={source}>
+                          <div className="flex items-center gap-1 px-1 py-0.5">
+                            <span className={cfg.color.split(' ')[0] + ' ' + cfg.color.split(' ')[1] + ' p-0.5 rounded'}>{cfg.icon}</span>
+                            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              {cfg.label}
+                            </span>
+                            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 ml-auto">
+                              {sectionTasks.length}
+                            </Badge>
+                          </div>
+                          <div className="space-y-0.5">
+                            {sectionTasks.map(task => (
+                              <div
+                                key={task.id}
+                                draggable
+                                onDragStart={(e) => handlePoolDragStart(e, task.id)}
+                                className="flex items-center gap-1.5 p-1.5 rounded-md border cursor-grab active:cursor-grabbing transition-all hover:bg-muted/50 group bg-background/40"
+                              >
+                                <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                                <span className="text-[11px] flex-1 truncate">{task.title}</span>
+                                <button
+                                  onClick={() => { setSelectedTasks(prev => { const n = new Set(prev); n.delete(task.id); return n; }); }}
+                                  className="h-4 w-4 p-0 flex items-center justify-center shrink-0 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all"
+                                >
+                                  <span className="text-[9px] text-muted-foreground hover:text-destructive">✕</span>
+                                </button>
+                              </div>
                             ))}
-                          </SelectContent>
-                        </Select>
-                      </Badge>
-                    ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -583,6 +711,60 @@ export default function PlanManana() {
         </Card>
 
       </div>
+
+      {/* Create Task Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={o => { if (!o) { resetCreateForm(); } setIsCreateOpen(o); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nueva Tarea</DialogTitle>
+            <DialogDescription>Crea una tarea para planificar mañana.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium">Título</Label>
+              <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="¿Qué necesitas hacer?" onKeyDown={e => e.key === 'Enter' && handleCreateTask()} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Descripción</Label>
+              <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalles adicionales..." className="mt-1 resize-none" rows={2} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">Prioridad</Label>
+                <Select value={newPriority} onValueChange={(v: any) => setNewPriority(v)}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">🟢 Baja</SelectItem>
+                    <SelectItem value="medium">🟡 Media</SelectItem>
+                    <SelectItem value="high">🔴 Alta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Fecha límite</Label>
+                <Input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Área</Label>
+              <Select value={newAreaId} onValueChange={setNewAreaId}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                <SelectContent>
+                  {allAreas.map(area => (
+                    <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleCreateTask} disabled={creating || !newTitle.trim()} className="w-full">
+                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Crear Tarea
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
