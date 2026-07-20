@@ -120,13 +120,15 @@ export default function PlanManana() {
   }, [tasks, entreTasks, uniTasks, projects, blockAssignments]);
 
   const handleRemoveTask = useCallback((taskId: string) => {
-    for (const [blockId, taskIds] of Object.entries(blockAssignments)) {
-      if (taskIds.includes(taskId)) {
-        removeFromBlock(taskId, blockId);
-        return;
+    setBlockAssignments(prev => {
+      const next: Record<string, string[]> = {};
+      for (const [blockId, taskIds] of Object.entries(prev)) {
+        next[blockId] = taskIds.filter(id => id !== taskId);
       }
-    }
-  }, [blockAssignments, removeFromBlock]);
+      return next;
+    });
+    setSelectedTasks(prev => { const n = new Set(prev); n.add(taskId); return n; });
+  }, []);
 
   useEffect(() => {
     loadData();
