@@ -5,8 +5,7 @@ import { cn } from "@/lib/utils";
 import {
   Zap, Shield, TrendingUp, Focus, Clock, CheckCircle2, Droplets,
   Dumbbell, Moon, Timer, Target, Activity, BookOpen, GraduationCap,
-  Briefcase, FolderKanban, ListTodo, Gamepad2, Brain, Flame, Trophy,
-  Sparkles, LayoutGrid, Utensils
+  Briefcase, FolderKanban, ListTodo, Gamepad2, Brain
 } from "lucide-react";
 import type { SystemsTrackingData } from "@/hooks/useDailyReview";
 
@@ -47,6 +46,7 @@ export function DailyStatsOverview({
 }: Props) {
   const [activeTab, setActiveTab] = useState<'general' | 'sosten' | 'mejora' | 'enfoque'>('general');
 
+  const hasSystemsData = systemsTracking !== null;
   const completions = systemsTracking?.completions || {};
   const timeData = systemsTracking?.timeData || {};
   const waterData = systemsTracking?.waterData || {};
@@ -58,8 +58,8 @@ export function DailyStatsOverview({
 
   const pct = (done: number, total: number) => total > 0 ? Math.round((done / total) * 100) : 0;
 
-  const sostenDone = SOSTEN_HABIT_IDS.filter(id => completions[id]).length;
-  const sostenTotal = SOSTEN_HABIT_IDS.length;
+  const sostenDone = hasSystemsData ? SOSTEN_HABIT_IDS.filter(id => completions[id]).length : habitsCompleted;
+  const sostenTotal = hasSystemsData ? SOSTEN_HABIT_IDS.length : habitsTotal;
   const sostenPct = pct(sostenDone, sostenTotal);
 
   const mejoraTime = MEJORA_HABIT_IDS.reduce((s, id) => s + (timeData[id] || 0), 0) + (workoutDuration || 0);
@@ -69,16 +69,22 @@ export function DailyStatsOverview({
     return goal > 0 ? Math.min(100, Math.round((spent / goal) * 100)) : 0;
   });
   if (workoutDuration > 0) mejoraPcts.push(Math.min(100, Math.round((workoutDuration / 45) * 100)));
-  const mejoraScore = mejoraPcts.length > 0 ? Math.round(mejoraPcts.reduce((a, b) => a + b, 0) / mejoraPcts.length) : 0;
+  const mejoraScore = hasSystemsData && mejoraPcts.length > 0
+    ? Math.round(mejoraPcts.reduce((a, b) => a + b, 0) / mejoraPcts.length)
+    : pct(tasksCompleted + habitsCompleted, tasksTotal + habitsTotal);
 
   const focusPcts = FOCUS_AREA_IDS.map(id => {
     const spent = timeData[id] || 0;
     const goal = TIME_GOALS[id] || 60;
     return goal > 0 ? Math.min(100, Math.round((spent / goal) * 100)) : 0;
   });
-  const focusScore = focusPcts.length > 0 ? Math.round(focusPcts.reduce((a, b) => a + b, 0) / focusPcts.length) : 0;
+  const focusScore = hasSystemsData && focusPcts.length > 0
+    ? Math.round(focusPcts.reduce((a, b) => a + b, 0) / focusPcts.length)
+    : pct(tasksCompleted, tasksTotal);
 
-  const totalScore = Math.round(sostenPct * 0.10 + mejoraScore * 0.40 + focusScore * 0.50);
+  const totalScore = hasSystemsData
+    ? Math.round(sostenPct * 0.10 + mejoraScore * 0.40 + focusScore * 0.50)
+    : Math.round((pct(habitsCompleted, habitsTotal) + pct(tasksCompleted, tasksTotal) + pct(blocksCompleted, blocksTotal)) / 3);
 
   const totalMinutes = Object.values(timeData).reduce((a, b) => a + b, 0);
   const waterCount = WATER_HABIT_IDS.filter(id => completions[id] || waterData[id]).length;
@@ -152,20 +158,20 @@ export function DailyStatsOverview({
           sostenPct={sostenPct} mejoraPct={mejoraScore} focusPct={focusScore}
         />}
 
-        {activeTab === 'sosten' && <SostenTab
-          completions={completions} sostenDone={sostenDone} sostenTotal={sostenTotal}
-          waterCount={waterCount} waterTotal={waterTotal}
-        />}
+        {activeTab === 'sosten' && (hasSystemsData
+          ? <SostenTab completions={completions} sostenDone={sostenDone} sostenTotal={sostenTotal} waterCount={waterCount} waterTotal={waterTotal} />
+          : <NoDataCard message="Usa la página 'Hoy' para trackear tus hábitos de Sostén y verlos aquí." />
+        )}
 
-        {activeTab === 'mejora' && <MejoraTab
-          timeData={timeData} completions={completions}
-          workoutDuration={workoutDuration} workoutIntensity={workoutIntensity}
-        />}
+        {activeTab === 'mejora' && (hasSystemsData
+          ? <MejoraTab timeData={timeData} completions={completions} workoutDuration={workoutDuration} workoutIntensity={workoutIntensity} />
+          : <NoDataCard message="Usa la página 'Hoy' para trackear tus hábitos de Mejora y verlos aquí." />
+        )}
 
-        {activeTab === 'enfoque' && <EnfoqueTab
-          timeData={timeData} completions={completions}
-          tasksDone={tasksCompleted} tasksTotal={tasksTotal}
-        />}
+        {activeTab === 'enfoque' && (hasSystemsData
+          ? <EnfoqueTab timeData={timeData} completions={completions} tasksDone={tasksCompleted} tasksTotal={tasksTotal} />
+          : <NoDataCard message="Usa la página 'Hoy' para registrar tu enfoque y verlo aquí." />
+        )}
       </div>
     </div>
   );
@@ -199,6 +205,27 @@ function ScoreCard({ icon: Icon, label, value, pct, color }: {
   );
 }
 
+function NoDataCard({ message }: { message: string }) {
+  return (
+    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <CardContent className="p-6 text-center">
+        <Activity className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">{message}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScoreChip({ label, pct, color, bar }: { label: string; pct: number; color: string; bar: string }) {
+  return (
+    <div className="rounded-2xl p-3 text-center border-0 backdrop-blur-xl bg-white/80 dark:bg-zinc-900/80 shadow-sm">
+      <p className={cn("text-lg font-bold", color)}>{pct}%</p>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+      <Progress value={pct} className="h-1 mt-1.5" indicatorClassName={bar} />
+    </div>
+  );
+}
+
 function GeneralTab({
   habitsDone, habitsTotal, waterCount, waterTotal,
   workoutDuration, workoutIntensity, wakeTime, sleepTime, sleepHours,
@@ -229,20 +256,9 @@ function GeneralTab({
     <>
       {/* Score breakdown chips */}
       <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Sostén", pct: sostenPct, color: "blue" },
-          { label: "Mejora", pct: mejoraPct, color: "purple" },
-          { label: "Enfoque", pct: focusPct, color: "amber" },
-        ].map(s => (
-          <div key={s.label} className={cn(
-            "rounded-2xl p-3 text-center border-0 backdrop-blur-xl",
-            "bg-white/80 dark:bg-zinc-900/80 shadow-sm"
-          )}>
-            <p className={cn("text-lg font-bold", `text-${s.color}-500`)}>{s.pct}%</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
-            <Progress value={s.pct} className="h-1 mt-1.5" indicatorClassName={`bg-${s.color}-500`} />
-          </div>
-        ))}
+        <ScoreChip label="Sostén" pct={sostenPct} color="text-blue-500" bar="bg-blue-500" />
+        <ScoreChip label="Mejora" pct={mejoraPct} color="text-purple-500" bar="bg-purple-500" />
+        <ScoreChip label="Enfoque" pct={focusPct} color="text-amber-500" bar="bg-amber-500" />
       </div>
 
       {/* Indicator cards grid */}

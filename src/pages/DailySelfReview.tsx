@@ -8,7 +8,6 @@ import { es } from "date-fns/locale";
 import { CalendarIcon, Save, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDailyReview } from "@/hooks/useDailyReview";
 import { DailyStatsOverview } from "@/components/self-review/DailyStatsOverview";
-import { ObjectiveSummary } from "@/components/self-review/ObjectiveSummary";
 import { BlockRatingList } from "@/components/self-review/BlockRatingList";
 import { ReflectionForm } from "@/components/self-review/ReflectionForm";
 import { OverallRating } from "@/components/self-review/OverallRating";
@@ -136,17 +135,6 @@ export default function DailySelfReview() {
         {/* Daily Stats Overview - All stats organized */}
         <DailyStatsOverview
           systemsTracking={systemsTracking}
-          blocksCompleted={review.blocksCompleted}
-          blocksTotal={review.blocksTotal}
-          tasksCompleted={review.tasksCompleted}
-          tasksTotal={review.tasksTotal}
-          habitsCompleted={review.habitsCompleted}
-          habitsTotal={review.habitsTotal}
-          focusMinutes={review.focusMinutes}
-        />
-
-        {/* Objective Summary */}
-        <ObjectiveSummary
           blocksCompleted={review.blocksCompleted}
           blocksTotal={review.blocksTotal}
           tasksCompleted={review.tasksCompleted}
