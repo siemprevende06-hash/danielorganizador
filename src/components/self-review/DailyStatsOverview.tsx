@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import {
   Zap, Shield, TrendingUp, Focus, Clock, CheckCircle2, Droplets,
   Dumbbell, Moon, Timer, Target, Activity, BookOpen, GraduationCap,
-  Briefcase, FolderKanban, ListTodo, Gamepad2, Brain
+  Briefcase, FolderKanban, ListTodo, Gamepad2, Brain, Flame, Trophy,
+  Sparkles, LayoutGrid, Utensils
 } from "lucide-react";
 import type { SystemsTrackingData } from "@/hooks/useDailyReview";
 
@@ -96,42 +97,50 @@ export function DailyStatsOverview({
   };
   const sleepHours = getSleepHours();
 
-  const tabHeader = (id: 'general' | 'sosten' | 'mejora' | 'enfoque', label: string, icon: React.ReactNode) => (
-    <button
-      key={id}
-      onClick={() => setActiveTab(id)}
-      className={cn(
-        "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all",
-        activeTab === id
-          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-          : "bg-muted/50 text-muted-foreground hover:bg-muted"
-      )}
-    >
-      {icon}
-      {label}
-    </button>
-  );
+  const TABS = [
+    { id: 'general' as const, label: 'General', icon: Activity, color: 'text-primary' },
+    { id: 'sosten' as const, label: 'Sostén', icon: Shield, color: 'text-blue-500' },
+    { id: 'mejora' as const, label: 'Mejora', icon: TrendingUp, color: 'text-purple-500' },
+    { id: 'enfoque' as const, label: 'Enfoque', icon: Focus, color: 'text-amber-500' },
+  ];
 
   return (
-    <Card className="border-border overflow-hidden">
-      <CardContent className="pt-6 space-y-5">
-        {/* Score Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <ScoreCard icon={Shield} label="Sostén" value={`${sostenPct}%`} color="text-blue-500" bgColor="bg-blue-500/10" />
-          <ScoreCard icon={TrendingUp} label="Mejora" value={`${mejoraScore}%`} color="text-purple-500" bgColor="bg-purple-500/10" />
-          <ScoreCard icon={Brain} label="Enfoque" value={`${focusScore}%`} color="text-amber-500" bgColor="bg-amber-500/10" />
-          <ScoreCard icon={Zap} label="Total" value={`${totalScore}%`} color="text-emerald-500" bgColor="bg-emerald-500/10" />
-        </div>
+    <div className="space-y-4">
+      {/* Score Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <ScoreCard icon={Shield} label="Sostén" value={`${sostenPct}%`} pct={sostenPct} color="blue" />
+        <ScoreCard icon={TrendingUp} label="Mejora" value={`${mejoraScore}%`} pct={mejoraScore} color="purple" />
+        <ScoreCard icon={Brain} label="Enfoque" value={`${focusScore}%`} pct={focusScore} color="amber" />
+        <ScoreCard icon={Zap} label="Total" value={`${totalScore}%`} pct={totalScore} color="emerald" />
+      </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {tabHeader('general', 'General', <Activity className="w-4 h-4" />)}
-          {tabHeader('sosten', 'Sostén', <Shield className="w-4 h-4" />)}
-          {tabHeader('mejora', 'Mejora', <TrendingUp className="w-4 h-4" />)}
-          {tabHeader('enfoque', 'Enfoque', <Focus className="w-4 h-4" />)}
-        </div>
+      {/* Tab Navigation - glass cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {TABS.map(tab => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "relative rounded-2xl p-3 text-left transition-all border-0 backdrop-blur-xl overflow-hidden",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
+                  : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+              )}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className={cn("text-lg", isActive ? "text-primary-foreground" : tab.color)}>
+                  <tab.icon className="w-5 h-5" />
+                </span>
+              </div>
+              <div className={cn("text-xs font-semibold leading-tight", isActive ? "text-primary-foreground" : "")}>
+                {tab.label}
+              </div>
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Tab Content */}
+      {/* Tab Content */}
+      <div className="space-y-4">
         {activeTab === 'general' && <GeneralTab
           habitsDone={habitsCompleted} habitsTotal={habitsTotal}
           waterCount={waterCount} waterTotal={waterTotal}
@@ -140,6 +149,7 @@ export function DailyStatsOverview({
           blocksDone={doneBlocks || blocksCompleted} blocksTotal={totalBlocksSys || blocksTotal}
           tasksDone={tasksCompleted} tasksTotal={tasksTotal}
           totalMinutes={totalMinutes} focusMinutes={focusMinutes}
+          sostenPct={sostenPct} mejoraPct={mejoraScore} focusPct={focusScore}
         />}
 
         {activeTab === 'sosten' && <SostenTab
@@ -156,21 +166,35 @@ export function DailyStatsOverview({
           timeData={timeData} completions={completions}
           tasksDone={tasksCompleted} tasksTotal={tasksTotal}
         />}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
-function ScoreCard({ icon: Icon, label, value, color, bgColor }: {
-  icon: any; label: string; value: string; color: string; bgColor: string;
+function ScoreCard({ icon: Icon, label, value, pct, color }: {
+  icon: any; label: string; value: string; pct: number; color: string;
 }) {
+  const colors: Record<string, { border: string; bg: string; text: string; bar: string }> = {
+    blue: { border: "border-blue-500/30", bg: "bg-blue-500/10", text: "text-blue-500", bar: "bg-blue-500" },
+    purple: { border: "border-purple-500/30", bg: "bg-purple-500/10", text: "text-purple-500", bar: "bg-purple-500" },
+    amber: { border: "border-amber-500/30", bg: "bg-amber-500/10", text: "text-amber-500", bar: "bg-amber-500" },
+    emerald: { border: "border-emerald-500/30", bg: "bg-emerald-500/10", text: "text-emerald-500", bar: "bg-emerald-500" },
+  };
+  const c = colors[color] || colors.blue;
+
   return (
-    <Card className="p-3 text-center">
-      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center mx-auto mb-1.5", bgColor)}>
-        <Icon className={cn("w-4 h-4", color)} />
-      </div>
-      <p className={cn("text-lg font-bold", color)}>{value}</p>
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+    <Card className={cn("border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden")}>
+      <div className={cn("h-1 w-full", c.bg)} />
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", c.bg)}>
+            <Icon className={cn("w-4 h-4", c.text)} />
+          </div>
+          <span className={cn("text-lg font-bold", c.text)}>{value}</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{label}</p>
+        <Progress value={pct} className="h-1.5" indicatorClassName={c.bar} />
+      </CardContent>
     </Card>
   );
 }
@@ -179,7 +203,7 @@ function GeneralTab({
   habitsDone, habitsTotal, waterCount, waterTotal,
   workoutDuration, workoutIntensity, wakeTime, sleepTime, sleepHours,
   blocksDone, blocksTotal, tasksDone, tasksTotal,
-  totalMinutes, focusMinutes,
+  totalMinutes, focusMinutes, sostenPct, mejoraPct, focusPct,
 }: {
   habitsDone: number; habitsTotal: number;
   waterCount: number; waterTotal: number;
@@ -188,34 +212,58 @@ function GeneralTab({
   blocksDone: number; blocksTotal: number;
   tasksDone: number; tasksTotal: number;
   totalMinutes: number; focusMinutes: number;
+  sostenPct: number; mejoraPct: number; focusPct: number;
 }) {
   const items = [
-    { icon: CheckCircle2, label: "Hábitos", value: `${habitsDone}/${habitsTotal}`, color: "text-green-500", pct: habitsTotal > 0 ? Math.round(habitsDone/habitsTotal*100) : 0, barColor: "bg-green-500" },
-    { icon: Droplets, label: "Agua", value: `${waterCount}/${waterTotal}`, color: "text-blue-500", pct: waterTotal > 0 ? Math.round(waterCount/waterTotal*100) : 0, barColor: "bg-blue-500" },
-    { icon: Dumbbell, label: "Ejercicio", value: `${workoutDuration} min`, color: "text-orange-500", sub: `Intensidad: ${workoutIntensity}`, pct: workoutDuration > 0 ? Math.min(100, Math.round(workoutDuration/45*100)) : 0, barColor: "bg-orange-500" },
-    { icon: Moon, label: "Sueño", value: wakeTime ? `${wakeTime} - ${sleepTime}` : '--', color: "text-indigo-500", sub: sleepHours ? `${sleepHours}h` : '', pct: sleepHours ? Math.min(100, Math.round(sleepHours/8*100)) : 0, barColor: "bg-indigo-500" },
-    { icon: Timer, label: "Bloques", value: `${blocksDone}/${blocksTotal}`, color: "text-amber-500", pct: blocksTotal > 0 ? Math.round(blocksDone/blocksTotal*100) : 0, barColor: "bg-amber-500" },
-    { icon: Target, label: "Tareas", value: `${tasksDone}/${tasksTotal}`, color: "text-rose-500", pct: tasksTotal > 0 ? Math.round(tasksDone/tasksTotal*100) : 0, barColor: "bg-rose-500" },
-    { icon: Clock, label: "Tiempo total", value: `${totalMinutes} min`, color: "text-primary", pct: 0, barColor: "" },
-    { icon: Focus, label: "Minutos de foco", value: `${focusMinutes} min`, color: "text-purple-500", pct: focusMinutes > 0 ? Math.min(100, Math.round(focusMinutes/120*100)) : 0, barColor: "bg-purple-500" },
+    { icon: CheckCircle2, label: "Hábitos", value: habitsDone, suffix: `/${habitsTotal}`, pct: habitsTotal > 0 ? Math.round(habitsDone/habitsTotal*100) : 0, barColor: "bg-green-500", iconColor: "text-green-500" },
+    { icon: Droplets, label: "Agua", value: waterCount, suffix: `/${waterTotal}`, pct: waterTotal > 0 ? Math.round(waterCount/waterTotal*100) : 0, barColor: "bg-blue-500", iconColor: "text-blue-500" },
+    { icon: Dumbbell, label: "Ejercicio", value: workoutDuration, suffix: " min", sub: `Intensidad: ${workoutIntensity}`, pct: workoutDuration > 0 ? Math.min(100, Math.round(workoutDuration/45*100)) : 0, barColor: "bg-orange-500", iconColor: "text-orange-500" },
+    { icon: Moon, label: "Sueño", value: wakeTime || '—', suffix: sleepTime ? ` / ${sleepTime}` : '', sub: sleepHours ? `${sleepHours}h` : '', pct: sleepHours ? Math.min(100, Math.round(sleepHours/8*100)) : 0, barColor: "bg-indigo-500", iconColor: "text-indigo-500" },
+    { icon: Timer, label: "Bloques", value: blocksDone, suffix: `/${blocksTotal}`, pct: blocksTotal > 0 ? Math.round(blocksDone/blocksTotal*100) : 0, barColor: "bg-amber-500", iconColor: "text-amber-500" },
+    { icon: Target, label: "Tareas", value: tasksDone, suffix: `/${tasksTotal}`, pct: tasksTotal > 0 ? Math.round(tasksDone/tasksTotal*100) : 0, barColor: "bg-rose-500", iconColor: "text-rose-500" },
+    { icon: Clock, label: "Tiempo invertido", value: totalMinutes, suffix: " min", pct: 0, barColor: "", iconColor: "text-primary" },
+    { icon: Focus, label: "Minutos de foco", value: focusMinutes, suffix: " min", pct: focusMinutes > 0 ? Math.min(100, Math.round(focusMinutes/120*100)) : 0, barColor: "bg-purple-500", iconColor: "text-purple-500" },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-      {items.map((item, i) => (
-        <div key={i} className="rounded-lg bg-muted/30 p-3 space-y-1.5">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <item.icon className={cn("h-3.5 w-3.5", item.color)} />
-            <span className="text-[10px] font-medium uppercase">{item.label}</span>
+    <>
+      {/* Score breakdown chips */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Sostén", pct: sostenPct, color: "blue" },
+          { label: "Mejora", pct: mejoraPct, color: "purple" },
+          { label: "Enfoque", pct: focusPct, color: "amber" },
+        ].map(s => (
+          <div key={s.label} className={cn(
+            "rounded-2xl p-3 text-center border-0 backdrop-blur-xl",
+            "bg-white/80 dark:bg-zinc-900/80 shadow-sm"
+          )}>
+            <p className={cn("text-lg font-bold", `text-${s.color}-500`)}>{s.pct}%</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
+            <Progress value={s.pct} className="h-1 mt-1.5" indicatorClassName={`bg-${s.color}-500`} />
           </div>
-          <p className="text-base font-bold">{item.value}</p>
-          {item.sub && <p className="text-[10px] text-muted-foreground">{item.sub}</p>}
-          {item.pct > 0 && (
-            <Progress value={item.pct} className={cn("h-1.5", item.barColor)} />
-          )}
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      {/* Indicator cards grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {items.map((item, i) => (
+          <div key={i} className="rounded-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm p-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <item.icon className={cn("h-3.5 w-3.5", item.iconColor)} />
+              <span className="text-[10px] font-medium uppercase">{item.label}</span>
+            </div>
+            <p className="text-xl font-bold">{item.value}<span className="text-xs text-muted-foreground font-normal">{item.suffix}</span></p>
+            {item.sub && <p className="text-[10px] text-muted-foreground">{item.sub}</p>}
+            {item.pct > 0 && (
+              <div className="w-full bg-muted rounded-full h-1.5">
+                <div className={cn("h-1.5 rounded-full transition-all", item.barColor)} style={{ width: `${item.pct}%` }} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -230,44 +278,48 @@ function SostenTab({ completions, sostenDone, sostenTotal, waterCount, waterTota
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">Total Sostén</span>
-        <span className="text-lg font-bold text-blue-500">{sostenDone}/{sostenTotal}</span>
-      </div>
-      <Progress value={sostenTotal > 0 ? sostenDone/sostenTotal*100 : 0} className="h-2" indicatorClassName="bg-blue-500" />
-      <div className="space-y-3 pt-2">
-        {groups.map(g => {
-          const done = g.habits.filter(h => completions[h]).length;
-          const pct = g.habits.length > 0 ? Math.round(done/g.habits.length*100) : 0;
-          return (
-            <div key={g.id}>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className={cn("font-medium", g.color)}>{g.name}</span>
-                <span className="text-muted-foreground">{done}/{g.habits.length}</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {g.habits.map(h => (
-                  <span key={h} className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded-full",
-                    completions[h] ? "bg-green-500/20 text-green-600" : "bg-muted text-muted-foreground"
-                  )}>
-                    {h.replace(/-/g, ' ')}
-                  </span>
-                ))}
-              </div>
-              <Progress value={pct} className="h-1 mt-1" indicatorClassName={g.bar} />
-            </div>
-          );
-        })}
-      </div>
-      <div className="pt-2 border-t border-border">
-        <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-1.5"><Droplets className="w-3.5 h-3.5 text-blue-500" /> Agua</span>
-          <span className="font-bold">{waterCount}/{waterTotal} vasos</span>
+    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">Total Sostén</span>
+          <span className="text-lg font-bold text-blue-500">{sostenDone}/{sostenTotal}</span>
         </div>
-      </div>
-    </div>
+        <Progress value={sostenTotal > 0 ? Math.round(sostenDone/sostenTotal*100) : 0} className="h-2" indicatorClassName="bg-blue-500" />
+        <div className="space-y-4 pt-1">
+          {groups.map(g => {
+            const done = g.habits.filter(h => completions[h]).length;
+            const pct = g.habits.length > 0 ? Math.round(done/g.habits.length*100) : 0;
+            return (
+              <div key={g.id}>
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className={cn("font-semibold", g.color)}>{g.name}</span>
+                  <span className="text-muted-foreground">{done}/{g.habits.length}</span>
+                </div>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {g.habits.map(h => (
+                    <span key={h} className={cn(
+                      "text-[9px] px-2 py-0.5 rounded-full font-medium",
+                      completions[h] ? "bg-green-500/15 text-green-600 border border-green-500/20" : "bg-muted text-muted-foreground border border-transparent"
+                    )}>
+                      {h.replace(/-/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+                <Progress value={pct} className="h-1.5" indicatorClassName={g.bar} />
+              </div>
+            );
+          })}
+        </div>
+        <div className="pt-2 border-t border-border/50">
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-1.5 font-medium"><Droplets className="w-3.5 h-3.5 text-blue-500" /> Agua</span>
+            <span className="font-bold text-blue-500">{waterCount}/{waterTotal}</span>
+          </div>
+          <Progress value={waterTotal > 0 ? Math.round(waterCount/waterTotal*100) : 0} className="h-1.5 mt-1.5" indicatorClassName="bg-blue-500" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -276,47 +328,57 @@ function MejoraTab({ timeData, completions, workoutDuration, workoutIntensity }:
   workoutDuration: number; workoutIntensity: string;
 }) {
   const items = [
-    { id: "lectura", name: "Lectura", icon: BookOpen, color: "text-cyan-500", goal: 30 },
-    { id: "musica", name: "Música", icon: BookOpen, color: "text-pink-500", goal: 30 },
-    { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, color: "text-emerald-500", goal: 15 },
-    { id: "game", name: "Game (Seducción)", icon: Gamepad2, color: "text-purple-500", goal: 30 },
-    { id: "idiomas", name: "Idiomas", icon: GraduationCap, color: "text-indigo-500", goal: 60 },
+    { id: "lectura", name: "Lectura", icon: BookOpen, color: "text-cyan-500", bar: "bg-cyan-500", goal: 30 },
+    { id: "musica", name: "Música", icon: BookOpen, color: "text-pink-500", bar: "bg-pink-500", goal: 30 },
+    { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, color: "text-emerald-500", bar: "bg-emerald-500", goal: 15 },
+    { id: "game", name: "Game (Seducción)", icon: Gamepad2, color: "text-purple-500", bar: "bg-purple-500", goal: 30 },
+    { id: "idiomas", name: "Idiomas", icon: GraduationCap, color: "text-indigo-500", bar: "bg-indigo-500", goal: 60 },
   ];
 
+  const avgPct = items.length > 0
+    ? Math.round(items.reduce((s, i) => s + Math.min(100, ((timeData[i.id]||0)/i.goal)*100), 0) / items.length)
+    : 0;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">Progreso Mejora</span>
-        <span className="text-lg font-bold text-purple-500">{Math.round(items.reduce((s, i) => s + Math.min(100, ((timeData[i.id]||0)/i.goal)*100), 0) / items.length)}%</span>
-      </div>
-      <div className="space-y-3">
-        {items.map(item => {
-          const spent = timeData[item.id] || 0;
-          const pct = Math.min(100, Math.round((spent / item.goal) * 100));
-          return (
-            <div key={item.id} className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5">
-                  <item.icon className={cn("w-3.5 h-3.5", item.color)} />
-                  <span>{item.name}</span>
-                </span>
-                <span className="text-muted-foreground">{spent}/{item.goal} min</span>
-              </div>
-              <Progress value={pct} className="h-1.5" indicatorClassName={item.color.replace('text-', 'bg-')} />
-            </div>
-          );
-        })}
-      </div>
-      {workoutDuration > 0 && (
-        <div className="pt-3 border-t border-border space-y-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1.5"><Dumbbell className="w-3.5 h-3.5 text-orange-500" /> Entreno</span>
-            <span className="text-muted-foreground">{workoutDuration} min · {workoutIntensity}</span>
-          </div>
-          <Progress value={Math.min(100, Math.round(workoutDuration/45*100))} className="h-1.5" indicatorClassName="bg-orange-500" />
+    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-400" />
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">Progreso Mejora</span>
+          <span className="text-lg font-bold text-purple-500">{avgPct}%</span>
         </div>
-      )}
-    </div>
+        <Progress value={avgPct} className="h-2" indicatorClassName="bg-purple-500" />
+        <div className="space-y-3 pt-1">
+          {items.map(item => {
+            const spent = timeData[item.id] || 0;
+            const pct = Math.min(100, Math.round((spent / item.goal) * 100));
+            const done = completions[item.id];
+            return (
+              <div key={item.id} className={cn("rounded-xl p-3 transition-colors", done ? "bg-green-500/5" : "bg-muted/20")}>
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <item.icon className={cn("w-3.5 h-3.5", item.color)} />
+                    <span>{item.name}</span>
+                    {done && <CheckCircle2 className="w-3 h-3 text-green-500" />}
+                  </span>
+                  <span className="text-muted-foreground">{spent}/{item.goal} min</span>
+                </div>
+                <Progress value={pct} className="h-1.5" indicatorClassName={item.bar} />
+              </div>
+            );
+          })}
+        </div>
+        {workoutDuration > 0 && (
+          <div className="pt-3 border-t border-border/50 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5 font-medium"><Dumbbell className="w-3.5 h-3.5 text-orange-500" /> Entreno</span>
+              <span className="text-muted-foreground">{workoutDuration} min · {workoutIntensity}</span>
+            </div>
+            <Progress value={Math.min(100, Math.round(workoutDuration/45*100))} className="h-1.5" indicatorClassName="bg-orange-500" />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -331,38 +393,44 @@ function EnfoqueTab({ timeData, completions, tasksDone, tasksTotal }: {
     { id: "tareas", name: "Tareas generales", icon: ListTodo, color: "text-rose-500", bar: "bg-rose-500", goal: 60 },
   ];
 
+  const totalMin = areas.reduce((s, a) => s + (timeData[a.id]||0), 0);
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">Horas invertidas hoy</span>
-        <span className="text-lg font-bold text-amber-500">{areas.reduce((s, a) => s + (timeData[a.id]||0), 0)} min</span>
-      </div>
-      <div className="space-y-3">
-        {areas.map(area => {
-          const spent = timeData[area.id] || 0;
-          const pct = Math.min(100, Math.round((spent / area.goal) * 100));
-          const isDone = completions[area.id];
-          return (
-            <div key={area.id} className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5">
-                  <area.icon className={cn("w-3.5 h-3.5", area.color)} />
-                  <span>{area.name}</span>
-                  {isDone && <CheckCircle2 className="w-3 h-3 text-green-500" />}
-                </span>
-                <span className="text-muted-foreground">{spent}/{area.goal} min</span>
-              </div>
-              <Progress value={pct} className="h-2" indicatorClassName={area.bar} />
-            </div>
-          );
-        })}
-      </div>
-      <div className="pt-3 border-t border-border">
-        <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-rose-500" /> Tareas completadas</span>
-          <span className="font-bold">{tasksDone}/{tasksTotal}</span>
+    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">Horas invertidas hoy</span>
+          <span className="text-lg font-bold text-amber-500">{totalMin} min</span>
         </div>
-      </div>
-    </div>
+        <div className="space-y-3 pt-1">
+          {areas.map(area => {
+            const spent = timeData[area.id] || 0;
+            const pct = Math.min(100, Math.round((spent / area.goal) * 100));
+            const isDone = completions[area.id];
+            return (
+              <div key={area.id} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <area.icon className={cn("w-3.5 h-3.5", area.color)} />
+                    <span>{area.name}</span>
+                    {isDone && <CheckCircle2 className="w-3 h-3 text-green-500" />}
+                  </span>
+                  <span className="text-muted-foreground">{spent}/{area.goal} min</span>
+                </div>
+                <Progress value={pct} className="h-2" indicatorClassName={area.bar} />
+              </div>
+            );
+          })}
+        </div>
+        <div className="pt-3 border-t border-border/50">
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-1.5 font-medium"><Target className="w-3.5 h-3.5 text-rose-500" /> Tareas completadas</span>
+            <span className="font-bold text-rose-500">{tasksDone}/{tasksTotal}</span>
+          </div>
+          <Progress value={tasksTotal > 0 ? Math.round(tasksDone/tasksTotal*100) : 0} className="h-1.5 mt-1.5" indicatorClassName="bg-rose-500" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
