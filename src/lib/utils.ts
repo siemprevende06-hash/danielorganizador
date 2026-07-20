@@ -47,3 +47,12 @@ export function getEffortLevel(habit: any, todayDuration: number = 0): 'none' | 
   if (ratio >= 0.5) return 'medium';
   return 'low';
 }
+
+export function isVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+
+  const normalized = url.toLowerCase();
+  const pathOnly = normalized.split("?")[0].split("#")[0];
+
+  return /\.(mp4|webm|ogg|ogv|mov|m4v)$/.test(pathOnly) || normalized.includes("/video/");
+}
