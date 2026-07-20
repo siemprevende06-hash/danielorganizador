@@ -35,6 +35,8 @@ interface Props {
   onRemoveTask: (taskId: string) => void;
   onUpdateFocus?: (blockId: string, focus: string) => void;
   events?: CalendarEvent[];
+  musicInstrument?: 'piano' | 'guitar';
+  languageChoice?: 'ingles' | 'italiano';
 }
 
 const FOCUS_OPTIONS = [
@@ -131,6 +133,7 @@ function identifyBlockType(title: string): string {
   if (t.includes('gym') || t.includes('entreno')) return 'gym';
   if (t.includes('lectura') || t.includes('podcast')) return 'lectura';
   if (t.includes('música') || t.includes('piano') || t.includes('guitarra')) return 'musica';
+  if (t.includes('idiomas')) return 'idiomas';
   return 'other';
 }
 
@@ -182,6 +185,8 @@ export function DailyTimelinePlanner({
   onRemoveTask,
   onUpdateFocus,
   events = [],
+  musicInstrument,
+  languageChoice,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -195,7 +200,10 @@ export function DailyTimelinePlanner({
 
   const todayWorkout = getTodayWorkout();
   const currentBook = getCurrentlyReading();
-  const learningSongs = getSongsByStatus('learning');
+  const allLearningSongs = getSongsByStatus('learning');
+  const learningSongs = musicInstrument
+    ? allLearningSongs.filter(s => s.instrument === musicInstrument)
+    : allLearningSongs;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -393,6 +401,14 @@ export function DailyTimelinePlanner({
                         <Music className="h-2.5 w-2.5 text-pink-500" />
                         <span className="text-[9px] text-muted-foreground">
                           {learningSongs[0].instrument === 'piano' ? '🎹' : '🎸'} {learningSongs[0].title}
+                        </span>
+                      </div>
+                    )}
+                    {blockType === 'idiomas' && languageChoice && (
+                      <div className="mt-1 ml-6 flex items-center gap-1.5">
+                        <Languages className="h-2.5 w-2.5 text-teal-500" />
+                        <span className="text-[9px] text-muted-foreground">
+                          {languageChoice === 'ingles' ? '🇬🇧' : '🇮🇹'} {languageChoice === 'ingles' ? 'Inglés' : 'Italiano'}
                         </span>
                       </div>
                     )}

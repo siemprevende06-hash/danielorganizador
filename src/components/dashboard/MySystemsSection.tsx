@@ -30,10 +30,11 @@ interface SystemCard {
 const todayKey = () => new Date().toISOString().split("T")[0];
 
 const semaphore = (value: number, min: number, max: number) => {
-  if (value >= max) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Máximo ✓" };
-  if (value >= min) return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "Mínimo ✓" };
-  if (value > 0) return { ring: "ring-red-500/60", bg: "bg-red-500/5", text: "text-red-500", label: "Incompleto" };
-  return { ring: "ring-red-500/40", bg: "bg-red-500/5", text: "text-red-500", label: "Sin hacer" };
+  if (value > max) return { ring: "ring-amber-400/60", bg: "bg-amber-400/10", text: "text-amber-500", label: "Extra ✦", dot: "bg-amber-400" };
+  if (value >= max) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Máximo ✓", dot: "bg-green-500" };
+  if (value >= min) return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "Mínimo ✓", dot: "bg-blue-500" };
+  if (value > 0) return { ring: "ring-red-500/60", bg: "bg-red-500/5", text: "text-red-500", label: "Incompleto", dot: "bg-red-400" };
+  return { ring: "ring-red-500/40", bg: "bg-red-500/5", text: "text-red-500", label: "Sin hacer", dot: "bg-gray-400" };
 };
 
 function SystemCardView({ c }: { c: SystemCard }) {
@@ -43,8 +44,9 @@ function SystemCardView({ c }: { c: SystemCard }) {
   const max = Math.max(1, ...c.spark);
 
   return (
-    <Link to={c.route || "/systems"} className="block">
+    <Link to={c.route || "/systems"} className="block relative">
       <Card className={cn("p-3 ring-2 transition-all h-full", sem.ring, sem.bg)}>
+        <div className={cn("absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", sem.dot)} />
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <Icon className="h-4 w-4 text-muted-foreground" />
@@ -247,8 +249,9 @@ export function MySystemsSection() {
       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Hobbies Artísticos</p>
       <div className="grid grid-cols-3 gap-3 mb-5">
         {/* Música — 3 columnas */}
-        <Link to="/music-dashboard" className="col-span-3 block">
+        <Link to="/music-dashboard" className="col-span-3 block relative">
           <Card className={cn("p-3 ring-2 h-full", musicaSem.ring, musicaSem.bg)}>
+            <div className={cn("absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", musicaSem.dot)} />
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
                 <Music className="h-4 w-4 text-muted-foreground" />

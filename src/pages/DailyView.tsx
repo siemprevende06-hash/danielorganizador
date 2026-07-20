@@ -117,6 +117,7 @@ export default function DailyView() {
     completedBlocks, completedTasks, dayScore,
     tasks,
     planRoutineType,
+    planLanguage,
   } = dailyPlanData;
   const planAssignments = dailyPlanData.planAssignments ?? null;
 
@@ -428,7 +429,7 @@ export default function DailyView() {
             <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock} />
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} />
+              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} />
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
                 <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} />
               </div>

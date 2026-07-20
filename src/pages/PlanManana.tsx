@@ -41,17 +41,16 @@ interface UniTask {
 }
 
 const SYSTEM_HABITS = [
-  { id: "rutina-activacion", name: "Rutina Activación", icon: Sun, baseMin: 10 },
-  { id: "gym", name: "Gym", icon: Dumbbell, baseMin: 45 },
-  { id: "alimentacion", name: "Alimentación", icon: Utensils, baseMin: 30 },
   { id: "lectura", name: "Lectura", icon: BookOpen, baseMin: 20 },
-  { id: "musica", name: "Música", icon: BookOpen, baseMin: 30 },
-  { id: "idiomas", name: "Idiomas", icon: Languages, baseMin: 30 },
   { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, baseMin: 15 },
+  { id: "game", name: "Game (Seducción)", icon: Gamepad2, baseMin: 15 },
+  { id: "idiomas", name: "Idiomas", icon: Languages, baseMin: 30 },
+  { id: "gym", name: "Gym", icon: Dumbbell, baseMin: 45 },
+  { id: "musica", name: "Música", icon: BookOpen, baseMin: 30 },
 ];
 
 const INTENSITY_MULTIPLIER: Record<string, number> = {
-  minimo: 0.5, normal: 1, maximo: 1.5,
+  minimo: 0.5, maximo: 1, extra: 1.5,
 };
 
 const AREAS = [
@@ -452,6 +451,8 @@ export default function PlanManana() {
               onDropTask={(taskId, blockId) => assignTaskToBlock(taskId, blockId)}
               onRemoveTask={handleRemoveTask}
               onUpdateFocus={(blockId, focus) => updateBlockFocus(blockId, focus)}
+              musicInstrument={musicInstrument === "piano" ? "piano" : "guitar"}
+              languageChoice={languageChoice as "ingles" | "italiano"}
             />
 
             {/* Language & Music preferences */}
@@ -560,17 +561,17 @@ export default function PlanManana() {
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      {["minimo", "normal", "maximo"].map(opt => (
+                      {["minimo", "maximo", "extra"].map(opt => (
                         <button key={opt} onClick={() => setSystemIntensity(p => ({ ...p, [sys.id]: opt }))}
                           className={cn(
                             "px-2 py-1 rounded-lg text-[9px] font-medium transition-all border",
                             level === opt
                               ? opt === "minimo" ? "bg-blue-500 text-white border-blue-500"
-                                : opt === "normal" ? "bg-green-500 text-white border-green-500"
-                                : "bg-orange-500 text-white border-orange-500"
+                                : opt === "maximo" ? "bg-green-500 text-white border-green-500"
+                                : "bg-amber-500 text-white border-amber-500"
                               : "bg-transparent border-border/50 text-muted-foreground hover:border-foreground/30"
                           )}>
-                          {opt === "minimo" ? "Mín" : opt === "normal" ? "Nor" : "Máx"}
+                          {opt === "minimo" ? "Mín" : opt === "maximo" ? "Máx" : "Extra"}
                         </button>
                       ))}
                     </div>

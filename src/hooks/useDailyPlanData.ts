@@ -25,6 +25,7 @@ export function useDailyPlanData(date?: Date) {
   const [tasksLoading, setTasksLoading] = useState(true);
   const [planAssignments, setPlanAssignments] = useState<Record<string, string[]> | null>(null);
   const [planRoutineType, setPlanRoutineType] = useState<string | null>(null);
+  const [planLanguage, setPlanLanguage] = useState<'ingles' | 'italiano' | null>(null);
   const [planLoaded, setPlanLoaded] = useState(false);
 
   const targetDate = date || new Date();
@@ -39,14 +40,23 @@ export function useDailyPlanData(date?: Date) {
   const loadPlanForDate = async () => {
     setPlanLoaded(false);
     try {
-      const { data: plan } = await supabase.from('daily_plans').select('routine_type, block_assignments').eq('plan_date', dateStr).maybeSingle();
+      const { data: plan } = await supabase.from('daily_plans').select('routine_type, block_assignments, notes').eq('plan_date', dateStr).maybeSingle();
 
       if (plan && plan.block_assignments) {
         setPlanAssignments(plan.block_assignments as Record<string, string[]>);
         setPlanRoutineType(plan.routine_type);
+        if (plan.notes) {
+          try {
+            const parsed = JSON.parse(plan.notes as string);
+            if (parsed.language === 'ingles' || parsed.language === 'italiano') {
+              setPlanLanguage(parsed.language);
+            }
+          } catch {}
+        }
       } else {
         setPlanAssignments(null);
         setPlanRoutineType(null);
+        setPlanLanguage(null);
       }
     } catch (error) {
       console.error('Error loading plan for date:', error);
@@ -248,6 +258,7 @@ export function useDailyPlanData(date?: Date) {
     dayScore,
     planAssignments,
     planRoutineType,
+    planLanguage,
     planLoaded,
   };
 }
