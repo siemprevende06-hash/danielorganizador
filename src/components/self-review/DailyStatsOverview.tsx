@@ -8,6 +8,7 @@ import {
   Briefcase, FolderKanban, ListTodo, Gamepad2, Brain, Sun, Music
 } from "lucide-react";
 import type { SystemsTrackingData } from "@/hooks/useDailyReview";
+import { MySystemsSection } from "@/components/dashboard/MySystemsSection";
 
 interface Props {
   systemsTracking: SystemsTrackingData | null;
@@ -274,26 +275,7 @@ export function DailyStatsOverview({
           </Card>
         ))}
 
-        {activeTab === 'mejora' && (hasSystemsData ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              { id: "lectura", name: "Lectura", icon: BookOpen, goal: 30 },
-              { id: "musica", name: "Música", icon: Music, goal: 30 },
-              { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, goal: 15 },
-              { id: "game", name: "Game (Seducción)", icon: Gamepad2, goal: 30 },
-              { id: "idiomas", name: "Idiomas", icon: GraduationCap, goal: 60 },
-            ].map(item => (
-              <TimeStatCard key={item.id} icon={item.icon} label={item.name}
-                spent={timeData[item.id] || 0} goal={item.goal} />
-            ))}
-            <TimeStatCard icon={Dumbbell} label="Entreno" spent={workoutDuration} goal={45} />
-          </div>
-        ) : (
-          <Card className="p-6 text-center ring-2 ring-muted">
-            <Activity className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Usa la página 'Hoy' para trackear tus hábitos de Mejora y verlos aquí.</p>
-          </Card>
-        ))}
+        {activeTab === 'mejora' && <MySystemsSection />}
 
         {activeTab === 'enfoque' && (hasSystemsData ? (
           <div className="space-y-4">
