@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { getImageDataURL } from "@/lib/imageStore";
+import { isVideoUrl } from "@/lib/utils";
 
 interface CachedImageProps {
   src: string;
@@ -12,6 +13,7 @@ export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
   const [dataSrc, setDataSrc] = useState<string | null>(null);
   const [useUrl, setUseUrl] = useState(true);
   const loadedRef = useRef(false);
+  const isVideo = isVideoUrl(src);
 
   useEffect(() => {
     setDataSrc(null);
@@ -32,6 +34,21 @@ export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
     loadedRef.current = true;
     onLoad?.();
   };
+
+  if (isVideo) {
+    return (
+      <video
+        src={useUrl ? src : dataSrc ?? undefined}
+        className={className}
+        autoPlay
+        loop
+        muted
+        playsInline
+        onError={useUrl ? handleError : undefined}
+        onLoadedData={handleLoad}
+      />
+    );
+  }
 
   if (useUrl) {
     return (

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { isVideoUrl } from "@/lib/utils";
 
 interface ImageLightboxProps {
   src: string | null;
@@ -22,6 +23,8 @@ export function ImageLightbox({ src, onClose, alt = "" }: ImageLightboxProps) {
 
   if (!src) return null;
 
+  const isVideo = isVideoUrl(src);
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 animate-in fade-in"
@@ -34,12 +37,22 @@ export function ImageLightbox({ src, onClose, alt = "" }: ImageLightboxProps) {
       >
         <X className="h-5 w-5" />
       </button>
-      <img
-        src={src}
-        alt={alt}
-        className="max-w-full max-h-full object-contain"
-        onClick={(e) => e.stopPropagation()}
-      />
+      {isVideo ? (
+        <video
+          src={src}
+          className="max-w-full max-h-full object-contain"
+          controls
+          autoPlay
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full max-h-full object-contain"
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
     </div>,
     document.body
   );

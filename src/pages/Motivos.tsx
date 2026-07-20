@@ -291,7 +291,7 @@ export default function Motivos() {
                     <input
                       ref={(el) => setInputRef(card.id, el)}
                       type="file"
-                      
+                      accept="image/*,.gif,.mp4,.webm,.mov"
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
