@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,6 +12,7 @@ import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
+import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
 import {
   Sun, Moon, Clock, Target, ListTodo, Briefcase, GraduationCap,
   Languages, FolderKanban, Save, Dumbbell, Coffee, BookOpen, ChevronDown,
@@ -85,7 +85,7 @@ export default function PlanManana() {
   const tomorrowDisplay = format(tomorrow, "EEEE d 'de' MMMM", { locale: es });
   const tomorrowCapitalized = tomorrowDisplay.charAt(0).toUpperCase() + tomorrowDisplay.slice(1);
 
-  const { blocks, routineType, setRoutineType } = useRoutineBlocks();
+  const { blocks, routineType, setRoutineType, updateBlockFocus } = useRoutineBlocks();
 
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -102,11 +102,40 @@ export default function PlanManana() {
   const [areaCollapsed, setAreaCollapsed] = useState<Record<string, boolean>>({});
 
   const [saving, setSaving] = useState(false);
+  const [languageChoice, setLanguageChoice] = useState<string>("ingles");
+  const [musicInstrument, setMusicInstrument] = useState<string>("piano");
+
+  const tasksByBlockForPlanner = useMemo(() => {
+    const result: Record<string, { id: string; title: string; source: string; completed: boolean }[]> = {};
+    const allTaskItems = [
+      ...tasks.map(t => ({ id: t.id, title: t.title, source: t.source, completed: t.completed })),
+      ...entreTasks.map(t => ({ id: t.id, title: t.title, source: "entrepreneurship", completed: t.completed })),
+      ...uniTasks.map(t => ({ id: t.id, title: t.title, source: "university", completed: t.completed })),
+      ...projects.flatMap(p => p.tasks.map(t => ({ id: t.id, title: t.title, source: "project", completed: t.completed }))),
+    ];
+    for (const [blockId, taskIds] of Object.entries(blockAssignments)) {
+      result[blockId] = taskIds.map(id => allTaskItems.find(t => t.id === id)).filter(Boolean) as any;
+    }
+    return result;
+  }, [tasks, entreTasks, uniTasks, projects, blockAssignments]);
+
+  const handleRemoveTask = useCallback((taskId: string) => {
+    for (const [blockId, taskIds] of Object.entries(blockAssignments)) {
+      if (taskIds.includes(taskId)) {
+        removeFromBlock(taskId, blockId);
+        return;
+      }
+    }
+  }, [blockAssignments, removeFromBlock]);
 
   useEffect(() => {
     loadData();
     const saved = localStorage.getItem(`planManana_intensity`);
     if (saved) setSystemIntensity(JSON.parse(saved));
+    const savedLang = localStorage.getItem(`planManana_language`);
+    if (savedLang) setLanguageChoice(savedLang);
+    const savedInst = localStorage.getItem(`planManana_instrument`);
+    if (savedInst) setMusicInstrument(savedInst);
   }, []);
 
   const loadData = async () => {
@@ -197,7 +226,7 @@ export default function PlanManana() {
         await supabase.from("daily_plans").update({
           routine_type: routineType,
           block_assignments: JSON.parse(JSON.stringify(assignments)),
-          notes: JSON.stringify({ systemIntensity }),
+          notes: JSON.stringify({ systemIntensity, language: languageChoice, instrument: musicInstrument }),
         }).eq("id", existing.data.id);
       } else {
         await supabase.from("daily_plans").insert({
@@ -205,7 +234,7 @@ export default function PlanManana() {
           mode: routineType,
           routine_type: routineType,
           block_assignments: JSON.parse(JSON.stringify(assignments)),
-          notes: JSON.stringify({ systemIntensity }),
+          notes: JSON.stringify({ systemIntensity, language: languageChoice, instrument: musicInstrument }),
         });
       }
 
@@ -215,6 +244,8 @@ export default function PlanManana() {
         routineType,
       }));
       localStorage.setItem("planManana_intensity", JSON.stringify(systemIntensity));
+      localStorage.setItem("planManana_language", languageChoice);
+      localStorage.setItem("planManana_instrument", musicInstrument);
 
       toast.success("Plan para mañana guardado");
     } catch { toast.error("Error al guardar"); }
@@ -409,55 +440,74 @@ export default function PlanManana() {
             )}
           </div>
 
-          {/* RIGHT: Timeline + Systems */}
+          {/* RIGHT: Timeline Planner */}
           <div className="space-y-3">
-            {/* Time blocks */}
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" /> Línea de tiempo
-            </h2>
+            <DailyTimelinePlanner
+              blocks={blocks as any}
+              tasksByBlock={tasksByBlockForPlanner}
+              onToggleBlock={() => {}}
+              isBlockCompleted={() => false}
+              onDropTask={(taskId, blockId) => assignTaskToBlock(taskId, blockId)}
+              onRemoveTask={handleRemoveTask}
+              onUpdateFocus={(blockId, focus) => updateBlockFocus(blockId, focus)}
+            />
 
-            <ScrollArea className="h-[400px] pr-2">
-              <div className="space-y-1.5">
-                {blocks.map(block => {
-                  const assigned = blockAssignments[block.id] || [];
-                  return (
-                    <div key={block.id} className={cn(
-                      "rounded-xl border p-2.5 transition-all",
-                      block.isFocusBlock ? "border-purple-300 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-950/20" : "border-border/60 bg-white/50 dark:bg-zinc-900/50"
-                    )}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5">
-                          {getBlockIcon(block.title)}
-                          <span className="text-xs font-medium">{block.title}</span>
-                        </div>
-                        <span className="text-[9px] text-muted-foreground tabular-nums">
-                          {formatTime(block.startTime)} - {formatTime(block.endTime)}
-                        </span>
-                      </div>
-                      {assigned.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {assigned.map(taskId => (
-                            <Badge key={taskId} variant="secondary" className="text-[9px] px-1.5 py-0 flex items-center gap-1 max-w-[180px]">
-                              <span className="truncate">{getTaskLabel(taskId)}</span>
-                              <button onClick={() => removeFromBlock(taskId, block.id)} className="hover:text-destructive ml-0.5 shrink-0">&times;</button>
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[9px] text-muted-foreground italic">Sin tareas</p>
-                      )}
+            {/* Language & Music preferences */}
+            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 shadow-sm rounded-2xl overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-pink-500 to-rose-400" />
+              <CardContent className="p-4 space-y-3">
+                <h3 className="text-xs font-semibold flex items-center gap-2">
+                  <Languages className="h-4 w-4 text-pink-500" /> Preferencias
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1.5">Idioma a repasar:</p>
+                    <div className="flex gap-1.5">
+                      {[
+                        { value: "italiano", label: "Italiano", flag: "🇮🇹" },
+                        { value: "ingles", label: "Inglés", flag: "🇬🇧" },
+                      ].map(lang => (
+                        <button key={lang.value} onClick={() => setLanguageChoice(lang.value)}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-xl text-[10px] font-medium transition-all border",
+                            languageChoice === lang.value
+                              ? "bg-pink-500 text-white border-pink-500"
+                              : "bg-muted/50 border-border/60 text-muted-foreground hover:border-pink-300"
+                          )}>
+                          {lang.flag} {lang.label}
+                        </button>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1.5">Instrumento musical:</p>
+                    <div className="flex gap-1.5">
+                      {[
+                        { value: "piano", label: "Piano", icon: "🎹" },
+                        { value: "guitarra", label: "Guitarra", icon: "🎸" },
+                      ].map(inst => (
+                        <button key={inst.value} onClick={() => setMusicInstrument(inst.value)}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-xl text-[10px] font-medium transition-all border",
+                            musicInstrument === inst.value
+                              ? "bg-pink-500 text-white border-pink-500"
+                              : "bg-muted/50 border-border/60 text-muted-foreground hover:border-pink-300"
+                          )}>
+                          {inst.icon} {inst.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Assignment: selected tasks to blocks */}
             {selectedTasks.size > 0 && (
               <Card className="border border-dashed border-indigo-300 dark:border-indigo-700 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-xl">
                 <CardContent className="p-3 space-y-2">
                   <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                    {selectedTasks.size} tarea(s) sin bloque — asigna a un bloque arriba:
+                    {selectedTasks.size} tarea(s) sin bloque — asigna a un bloque arrastrando o usando el selector:
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {[...selectedTasks].map(taskId => (

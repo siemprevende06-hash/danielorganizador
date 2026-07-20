@@ -27,8 +27,22 @@ interface DailyReview {
   overallRating: number;
 }
 
+export interface SystemsTrackingData {
+  completions: Record<string, boolean>;
+  timeData: Record<string, number>;
+  countData: Record<string, number>;
+  waterData: Record<string, boolean>;
+  workAssignments: Record<string, string>;
+  blockCompletions: Record<string, boolean>;
+  wakeTime: string;
+  sleepTime: string;
+  workoutDuration: number;
+  workoutIntensity: string;
+}
+
 export function useDailyReview(date?: string) {
   const [review, setReview] = useState<DailyReview | null>(null);
+  const [systemsTracking, setSystemsTracking] = useState<SystemsTrackingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -38,15 +52,44 @@ export function useDailyReview(date?: string) {
     loadReview();
   }, [reviewDate]);
 
+  const loadSystemsTracking = async () => {
+    const { data } = await supabase
+      .from('daily_systems_tracking')
+      .select('*')
+      .eq('tracking_date', reviewDate)
+      .maybeSingle();
+
+    if (data) {
+      setSystemsTracking({
+        completions: (data.completions as Record<string, boolean>) || {},
+        timeData: (data.time_data as Record<string, number>) || {},
+        countData: (data.count_data as Record<string, number>) || {},
+        waterData: (data.water_data as Record<string, boolean>) || {},
+        workAssignments: (data.work_assignments as Record<string, string>) || {},
+        blockCompletions: (data.block_completions as Record<string, boolean>) || {},
+        wakeTime: data.wake_time || '',
+        sleepTime: data.sleep_time || '',
+        workoutDuration: data.workout_duration || 0,
+        workoutIntensity: data.workout_intensity || 'moderate',
+      });
+    } else {
+      setSystemsTracking(null);
+    }
+  };
+
   const loadReview = async () => {
     setLoading(true);
 
-    // Try to load existing review
-    const { data: existingReview } = await supabase
-      .from('daily_reviews')
-      .select('*')
-      .eq('review_date', reviewDate)
-      .maybeSingle();
+    const [reviewRes] = await Promise.all([
+      supabase
+        .from('daily_reviews')
+        .select('*')
+        .eq('review_date', reviewDate)
+        .maybeSingle(),
+      loadSystemsTracking(),
+    ]);
+
+    const existingReview = reviewRes.data;
 
     if (existingReview) {
       setReview({
@@ -226,6 +269,7 @@ export function useDailyReview(date?: string) {
 
   return {
     review,
+    systemsTracking,
     loading,
     saving,
     saveReview,

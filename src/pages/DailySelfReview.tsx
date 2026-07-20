@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon, Save, ChevronLeft, ChevronRight } from "lucide-react";
 import { useDailyReview } from "@/hooks/useDailyReview";
+import { DailyStatsOverview } from "@/components/self-review/DailyStatsOverview";
 import { ObjectiveSummary } from "@/components/self-review/ObjectiveSummary";
 import { BlockRatingList } from "@/components/self-review/BlockRatingList";
 import { ReflectionForm } from "@/components/self-review/ReflectionForm";
@@ -24,7 +25,7 @@ export default function DailySelfReview() {
   
   const { pillars, secondaryGoals, overallScore, loading: pillarsLoading } = usePillarProgress(selectedDate);
   
-  const { review, loading, saving, saveReview, updateBlockRating } = useDailyReview(dateStr);
+  const { review, systemsTracking, loading, saving, saveReview, updateBlockRating } = useDailyReview(dateStr);
 
   const navigateDate = (days: number) => {
     const newDate = new Date(selectedDate);
@@ -131,6 +132,18 @@ export default function DailySelfReview() {
 
         {/* Purpose Visualization - Best Version of Yourself */}
         <PurposeVisualization />
+
+        {/* Daily Stats Overview - All stats organized */}
+        <DailyStatsOverview
+          systemsTracking={systemsTracking}
+          blocksCompleted={review.blocksCompleted}
+          blocksTotal={review.blocksTotal}
+          tasksCompleted={review.tasksCompleted}
+          tasksTotal={review.tasksTotal}
+          habitsCompleted={review.habitsCompleted}
+          habitsTotal={review.habitsTotal}
+          focusMinutes={review.focusMinutes}
+        />
 
         {/* Objective Summary */}
         <ObjectiveSummary
