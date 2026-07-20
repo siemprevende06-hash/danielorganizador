@@ -624,16 +624,17 @@ export default function Finance() {
     }
     const wallet = wallets.find(w => w.id === depositWalletId);
     if (!wallet) { toast({ title: "Billetera no encontrada", variant: "destructive" }); return; }
-    if (wallet.balance < depositAmount) {
+    const depositUSD = toUSD(depositAmount, 'CUP');
+    if (wallet.balance < depositUSD) {
       toast({ title: "Saldo insuficiente", description: `"${wallet.name}" no tiene ${depositAmount.toLocaleString("es-ES")} CUP disponibles.`, variant: "destructive" });
       return;
     }
-    const newAmount = goalToDeposit.currentAmount + depositAmount;
+    const newAmount = goalToDeposit.currentAmount + depositUSD;
     updateFinancialGoal(goalToDeposit.id, { currentAmount: Math.min(newAmount, goalToDeposit.targetAmount) });
-    updateWalletBalance(depositWalletId, wallet.balance - depositAmount);
+    updateWalletBalance(depositWalletId, wallet.balance - depositUSD);
     addTransaction({
       description: `Abono a meta: ${goalToDeposit.name}`,
-      amount: depositAmount,
+      amount: depositUSD,
       date: new Date(),
       walletId: depositWalletId,
       categoryId: 'cat-transfer',
