@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   Zap, Shield, TrendingUp, Focus, Clock, CheckCircle2, Droplets,
   Dumbbell, Moon, Timer, Target, Activity, BookOpen, GraduationCap,
-  Briefcase, FolderKanban, ListTodo, Gamepad2, Brain
+  Briefcase, FolderKanban, ListTodo, Gamepad2, Brain, Sun, Music
 } from "lucide-react";
 import type { SystemsTrackingData } from "@/hooks/useDailyReview";
 
@@ -38,6 +38,82 @@ const TIME_GOALS: Record<string, number> = {
 };
 
 const WATER_HABIT_IDS = ["pre-entreno", "desayuno", "merienda-1", "almuerzo", "merienda-2", "comida", "antes-dormir"];
+
+const semaphore = (value: number, min: number, max: number) => {
+  if (value >= max) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Máximo" };
+  if (value >= min) return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "Mínimo" };
+  if (value > 0) return { ring: "ring-red-500/60", bg: "bg-red-500/5", text: "text-red-500", label: "Incompleto" };
+  return { ring: "ring-red-500/40", bg: "bg-red-500/5", text: "text-red-500", label: "Sin hacer" };
+};
+
+const pctSemaphore = (pct: number) => {
+  if (pct >= 90) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Excelente" };
+  if (pct >= 60) return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "Bien" };
+  if (pct >= 30) return { ring: "ring-amber-500/60", bg: "bg-amber-500/10", text: "text-amber-600", label: "Regular" };
+  return { ring: "ring-red-500/40", bg: "bg-red-500/5", text: "text-red-500", label: "Bajo" };
+};
+
+function StatCard({ icon: Icon, label, value, suffix, pct, color, minThreshold, maxThreshold }: {
+  icon: any; label: string; value: string | number; suffix?: string; pct: number;
+  color: string; minThreshold?: number; maxThreshold?: number;
+}) {
+  const sem = typeof value === 'number' && minThreshold !== undefined && maxThreshold !== undefined
+    ? semaphore(value, minThreshold, maxThreshold)
+    : pctSemaphore(pct);
+
+  return (
+    <Card className={cn("p-3 ring-2 transition-all h-full", sem.ring, sem.bg)}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs font-bold">{label}</span>
+        </div>
+        <span className={cn("text-[10px] font-semibold", sem.text)}>{sem.label}</span>
+      </div>
+      <div className="flex items-baseline gap-1 mb-1.5">
+        <span className="text-2xl font-bold">{value}</span>
+        {suffix && <span className="text-[10px] text-muted-foreground">{suffix}</span>}
+        {maxThreshold && <span className="text-[10px] text-muted-foreground ml-auto">/{maxThreshold}</span>}
+      </div>
+      <Progress value={pct} className="h-1.5" />
+    </Card>
+  );
+}
+
+function TimeStatCard({ icon: Icon, label, spent, goal, unit = "min" }: {
+  icon: any; label: string; spent: number; goal: number; unit?: string;
+}) {
+  const pct = goal > 0 ? Math.min(100, Math.round((spent / goal) * 100)) : 0;
+  const sem = semaphore(spent, goal * 0.6, goal);
+  const max = goal;
+  const spark = [0, 0, 0, 0, 0, 0, spent];
+
+  return (
+    <Card className={cn("p-3 ring-2 transition-all h-full", sem.ring, sem.bg)}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs font-bold">{label}</span>
+        </div>
+        <span className={cn("text-[10px] font-semibold", sem.text)}>{sem.label}</span>
+      </div>
+      <div className="flex items-baseline gap-1 mb-1.5">
+        <span className="text-2xl font-bold">{spent}</span>
+        <span className="text-[10px] text-muted-foreground">{unit}</span>
+        <span className="text-[10px] text-muted-foreground ml-auto">/{goal}</span>
+      </div>
+      <Progress value={pct} className="h-1.5 mb-1.5" />
+      <div className="flex items-end gap-0.5 h-5 mb-1">
+        {spark.map((v, i) => (
+          <div key={i} className="flex-1 rounded-sm" style={{
+            height: `${Math.max(6, (v / Math.max(1, max)) * 100)}%`,
+            backgroundColor: i === 6 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.4)",
+          }} />
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 export function DailyStatsOverview({
   systemsTracking, blocksCompleted, blocksTotal,
@@ -112,7 +188,6 @@ export function DailyStatsOverview({
 
   return (
     <div className="space-y-4">
-      {/* Score Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <ScoreCard icon={Shield} label="Sostén" value={`${sostenPct}%`} pct={sostenPct} color="blue" />
         <ScoreCard icon={TrendingUp} label="Mejora" value={`${mejoraScore}%`} pct={mejoraScore} color="purple" />
@@ -120,22 +195,19 @@ export function DailyStatsOverview({
         <ScoreCard icon={Zap} label="Total" value={`${totalScore}%`} pct={totalScore} color="emerald" />
       </div>
 
-      {/* Tab Navigation - glass cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {TABS.map(tab => {
           const isActive = activeTab === tab.id;
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "relative rounded-2xl p-3 text-left transition-all border-0 backdrop-blur-xl overflow-hidden",
+                "rounded-2xl p-3 text-left transition-all border-0 overflow-hidden",
                 isActive
                   ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
                   : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
               )}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className={cn("text-lg", isActive ? "text-primary-foreground" : tab.color)}>
-                  <tab.icon className="w-5 h-5" />
-                </span>
+              <div className="flex items-center mb-1.5">
+                <tab.icon className={cn("w-5 h-5", isActive ? "text-primary-foreground" : tab.color)} />
               </div>
               <div className={cn("text-xs font-semibold leading-tight", isActive ? "text-primary-foreground" : "")}>
                 {tab.label}
@@ -145,33 +217,106 @@ export function DailyStatsOverview({
         })}
       </div>
 
-      {/* Tab Content */}
       <div className="space-y-4">
-        {activeTab === 'general' && <GeneralTab
-          habitsDone={habitsCompleted} habitsTotal={habitsTotal}
-          waterCount={waterCount} waterTotal={waterTotal}
-          workoutDuration={workoutDuration} workoutIntensity={workoutIntensity}
-          wakeTime={wakeTime} sleepTime={sleepTime} sleepHours={sleepHours}
-          blocksDone={doneBlocks || blocksCompleted} blocksTotal={totalBlocksSys || blocksTotal}
-          tasksDone={tasksCompleted} tasksTotal={tasksTotal}
-          totalMinutes={totalMinutes} focusMinutes={focusMinutes}
-          sostenPct={sostenPct} mejoraPct={mejoraScore} focusPct={focusScore}
-        />}
-
-        {activeTab === 'sosten' && (hasSystemsData
-          ? <SostenTab completions={completions} sostenDone={sostenDone} sostenTotal={sostenTotal} waterCount={waterCount} waterTotal={waterTotal} />
-          : <NoDataCard message="Usa la página 'Hoy' para trackear tus hábitos de Sostén y verlos aquí." />
+        {activeTab === 'general' && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard icon={CheckCircle2} label="Hábitos" value={habitsCompleted} suffix={`/${habitsTotal}`}
+              pct={pct(habitsCompleted, habitsTotal)} color="green" minThreshold={habitsTotal * 0.6} maxThreshold={habitsTotal} />
+            <StatCard icon={Droplets} label="Agua" value={waterCount} suffix={`/${waterTotal}`}
+              pct={pct(waterCount, waterTotal)} color="blue" minThreshold={Math.round(waterTotal * 0.6)} maxThreshold={waterTotal} />
+            <TimeStatCard icon={Dumbbell} label="Ejercicio" spent={workoutDuration} goal={45} />
+            <StatCard icon={Moon} label="Sueño" value={sleepHours !== null ? `${sleepHours}h` : '—'} suffix=""
+              pct={sleepHours ? Math.min(100, Math.round(sleepHours / 8 * 100)) : 0} color="indigo" />
+            <StatCard icon={Timer} label="Bloques" value={doneBlocks || blocksCompleted} suffix={`/${totalBlocksSys || blocksTotal}`}
+              pct={pct(doneBlocks || blocksCompleted, totalBlocksSys || blocksTotal)} color="amber" />
+            <StatCard icon={Target} label="Tareas" value={tasksCompleted} suffix={`/${tasksTotal}`}
+              pct={pct(tasksCompleted, tasksTotal)} color="rose" />
+            <StatCard icon={Clock} label="Tiempo invertido" value={totalMinutes} suffix=" min"
+              pct={totalMinutes > 0 ? Math.min(100, Math.round(totalMinutes / 480 * 100)) : 0} color="primary" />
+            <TimeStatCard icon={Focus} label="Minutos de foco" spent={focusMinutes} goal={120} />
+          </div>
         )}
 
-        {activeTab === 'mejora' && (hasSystemsData
-          ? <MejoraTab timeData={timeData} completions={completions} workoutDuration={workoutDuration} workoutIntensity={workoutIntensity} />
-          : <NoDataCard message="Usa la página 'Hoy' para trackear tus hábitos de Mejora y verlos aquí." />
-        )}
+        {activeTab === 'sosten' && (hasSystemsData ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                { id: "estructural", name: "Estructurales", icon: Sun, habits: ["rutina-activacion", "alistamiento-desayuno", "horario-regular", "rutina-desactivacion"] },
+                { id: "apariencia", name: "Apariencia", icon: Sun, habits: ["skincare-manana", "skincare-noche", "banarme-vestirme"] },
+                { id: "alimentacion", name: "Alimentación", icon: Sun, habits: ["pre-entreno", "desayuno", "merienda-1", "almuerzo", "merienda-2", "comida", "antes-dormir", "suplementos"] },
+              ].map(g => {
+                const done = g.habits.filter(h => completions[h]).length;
+                const total = g.habits.length;
+                const pctVal = pct(done, total);
+                return (
+                  <StatCard key={g.id} icon={Shield} label={g.name} value={done} suffix={`/${total}`}
+                    pct={pctVal} color="blue" minThreshold={Math.round(total * 0.6)} maxThreshold={total} />
+                );
+              })}
+            </div>
+            <StatCard icon={Droplets} label="Agua" value={waterCount} suffix={`/${waterTotal}`}
+              pct={pct(waterCount, waterTotal)} color="blue" minThreshold={Math.round(waterTotal * 0.6)} maxThreshold={waterTotal} />
+            <div className="flex flex-wrap gap-1.5">
+              {SOSTEN_HABIT_IDS.map(h => (
+                <span key={h} className={cn(
+                  "text-[9px] px-2 py-0.5 rounded-full font-medium border",
+                  completions[h] ? "bg-green-500/15 text-green-600 border-green-500/30" : "bg-muted text-muted-foreground border-transparent"
+                )}>
+                  {h.replace(/-/g, ' ')}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Card className="p-6 text-center ring-2 ring-muted">
+            <Activity className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Usa la página 'Hoy' para trackear tus hábitos de Sostén y verlos aquí.</p>
+          </Card>
+        ))}
 
-        {activeTab === 'enfoque' && (hasSystemsData
-          ? <EnfoqueTab timeData={timeData} completions={completions} tasksDone={tasksCompleted} tasksTotal={tasksTotal} />
-          : <NoDataCard message="Usa la página 'Hoy' para registrar tu enfoque y verlo aquí." />
-        )}
+        {activeTab === 'mejora' && (hasSystemsData ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { id: "lectura", name: "Lectura", icon: BookOpen, goal: 30 },
+              { id: "musica", name: "Música", icon: Music, goal: 30 },
+              { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, goal: 15 },
+              { id: "game", name: "Game (Seducción)", icon: Gamepad2, goal: 30 },
+              { id: "idiomas", name: "Idiomas", icon: GraduationCap, goal: 60 },
+            ].map(item => (
+              <TimeStatCard key={item.id} icon={item.icon} label={item.name}
+                spent={timeData[item.id] || 0} goal={item.goal} />
+            ))}
+            <TimeStatCard icon={Dumbbell} label="Entreno" spent={workoutDuration} goal={45} />
+          </div>
+        ) : (
+          <Card className="p-6 text-center ring-2 ring-muted">
+            <Activity className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Usa la página 'Hoy' para trackear tus hábitos de Mejora y verlos aquí.</p>
+          </Card>
+        ))}
+
+        {activeTab === 'enfoque' && (hasSystemsData ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { id: "universidad", name: "Universidad", icon: GraduationCap, goal: 120 },
+                { id: "emprendimiento", name: "Emprendimiento", icon: Briefcase, goal: 60 },
+                { id: "proyectos", name: "Proyectos", icon: FolderKanban, goal: 60 },
+                { id: "tareas", name: "Tareas generales", icon: ListTodo, goal: 60 },
+              ].map(item => (
+                <TimeStatCard key={item.id} icon={item.icon} label={item.name}
+                  spent={timeData[item.id] || 0} goal={item.goal} />
+              ))}
+            </div>
+            <StatCard icon={Target} label="Tareas completadas" value={tasksCompleted} suffix={`/${tasksTotal}`}
+              pct={pct(tasksCompleted, tasksTotal)} color="rose" minThreshold={Math.round(tasksTotal * 0.6)} maxThreshold={tasksTotal} />
+          </div>
+        ) : (
+          <Card className="p-6 text-center ring-2 ring-muted">
+            <Activity className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Usa la página 'Hoy' para registrar tu enfoque y verlo aquí.</p>
+          </Card>
+        ))}
       </div>
     </div>
   );
@@ -180,273 +325,18 @@ export function DailyStatsOverview({
 function ScoreCard({ icon: Icon, label, value, pct, color }: {
   icon: any; label: string; value: string; pct: number; color: string;
 }) {
-  const colors: Record<string, { border: string; bg: string; text: string; bar: string }> = {
-    blue: { border: "border-blue-500/30", bg: "bg-blue-500/10", text: "text-blue-500", bar: "bg-blue-500" },
-    purple: { border: "border-purple-500/30", bg: "bg-purple-500/10", text: "text-purple-500", bar: "bg-purple-500" },
-    amber: { border: "border-amber-500/30", bg: "bg-amber-500/10", text: "text-amber-500", bar: "bg-amber-500" },
-    emerald: { border: "border-emerald-500/30", bg: "bg-emerald-500/10", text: "text-emerald-500", bar: "bg-emerald-500" },
-  };
-  const c = colors[color] || colors.blue;
-
+  const sem = pctSemaphore(pct);
   return (
-    <Card className={cn("border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden")}>
-      <div className={cn("h-1 w-full", c.bg)} />
-      <CardContent className="p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", c.bg)}>
-            <Icon className={cn("w-4 h-4", c.text)} />
-          </div>
-          <span className={cn("text-lg font-bold", c.text)}>{value}</span>
+    <Card className={cn("p-3 ring-2 transition-all", sem.ring, sem.bg)}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted">
+          <Icon className="w-4 h-4 text-muted-foreground" />
         </div>
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{label}</p>
-        <Progress value={pct} className="h-1.5" indicatorClassName={c.bar} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function NoDataCard({ message }: { message: string }) {
-  return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <CardContent className="p-6 text-center">
-        <Activity className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
-        <p className="text-sm text-muted-foreground">{message}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ScoreChip({ label, pct, color, bar }: { label: string; pct: number; color: string; bar: string }) {
-  return (
-    <div className="rounded-2xl p-3 text-center border-0 backdrop-blur-xl bg-white/80 dark:bg-zinc-900/80 shadow-sm">
-      <p className={cn("text-lg font-bold", color)}>{pct}%</p>
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
-      <Progress value={pct} className="h-1 mt-1.5" indicatorClassName={bar} />
-    </div>
-  );
-}
-
-function GeneralTab({
-  habitsDone, habitsTotal, waterCount, waterTotal,
-  workoutDuration, workoutIntensity, wakeTime, sleepTime, sleepHours,
-  blocksDone, blocksTotal, tasksDone, tasksTotal,
-  totalMinutes, focusMinutes, sostenPct, mejoraPct, focusPct,
-}: {
-  habitsDone: number; habitsTotal: number;
-  waterCount: number; waterTotal: number;
-  workoutDuration: number; workoutIntensity: string;
-  wakeTime: string; sleepTime: string; sleepHours: number | null;
-  blocksDone: number; blocksTotal: number;
-  tasksDone: number; tasksTotal: number;
-  totalMinutes: number; focusMinutes: number;
-  sostenPct: number; mejoraPct: number; focusPct: number;
-}) {
-  const items = [
-    { icon: CheckCircle2, label: "Hábitos", value: habitsDone, suffix: `/${habitsTotal}`, pct: habitsTotal > 0 ? Math.round(habitsDone/habitsTotal*100) : 0, barColor: "bg-green-500", iconColor: "text-green-500" },
-    { icon: Droplets, label: "Agua", value: waterCount, suffix: `/${waterTotal}`, pct: waterTotal > 0 ? Math.round(waterCount/waterTotal*100) : 0, barColor: "bg-blue-500", iconColor: "text-blue-500" },
-    { icon: Dumbbell, label: "Ejercicio", value: workoutDuration, suffix: " min", sub: `Intensidad: ${workoutIntensity}`, pct: workoutDuration > 0 ? Math.min(100, Math.round(workoutDuration/45*100)) : 0, barColor: "bg-orange-500", iconColor: "text-orange-500" },
-    { icon: Moon, label: "Sueño", value: wakeTime || '—', suffix: sleepTime ? ` / ${sleepTime}` : '', sub: sleepHours ? `${sleepHours}h` : '', pct: sleepHours ? Math.min(100, Math.round(sleepHours/8*100)) : 0, barColor: "bg-indigo-500", iconColor: "text-indigo-500" },
-    { icon: Timer, label: "Bloques", value: blocksDone, suffix: `/${blocksTotal}`, pct: blocksTotal > 0 ? Math.round(blocksDone/blocksTotal*100) : 0, barColor: "bg-amber-500", iconColor: "text-amber-500" },
-    { icon: Target, label: "Tareas", value: tasksDone, suffix: `/${tasksTotal}`, pct: tasksTotal > 0 ? Math.round(tasksDone/tasksTotal*100) : 0, barColor: "bg-rose-500", iconColor: "text-rose-500" },
-    { icon: Clock, label: "Tiempo invertido", value: totalMinutes, suffix: " min", pct: 0, barColor: "", iconColor: "text-primary" },
-    { icon: Focus, label: "Minutos de foco", value: focusMinutes, suffix: " min", pct: focusMinutes > 0 ? Math.min(100, Math.round(focusMinutes/120*100)) : 0, barColor: "bg-purple-500", iconColor: "text-purple-500" },
-  ];
-
-  return (
-    <>
-      {/* Score breakdown chips */}
-      <div className="grid grid-cols-3 gap-2">
-        <ScoreChip label="Sostén" pct={sostenPct} color="text-blue-500" bar="bg-blue-500" />
-        <ScoreChip label="Mejora" pct={mejoraPct} color="text-purple-500" bar="bg-purple-500" />
-        <ScoreChip label="Enfoque" pct={focusPct} color="text-amber-500" bar="bg-amber-500" />
+        <span className={cn("text-[10px] font-semibold", sem.text)}>{sem.label}</span>
       </div>
-
-      {/* Indicator cards grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {items.map((item, i) => (
-          <div key={i} className="rounded-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm p-3 space-y-1.5">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <item.icon className={cn("h-3.5 w-3.5", item.iconColor)} />
-              <span className="text-[10px] font-medium uppercase">{item.label}</span>
-            </div>
-            <p className="text-xl font-bold">{item.value}<span className="text-xs text-muted-foreground font-normal">{item.suffix}</span></p>
-            {item.sub && <p className="text-[10px] text-muted-foreground">{item.sub}</p>}
-            {item.pct > 0 && (
-              <div className="w-full bg-muted rounded-full h-1.5">
-                <div className={cn("h-1.5 rounded-full transition-all", item.barColor)} style={{ width: `${item.pct}%` }} />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function SostenTab({ completions, sostenDone, sostenTotal, waterCount, waterTotal }: {
-  completions: Record<string, boolean>; sostenDone: number; sostenTotal: number;
-  waterCount: number; waterTotal: number;
-}) {
-  const groups = [
-    { id: "estructural", name: "Estructurales", color: "text-blue-500", bar: "bg-blue-500", habits: ["rutina-activacion", "alistamiento-desayuno", "horario-regular", "rutina-desactivacion"] },
-    { id: "apariencia", name: "Apariencia", color: "text-pink-500", bar: "bg-pink-500", habits: ["skincare-manana", "skincare-noche", "banarme-vestirme"] },
-    { id: "alimentacion", name: "Alimentación", color: "text-amber-500", bar: "bg-amber-500", habits: ["pre-entreno", "desayuno", "merienda-1", "almuerzo", "merienda-2", "comida", "antes-dormir", "suplementos"] },
-  ];
-
-  return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
-      <CardContent className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">Total Sostén</span>
-          <span className="text-lg font-bold text-blue-500">{sostenDone}/{sostenTotal}</span>
-        </div>
-        <Progress value={sostenTotal > 0 ? Math.round(sostenDone/sostenTotal*100) : 0} className="h-2" indicatorClassName="bg-blue-500" />
-        <div className="space-y-4 pt-1">
-          {groups.map(g => {
-            const done = g.habits.filter(h => completions[h]).length;
-            const pct = g.habits.length > 0 ? Math.round(done/g.habits.length*100) : 0;
-            return (
-              <div key={g.id}>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className={cn("font-semibold", g.color)}>{g.name}</span>
-                  <span className="text-muted-foreground">{done}/{g.habits.length}</span>
-                </div>
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {g.habits.map(h => (
-                    <span key={h} className={cn(
-                      "text-[9px] px-2 py-0.5 rounded-full font-medium",
-                      completions[h] ? "bg-green-500/15 text-green-600 border border-green-500/20" : "bg-muted text-muted-foreground border border-transparent"
-                    )}>
-                      {h.replace(/-/g, ' ')}
-                    </span>
-                  ))}
-                </div>
-                <Progress value={pct} className="h-1.5" indicatorClassName={g.bar} />
-              </div>
-            );
-          })}
-        </div>
-        <div className="pt-2 border-t border-border/50">
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 font-medium"><Droplets className="w-3.5 h-3.5 text-blue-500" /> Agua</span>
-            <span className="font-bold text-blue-500">{waterCount}/{waterTotal}</span>
-          </div>
-          <Progress value={waterTotal > 0 ? Math.round(waterCount/waterTotal*100) : 0} className="h-1.5 mt-1.5" indicatorClassName="bg-blue-500" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MejoraTab({ timeData, completions, workoutDuration, workoutIntensity }: {
-  timeData: Record<string, number>; completions: Record<string, boolean>;
-  workoutDuration: number; workoutIntensity: string;
-}) {
-  const items = [
-    { id: "lectura", name: "Lectura", icon: BookOpen, color: "text-cyan-500", bar: "bg-cyan-500", goal: 30 },
-    { id: "musica", name: "Música", icon: BookOpen, color: "text-pink-500", bar: "bg-pink-500", goal: 30 },
-    { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, color: "text-emerald-500", bar: "bg-emerald-500", goal: 15 },
-    { id: "game", name: "Game (Seducción)", icon: Gamepad2, color: "text-purple-500", bar: "bg-purple-500", goal: 30 },
-    { id: "idiomas", name: "Idiomas", icon: GraduationCap, color: "text-indigo-500", bar: "bg-indigo-500", goal: 60 },
-  ];
-
-  const avgPct = items.length > 0
-    ? Math.round(items.reduce((s, i) => s + Math.min(100, ((timeData[i.id]||0)/i.goal)*100), 0) / items.length)
-    : 0;
-
-  return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-400" />
-      <CardContent className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">Progreso Mejora</span>
-          <span className="text-lg font-bold text-purple-500">{avgPct}%</span>
-        </div>
-        <Progress value={avgPct} className="h-2" indicatorClassName="bg-purple-500" />
-        <div className="space-y-3 pt-1">
-          {items.map(item => {
-            const spent = timeData[item.id] || 0;
-            const pct = Math.min(100, Math.round((spent / item.goal) * 100));
-            const done = completions[item.id];
-            return (
-              <div key={item.id} className={cn("rounded-xl p-3 transition-colors", done ? "bg-green-500/5" : "bg-muted/20")}>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <item.icon className={cn("w-3.5 h-3.5", item.color)} />
-                    <span>{item.name}</span>
-                    {done && <CheckCircle2 className="w-3 h-3 text-green-500" />}
-                  </span>
-                  <span className="text-muted-foreground">{spent}/{item.goal} min</span>
-                </div>
-                <Progress value={pct} className="h-1.5" indicatorClassName={item.bar} />
-              </div>
-            );
-          })}
-        </div>
-        {workoutDuration > 0 && (
-          <div className="pt-3 border-t border-border/50 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 font-medium"><Dumbbell className="w-3.5 h-3.5 text-orange-500" /> Entreno</span>
-              <span className="text-muted-foreground">{workoutDuration} min · {workoutIntensity}</span>
-            </div>
-            <Progress value={Math.min(100, Math.round(workoutDuration/45*100))} className="h-1.5" indicatorClassName="bg-orange-500" />
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function EnfoqueTab({ timeData, completions, tasksDone, tasksTotal }: {
-  timeData: Record<string, number>; completions: Record<string, boolean>;
-  tasksDone: number; tasksTotal: number;
-}) {
-  const areas = [
-    { id: "universidad", name: "Universidad", icon: GraduationCap, color: "text-blue-500", bar: "bg-blue-500", goal: 120 },
-    { id: "emprendimiento", name: "Emprendimiento", icon: Briefcase, color: "text-purple-500", bar: "bg-purple-500", goal: 60 },
-    { id: "proyectos", name: "Proyectos", icon: FolderKanban, color: "text-amber-500", bar: "bg-amber-500", goal: 60 },
-    { id: "tareas", name: "Tareas generales", icon: ListTodo, color: "text-rose-500", bar: "bg-rose-500", goal: 60 },
-  ];
-
-  const totalMin = areas.reduce((s, a) => s + (timeData[a.id]||0), 0);
-
-  return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
-      <CardContent className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">Horas invertidas hoy</span>
-          <span className="text-lg font-bold text-amber-500">{totalMin} min</span>
-        </div>
-        <div className="space-y-3 pt-1">
-          {areas.map(area => {
-            const spent = timeData[area.id] || 0;
-            const pct = Math.min(100, Math.round((spent / area.goal) * 100));
-            const isDone = completions[area.id];
-            return (
-              <div key={area.id} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <area.icon className={cn("w-3.5 h-3.5", area.color)} />
-                    <span>{area.name}</span>
-                    {isDone && <CheckCircle2 className="w-3 h-3 text-green-500" />}
-                  </span>
-                  <span className="text-muted-foreground">{spent}/{area.goal} min</span>
-                </div>
-                <Progress value={pct} className="h-2" indicatorClassName={area.bar} />
-              </div>
-            );
-          })}
-        </div>
-        <div className="pt-3 border-t border-border/50">
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 font-medium"><Target className="w-3.5 h-3.5 text-rose-500" /> Tareas completadas</span>
-            <span className="font-bold text-rose-500">{tasksDone}/{tasksTotal}</span>
-          </div>
-          <Progress value={tasksTotal > 0 ? Math.round(tasksDone/tasksTotal*100) : 0} className="h-1.5 mt-1.5" indicatorClassName="bg-rose-500" />
-        </div>
-      </CardContent>
+      <p className="text-lg font-bold">{value}</p>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{label}</p>
+      <Progress value={pct} className="h-1.5 mt-1.5" />
     </Card>
   );
 }
