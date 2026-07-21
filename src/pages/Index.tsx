@@ -58,9 +58,9 @@ function ClockWidget() {
   const formattedTime = format(time, "h:mm a");
   return (
     <div className="text-center">
-      <h1 className="text-4xl md:text-5xl font-bold text-foreground uppercase tracking-tight">INICIO</h1>
-      <p className="text-lg text-muted-foreground capitalize mt-1">{formattedDate}</p>
-      <p className="text-2xl font-light text-muted-foreground/70 mt-0.5 tabular-nums">{formattedTime}</p>
+      <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground uppercase tracking-tight">INICIO</h1>
+      <p className="text-sm sm:text-lg text-muted-foreground capitalize mt-0.5 sm:mt-1">{formattedDate}</p>
+      <p className="text-base sm:text-2xl font-light text-muted-foreground/70 mt-0.5 tabular-nums">{formattedTime}</p>
     </div>
   );
 }
@@ -126,8 +126,8 @@ export default function Index() {
   const hommeValues2 = hommeScores.map((s) => s.resultados)
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6 pt-16 sm:pt-20 pb-24">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         <ClockWidget />
 
         <TimeframeSelector />
@@ -144,9 +144,9 @@ export default function Index() {
         />
 
         {/* Wheels */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="p-4">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">RUEDA DE LA VIDA — 10 ÁREAS</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <Card className="p-3 md:p-4">
+            <h2 className="text-[10px] sm:text-xs md:text-sm font-bold uppercase tracking-wide text-center mb-2">RUEDA DE LA VIDA — 10 ÁREAS</h2>
             <WheelOfLife
               values={wheelValues}
               values2={wheelValues2}
@@ -156,9 +156,9 @@ export default function Index() {
               loading={areaLoading}
             />
           </Card>
-          <Card className="p-4">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-center mb-2">HOMBRE TOP</h2>
-            <p className="text-xs text-muted-foreground text-center mb-3">Lo que una mujer busca en un hombre</p>
+          <Card className="p-3 md:p-4">
+            <h2 className="text-[10px] sm:text-xs md:text-sm font-bold uppercase tracking-wide text-center mb-2">HOMBRE TOP</h2>
+            <p className="text-[9px] sm:text-xs text-muted-foreground text-center mb-3">Lo que una mujer busca en un hombre</p>
             <HombreTopWheel
               values={hommeValues}
               values2={hommeValues2}
@@ -185,7 +185,7 @@ export default function Index() {
         <Separator />
 
         {/* Routine Selector - iPhone-style Segmented Control */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-none">
           {ROUTINES.map((r) => {
             const style = ROUTINE_STYLES[r.type];
             const isActive = routineType === r.type;
@@ -194,7 +194,7 @@ export default function Index() {
                 key={r.type}
                 onClick={() => setRoutineType(r.type)}
                 className={cn(
-                  "flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]",
+                  "flex-shrink-0 flex flex-col items-center gap-1 px-2 sm:px-4 py-2.5 sm:py-3 rounded-2xl border-2 transition-all duration-300 min-w-[80px] sm:min-w-[100px]",
                   isActive ? style.active : `${style.inactive} bg-transparent`,
                   isActive && "scale-[1.02]"
                 )}
@@ -238,7 +238,7 @@ export default function Index() {
             onRemoveTask={removeTaskFromBlock}
             onUpdateFocus={updateRoutineBlockFocus}
           />
-          <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
+          <div className="lg:sticky lg:top-20 lg:self-start lg:h-[calc(100vh-280px)]">
             <TaskPoolPanel
               unassignedTasks={unassignedTasks}
               onTaskCreated={refreshTasks}
@@ -287,7 +287,7 @@ export default function Index() {
 
         <DailyMotivation />
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-5 gap-2 md:gap-3">
           <Link to="/focus" className="block">
             <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2 hover:bg-foreground hover:text-background transition-colors">
               <Focus className="w-5 h-5" />
