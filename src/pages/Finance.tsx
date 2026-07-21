@@ -686,23 +686,15 @@ export default function Finance() {
 
   const onWalletCreateSubmit = async (data: z.infer<typeof walletCreateSchema>) => {
     const newWallet: Wallet = { id: crypto.randomUUID(), name: data.name, balance: data.balance, icon: iconMap[data.icon] || WalletIcon };
-    setWallets(prev => {
-      const updated = [...prev, newWallet];
-      localStorage.setItem('wallets', JSON.stringify(updated));
-      return updated;
-    });
+    await addWallet(newWallet);
     toast({ title: "Billetera creada", description: `${data.name} creada con éxito` });
     setIsWalletCreateDialogOpen(false);
     walletCreateForm.reset();
   };
 
-  const handleDeleteWallet = () => {
+  const handleDeleteWallet = async () => {
     if (!walletToDelete) return;
-    setWallets(prev => {
-      const updated = prev.filter(w => w.id !== walletToDelete.id);
-      localStorage.setItem('wallets', JSON.stringify(updated));
-      return updated;
-    });
+    await deleteWallet(walletToDelete.id);
     toast({ title: "Billetera eliminada", description: `${walletToDelete.name} ha sido eliminada` });
     setWalletToDelete(null);
   };
