@@ -612,6 +612,7 @@ export default function PlanManana() {
               onUpdateFocus={(blockId, focus) => updateBlockFocus(blockId, focus)}
               musicInstrument={musicInstrument === "piano" ? "piano" : "guitar"}
               languageChoice={languageChoice as "ingles" | "italiano"}
+              isFutureView={true}
             />
 
             {/* Language & Music preferences */}

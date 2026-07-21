@@ -37,6 +37,7 @@ interface Props {
   events?: CalendarEvent[];
   musicInstrument?: 'piano' | 'guitar';
   languageChoice?: 'ingles' | 'italiano';
+  isFutureView?: boolean;
 }
 
 const FOCUS_OPTIONS = [
@@ -187,6 +188,7 @@ export function DailyTimelinePlanner({
   events = [],
   musicInstrument,
   languageChoice,
+  isFutureView = false,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -258,13 +260,15 @@ export function DailyTimelinePlanner({
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" />
-            Hoy
+            {isFutureView ? 'Mañana' : 'Hoy'}
           </h3>
-          <p className="text-xs text-muted-foreground">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p>
+          <p className="text-xs text-muted-foreground">{format(isFutureView ? new Date(Date.now() + 86400000) : new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p>
         </div>
-        <Badge variant="outline" className="text-xs font-mono">
-          {format(new Date(), 'h:mm a')}
-        </Badge>
+        {!isFutureView && (
+          <Badge variant="outline" className="text-xs font-mono">
+            {format(new Date(), 'h:mm a')}
+          </Badge>
+        )}
       </div>
 
       {allDayEvents.length > 0 && (
@@ -289,8 +293,8 @@ export function DailyTimelinePlanner({
           const completed = isBlockCompleted(blockId);
           const focusKey = getBlockFocus(block);
           const colors = FOCUS_COLORS[focusKey] || FOCUS_COLORS.default;
-          const isCurrent = index === currentBlockIndex;
-          const isPast = endM <= currentMinutes;
+          const isCurrent = !isFutureView && index === currentBlockIndex;
+          const isPast = !isFutureView && endM <= currentMinutes;
           const isDragOver = dragOverBlockId === blockId;
           const tasks = tasksByBlock[blockId] || [];
           const isDW = isDeepWork(block.title);
