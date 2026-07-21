@@ -62,6 +62,7 @@ import PuntoPartida from "./pages/PuntoPartida";
 import BoxeoPage from "./pages/BoxeoPage";
 import VidaSocial from "./pages/VidaSocial";
 import MisNecesidades from "./pages/MisNecesidades";
+import Novia from "./pages/Novia";
 import AreasDeVida from "./pages/AreasDeVida";
 import Recompensas from "./pages/Recompensas";
 import Paginas from "./pages/Paginas";
@@ -145,6 +146,7 @@ function AppContent() {
         <Route path="/boxeo" element={<BoxeoPage />} />
         <Route path="/vida-social" element={<VidaSocial />} />
         <Route path="/mis-necesidades" element={<MisNecesidades />} />
+        <Route path="/novia" element={<Novia />} />
         <Route path="/motivos" element={<Motivos />} />
         <Route path="/motivos/realidad" element={<Realidad />} />
         <Route path="/paginas" element={<Paginas />} />

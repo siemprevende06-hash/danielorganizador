@@ -141,6 +141,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/estadisticas-esfuerzo', label: 'Esfuerzo', icon: Activity },
       { path: '/periodic-review', label: 'Revisión Periódica', icon: Sparkles },
       { path: '/performance-modes', label: 'Modos', icon: Zap },
+      { path: '/novia', label: 'Novia', icon: Heart },
       { path: '/tools', label: 'Herramientas', icon: Wrench },
       { path: '/reminders', label: 'Recordatorios', icon: Bell },
     ]
