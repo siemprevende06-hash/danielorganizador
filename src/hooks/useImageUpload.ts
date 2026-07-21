@@ -65,8 +65,10 @@ export const useImageUpload = () => {
         xhr.onerror = () => { onError('Error de conexión al subir el archivo'); resolve(null); };
 
         xhr.open('POST', url);
-        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token || SUPABASE_ANON_KEY}`);
+        xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY);
         xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.send(file);
         xhr.send(file);
       });
     } catch (error) {
