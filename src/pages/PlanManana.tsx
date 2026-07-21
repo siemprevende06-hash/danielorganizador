@@ -140,20 +140,7 @@ function DateSwitchTabs({ mode, onModeChange }: { mode: TabMode; onModeChange: (
 export default function PlanManana() {
   const [mode, setMode] = useState<TabMode>('manana');
 
-  // --- Hoy mode ---
-  if (mode === 'hoy') {
-    return (
-      <HoyDashboard
-        headerExtra={
-          <div className="pt-2 pb-1">
-            <DateSwitchTabs mode={mode} onModeChange={setMode} />
-          </div>
-        }
-      />
-    );
-  }
-
-  // --- Mañana mode ---
+  // --- ALL HOOKS MUST BE UNCONDITIONAL (before any return) ---
   const tomorrow = addDays(new Date(), 1);
   const tomorrowStr = format(tomorrow, "yyyy-MM-dd");
   const tomorrowDisplay = format(tomorrow, "EEEE d 'de' MMMM", { locale: es });
@@ -174,7 +161,6 @@ export default function PlanManana() {
   const [systemIntensity, setSystemIntensity] = useState<Record<string, string>>({});
   const [areaCollapsed, setAreaCollapsed] = useState<Record<string, boolean>>({});
 
-  // Create task dialog
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -215,14 +201,29 @@ export default function PlanManana() {
   }, []);
 
   useEffect(() => {
-    loadData();
-    const saved = localStorage.getItem(`planManana_intensity`);
-    if (saved) setSystemIntensity(JSON.parse(saved));
-    const savedLang = localStorage.getItem(`planManana_language`);
-    if (savedLang) setLanguageChoice(savedLang);
-    const savedInst = localStorage.getItem(`planManana_instrument`);
-    if (savedInst) setMusicInstrument(savedInst);
-  }, []);
+    if (mode === 'manana') {
+      loadData();
+      const saved = localStorage.getItem(`planManana_intensity`);
+      if (saved) setSystemIntensity(JSON.parse(saved));
+      const savedLang = localStorage.getItem(`planManana_language`);
+      if (savedLang) setLanguageChoice(savedLang);
+      const savedInst = localStorage.getItem(`planManana_instrument`);
+      if (savedInst) setMusicInstrument(savedInst);
+    }
+  }, [mode]);
+
+  // --- Hoy mode ---
+  if (mode === 'hoy') {
+    return (
+      <HoyDashboard
+        headerExtra={
+          <div className="pt-2 pb-1">
+            <DateSwitchTabs mode={mode} onModeChange={setMode} />
+          </div>
+        }
+      />
+    );
+  }
 
   const loadData = async () => {
     setLoading(true);
