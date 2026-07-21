@@ -54,7 +54,6 @@ export function useWeeklyReview(referenceDate?: Date) {
         entTasksRes,
         focusRes,
         blocksRes,
-        habitHistoryRes,
       ] = await Promise.all([
         supabase
           .from("daily_systems_tracking")
