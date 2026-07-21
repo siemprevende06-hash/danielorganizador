@@ -201,6 +201,19 @@ export default function TrimestralPlanningPage() {
               <div className="flex items-center gap-2">
                 <Book className="h-3.5 w-3.5 text-emerald-500" />
                 <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Lectura</span>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-[10px] text-muted-foreground">Meta:</span>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={planData.books.goal || ''}
+                    onChange={e => updatePlanData(p => ({
+                      ...p,
+                      books: { ...p.books, goal: Math.max(1, parseInt(e.target.value) || 0) }
+                    }))}
+                    className="h-7 w-16 text-xs"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ItemSelector

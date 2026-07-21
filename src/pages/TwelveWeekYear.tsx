@@ -11,12 +11,15 @@ import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import { useTrimestralPlan, getMonthNamesForQuarter, loadTrimestralPlanFromLocal } from "@/hooks/useTrimestralPlan";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   BookOpen, Music, Target, Calendar, Flame,
   Zap, BarChart3, Check, Piano, Guitar, LayoutDashboard,
   Brain, Globe, Code, Sword, Book,
   GraduationCap, FolderKanban, Briefcase, ListTodo,
-  Clock, Timer, Heart, Crown, Trophy, Gamepad2
+  Clock, Timer, Heart, Crown, Trophy, Gamepad2,
+  Search, Plus
 } from "lucide-react";
 
 interface TrimestralPlan {
@@ -112,6 +115,9 @@ export default function TwelveWeekYear() {
     completedBooks: [], completedSongs: [], completedGoals: [],
     bookProgress: {}, songProgress: {},
   });
+  const [allBooks, setAllBooks] = useState<BookDetail[]>([]);
+  const [slotDialogOpen, setSlotDialogOpen] = useState(false);
+  const [slotSearch, setSlotSearch] = useState('');
 
   const storageKey = `${PROGRESS_KEY}${selectedQuarter}_2026`;
   const monthKey = MONTH_KEYS[selectedMonth];
@@ -147,19 +153,21 @@ export default function TwelveWeekYear() {
         const qs = format(quarterStart, 'yyyy-MM-dd');
         const qe = format(quarterEnd, 'yyyy-MM-dd');
 
-        const [booksRes, songsRes, tasksRes, eventsRes] = await Promise.all([
+        const [booksRes, songsRes, tasksRes, eventsRes, allBooksRes] = await Promise.all([
           allBookIds.length > 0
             ? supabase.from("reading_library").select("id, title, author, cover_image_url").in("id", allBookIds)
             : Promise.resolve({ data: [] }),
           allSongIds.length > 0
             ? supabase.from("music_repertoire").select("id, title, artist, instrument").in("id", allSongIds)
             : Promise.resolve({ data: [] }),
+          supabase.from('reading_library').select('id, title, author, cover_image_url').order('title'),
           supabase.from('tasks').select('id, title, source, due_date, completed, priority')
             .gte('due_date', qs).lte('due_date', qe),
           supabase.from('calendar_events').select('*')
             .gte('event_date', qs).lte('event_date', qe).order('event_date'),
         ]);
         if (booksRes.data) setBooks(booksRes.data);
+        if (allBooksRes.data) setAllBooks(allBooksRes.data);
         if (songsRes.data) setSongs(songsRes.data);
 
         try {
@@ -308,6 +316,38 @@ export default function TwelveWeekYear() {
     saveProgress(next);
   };
 
+  const handleAddBookToMonth = (bookId: string) => {
+    const storageKey = `trimestral_plan_Q${selectedQuarter}_2026`;
+    const currentPlan = loadTrimestralPlanFromLocal(`Q${selectedQuarter}_2026`);
+    if (!currentPlan) return;
+
+    const currentBooks = [...(currentPlan.distribution[monthKey]?.books || [])];
+    if (currentBooks.includes(bookId)) return;
+    currentBooks.push(bookId);
+
+    const updatedPlan = {
+      ...currentPlan,
+      distribution: {
+        ...currentPlan.distribution,
+        [monthKey]: { ...currentPlan.distribution[monthKey], books: currentBooks },
+      },
+    };
+
+    localStorage.setItem(storageKey, JSON.stringify(updatedPlan));
+    setPlan(updatedPlan);
+    const newBook = allBooks.find(b => b.id === bookId);
+    if (newBook && !books.find(b => b.id === bookId)) {
+      setBooks(prev => [...prev, newBook]);
+    }
+    setSlotDialogOpen(false);
+  };
+
+  const availableForSlot = allBooks.filter(b => !monthBooks.find(mb => mb.id === b.id));
+  const filteredSlotBooks = availableForSlot.filter(b =>
+    b.title.toLowerCase().includes(slotSearch.toLowerCase()) ||
+    (b.author && b.author.toLowerCase().includes(slotSearch.toLowerCase()))
+  );
+
   const getWeekInQuarter = () => {
     const now = new Date();
     const startOfYear = new Date(2026, 0, 1);
@@ -319,6 +359,7 @@ export default function TwelveWeekYear() {
 
   const totalBooksTarget = plan?.books?.goal || 0;
   const totalSongsTarget = plan?.songs?.goal || 0;
+  const slotsPerMonth = totalBooksTarget > 0 ? Math.max(1, Math.round(totalBooksTarget / 3)) : 2;
   const completedBooksCount = progress.completedBooks.length;
   const completedSongsCount = progress.completedSongs.length;
   const completedGoalsCount = progress.completedGoals.length;
@@ -505,19 +546,20 @@ export default function TwelveWeekYear() {
               </div>
 
               {/* ---- Lectura ---- */}
-              {monthBooks.length > 0 && (
-                <div className="space-y-2 pl-4 border-l-2 border-emerald-200/50">
-                  <div className="flex items-center gap-2">
-                    <Book className="h-3.5 w-3.5 text-emerald-500" />
-                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Lectura</span>
-                    <Progress value={mp.booksPct} className="h-1 flex-1 max-w-[80px]" />
-                    <span className="text-[10px] font-medium text-emerald-600">{mp.booksPct}%</span>
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
-                      {mp.completedBooks}/{mp.booksCount} leídos
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {monthBooks.map(book => {
+              <div className="space-y-2 pl-4 border-l-2 border-emerald-200/50">
+                <div className="flex items-center gap-2">
+                  <Book className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Lectura</span>
+                  <Progress value={mp.booksPct} className="h-1 flex-1 max-w-[80px]" />
+                  <span className="text-[10px] font-medium text-emerald-600">{mp.booksPct}%</span>
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-auto">
+                    {mp.completedBooks}/{mp.booksCount} leídos
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {Array.from({ length: Math.max(slotsPerMonth, monthBooks.length) }).map((_, i) => {
+                    if (i < monthBooks.length) {
+                      const book = monthBooks[i];
                       const done = progress.completedBooks.includes(book.id);
                       return (
                         <div key={book.id} className={cn("space-y-1.5 p-2 rounded-xl border transition-all cursor-pointer", done ? "border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20" : "border-border/50 bg-card/30 hover:border-emerald-200")}
@@ -540,10 +582,20 @@ export default function TwelveWeekYear() {
                           {book.author && <p className="text-[9px] text-muted-foreground truncate">{book.author}</p>}
                         </div>
                       );
-                    })}
-                  </div>
+                    }
+                    return (
+                      <div key={`slot-${i}`}
+                        className="space-y-1.5 p-2 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/10 cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-all"
+                        onClick={() => { setSlotSearch(''); setSlotDialogOpen(true); }}>
+                        <div className="aspect-[2/3] rounded-lg flex items-center justify-center">
+                          <Plus className="w-8 h-8 text-muted-foreground/30" />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/40 text-center">Seleccionar libro</p>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
 
               {/* ---- Música ---- */}
               {(pianoSongs.length > 0 || guitarSongs.length > 0) && (
@@ -864,6 +916,51 @@ export default function TwelveWeekYear() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Book selector dialog */}
+      <Dialog open={slotDialogOpen} onOpenChange={setSlotDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">Seleccionar libro</DialogTitle>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar libro..."
+              value={slotSearch}
+              onChange={e => setSlotSearch(e.target.value)}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+          <div className="max-h-80 overflow-y-auto space-y-1">
+            {filteredSlotBooks.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                {availableForSlot.length === 0 ? 'No hay más libros disponibles' : 'Sin resultados'}
+              </p>
+            )}
+            {filteredSlotBooks.map(book => (
+              <button
+                key={book.id}
+                onClick={() => handleAddBookToMonth(book.id)}
+                className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted text-left transition-colors"
+              >
+                <div className="w-10 h-14 rounded bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 flex items-center justify-center shrink-0 overflow-hidden">
+                  {book.cover_image_url ? (
+                    <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <BookOpen className="w-5 h-5 text-emerald-400/60" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{book.title}</p>
+                  {book.author && <p className="text-xs text-muted-foreground truncate">{book.author}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
