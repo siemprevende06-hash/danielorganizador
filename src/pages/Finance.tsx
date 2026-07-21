@@ -36,6 +36,7 @@ import { format, isThisMonth, startOfMonth, subMonths, endOfMonth } from 'date-f
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useFinance } from '@/hooks/useFinance';
+import { supabase } from '@/integrations/supabase/client';
 import { DataTable } from '@/components/finance/data-table';
 import { getTransactionColumns } from '@/components/finance/transaction-columns';
 import { getLoanColumns } from '@/components/finance/loan-columns';
