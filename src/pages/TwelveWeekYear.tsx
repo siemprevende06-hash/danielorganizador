@@ -904,7 +904,7 @@ export default function TwelveWeekYear() {
               )}
 
               {/* ---- Emprendimiento ---- */}
-              {(plan.notes?.emprendimiento || monthTasks.some(t => t.source === 'emprendimiento')) && (
+              {(plan.notes?.emprendimiento || tasks.some(t => t.source === 'emprendimiento')) && (
                 <div className="space-y-2 pl-4 border-l-2 border-purple-200/50">
                   <div className="flex items-center gap-2">
                     <Briefcase className="h-3.5 w-3.5 text-purple-500" />
