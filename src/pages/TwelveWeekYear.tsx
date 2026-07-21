@@ -342,12 +342,6 @@ export default function TwelveWeekYear() {
     setSlotDialogOpen(false);
   };
 
-  const availableForSlot = allBooks.filter(b => !monthBooks.find(mb => mb.id === b.id));
-  const filteredSlotBooks = availableForSlot.filter(b =>
-    b.title.toLowerCase().includes(slotSearch.toLowerCase()) ||
-    (b.author && b.author.toLowerCase().includes(slotSearch.toLowerCase()))
-  );
-
   const getWeekInQuarter = () => {
     const now = new Date();
     const startOfYear = new Date(2026, 0, 1);
@@ -394,6 +388,11 @@ export default function TwelveWeekYear() {
   const completedTaskIds: string[] = plan?.completedTasks?.[monthKey] || [];
   const completedEventIds: string[] = plan?.completedEvents?.[monthKey] || [];
   const monthBooks = mp.books.map(id => books.find(b => b.id === id)).filter(Boolean) as BookDetail[];
+  const availableForSlot = allBooks.filter(b => !monthBooks.find(mb => mb.id === b.id));
+  const filteredSlotBooks = availableForSlot.filter(b =>
+    b.title.toLowerCase().includes(slotSearch.toLowerCase()) ||
+    (b.author && b.author.toLowerCase().includes(slotSearch.toLowerCase()))
+  );
   const monthSongsData = mp.songs.map(id => songs.find(s => s.id === id)).filter(Boolean) as SongDetail[];
   const monthSubjectIds = plan?.monthSubjects?.[monthKey] || [];
   const monthProjectIds = plan?.monthProjects?.[monthKey] || [];
