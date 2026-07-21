@@ -182,7 +182,7 @@ export function useWeeklyReview(referenceDate?: Date) {
           weekEnd: weekEndStr,
           activeDays,
           totalDays,
-          totalHabits: allUniqueHabits.size,
+          
           avgOverallRating,
           totalTasksCompleted,
           totalTasks,
