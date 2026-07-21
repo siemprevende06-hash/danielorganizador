@@ -713,7 +713,18 @@ export default function Finance() {
     toast({ title: "Presupuesto agregado", description: "Categoría agregada al presupuesto mensual" });
   };
 
-  if (!isClient || isLoading) return null;
+  if (!isClient) return null;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="animate-spin h-8 w-8 border-4 border-zinc-300 border-t-zinc-600 rounded-full mx-auto" />
+          <p className="text-sm text-zinc-500">Cargando datos financieros...</p>
+        </div>
+      </div>
+    );
+  }
 
   const renderDebtColumns = () => [
     {

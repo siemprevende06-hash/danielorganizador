@@ -162,39 +162,24 @@ function bagToRow(b: Partial<DistributionBag> & { id?: string }): any {
 }
 
 export const useFinance = () => {
-  const [wallets, setWallets] = useState<Wallet[]>(() => {
-    const cached = loadLocal<any[]>('finance_wallets', []);
-    return cached.map((w: any) => ({ ...w, icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) }));
-  });
-  const [transactions, setTransactions] = useState<Transaction[]>(() =>
-    loadLocal<any[]>('finance_transactions', []).map((t: any) => ({ ...t, date: new Date(t.date) })),
-  );
-  const [loans, setLoans] = useState<Loan[]>(() =>
-    loadLocal<any[]>('finance_loans', []).map((l: any) => ({ ...l, date: new Date(l.date) })),
-  );
-  const [distributionBags, setDistributionBags] = useState<DistributionBag[]>(() => loadLocal('finance_bags', []));
-  const [debts, setDebts] = useState<Debt[]>(() =>
-    loadLocal<any[]>('finance_debts', []).map((d: any) => ({
-      ...d,
-      date: new Date(d.date),
-      dueDate: d.dueDate ? new Date(d.dueDate) : undefined,
-    })),
-  );
-  const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>(() =>
-    loadLocal<any[]>('finance_goals', []).map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })),
-  );
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [distributionBags, setDistributionBags] = useState<DistributionBag[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [exchangeRate, setExchangeRateState] = useState<number>(() => loadLocal<number>('finance_rate', 360));
   const [isLoading, setIsLoading] = useState(true);
 
   // Cache to local whenever state changes
   useEffect(() => {
-    saveLocal('finance_wallets', wallets.map(w => ({ id: w.id, name: w.name, balance: w.balance, iconName: iconToString(w.icon) })));
+    if (wallets.length > 0) saveLocal('finance_wallets', wallets.map(w => ({ id: w.id, name: w.name, balance: w.balance, iconName: iconToString(w.icon) })));
   }, [wallets]);
-  useEffect(() => { saveLocal('finance_transactions', transactions); }, [transactions]);
-  useEffect(() => { saveLocal('finance_loans', loans); }, [loans]);
-  useEffect(() => { saveLocal('finance_bags', distributionBags); }, [distributionBags]);
-  useEffect(() => { saveLocal('finance_debts', debts); }, [debts]);
-  useEffect(() => { saveLocal('finance_goals', financialGoals); }, [financialGoals]);
+  useEffect(() => { if (transactions.length > 0) saveLocal('finance_transactions', transactions); }, [transactions]);
+  useEffect(() => { if (loans.length > 0) saveLocal('finance_loans', loans); }, [loans]);
+  useEffect(() => { if (distributionBags.length > 0) saveLocal('finance_bags', distributionBags); }, [distributionBags]);
+  useEffect(() => { if (debts.length > 0) saveLocal('finance_debts', debts); }, [debts]);
+  useEffect(() => { if (financialGoals.length > 0) saveLocal('finance_goals', financialGoals); }, [financialGoals]);
   useEffect(() => { saveLocal('finance_rate', exchangeRate); }, [exchangeRate]);
 
   const setExchangeRate = useCallback((rate: number) => {
@@ -202,7 +187,33 @@ export const useFinance = () => {
     saveTextSection('finance_exchange_rate', rate);
   }, []);
 
-  // Initial load from Supabase
+  // Load from localStorage fallback
+  const loadFromLocalStorage = useCallback(() => {
+    const cachedWallets = loadLocal<any[]>('finance_wallets', []);
+    if (cachedWallets.length > 0) {
+      setWallets(cachedWallets.map((w: any) => ({ ...w, icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) })));
+    }
+    const cachedTx = loadLocal<any[]>('finance_transactions', []);
+    if (cachedTx.length > 0) {
+      setTransactions(cachedTx.map((t: any) => ({ ...t, date: new Date(t.date) })));
+    }
+    const cachedLoans = loadLocal<any[]>('finance_loans', []);
+    if (cachedLoans.length > 0) {
+      setLoans(cachedLoans.map((l: any) => ({ ...l, date: new Date(l.date) })));
+    }
+    const cachedBags = loadLocal<DistributionBag[]>('finance_bags', []);
+    if (cachedBags.length > 0) setDistributionBags(cachedBags);
+    const cachedDebts = loadLocal<any[]>('finance_debts', []);
+    if (cachedDebts.length > 0) {
+      setDebts(cachedDebts.map((d: any) => ({ ...d, date: new Date(d.date), dueDate: d.dueDate ? new Date(d.dueDate) : undefined })));
+    }
+    const cachedGoals = loadLocal<any[]>('finance_goals', []);
+    if (cachedGoals.length > 0) {
+      setFinancialGoals(cachedGoals.map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })));
+    }
+  }, []);
+
+  // Initial load from Supabase (single source of truth)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -213,54 +224,94 @@ export const useFinance = () => {
           supabase.from('transactions').select('*').order('transaction_date', { ascending: false }),
           supabase.from('loans').select('*').order('loan_date', { ascending: false }),
           supabase.from('distribution_bags').select('*').order('created_at'),
-          loadTextSection<any[]>('finance_debts', []),
-          loadTextSection<any[]>('finance_goals', []),
+          loadTextSection<any[]>('finance_debts', null),
+          loadTextSection<any[]>('finance_goals', null),
           loadTextSection<number | null>('finance_exchange_rate', null),
         ]);
         if (cancelled) return;
 
+        // --- Wallets ---
         let walletsList: Wallet[] = (walletsRes.data || []).map(walletFromRow);
-        // seed defaults if empty
         if (walletsList.length === 0) {
-          const seeded = initialWallets.map(w => ({ ...w, id: genId() }));
-          try {
-            const rows = seeded.map(w => ({ id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon) }));
-            await supabase.from('wallets').insert(rows);
-          } catch {}
-          walletsList = seeded;
+          const cached = loadLocal<any[]>('finance_wallets', []);
+          if (cached.length > 0) {
+            walletsList = cached.map((w: any) => ({ ...w, icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) }));
+          } else {
+            const seeded = initialWallets.map(w => ({ ...w, id: genId() }));
+            try { await supabase.from('wallets').insert(seeded.map(w => ({ id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon) }))); } catch {}
+            walletsList = seeded;
+          }
         }
-        setWallets(walletsList);
+        if (!cancelled) setWallets(walletsList);
 
-        setTransactions((txRes.data || []).map(transactionFromRow));
-        setLoans((loansRes.data || []).map(loanFromRow));
-
-        let bagsList: DistributionBag[] = (bagsRes.data || []).map(bagFromRow);
-        if (bagsList.length === 0) {
-          const seeded = defaultDistributionBags.map(b => ({ ...b, id: genId(), balance: 0 }));
-          try {
-            await supabase.from('distribution_bags').insert(seeded.map(bagToRow));
-          } catch {}
-          bagsList = seeded;
+        // --- Transactions ---
+        if (!cancelled) {
+          const txList = (txRes.data || []).map(transactionFromRow);
+          if (txList.length === 0) {
+            const cached = loadLocal<any[]>('finance_transactions', []);
+            if (cached.length > 0) setTransactions(cached.map((t: any) => ({ ...t, date: new Date(t.date) })));
+          } else {
+            setTransactions(txList);
+          }
         }
-        setDistributionBags(bagsList);
 
-        setDebts(
-          (debtsData || []).map((d: any) => ({
-            ...d,
-            date: new Date(d.date),
-            dueDate: d.dueDate ? new Date(d.dueDate) : undefined,
-          })),
-        );
-        setFinancialGoals((goalsData || []).map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })));
+        // --- Loans ---
+        if (!cancelled) {
+          const loansList = (loansRes.data || []).map(loanFromRow);
+          if (loansList.length === 0) {
+            const cached = loadLocal<any[]>('finance_loans', []);
+            if (cached.length > 0) setLoans(cached.map((l: any) => ({ ...l, date: new Date(l.date) })));
+          } else {
+            setLoans(loansList);
+          }
+        }
+
+        // --- Distribution Bags ---
+        if (!cancelled) {
+          let bagsList: DistributionBag[] = (bagsRes.data || []).map(bagFromRow);
+          if (bagsList.length === 0) {
+            const cached = loadLocal<DistributionBag[]>('finance_bags', []);
+            if (cached.length > 0) {
+              bagsList = cached;
+            } else {
+              const seeded = defaultDistributionBags.map(b => ({ ...b, id: genId(), balance: 0 }));
+              try { await supabase.from('distribution_bags').insert(seeded.map(bagToRow)); } catch {}
+              bagsList = seeded;
+            }
+          }
+          setDistributionBags(bagsList);
+        }
+
+        // --- Debts (text_sections) ---
+        if (!cancelled) {
+          if (debtsData && Array.isArray(debtsData) && debtsData.length > 0) {
+            setDebts(debtsData.map((d: any) => ({ ...d, date: new Date(d.date), dueDate: d.dueDate ? new Date(d.dueDate) : undefined })));
+          } else {
+            const cached = loadLocal<any[]>('finance_debts', []);
+            if (cached.length > 0) setDebts(cached.map((d: any) => ({ ...d, date: new Date(d.date), dueDate: d.dueDate ? new Date(d.dueDate) : undefined })));
+          }
+        }
+
+        // --- Financial Goals (text_sections) ---
+        if (!cancelled) {
+          if (goalsData && Array.isArray(goalsData) && goalsData.length > 0) {
+            setFinancialGoals(goalsData.map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })));
+          } else {
+            const cached = loadLocal<any[]>('finance_goals', []);
+            if (cached.length > 0) setFinancialGoals(cached.map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })));
+          }
+        }
+
         if (typeof rateData === 'number') setExchangeRateState(rateData);
       } catch (e) {
-        console.warn('Finance load error', e);
+        console.warn('Finance load error, falling back to localStorage', e);
+        loadFromLocalStorage();
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [loadFromLocalStorage]);
 
   // ---- Transactions ----
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id'>) => {
