@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 
 const MONTH_KEYS = ["month1", "month2", "month3"] as const;
 
-function NoteCard({ icon, label, value, onChange }: { icon: React.ReactNode; label: string; value: string; onChange: (v: string) => void }) {
+function NoteCard({ icon, label, value, onChange, children }: { icon: React.ReactNode; label: string; value: string; onChange: (v: string) => void; children?: React.ReactNode }) {
   return (
     <Card className="overflow-hidden border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
       <CardContent className="p-3 space-y-1.5">
@@ -32,6 +32,7 @@ function NoteCard({ icon, label, value, onChange }: { icon: React.ReactNode; lab
             className="h-7 text-xs"
           />
         </div>
+        {children}
       </CardContent>
     </Card>
   );
@@ -118,6 +119,35 @@ export default function TrimestralPlanningPage() {
       },
     }));
   };
+
+  const setTimeGoal = (key: string, value: string) => {
+    const mins = Math.max(0, parseInt(value) || 0);
+    updatePlanData(p => ({
+      ...p,
+      timeGoals: {
+        ...p.timeGoals,
+        [activeMonthKey]: { ...p.timeGoals[activeMonthKey], [key]: mins },
+      },
+    }));
+  };
+
+  const setAreaTimeGoal = (key: string, value: string) => {
+    const mins = Math.max(0, parseInt(value) || 0);
+    updatePlanData(p => ({
+      ...p,
+      areaTimeGoals: {
+        ...p.areaTimeGoals,
+        [activeMonthKey]: { ...p.areaTimeGoals[activeMonthKey], [key]: mins },
+      },
+    }));
+  };
+
+  const TimeGoalField = ({ label, value, onChange }: { label: string; value: number; onChange: (v: string) => void }) => (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[9px] text-muted-foreground">{label}:</span>
+      <Input type="number" min="0" step="5" value={value || ''} onChange={e => onChange(e.target.value)} className="h-6 w-20 text-[10px]" placeholder="min" />
+    </div>
+  );
 
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
@@ -214,6 +244,7 @@ export default function TrimestralPlanningPage() {
                     className="h-7 w-16 text-xs"
                   />
                 </div>
+                <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.lectura || 0} onChange={v => setTimeGoal('lectura', v)} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ItemSelector
@@ -239,10 +270,18 @@ export default function TrimestralPlanningPage() {
                 <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Hobbies Intelectuales</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                <NoteCard icon={<Gamepad2 className="h-3.5 w-3.5" />} label="Ajedrez" value={planData.notes.ajedrez || ''} onChange={v => setNote('ajedrez', v)} />
-                <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Italiano" value={planData.notes.italiano || ''} onChange={v => setNote('italiano', v)} />
-                <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Inglés" value={planData.notes.ingles || ''} onChange={v => setNote('ingles', v)} />
-                <NoteCard icon={<Sword className="h-3.5 w-3.5" />} label="Game Seducción" value={planData.notes.game_seduccion || ''} onChange={v => setNote('game_seduccion', v)} />
+                <NoteCard icon={<Gamepad2 className="h-3.5 w-3.5" />} label="Ajedrez" value={planData.notes.ajedrez || ''} onChange={v => setNote('ajedrez', v)}>
+                  <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.ajedrez || 0} onChange={v => setTimeGoal('ajedrez', v)} />
+                </NoteCard>
+                <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Italiano" value={planData.notes.italiano || ''} onChange={v => setNote('italiano', v)}>
+                  <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.italiano || 0} onChange={v => setTimeGoal('italiano', v)} />
+                </NoteCard>
+                <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Inglés" value={planData.notes.ingles || ''} onChange={v => setNote('ingles', v)}>
+                  <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.ingles || 0} onChange={v => setTimeGoal('ingles', v)} />
+                </NoteCard>
+                <NoteCard icon={<Sword className="h-3.5 w-3.5" />} label="Game Seducción" value={planData.notes.game_seduccion || ''} onChange={v => setNote('game_seduccion', v)}>
+                  <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.game || 0} onChange={v => setTimeGoal('game', v)} />
+                </NoteCard>
               </div>
             </div>
 
@@ -251,6 +290,9 @@ export default function TrimestralPlanningPage() {
               <div className="flex items-center gap-2">
                 <Music className="h-3.5 w-3.5 text-rose-500" />
                 <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Canciones</span>
+                <div className="ml-auto">
+                  <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.musica || 0} onChange={v => setTimeGoal('musica', v)} />
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -284,6 +326,17 @@ export default function TrimestralPlanningPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 <NoteCard icon={<Code className="h-3.5 w-3.5" />} label="Habilidades Técnicas" value={planData.notes.habilidades_tecnicas || ''} onChange={v => setNote('habilidades_tecnicas', v)} />
+              </div>
+            </div>
+
+            {/* Sub-área: Bienestar Físico */}
+            <div className="space-y-2 pl-4 border-l-2 border-orange-200/50">
+              <div className="flex items-center gap-2">
+                <Dumbbell className="h-3.5 w-3.5 text-orange-500" />
+                <span className="text-xs font-semibold text-orange-700 dark:text-orange-400">Bienestar Físico</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TimeGoalField label="Min/mes (Gym)" value={planData.timeGoals[activeMonthKey]?.gym || 0} onChange={v => setTimeGoal('gym', v)} />
               </div>
             </div>
 
@@ -334,6 +387,9 @@ export default function TrimestralPlanningPage() {
               <div className="flex items-center gap-2">
                 <GraduationCap className="h-3.5 w-3.5 text-blue-500" />
                 <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Asignaturas</span>
+                <div className="ml-auto">
+                  <TimeGoalField label="Min/mes enfoque" value={planData.areaTimeGoals[activeMonthKey]?.universidad || 0} onChange={v => setAreaTimeGoal('universidad', v)} />
+                </div>
               </div>
               <div className="max-w-md">
                 <ItemSelector
@@ -354,6 +410,9 @@ export default function TrimestralPlanningPage() {
               <div className="flex items-center gap-2">
                 <FolderKanban className="h-3.5 w-3.5 text-amber-500" />
                 <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Proyectos</span>
+                <div className="ml-auto">
+                  <TimeGoalField label="Min/mes enfoque" value={planData.areaTimeGoals[activeMonthKey]?.proyectos || 0} onChange={v => setAreaTimeGoal('proyectos', v)} />
+                </div>
               </div>
               <div className="max-w-md">
                 <ItemSelector
@@ -374,6 +433,9 @@ export default function TrimestralPlanningPage() {
               <div className="flex items-center gap-2">
                 <Briefcase className="h-3.5 w-3.5 text-purple-500" />
                 <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Emprendimiento</span>
+                <div className="ml-auto">
+                  <TimeGoalField label="Min/mes enfoque" value={planData.areaTimeGoals[activeMonthKey]?.emprendimiento || 0} onChange={v => setAreaTimeGoal('emprendimiento', v)} />
+                </div>
               </div>
               <div className="max-w-md">
                 <NoteCard icon={<Briefcase className="h-3.5 w-3.5" />} label="Enfoque del Mes" value={planData.notes.emprendimiento || ''} onChange={v => setNote('emprendimiento', v)} />

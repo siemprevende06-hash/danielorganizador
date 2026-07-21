@@ -20,6 +20,8 @@ export interface TrimestralPlanData {
     month3: { books: string[]; songs: string[] };
   };
   notes: Record<string, string>;
+  timeGoals: Record<string, Record<string, number>>;
+  areaTimeGoals: Record<string, Record<string, number>>;
 }
 
 const defaultTrimestralData: TrimestralPlanData = {
@@ -40,6 +42,16 @@ const defaultTrimestralData: TrimestralPlanData = {
     month3: { books: [], songs: [] },
   },
   notes: {},
+  timeGoals: {
+    month1: { lectura: 0, ajedrez: 0, game: 0, italiano: 0, ingles: 0, musica: 0, gym: 0 },
+    month2: { lectura: 0, ajedrez: 0, game: 0, italiano: 0, ingles: 0, musica: 0, gym: 0 },
+    month3: { lectura: 0, ajedrez: 0, game: 0, italiano: 0, ingles: 0, musica: 0, gym: 0 },
+  },
+  areaTimeGoals: {
+    month1: { universidad: 0, proyectos: 0, emprendimiento: 0 },
+    month2: { universidad: 0, proyectos: 0, emprendimiento: 0 },
+    month3: { universidad: 0, proyectos: 0, emprendimiento: 0 },
+  },
 };
 
 interface Book { id: string; title: string; author: string | null; cover_image_url: string | null; }
@@ -76,6 +88,8 @@ function migrateDistribution(data: any): TrimestralPlanData {
   if (!data.monthSubjects) data.monthSubjects = { month1: [], month2: [], month3: [] };
   if (!data.completedTasks) data.completedTasks = { month1: [], month2: [], month3: [] };
   if (!data.completedEvents) data.completedEvents = { month1: [], month2: [], month3: [] };
+  if (!data.timeGoals) data.timeGoals = defaultTrimestralData.timeGoals;
+  if (!data.areaTimeGoals) data.areaTimeGoals = defaultTrimestralData.areaTimeGoals;
   if (!data.distribution) return { ...defaultTrimestralData, ...data, distribution: defaultTrimestralData.distribution };
   const m1 = data.distribution.month1;
   if (m1 && typeof m1.books === 'number') {

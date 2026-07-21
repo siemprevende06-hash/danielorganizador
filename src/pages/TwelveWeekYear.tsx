@@ -40,9 +40,11 @@ interface TrimestralPlan {
     month3: { books: string[]; songs: string[] };
   };
   notes: Record<string, string>;
+  timeGoals: Record<string, Record<string, number>>;
+  areaTimeGoals: Record<string, Record<string, number>>;
 }
 
-interface BookDetail { id: string; title: string; author: string | null; cover_image_url: string | null; }
+interface BookDetail { id: string; title: string; author: string | null; cover_image_url: string | null; pages_read?: number | null; pages_total?: number | null; }
 interface SongDetail { id: string; title: string; artist: string | null; instrument: string; }
 interface TaskItem { id: string; title: string; source: string; due_date: string; completed: boolean; priority?: string; }
 interface CalendarEvent { id: string; title: string; event_date: string; category: string; }
@@ -85,7 +87,21 @@ const AREA_LABELS: Record<string, string> = {
   lectura: 'Lectura', musica: 'Música', ajedrez: 'Ajedrez',
   idiomas: 'Idiomas', gym: 'Gimnasio', piano: 'Piano', guitarra: 'Guitarra',
   dibujo: 'Dibujo', italiano: 'Italiano', ingles: 'Inglés',
+  game: 'Game Seducción', 'entrenamiento-fisico': 'Gym',
 };
+
+function TimeGoalRow({ label, actual, goal, color, icon }: { label: string; actual: number; goal: number; color: string; icon: React.ReactNode }) {
+  const pct = goal > 0 ? Math.min(100, Math.round((actual / goal) * 100)) : 0;
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="flex items-center gap-1 text-muted-foreground">{icon} {label}</span>
+        <span className="font-medium tabular-nums">{Math.round(actual)}min / {goal}min</span>
+      </div>
+      <Progress value={pct} className="h-1" />
+    </div>
+  );
+}
 
 export default function TwelveWeekYear() {
   const [loading, setLoading] = useState(true);
@@ -115,6 +131,7 @@ export default function TwelveWeekYear() {
     completedBooks: [], completedSongs: [], completedGoals: [],
     bookProgress: {}, songProgress: {},
   });
+  const [focusAreaStats, setFocusAreaStats] = useState<Record<string, number>>({});
   const [allBooks, setAllBooks] = useState<BookDetail[]>([]);
   const [slotDialogOpen, setSlotDialogOpen] = useState(false);
   const [slotSearch, setSlotSearch] = useState('');
@@ -155,7 +172,7 @@ export default function TwelveWeekYear() {
 
         const [booksRes, songsRes, tasksRes, eventsRes, allBooksRes] = await Promise.all([
           allBookIds.length > 0
-            ? supabase.from("reading_library").select("id, title, author, cover_image_url").in("id", allBookIds)
+            ? supabase.from("reading_library").select("id, title, author, cover_image_url, pages_read, pages_total").in("id", allBookIds)
             : Promise.resolve({ data: [] }),
           allSongIds.length > 0
             ? supabase.from("music_repertoire").select("id, title, artist, instrument").in("id", allSongIds)
@@ -164,7 +181,7 @@ export default function TwelveWeekYear() {
             .gte('due_date', qs).lte('due_date', qe),
           supabase.from('calendar_events').select('*')
             .gte('event_date', qs).lte('event_date', qe).order('event_date'),
-          supabase.from('reading_library').select('id, title, author, cover_image_url').order('title'),
+          supabase.from('reading_library').select('id, title, author, cover_image_url, pages_read, pages_total').order('title'),
         ]);
         if (booksRes.data) setBooks(booksRes.data);
         if (allBooksRes.data) setAllBooks(allBooksRes.data);
@@ -274,6 +291,25 @@ export default function TwelveWeekYear() {
           };
         }
         setLangData(langByMonth);
+
+        // Load focus area stats (universidad, proyectos, emprendimiento)
+        const areaStatsAccum: Record<string, number> = {};
+        for (let mi = 0; mi < 3; mi++) {
+          const ms = new Date(year, qStartMonth + mi, 1);
+          const me = new Date(year, qStartMonth + mi + 1, 0);
+          const { data: areaRows } = await supabase
+            .from('daily_area_stats')
+            .select('area_id, time_spent_minutes, stat_date')
+            .in('area_id', ['universidad', 'emprendimiento', 'proyectos'])
+            .gte('stat_date', format(ms, 'yyyy-MM-dd'))
+            .lte('stat_date', format(me, 'yyyy-MM-dd'));
+          (areaRows || []).forEach((row: any) => {
+            const area = row.area_id;
+            const mins = row.time_spent_minutes || 0;
+            areaStatsAccum[area] = (areaStatsAccum[area] || 0) + mins;
+          });
+        }
+        setFocusAreaStats(areaStatsAccum);
 
       } catch { console.error("Error loading plan"); }
       setLoading(false);
@@ -555,6 +591,7 @@ export default function TwelveWeekYear() {
                     {mp.completedBooks}/{mp.booksCount} leídos
                   </Badge>
                 </div>
+                <TimeGoalRow label="Minutos de lectura" actual={timeData?.byArea?.lectura || 0} goal={plan?.timeGoals?.[monthKey]?.lectura || 0} color="emerald" icon={<Book className="h-3 w-3 text-emerald-500" />} />
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {Array.from({ length: Math.max(slotsPerMonth, monthBooks.length) }).map((_, i) => {
                     if (i < monthBooks.length) {
@@ -576,9 +613,18 @@ export default function TwelveWeekYear() {
                                 </div>
                               </div>
                             )}
+                            {!done && book.pages_total && book.pages_total > 0 && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1.5 pt-4">
+                                <div className="text-[8px] text-white font-medium">{Math.min(100, Math.round(((book.pages_read || 0) / book.pages_total) * 100))}%</div>
+                                <Progress value={Math.min(100, Math.round(((book.pages_read || 0) / book.pages_total) * 100))} className="h-1 bg-white/20 [&>div]:bg-emerald-400" />
+                              </div>
+                            )}
                           </div>
                           <p className={cn("text-xs font-medium leading-tight line-clamp-2", done && "line-through text-muted-foreground")}>{book.title}</p>
                           {book.author && <p className="text-[9px] text-muted-foreground truncate">{book.author}</p>}
+                          {!done && book.pages_total && book.pages_total > 0 && (
+                            <p className="text-[8px] text-muted-foreground">{book.pages_read || 0}/{book.pages_total} pág.</p>
+                          )}
                         </div>
                       );
                     }
@@ -604,47 +650,48 @@ export default function TwelveWeekYear() {
                     <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Música</span>
                     <span className="text-[10px] text-muted-foreground">{mp.completedSongs}/{mp.songsCount} completadas</span>
                   </div>
-                  <div className="space-y-3">
-                    {pianoSongs.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                          <Piano className="h-3 w-3 text-rose-400" /> Piano ({pianoSongs.length})
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {pianoSongs.map(song => {
-                            const done = progress.completedSongs.includes(song.id);
-                            return (
-                              <Badge key={song.id} variant={done ? "default" : "secondary"}
-                                className={cn("text-[10px] px-2 py-0.5 cursor-pointer transition-all gap-1", done && "bg-rose-500 hover:bg-rose-600")}
-                                onClick={() => toggleSong(song.id)}>
-                                {done && <Check className="h-2.5 w-2.5" />}
-                                {song.title}{song.artist ? ` (${song.artist})` : ""}
-                              </Badge>
-                            );
-                          })}
+                  <TimeGoalRow label="Minutos de práctica" actual={timeData?.byArea?.musica || 0} goal={plan?.timeGoals?.[monthKey]?.musica || 0} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {pianoSongs.map(song => {
+                      const done = progress.completedSongs.includes(song.id);
+                      return (
+                        <div key={song.id} className={cn("space-y-1.5 p-2 rounded-xl border transition-all cursor-pointer", done ? "border-rose-300 bg-rose-50/50 dark:bg-rose-950/20" : "border-border/50 bg-card/30 hover:border-rose-200")}
+                          onClick={() => toggleSong(song.id)}>
+                          <div className="aspect-[2/3] bg-gradient-to-br from-rose-500/20 to-rose-500/5 rounded-lg overflow-hidden flex items-center justify-center shadow-sm relative">
+                            <Piano className="w-8 h-8 text-rose-400/60" />
+                            {done && (
+                              <div className="absolute inset-0 bg-rose-500/20 flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg">
+                                  <Check className="h-5 w-5" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <p className={cn("text-xs font-medium leading-tight line-clamp-2", done && "line-through text-muted-foreground")}>{song.title}</p>
+                          {song.artist && <p className="text-[9px] text-muted-foreground truncate">{song.artist}</p>}
                         </div>
-                      </div>
-                    )}
-                    {guitarSongs.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                          <Guitar className="h-3 w-3 text-amber-400" /> Guitarra ({guitarSongs.length})
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {guitarSongs.map(song => {
-                            const done = progress.completedSongs.includes(song.id);
-                            return (
-                              <Badge key={song.id} variant={done ? "default" : "secondary"}
-                                className={cn("text-[10px] px-2 py-0.5 cursor-pointer transition-all gap-1", done && "bg-amber-500 hover:bg-amber-600")}
-                                onClick={() => toggleSong(song.id)}>
-                                {done && <Check className="h-2.5 w-2.5" />}
-                                {song.title}{song.artist ? ` (${song.artist})` : ""}
-                              </Badge>
-                            );
-                          })}
+                      );
+                    })}
+                    {guitarSongs.map(song => {
+                      const done = progress.completedSongs.includes(song.id);
+                      return (
+                        <div key={song.id} className={cn("space-y-1.5 p-2 rounded-xl border transition-all cursor-pointer", done ? "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20" : "border-border/50 bg-card/30 hover:border-amber-200")}
+                          onClick={() => toggleSong(song.id)}>
+                          <div className="aspect-[2/3] bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-lg overflow-hidden flex items-center justify-center shadow-sm relative">
+                            <Guitar className="w-8 h-8 text-amber-400/60" />
+                            {done && (
+                              <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg">
+                                  <Check className="h-5 w-5" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <p className={cn("text-xs font-medium leading-tight line-clamp-2", done && "line-through text-muted-foreground")}>{song.title}</p>
+                          {song.artist && <p className="text-[9px] text-muted-foreground truncate">{song.artist}</p>}
                         </div>
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -676,6 +723,7 @@ export default function TwelveWeekYear() {
                   </div>
                   <Progress value={chessMonth.targetGames > 0 ? Math.min(100, Math.round((chessMonth.gamesPlayed / chessMonth.targetGames) * 100)) : 0} className="h-1.5" />
                   <p className="text-[10px] text-muted-foreground">{chessMonth.gamesPlayed}/{chessMonth.targetGames} partidas este mes</p>
+                  <TimeGoalRow label="Minutos de ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={plan?.timeGoals?.[monthKey]?.ajedrez || 0} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
                 </div>
               )}
 
@@ -720,8 +768,39 @@ export default function TwelveWeekYear() {
                       </div>
                     </div>
                   </div>
+                  <TimeGoalRow label="Minutos de idiomas" actual={timeData?.byArea?.idiomas || 0} goal={(plan?.timeGoals?.[monthKey]?.italiano || 0) + (plan?.timeGoals?.[monthKey]?.ingles || 0)} color="sky" icon={<Globe className="h-3 w-3 text-sky-500" />} />
                 </div>
               )}
+
+              {/* ---- Game Seducción ---- */}
+              <div className="space-y-2 pl-4 border-l-2 border-pink-200/50">
+                <div className="flex items-center gap-2">
+                  <Sword className="h-3.5 w-3.5 text-pink-500" />
+                  <span className="text-xs font-semibold text-pink-700 dark:text-pink-400">Game Seducción</span>
+                </div>
+                {(() => {
+                  const gameMins = timeData?.byArea?.game || 0;
+                  const gameGoal = plan?.timeGoals?.[monthKey]?.game || 0;
+                  const gameNotes = plan?.notes?.game_seduccion;
+                  return (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-pink-200/40 space-y-1">
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos acumulados</p>
+                          <p className={cn("text-lg font-bold", gameGoal > 0 && gameMins >= gameGoal ? "text-emerald-500" : "text-pink-500")}>{Math.round(gameMins)}min</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-pink-200/40 space-y-1">
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Meta mensual</p>
+                          <p className="text-lg font-bold text-pink-500">{gameGoal}min</p>
+                        </div>
+                      </div>
+                      <Progress value={gameGoal > 0 ? Math.min(100, Math.round((gameMins / gameGoal) * 100)) : 0} className="h-1.5" />
+                      <p className="text-[10px] text-muted-foreground">{Math.round(gameMins)}/{gameGoal} minutos este mes</p>
+                      {gameNotes && <p className="text-[10px] text-muted-foreground italic">{gameNotes}</p>}
+                    </div>
+                  );
+                })()}
+              </div>
 
               {/* ---- Metas Personales ---- */}
               {plan.personal_goals?.length > 0 && (
@@ -776,6 +855,19 @@ export default function TwelveWeekYear() {
                       ) : null;
                     })}
                   </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-blue-200/40 space-y-1">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas</p>
+                      <p className="text-base font-bold text-blue-500">{tasks.filter(t => completedTaskIds.includes(t.id)).length}/{tasks.length}</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-blue-200/40 space-y-1">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
+                      <p className={cn("text-base font-bold", (plan?.areaTimeGoals?.[monthKey]?.universidad || 0) > 0 && (focusAreaStats.universidad || 0) >= (plan.areaTimeGoals[monthKey]?.universidad || 0) ? "text-emerald-500" : "text-blue-500")}>
+                        {Math.round(focusAreaStats.universidad || 0)}min / {plan?.areaTimeGoals?.[monthKey]?.universidad || 0}min
+                      </p>
+                    </div>
+                  </div>
+                  <Progress value={(plan?.areaTimeGoals?.[monthKey]?.universidad || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.universidad || 0) / (plan.areaTimeGoals[monthKey]?.universidad || 0)) * 100)) : 0} className="h-1.5" />
                 </div>
               )}
 
@@ -795,19 +887,47 @@ export default function TwelveWeekYear() {
                       ) : null;
                     })}
                   </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas</p>
+                      <p className="text-base font-bold text-amber-500">{tasks.filter(t => completedTaskIds.includes(t.id) && t.source === 'proyecto').length}/{tasks.filter(t => t.source === 'proyecto').length}</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
+                      <p className={cn("text-base font-bold", (plan?.areaTimeGoals?.[monthKey]?.proyectos || 0) > 0 && (focusAreaStats.proyectos || 0) >= (plan.areaTimeGoals[monthKey]?.proyectos || 0) ? "text-emerald-500" : "text-amber-500")}>
+                        {Math.round(focusAreaStats.proyectos || 0)}min / {plan?.areaTimeGoals?.[monthKey]?.proyectos || 0}min
+                      </p>
+                    </div>
+                  </div>
+                  <Progress value={(plan?.areaTimeGoals?.[monthKey]?.proyectos || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.proyectos || 0) / (plan.areaTimeGoals[monthKey]?.proyectos || 0)) * 100)) : 0} className="h-1.5" />
                 </div>
               )}
 
               {/* ---- Emprendimiento ---- */}
-              {plan.notes?.emprendimiento && (
+              {(plan.notes?.emprendimiento || monthTasks.some(t => t.source === 'emprendimiento')) && (
                 <div className="space-y-2 pl-4 border-l-2 border-purple-200/50">
                   <div className="flex items-center gap-2">
                     <Briefcase className="h-3.5 w-3.5 text-purple-500" />
                     <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Emprendimiento</span>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40">
-                    <p className="text-[11px] text-muted-foreground">{plan.notes.emprendimiento}</p>
+                  {plan.notes?.emprendimiento && (
+                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40">
+                      <p className="text-[11px] text-muted-foreground">{plan.notes.emprendimiento}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas</p>
+                      <p className="text-base font-bold text-purple-500">{tasks.filter(t => completedTaskIds.includes(t.id) && t.source === 'emprendimiento').length}/{tasks.filter(t => t.source === 'emprendimiento').length}</p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
+                      <p className={cn("text-base font-bold", (plan?.areaTimeGoals?.[monthKey]?.emprendimiento || 0) > 0 && (focusAreaStats.emprendimiento || 0) >= (plan.areaTimeGoals[monthKey]?.emprendimiento || 0) ? "text-emerald-500" : "text-purple-500")}>
+                        {Math.round(focusAreaStats.emprendimiento || 0)}min / {plan?.areaTimeGoals?.[monthKey]?.emprendimiento || 0}min
+                      </p>
+                    </div>
                   </div>
+                  <Progress value={(plan?.areaTimeGoals?.[monthKey]?.emprendimiento || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.emprendimiento || 0) / (plan.areaTimeGoals[monthKey]?.emprendimiento || 0)) * 100)) : 0} className="h-1.5" />
                 </div>
               )}
             </div>
@@ -867,26 +987,23 @@ export default function TwelveWeekYear() {
               )}
             </div>
 
-            {/* ===== TIEMPO ACUMULATIVO ===== */}
-            {timeData && Object.keys(timeData.byArea).length > 0 && (
+            {/* ===== METAS DE TIEMPO VS ESFUERZO REAL ===== */}
+            {plan?.timeGoals?.[monthKey] && (
               <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Timer className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-sm font-semibold">Tiempo acumulado en {monthLabels[selectedMonth]}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">{timeData.totalMinutes} min totales</span>
+                    <span className="text-sm font-semibold">Metas de Tiempo — {monthLabels[selectedMonth]}</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{timeData?.totalMinutes || 0}min acumulados</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
-                    {Object.entries(timeData.byArea)
-                      .sort(([, a], [, b]) => b - a)
-                      .slice(0, 8)
-                      .map(([area, minutes]) => (
-                        <div key={area} className="flex items-center justify-between px-2 py-1.5 rounded-md bg-muted/20 text-[10px]">
-                          <span className="text-muted-foreground truncate">{AREA_LABELS[area] || area}</span>
-                          <span className="font-medium tabular-nums ml-1">{Math.round(minutes)}min</span>
-                        </div>
-                      ))}
+                  <div className="space-y-2">
+                    <TimeGoalRow label="Lectura" actual={timeData?.byArea?.lectura || 0} goal={plan.timeGoals[monthKey]?.lectura || 0} color="emerald" icon={<Book className="h-3 w-3 text-emerald-500" />} />
+                    <TimeGoalRow label="Música" actual={timeData?.byArea?.musica || 0} goal={plan.timeGoals[monthKey]?.musica || 0} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
+                    <TimeGoalRow label="Ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={plan.timeGoals[monthKey]?.ajedrez || 0} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
+                    <TimeGoalRow label="Game Seducción" actual={timeData?.byArea?.game || 0} goal={plan.timeGoals[monthKey]?.game || 0} color="pink" icon={<Sword className="h-3 w-3 text-pink-500" />} />
+                    <TimeGoalRow label="Idiomas" actual={timeData?.byArea?.idiomas || 0} goal={(plan.timeGoals[monthKey]?.italiano || 0) + (plan.timeGoals[monthKey]?.ingles || 0)} color="sky" icon={<Globe className="h-3 w-3 text-sky-500" />} />
+                    <TimeGoalRow label="Gym" actual={timeData?.byArea?.['entrenamiento-fisico'] || 0} goal={plan.timeGoals[monthKey]?.gym || 0} color="orange" icon={<Zap className="h-3 w-3 text-orange-500" />} />
                   </div>
                 </CardContent>
               </Card>
