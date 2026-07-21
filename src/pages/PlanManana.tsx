@@ -19,6 +19,7 @@ import { lifeAreas } from "@/lib/data";
 import { flattenAreas } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
 import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
+import HoyDashboard from "@/components/today/HoyDashboard";
 import {
   Sun, Moon, Clock, Target, ListTodo, Briefcase, GraduationCap,
   Languages, FolderKanban, Save, Dumbbell, Coffee, BookOpen, ChevronDown,
@@ -95,14 +96,70 @@ const formatTime = (t: string) => {
   return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${ampm}`;
 };
 
+type TabMode = 'hoy' | 'manana';
+
+function DateSwitchTabs({ mode, onModeChange }: { mode: TabMode; onModeChange: (m: TabMode) => void }) {
+  const today = new Date();
+  const tomorrow = addDays(today, 1);
+  const todayLabel = format(today, "d MMM", { locale: es });
+  const tomorrowLabel = format(tomorrow, "d MMM", { locale: es });
+  return (
+    <div className="flex items-center justify-center">
+      <div className="inline-flex bg-muted/80 rounded-xl p-0.5 shadow-sm border border-border/40">
+        <button
+          onClick={() => onModeChange('hoy')}
+          className={cn(
+            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+            mode === 'hoy'
+              ? "bg-white dark:bg-zinc-800 text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Sun className="h-3.5 w-3.5" />
+          Hoy
+          <span className="text-[10px] text-muted-foreground/70 font-normal">{todayLabel}</span>
+        </button>
+        <button
+          onClick={() => onModeChange('manana')}
+          className={cn(
+            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+            mode === 'manana'
+              ? "bg-white dark:bg-zinc-800 text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Moon className="h-3.5 w-3.5" />
+          Mañana
+          <span className="text-[10px] text-muted-foreground/70 font-normal">{tomorrowLabel}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function PlanManana() {
+  const [mode, setMode] = useState<TabMode>('manana');
+
+  // --- Hoy mode ---
+  if (mode === 'hoy') {
+    return (
+      <HoyDashboard
+        headerExtra={
+          <div className="pt-2 pb-1">
+            <DateSwitchTabs mode={mode} onModeChange={setMode} />
+          </div>
+        }
+      />
+    );
+  }
+
+  // --- Mañana mode ---
   const tomorrow = addDays(new Date(), 1);
   const tomorrowStr = format(tomorrow, "yyyy-MM-dd");
   const tomorrowDisplay = format(tomorrow, "EEEE d 'de' MMMM", { locale: es });
   const tomorrowCapitalized = tomorrowDisplay.charAt(0).toUpperCase() + tomorrowDisplay.slice(1);
 
   const { blocks, routineType, setRoutineType, updateBlockFocus } = useRoutineBlocks();
-
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -347,7 +404,10 @@ export default function PlanManana() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-4 pt-20 pb-24 flex items-center justify-center">
-        <div className="animate-pulse space-y-3"><div className="h-8 w-48 bg-muted rounded" /><div className="h-64 w-full bg-muted rounded" /></div>
+        <div className="animate-pulse space-y-3">
+          <div className="h-8 w-48 bg-muted rounded" />
+          <div className="h-64 w-full bg-muted rounded" />
+        </div>
       </div>
     );
   }
@@ -355,6 +415,9 @@ export default function PlanManana() {
   return (
     <div className="min-h-screen bg-background p-4 pt-20 pb-24">
       <div className="max-w-4xl mx-auto space-y-5">
+
+        {/* Date Switch Tabs */}
+        <DateSwitchTabs mode={mode} onModeChange={setMode} />
 
         {/* Header */}
         <div className="flex items-center justify-between">
