@@ -36,6 +36,7 @@ import { format, isThisMonth, startOfMonth, subMonths, endOfMonth } from 'date-f
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useFinance } from '@/hooks/useFinance';
+import { supabase } from '@/integrations/supabase/client';
 import { DataTable } from '@/components/finance/data-table';
 import { getTransactionColumns } from '@/components/finance/transaction-columns';
 import { getLoanColumns } from '@/components/finance/loan-columns';
@@ -195,7 +196,7 @@ export default function Finance() {
     wallets, transactions, loans, debts, distributionBags, financialGoals, exchangeRate,
     setExchangeRate, isLoading, setWallets, setTransactions, setLoans,
     setDebts, setDistributionBags, addTransaction, deleteTransaction,
-    updateWalletBalance, updateWallet, addLoan, updateLoan,
+    updateWalletBalance, updateWallet, addWallet, deleteWallet, addLoan, updateLoan,
     addDebt, updateDebt, deleteDebt, addDistributionBag,
     updateDistributionBag, deleteDistributionBag,
     addFinancialGoal, updateFinancialGoal, deleteFinancialGoal,
@@ -234,14 +235,48 @@ export default function Finance() {
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
   const [isBudgetCategoryDialogOpen, setIsBudgetCategoryDialogOpen] = useState(false);
   const [budgetLimits, setBudgetLimits] = useState<Record<string, number>>(() => {
-    const stored = localStorage.getItem('budgetLimits');
-    return stored ? JSON.parse(stored) : defaultBudgetLimits;
+    try {
+      const stored = localStorage.getItem('finance_budgetLimits');
+      return stored ? JSON.parse(stored) : defaultBudgetLimits;
+    } catch { return defaultBudgetLimits; }
   });
 
   useEffect(() => { setIsClient(true); }, []);
 
+  // Load budget limits from Supabase (text_sections) on mount
   useEffect(() => {
-    if (isClient) localStorage.setItem('budgetLimits', JSON.stringify(budgetLimits));
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('text_sections')
+          .select('content')
+          .eq('section_key', 'finance_budgetLimits')
+          .maybeSingle();
+        if (data?.content) {
+          setBudgetLimits(data.content as unknown as Record<string, number>);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  // Persist budget limits to Supabase + local
+  useEffect(() => {
+    if (!isClient) return;
+    try { localStorage.setItem('finance_budgetLimits', JSON.stringify(budgetLimits)); } catch {}
+    (async () => {
+      try {
+        const { data: existing } = await supabase
+          .from('text_sections')
+          .select('id')
+          .eq('section_key', 'finance_budgetLimits')
+          .maybeSingle();
+        if (existing) {
+          await supabase.from('text_sections').update({ content: budgetLimits as any, updated_at: new Date().toISOString() }).eq('id', existing.id);
+        } else {
+          await supabase.from('text_sections').insert({ section_key: 'finance_budgetLimits', content: budgetLimits as any });
+        }
+      } catch {}
+    })();
   }, [budgetLimits, isClient]);
 
   const transactionForm = useForm<z.infer<typeof transactionSchema>>({
@@ -651,23 +686,15 @@ export default function Finance() {
 
   const onWalletCreateSubmit = async (data: z.infer<typeof walletCreateSchema>) => {
     const newWallet: Wallet = { id: crypto.randomUUID(), name: data.name, balance: data.balance, icon: iconMap[data.icon] || WalletIcon };
-    setWallets(prev => {
-      const updated = [...prev, newWallet];
-      localStorage.setItem('wallets', JSON.stringify(updated));
-      return updated;
-    });
+    await addWallet(newWallet);
     toast({ title: "Billetera creada", description: `${data.name} creada con éxito` });
     setIsWalletCreateDialogOpen(false);
     walletCreateForm.reset();
   };
 
-  const handleDeleteWallet = () => {
+  const handleDeleteWallet = async () => {
     if (!walletToDelete) return;
-    setWallets(prev => {
-      const updated = prev.filter(w => w.id !== walletToDelete.id);
-      localStorage.setItem('wallets', JSON.stringify(updated));
-      return updated;
-    });
+    await deleteWallet(walletToDelete.id);
     toast({ title: "Billetera eliminada", description: `${walletToDelete.name} ha sido eliminada` });
     setWalletToDelete(null);
   };

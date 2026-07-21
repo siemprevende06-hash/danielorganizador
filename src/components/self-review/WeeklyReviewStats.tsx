@@ -144,7 +144,7 @@ export function WeeklyReviewStats({ weekStart }: Props) {
       {/* Main Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {statCards.map((stat, i) => {
-          const sem = semaphore(stat.value as number || stat.pct, stat.min, stat.max);
+          const sem = semaphore((stat.value as unknown as number) || stat.pct, stat.min, stat.max);
           return (
             <Card key={i} className={cn("p-3 ring-2 transition-all", sem.ring, sem.bg)}>
               <div className="flex items-center justify-between mb-2">
