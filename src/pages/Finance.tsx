@@ -234,14 +234,48 @@ export default function Finance() {
   const [walletToDelete, setWalletToDelete] = useState<Wallet | null>(null);
   const [isBudgetCategoryDialogOpen, setIsBudgetCategoryDialogOpen] = useState(false);
   const [budgetLimits, setBudgetLimits] = useState<Record<string, number>>(() => {
-    const stored = localStorage.getItem('budgetLimits');
-    return stored ? JSON.parse(stored) : defaultBudgetLimits;
+    try {
+      const stored = localStorage.getItem('finance_budgetLimits');
+      return stored ? JSON.parse(stored) : defaultBudgetLimits;
+    } catch { return defaultBudgetLimits; }
   });
 
   useEffect(() => { setIsClient(true); }, []);
 
+  // Load budget limits from Supabase (text_sections) on mount
   useEffect(() => {
-    if (isClient) localStorage.setItem('budgetLimits', JSON.stringify(budgetLimits));
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('text_sections')
+          .select('content')
+          .eq('section_key', 'finance_budgetLimits')
+          .maybeSingle();
+        if (data?.content) {
+          setBudgetLimits(data.content as unknown as Record<string, number>);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  // Persist budget limits to Supabase + local
+  useEffect(() => {
+    if (!isClient) return;
+    try { localStorage.setItem('finance_budgetLimits', JSON.stringify(budgetLimits)); } catch {}
+    (async () => {
+      try {
+        const { data: existing } = await supabase
+          .from('text_sections')
+          .select('id')
+          .eq('section_key', 'finance_budgetLimits')
+          .maybeSingle();
+        if (existing) {
+          await supabase.from('text_sections').update({ content: budgetLimits as any, updated_at: new Date().toISOString() }).eq('id', existing.id);
+        } else {
+          await supabase.from('text_sections').insert({ section_key: 'finance_budgetLimits', content: budgetLimits as any });
+        }
+      } catch {}
+    })();
   }, [budgetLimits, isClient]);
 
   const transactionForm = useForm<z.infer<typeof transactionSchema>>({
