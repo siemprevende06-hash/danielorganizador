@@ -54,7 +54,6 @@ export function useWeeklyReview(referenceDate?: Date) {
         entTasksRes,
         focusRes,
         blocksRes,
-        habitHistoryRes,
       ] = await Promise.all([
         supabase
           .from("daily_systems_tracking")
@@ -183,7 +182,7 @@ export function useWeeklyReview(referenceDate?: Date) {
           weekEnd: weekEndStr,
           activeDays,
           totalDays,
-          totalHabits: allUniqueHabits.size,
+          
           avgOverallRating,
           totalTasksCompleted,
           totalTasks,
