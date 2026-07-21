@@ -160,11 +160,11 @@ export default function TwelveWeekYear() {
           allSongIds.length > 0
             ? supabase.from("music_repertoire").select("id, title, artist, instrument").in("id", allSongIds)
             : Promise.resolve({ data: [] }),
-          supabase.from('reading_library').select('id, title, author, cover_image_url').order('title'),
           supabase.from('tasks').select('id, title, source, due_date, completed, priority')
             .gte('due_date', qs).lte('due_date', qe),
           supabase.from('calendar_events').select('*')
             .gte('event_date', qs).lte('event_date', qe).order('event_date'),
+          supabase.from('reading_library').select('id, title, author, cover_image_url').order('title'),
         ]);
         if (booksRes.data) setBooks(booksRes.data);
         if (allBooksRes.data) setAllBooks(allBooksRes.data);
