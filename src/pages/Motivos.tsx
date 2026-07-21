@@ -51,12 +51,10 @@ export default function Motivos() {
     []
   );
   const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
-  const [uploadError, setUploadError] = useState<Record<string, string>>({});
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
-  const { uploadImageWithProgress } = useImageUpload();
+  const { uploadImage } = useImageUpload();
 
   useEffect(() => {
     const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
@@ -128,26 +126,23 @@ export default function Motivos() {
 
   const handleFile = async (sectionId: string, cardId: string, file: File) => {
     setUploadingId(cardId);
-    setUploadProgress(prev => ({ ...prev, [cardId]: 0 }));
-    setUploadError(prev => { const n = { ...prev }; delete n[cardId]; return n; });
-    const url = await uploadImageWithProgress(
-      file,
-      "motivos",
-      (percent) => setUploadProgress(prev => ({ ...prev, [cardId]: percent })),
-      (msg) => setUploadError(prev => ({ ...prev, [cardId]: msg }))
-    );
+    const url = await uploadImage(file, "motivos");
     if (url) {
       cacheImageNow(url);
       storeImageFromFile(url, file);
       persist(
         sections.map((s) =>
           s.id === sectionId
-            ? { ...s, cards: s.cards.map((c) => c.id === cardId ? { ...c, image_url: url } : c) }
+            ? {
+                ...s,
+                cards: s.cards.map((c) =>
+                  c.id === cardId ? { ...c, image_url: url } : c
+                ),
+              }
             : s
         )
       );
     }
-    setUploadProgress(prev => { const n = { ...prev }; delete n[cardId]; return n; });
     setUploadingId(null);
   };
 
@@ -290,9 +285,7 @@ export default function Motivos() {
 
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               {section.cards.map((card) => {
-                const progress = uploadProgress[card.id];
-                const error = uploadError[card.id];
-                const showProgress = progress !== undefined;
+                const isUploading = uploadingId === card.id;
                 return (
                   <div key={card.id} className="relative aspect-square rounded-xl overflow-hidden border-2 border-dashed bg-muted/30 group">
                     <input
@@ -307,28 +300,7 @@ export default function Motivos() {
                       }}
                     />
 
-                    {error ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 bg-background/90 z-30">
-                        <span className="text-[10px] text-destructive text-center leading-tight">{error}</span>
-                        <button
-                          onClick={() => {
-                            setUploadError(prev => { const n = { ...prev }; delete n[card.id]; return n; });
-                            inputRefs.current.get(card.id)?.click();
-                          }}
-                          className="text-[10px] text-muted-foreground underline hover:text-foreground"
-                        >
-                          Intentar de nuevo
-                        </button>
-                      </div>
-                    ) : showProgress ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 z-30">
-                        <span className="text-lg font-bold tabular-nums text-primary">{progress}%</span>
-                        <div className="w-3/4 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
-                        </div>
-                        <span className="text-[10px] text-muted-foreground">Subiendo...</span>
-                      </div>
-                    ) : card.image_url ? (
+                    {card.image_url ? (
                       <>
                         <CachedImage
                           src={card.image_url}
@@ -357,10 +329,19 @@ export default function Motivos() {
                     ) : (
                       <button
                         onClick={() => inputRefs.current.get(card.id)?.click()}
+                        disabled={isUploading}
                         className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <ImagePlus className="h-7 w-7" />
-                        <span className="text-[10px] uppercase tracking-wider font-medium">Galería</span>
+                        {isUploading ? (
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                        ) : (
+                          <>
+                            <ImagePlus className="h-7 w-7" />
+                            <span className="text-[10px] uppercase tracking-wider font-medium">
+                              Galería
+                            </span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
