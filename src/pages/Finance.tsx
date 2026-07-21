@@ -195,7 +195,7 @@ export default function Finance() {
     wallets, transactions, loans, debts, distributionBags, financialGoals, exchangeRate,
     setExchangeRate, isLoading, setWallets, setTransactions, setLoans,
     setDebts, setDistributionBags, addTransaction, deleteTransaction,
-    updateWalletBalance, updateWallet, addLoan, updateLoan,
+    updateWalletBalance, updateWallet, addWallet, deleteWallet, addLoan, updateLoan,
     addDebt, updateDebt, deleteDebt, addDistributionBag,
     updateDistributionBag, deleteDistributionBag,
     addFinancialGoal, updateFinancialGoal, deleteFinancialGoal,
