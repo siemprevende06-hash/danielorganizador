@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, startOfWeek, endOfWeek, getWeek, isBefore, isAfter } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, Calendar, CheckCircle2, Target, Flame, Clock, BarChart3, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, CheckCircle2, Target, Flame, Clock, BarChart3, Trophy, Book, Music, FolderKanban, GraduationCap, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { MonthlyGoals } from '@/components/monthly/MonthlyGoals';
 import { MonthlyTimeBreakdown } from '@/components/monthly/MonthlyTimeBreakdown';
 import { MonthlyTasks } from '@/components/monthly/MonthlyTasks';
@@ -17,7 +17,8 @@ import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
 import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
 import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
-import { MonthlyPlanSummary } from '@/components/monthly-planning/MonthlyPlanSummary';
+import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan';
+import { ProgressRing } from '@/components/monthly-planning/ProgressRing';
 
 interface DayData {
   date: Date;
@@ -50,6 +51,11 @@ export default function MonthlyView() {
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
+
+  const { quarter, year } = getQuarterFromDate(currentMonth);
+  const monthIndex = currentMonth.getMonth() - (quarter - 1) * 3;
+  const monthKey = `month${monthIndex + 1}` as 'month1' | 'month2' | 'month3';
+  const { planData: trimestralPlan, loading: trimestralLoading } = useTrimestralPlan(quarter, year);
 
   useEffect(() => {
     loadMonthData();
@@ -124,7 +130,6 @@ export default function MonthlyView() {
     return { totalCompleted, totalTasks, productive, totalDays: past.length, avg, trend, focusH, best };
   }, [daysData]);
 
-  // Area breakdown
   const areaStats = useMemo(() => {
     const byArea: Record<string, { done: number; total: number }> = {};
     rawTasks.forEach(t => {
@@ -138,7 +143,6 @@ export default function MonthlyView() {
       .sort((a, b) => b.total - a.total);
   }, [rawTasks]);
 
-  // Weekly breakdown
   const weeklyBreakdown = useMemo(() => {
     const weeks: { weekNum: number; start: Date; end: Date; score: number; tasks: number; done: number }[] = [];
     const seen = new Set<number>();
@@ -168,6 +172,54 @@ export default function MonthlyView() {
 
   const firstDayOfMonth = monthStart.getDay();
   const startPadding = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+  const hasTrimestralPlan = !trimestralLoading && (
+    trimestralPlan.books.goal > 0 ||
+    trimestralPlan.songs.goal > 0 ||
+    (trimestralPlan.monthProjects[monthKey]?.length || 0) > 0 ||
+    (trimestralPlan.monthSubjects[monthKey]?.length || 0) > 0 ||
+    trimestralPlan.personal_goals.length > 0
+  );
+
+  const trimestralItems = hasTrimestralPlan ? [
+    trimestralPlan.books.goal > 0 && {
+      icon: <Book className="w-3.5 h-3.5" />,
+      label: 'Libros',
+      count: trimestralPlan.distribution[monthKey]?.books.length || 0,
+      goal: trimestralPlan.books.goal,
+      color: 'indigo' as const,
+      textColor: 'text-indigo-500',
+    },
+    trimestralPlan.songs.goal > 0 && {
+      icon: <Music className="w-3.5 h-3.5" />,
+      label: 'Canciones',
+      count: trimestralPlan.distribution[monthKey]?.songs.length || 0,
+      goal: trimestralPlan.songs.goal,
+      color: 'emerald' as const,
+      textColor: 'text-emerald-500',
+    },
+    (trimestralPlan.monthProjects[monthKey]?.length || 0) > 0 && {
+      icon: <FolderKanban className="w-3.5 h-3.5" />,
+      label: 'Proyectos',
+      count: trimestralPlan.monthProjects[monthKey]?.length || 0,
+      color: 'amber' as const,
+      textColor: 'text-amber-500',
+    },
+    (trimestralPlan.monthSubjects[monthKey]?.length || 0) > 0 && {
+      icon: <GraduationCap className="w-3.5 h-3.5" />,
+      label: 'Asignaturas',
+      count: trimestralPlan.monthSubjects[monthKey]?.length || 0,
+      color: 'blue' as const,
+      textColor: 'text-blue-500',
+    },
+    trimestralPlan.personal_goals.length > 0 && {
+      icon: <Target className="w-3.5 h-3.5" />,
+      label: 'Metas',
+      count: trimestralPlan.personal_goals.length,
+      color: 'purple' as const,
+      textColor: 'text-purple-500',
+    },
+  ].filter(Boolean) : [];
 
   return (
     <div className="container mx-auto px-4 py-24 space-y-6 max-w-5xl">
@@ -205,85 +257,128 @@ export default function MonthlyView() {
           extra={overallStreak.longest > 0 ? <span className="flex items-center gap-0.5 text-[9px] text-yellow-600"><Trophy className="h-2.5 w-2.5" />{overallStreak.longest}</span> : null} />
       </div>
 
-      <MonthlyPlanSummary currentMonth={currentMonth} />
-
-      <Tabs defaultValue="calendar" className="space-y-4">
-        <TabsList className="bg-muted/50 backdrop-blur-sm p-0.5 rounded-xl overflow-x-auto flex-nowrap">
-          <TabsTrigger value="calendar" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Calendario</TabsTrigger>
-          <TabsTrigger value="events" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Eventos</TabsTrigger>
-          <TabsTrigger value="weeks" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Semanas</TabsTrigger>
-          <TabsTrigger value="goals-new" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">🎯 Metas</TabsTrigger>
-          <TabsTrigger value="tiempo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">⏱ Tiempo</TabsTrigger>
-          <TabsTrigger value="tareas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">✅ Tareas</TabsTrigger>
-          <TabsTrigger value="areas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Áreas</TabsTrigger>
-          <TabsTrigger value="esfuerzo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Esfuerzo</TabsTrigger>
-          <TabsTrigger value="sistemas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Sistemas</TabsTrigger>
-        </TabsList>
-
-        {/* Calendar tab */}
-        <TabsContent value="calendar">
-          <Card>
-            <CardContent className="p-4">
-              {loading ? (
-                <div className="animate-pulse grid grid-cols-7 gap-2">
-                  {Array.from({ length: 35 }).map((_, i) => <div key={i} className="h-16 bg-muted rounded" />)}
+      {/* Plan Trimestral */}
+      {trimestralLoading ? (
+        <Card className="border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
+          <div className="p-4 animate-pulse h-16 bg-muted/20 rounded" />
+        </Card>
+      ) : hasTrimestralPlan ? (
+        <Card className="border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-indigo-500" />
+                <span className="text-sm font-semibold">Plan Trimestral · Mes {monthIndex + 1}</span>
+              </div>
+              <Link to="/trimestral-planning" className="text-xs text-indigo-500 hover:text-indigo-600 font-medium flex items-center gap-1">
+                Editar <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-1 -mx-1 px-1">
+              {(trimestralItems as any[]).map((item: any) => (
+                <div key={item.label} className="flex items-center gap-2 shrink-0">
+                  <ProgressRing
+                    progress={item.goal && item.goal > 0 ? Math.round((item.count / item.goal) * 100) : item.count > 0 ? 100 : 0}
+                    size={40}
+                    strokeWidth={3}
+                    strokeColor={item.color}
+                  >
+                    <span className={`text-[9px] font-bold ${item.textColor}`}>
+                      {item.goal ? `${item.count}/${item.goal}` : item.count}
+                    </span>
+                  </ProgressRing>
+                  <div>
+                    <p className="text-[11px] font-medium">{item.label}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {item.goal ? `${item.count} de ${item.goal}` : `${item.count} items`}
+                    </p>
+                  </div>
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-7 gap-1 mb-2">
-                    {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
-                      <div key={d} className="text-center text-[10px] font-medium text-muted-foreground py-1">{d}</div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-1">
-                    {Array.from({ length: startPadding }).map((_, i) => <div key={`p-${i}`} />)}
-                    {daysData.map(day => (
-                      <div
-                        key={day.date.toISOString()}
-                        className={cn(
-                          "aspect-square rounded-lg p-1.5 flex flex-col items-center justify-center transition-all text-xs border",
-                          day.isFuture && "opacity-30 border-transparent",
-                          day.isToday && "ring-2 ring-primary",
-                          !day.isFuture && day.score >= 70 && "bg-green-500/15 border-green-500/30",
-                          !day.isFuture && day.score >= 40 && day.score < 70 && "bg-amber-500/15 border-amber-500/30",
-                          !day.isFuture && day.score > 0 && day.score < 40 && "bg-destructive/15 border-destructive/30",
-                          !day.isFuture && day.score === 0 && "bg-muted/50 border-transparent",
-                        )}
-                      >
-                        <span className={cn("font-bold", day.isToday && "text-primary")}>
-                          {format(day.date, 'd')}
+              ))}
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <Card className="border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
+          <div className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Target className="w-4 h-4" />
+              Sin plan trimestral para este mes
+            </div>
+            <Link to="/trimestral-planning" className="text-xs text-indigo-500 hover:text-indigo-600 font-medium flex items-center gap-1">
+              Crear plan <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </Card>
+      )}
+
+      {/* Calendar section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Calendario</h2>
+        <Card>
+          <CardContent className="p-4">
+            {loading ? (
+              <div className="animate-pulse grid grid-cols-7 gap-2">
+                {Array.from({ length: 35 }).map((_, i) => <div key={i} className="h-16 bg-muted rounded" />)}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
+                    <div key={d} className="text-center text-[10px] font-medium text-muted-foreground py-1">{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {Array.from({ length: startPadding }).map((_, i) => <div key={`p-${i}`} />)}
+                  {daysData.map(day => (
+                    <div
+                      key={day.date.toISOString()}
+                      className={cn(
+                        "aspect-square rounded-lg p-1.5 flex flex-col items-center justify-center transition-all text-xs border",
+                        day.isFuture && "opacity-30 border-transparent",
+                        day.isToday && "ring-2 ring-primary",
+                        !day.isFuture && day.score >= 70 && "bg-green-500/15 border-green-500/30",
+                        !day.isFuture && day.score >= 40 && day.score < 70 && "bg-amber-500/15 border-amber-500/30",
+                        !day.isFuture && day.score > 0 && day.score < 40 && "bg-destructive/15 border-destructive/30",
+                        !day.isFuture && day.score === 0 && "bg-muted/50 border-transparent",
+                      )}
+                    >
+                      <span className={cn("font-bold", day.isToday && "text-primary")}>
+                        {format(day.date, 'd')}
+                      </span>
+                      {!day.isFuture && day.score > 0 && (
+                        <span className="text-[9px] text-muted-foreground font-mono">{day.score}%</span>
+                      )}
+                      {!day.isFuture && day.tasksTotal > 0 && (
+                        <span className="text-[8px] text-muted-foreground">
+                          {day.tasksCompleted}/{day.tasksTotal}
                         </span>
-                        {!day.isFuture && day.score > 0 && (
-                          <span className="text-[9px] text-muted-foreground font-mono">{day.score}%</span>
-                        )}
-                        {!day.isFuture && day.tasksTotal > 0 && (
-                          <span className="text-[8px] text-muted-foreground">
-                            {day.tasksCompleted}/{day.tasksTotal}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
-                  {/* Legend */}
-                  <div className="flex gap-4 mt-4 text-[10px] text-muted-foreground justify-center">
-                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-green-500/20 border border-green-500/40" /> ≥70%</span>
-                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/40" /> 40-69%</span>
-                    <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-destructive/20 border border-destructive/40" /> &lt;40%</span>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                <div className="flex gap-4 mt-4 text-[10px] text-muted-foreground justify-center">
+                  <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-green-500/20 border border-green-500/40" /> ≥70%</span>
+                  <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/40" /> 40-69%</span>
+                  <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-destructive/20 border border-destructive/40" /> &lt;40%</span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
-        {/* Events tab */}
-        <TabsContent value="events">
-          <NotionCalendar />
-        </TabsContent>
+      {/* Events section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Eventos</h2>
+        <NotionCalendar />
+      </section>
 
-        {/* Weeks tab */}
-        <TabsContent value="weeks" className="space-y-3">
+      {/* Weeks section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Semanas</h2>
+        <div className="space-y-3">
           {weeklyBreakdown.map(w => (
             <Card key={w.weekNum}>
               <CardContent className="p-4">
@@ -305,10 +400,13 @@ export default function MonthlyView() {
               </CardContent>
             </Card>
           ))}
-        </TabsContent>
+        </div>
+      </section>
 
-        {/* Areas tab */}
-        <TabsContent value="areas" className="space-y-3">
+      {/* Areas section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Áreas</h2>
+        <div className="space-y-3">
           {areaStats.length === 0 && (
             <Card><CardContent className="p-6 text-center text-muted-foreground">Sin tareas este mes.</CardContent></Card>
           )}
@@ -329,46 +427,51 @@ export default function MonthlyView() {
               </CardContent>
             </Card>
           ))}
-        </TabsContent>
+        </div>
+      </section>
 
-        {/* Goals tab (enhanced) */}
-        <TabsContent value="goals-new">
-          <MonthlyGoals currentMonth={currentMonth} />
-        </TabsContent>
+      {/* Goals section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Metas</h2>
+        <MonthlyGoals currentMonth={currentMonth} />
+      </section>
 
-        {/* Tiempo tab */}
-        <TabsContent value="tiempo">
-          <MonthlyTimeBreakdown currentMonth={currentMonth} />
-        </TabsContent>
+      {/* Time section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Tiempo</h2>
+        <MonthlyTimeBreakdown currentMonth={currentMonth} />
+      </section>
 
-        {/* Tareas tab */}
-        <TabsContent value="tareas">
-          <MonthlyTasks currentMonth={currentMonth} />
-        </TabsContent>
+      {/* Tasks section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Tareas</h2>
+        <MonthlyTasks currentMonth={currentMonth} />
+      </section>
 
-        <TabsContent value="sistemas">
-          <MonthlySystemsStats monthDate={currentMonth} />
-        </TabsContent>
+      {/* Systems section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
+        <MonthlySystemsStats monthDate={currentMonth} />
+      </section>
 
-        <TabsContent value="esfuerzo" className="space-y-4">
-          <Card>
-            <CardContent className="p-4 space-y-4">
-              <LifeAreaScoresPanel periodType="month" />
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border/50" />
-                </div>
-                <div className="relative flex justify-center text-[10px]">
-                  <span className="bg-white dark:bg-zinc-900 px-3 text-muted-foreground/60">Métricas detalladas</span>
-                </div>
+      {/* Effort section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Esfuerzo</h2>
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <LifeAreaScoresPanel periodType="month" />
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border/50" />
               </div>
-
-              <AreaEffortResultsPanel periodType="month" periodStart={monthStart} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <div className="relative flex justify-center text-[10px]">
+                <span className="bg-white dark:bg-zinc-900 px-3 text-muted-foreground/60">Métricas detalladas</span>
+              </div>
+            </div>
+            <AreaEffortResultsPanel periodType="month" periodStart={monthStart} />
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }
@@ -389,4 +492,3 @@ function MiniStat({ icon, label, value, extra }: { icon: React.ReactNode; label:
     </Card>
   );
 }
-

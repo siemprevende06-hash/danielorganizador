@@ -3,7 +3,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { startOfWeek, endOfWeek, eachDayOfInterval, format, isToday, addWeeks, subWeeks, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Target, TrendingUp, Calendar, Flame, CheckCircle2, Clock, BarChart3, Zap, Brain, Sparkles } from 'lucide-react';
@@ -19,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
+import { MonthlyPlanSummary } from '@/components/monthly-planning/MonthlyPlanSummary';
 
 const AREAS = [
   { id: 'universidad', label: 'Universidad', icon: '🎓', color: 'bg-blue-500' },
@@ -123,6 +123,8 @@ export default function WeeklyView() {
     }).filter(a => a.tasksTotal > 0 || a.objCount > 0);
   }, [weekData, objectives]);
 
+  const monthForPlan = weekStart;
+
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
@@ -155,115 +157,113 @@ export default function WeeklyView() {
           <StatCard icon={<Flame className="w-4 h-4 text-orange-500" />} label="Racha global" value={`${overallStreak.current}d`} sub={overallStreak.longest > 0 ? `Mejor: ${overallStreak.longest}d` : undefined} gradient="bg-gradient-to-r from-orange-500 to-amber-400" />
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="bg-muted/50 backdrop-blur-sm p-0.5 rounded-xl overflow-x-auto flex-nowrap">
-            <TabsTrigger value="overview" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Resumen</TabsTrigger>
-            <TabsTrigger value="metas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">🎯 Metas</TabsTrigger>
-            <TabsTrigger value="tiempo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">⏱ Tiempo</TabsTrigger>
-            <TabsTrigger value="tareas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">✅ Tareas</TabsTrigger>
-            <TabsTrigger value="objectives" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Objetivos</TabsTrigger>
-            <TabsTrigger value="areas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Áreas</TabsTrigger>
-            <TabsTrigger value="sistemas" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Sistemas</TabsTrigger>
-            <TabsTrigger value="esfuerzo" className="text-xs rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 shrink-0">Esfuerzo</TabsTrigger>
-          </TabsList>
+        {/* Plan Mensual */}
+        <MonthlyPlanSummary currentMonth={monthForPlan} />
 
-          {/* TAB: Overview */}
-          <TabsContent value="overview" className="space-y-4">
-            {/* Day cards — redesigned */}
-            <div className="grid grid-cols-7 gap-2">
-              {weekDays.map(day => {
-                const d = getDayData(day);
-                const active = isToday(day);
-                const scoreColor = d.isFuture ? 'border-muted/30' : d.score >= 70 ? 'border-green-500/40 bg-green-500/5' : d.score >= 40 ? 'border-amber-500/40 bg-amber-500/5' : d.score > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-muted/20';
-                return (
-                  <Card key={day.toISOString()} className={cn("border bg-white/70 dark:bg-zinc-900/70 backdrop-blur-sm rounded-2xl transition-all", scoreColor, active && "ring-2 ring-primary ring-offset-2")}>
-                    <CardContent className="p-2.5 space-y-2">
-                      <div className="text-center">
-                        <p className="text-[9px] uppercase font-semibold text-muted-foreground/60">{format(day, 'EEE', { locale: es })}</p>
-                        <p className={cn("text-xl font-bold leading-tight mt-0.5", active && "text-primary")}>{format(day, 'd')}</p>
-                      </div>
-                      {!d.isFuture && (
-                        <>
-                          <div className="flex justify-center">
-                            <div className={cn(
-                              "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold",
-                              d.score >= 70 ? "text-green-600 bg-green-500/15" :
-                              d.score >= 40 ? "text-amber-600 bg-amber-500/15" :
-                              d.score > 0 ? "text-destructive bg-destructive/10" :
-                              "text-muted-foreground/40 bg-muted/30"
-                            )}>
-                              {d.score || '0'}
-                            </div>
+        {/* Overview section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Resumen</h2>
+          {/* Day cards — redesigned */}
+          <div className="grid grid-cols-7 gap-2">
+            {weekDays.map(day => {
+              const d = getDayData(day);
+              const active = isToday(day);
+              const scoreColor = d.isFuture ? 'border-muted/30' : d.score >= 70 ? 'border-green-500/40 bg-green-500/5' : d.score >= 40 ? 'border-amber-500/40 bg-amber-500/5' : d.score > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-muted/20';
+              return (
+                <Card key={day.toISOString()} className={cn("border bg-white/70 dark:bg-zinc-900/70 backdrop-blur-sm rounded-2xl transition-all", scoreColor, active && "ring-2 ring-primary ring-offset-2")}>
+                  <CardContent className="p-2.5 space-y-2">
+                    <div className="text-center">
+                      <p className="text-[9px] uppercase font-semibold text-muted-foreground/60">{format(day, 'EEE', { locale: es })}</p>
+                      <p className={cn("text-xl font-bold leading-tight mt-0.5", active && "text-primary")}>{format(day, 'd')}</p>
+                    </div>
+                    {!d.isFuture && (
+                      <>
+                        <div className="flex justify-center">
+                          <div className={cn(
+                            "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold",
+                            d.score >= 70 ? "text-green-600 bg-green-500/15" :
+                            d.score >= 40 ? "text-amber-600 bg-amber-500/15" :
+                            d.score > 0 ? "text-destructive bg-destructive/10" :
+                            "text-muted-foreground/40 bg-muted/30"
+                          )}>
+                            {d.score || '0'}
                           </div>
-                          <div className="space-y-0.5 text-[9px] text-muted-foreground text-center">
-                            <p>{d.completed}/{d.total} tareas</p>
-                            {d.focusMin > 0 && <p className="text-[8px]">⏱ {d.focusMin}m</p>}
-                          </div>
-                          {d.total > 0 && (
-                            <Progress value={(d.completed / d.total) * 100} className="h-0.5" />
-                          )}
-                        </>
-                      )}
-                      {d.isFuture && (
-                        <p className="text-[9px] text-center text-muted-foreground/30 pt-3">—</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            {/* Heatmap */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-muted-foreground mb-3">Rendimiento diario</p>
-                <div className="flex gap-1.5 h-20 items-end">
-                  {weekDays.map(day => {
-                    const d = getDayData(day);
-                    const pct = Math.max(d.score, 3);
-                    return (
-                      <div key={day.toISOString()} className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-[8px] text-muted-foreground/60 font-mono">{d.score > 0 ? d.score : ''}</span>
-                        <div className="w-full flex-1 flex flex-col justify-end">
-                          <div
-                            className={cn(
-                              "w-full rounded-lg transition-all min-h-[4px]",
-                              d.score >= 70 ? "bg-green-500" : d.score >= 40 ? "bg-amber-500" : d.score > 0 ? "bg-destructive/50" : "bg-muted/30"
-                            )}
-                            style={{ height: `${pct}%` }}
-                          />
                         </div>
-                        <p className="text-[9px] text-muted-foreground/60">{format(day, 'EEEEE', { locale: es })}</p>
+                        <div className="space-y-0.5 text-[9px] text-muted-foreground text-center">
+                          <p>{d.completed}/{d.total} tareas</p>
+                          {d.focusMin > 0 && <p className="text-[8px]">⏱ {d.focusMin}m</p>}
+                        </div>
+                        {d.total > 0 && (
+                          <Progress value={(d.completed / d.total) * 100} className="h-0.5" />
+                        )}
+                      </>
+                    )}
+                    {d.isFuture && (
+                      <p className="text-[9px] text-center text-muted-foreground/30 pt-3">—</p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Heatmap */}
+          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground mb-3">Rendimiento diario</p>
+              <div className="flex gap-1.5 h-20 items-end">
+                {weekDays.map(day => {
+                  const d = getDayData(day);
+                  const pct = Math.max(d.score, 3);
+                  return (
+                    <div key={day.toISOString()} className="flex-1 flex flex-col items-center gap-1">
+                      <span className="text-[8px] text-muted-foreground/60 font-mono">{d.score > 0 ? d.score : ''}</span>
+                      <div className="w-full flex-1 flex flex-col justify-end">
+                        <div
+                          className={cn(
+                            "w-full rounded-lg transition-all min-h-[4px]",
+                            d.score >= 70 ? "bg-green-500" : d.score >= 40 ? "bg-amber-500" : d.score > 0 ? "bg-destructive/50" : "bg-muted/30"
+                          )}
+                          style={{ height: `${pct}%` }}
+                        />
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                      <p className="text-[9px] text-muted-foreground/60">{format(day, 'EEEEE', { locale: es })}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
 
-          {/* TAB: Metas */}
-          <TabsContent value="metas">
-            <WeeklyGoals weekStart={weekStart} weekEnd={weekEnd} />
-          </TabsContent>
+        {/* Goals section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Metas</h2>
+          <WeeklyGoals weekStart={weekStart} weekEnd={weekEnd} />
+        </section>
 
-          {/* TAB: Tiempo */}
-          <TabsContent value="tiempo">
-            <WeeklyTimeBreakdown weekStart={weekStart} weekEnd={weekEnd} />
-          </TabsContent>
+        {/* Time section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Tiempo</h2>
+          <WeeklyTimeBreakdown weekStart={weekStart} weekEnd={weekEnd} />
+        </section>
 
-          {/* TAB: Tareas */}
-          <TabsContent value="tareas">
-            <WeeklyTasks weekStart={weekStart} weekEnd={weekEnd} />
-          </TabsContent>
+        {/* Tasks section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Tareas</h2>
+          <WeeklyTasks weekStart={weekStart} weekEnd={weekEnd} />
+        </section>
 
-          {/* TAB: Objectives */}
-          <TabsContent value="objectives">
-            <WeeklyObjectives />
-          </TabsContent>
+        {/* Objectives section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Objetivos</h2>
+          <WeeklyObjectives />
+        </section>
 
-          {/* TAB: Areas */}
-          <TabsContent value="areas" className="space-y-2.5">
+        {/* Areas section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Áreas</h2>
+          <div className="space-y-2.5">
             {areaBreakdown.length === 0 && (
               <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
                 <CardContent className="p-8 text-center text-muted-foreground text-sm">Sin actividad por áreas esta semana.</CardContent>
@@ -288,35 +288,35 @@ export default function WeeklyView() {
                 </CardContent>
               </Card>
             ))}
-          </TabsContent>
+          </div>
+        </section>
 
-          {/* TAB: Systems */}
-          <TabsContent value="sistemas">
-            <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl p-4">
-              <WeeklySystemsStats weekStart={weekStart} />
-            </div>
-          </TabsContent>
+        {/* Systems section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
+          <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl p-4">
+            <WeeklySystemsStats weekStart={weekStart} />
+          </div>
+        </section>
 
-          {/* TAB: Esfuerzo y Resultados */}
-          <TabsContent value="esfuerzo" className="space-y-4">
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-              <CardContent className="p-4 space-y-4">
-                <LifeAreaScoresPanel periodType="week" />
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border/50" />
-                  </div>
-                  <div className="relative flex justify-center text-[10px]">
-                    <span className="bg-white/80 dark:bg-zinc-900/80 px-3 text-muted-foreground/60">Métricas detalladas</span>
-                  </div>
+        {/* Effort section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Esfuerzo</h2>
+          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <CardContent className="p-4 space-y-4">
+              <LifeAreaScoresPanel periodType="week" />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border/50" />
                 </div>
-
-                <AreaEffortResultsPanel periodType="week" periodStart={weekStart} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                <div className="relative flex justify-center text-[10px]">
+                  <span className="bg-white/80 dark:bg-zinc-900/80 px-3 text-muted-foreground/60">Métricas detalladas</span>
+                </div>
+              </div>
+              <AreaEffortResultsPanel periodType="week" periodStart={weekStart} />
+            </CardContent>
+          </Card>
+        </section>
       </div>
     </div>
   );
