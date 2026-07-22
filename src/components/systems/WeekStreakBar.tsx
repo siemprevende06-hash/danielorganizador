@@ -8,33 +8,25 @@ import { getCubaDate } from "@/lib/cubaTime";
 export type DayStatus = "max" | "min" | "none" | "special";
 
 interface WeekStreakBarProps {
-  /** Identificador único persistente (ej: "lectura", "ajedrez", "skincare-noche") */
   habitId: string;
-  /** Si se proveen, omite la carga desde DB (modo controlado) */
   weekStatuses?: DayStatus[];
-  /** Min minutes to count as "min" effort. Default 0 = any completion */
   minThreshold?: number;
-  /** Min minutes to count as "max" effort */
   maxThreshold?: number;
-  /** Today's value to compute today's status if no weekStatuses passed */
   todayValue?: number;
-  /** Today completed flag (override) */
   todayCompleted?: boolean;
-  /** Compact mode (smaller circles) */
   compact?: boolean;
-  /** Disparar shake si no se ha hecho cuando el usuario hace click */
   onShake?: () => void;
-  /** Ocultar el contador de racha (🔥/🏆) — útil cuando se muestra inline */
   hideStreak?: boolean;
-  /** Clases adicionales para el wrapper */
   className?: string;
+  /** 'circles' (default) o 'bars' para columnas verticales */
+  variant?: "circles" | "bars";
+  /** Key en time_data (ej: "musica", "lectura") para modo barras */
+  timeDataKey?: string;
 }
 
 const DAY_LABELS = ["L", "Ma", "Mi", "J", "V", "S", "D"];
 
-/** Lunes de la semana actual (ISO) en hora Cuba */
 const getMondayOfWeek = (date?: Date) => {
-  // Construimos "hoy" en Cuba a partir de getCubaDate() para evitar desfase UTC
   const [y, m, d] = getCubaDate(date).split("-").map(Number);
   const local = new Date(y, m - 1, d);
   const day = local.getDay();
@@ -46,10 +38,22 @@ const getMondayOfWeek = (date?: Date) => {
 
 const dateKey = (d: Date) => getCubaDate(d);
 
-/**
- * Calendario semanal L→D con estados max/min/none/special + contador de racha.
- * Persiste en `daily_systems_tracking.completions` keys: `streak:<habitId>:<YYYY-MM-DD>` con valores "max" | "min".
- */
+function getBarColor(minutes: number, minT: number, maxT: number) {
+  if (minutes <= 0) return "bg-red-400";
+  if (minutes > maxT) return "bg-amber-400";
+  if (minutes >= maxT) return "bg-green-400";
+  if (minutes >= minT) return "bg-blue-400";
+  return "bg-blue-300/60";
+}
+
+function getBarLabel(minutes: number, minT: number, maxT: number) {
+  if (minutes <= 0) return "";
+  if (minutes > maxT) return "Extra";
+  if (minutes >= maxT) return "Máx";
+  if (minutes >= minT) return "Mín";
+  return "";
+}
+
 export const WeekStreakBar = ({
   habitId,
   weekStatuses,
@@ -61,13 +65,15 @@ export const WeekStreakBar = ({
   onShake,
   hideStreak = false,
   className,
+  variant = "circles",
+  timeDataKey,
 }: WeekStreakBarProps) => {
   const [statuses, setStatuses] = useState<DayStatus[]>(weekStatuses ?? Array(7).fill("none"));
+  const [dailyMinutes, setDailyMinutes] = useState<number[]>([]);
   const [shaking, setShaking] = useState<number | null>(null);
   const [pulseStreak, setPulseStreak] = useState(false);
   const { streak: dbStreak } = useSystemHabitStreak(habitId);
   const streak = { current: dbStreak.current, best: dbStreak.best };
-
 
   const monday = useMemo(() => getMondayOfWeek(), []);
   const weekDates = useMemo(
@@ -79,57 +85,68 @@ export const WeekStreakBar = ({
     [monday]
   );
 
-  // Cargar estados de la semana desde DB si no son controlados
+  // Cargar estados / minutos de la semana
   useEffect(() => {
-    if (weekStatuses) {
-      setStatuses(weekStatuses);
-      return;
+    if (variant === "bars" && timeDataKey) {
+      (async () => {
+        const startStr = dateKey(weekDates[0]);
+        const endStr = dateKey(weekDates[6]);
+        const { data } = await supabase
+          .from("daily_systems_tracking")
+          .select("tracking_date, time_data")
+          .gte("tracking_date", startStr)
+          .lte("tracking_date", endStr)
+          .order("tracking_date", { ascending: true });
+        const byDate: Record<string, number> = {};
+        (data || []).forEach((row: any) => {
+          const td = row.time_data || {};
+          byDate[row.tracking_date] = (td[timeDataKey] || 0) as number;
+        });
+        setDailyMinutes(weekDates.map(d => byDate[dateKey(d)] || 0));
+      })();
+    } else if (!weekStatuses) {
+      (async () => {
+        const sixtyAgo = new Date();
+        sixtyAgo.setDate(sixtyAgo.getDate() - 60);
+        const { data } = await supabase
+          .from("daily_systems_tracking")
+          .select("tracking_date, completions")
+          .gte("tracking_date", sixtyAgo.toISOString().split("T")[0])
+          .order("tracking_date", { ascending: true });
+
+        const map: Record<string, DayStatus> = {};
+        const key = `streak:${habitId}`;
+        (data || []).forEach((row: any) => {
+          const c = (row.completions || {}) as Record<string, string | boolean>;
+          const v = c[key];
+          if (v === "max" || v === "min") map[row.tracking_date] = v as DayStatus;
+          else if (v === true) map[row.tracking_date] = "min";
+        });
+
+        const weekArr: DayStatus[] = weekDates.map((d) => {
+          const k = dateKey(d);
+          if (map[k]) {
+            if (d.getDay() === 0) return "special";
+            return map[k];
+          }
+          return "none";
+        });
+
+        const todayIdx = weekDates.findIndex((d) => dateKey(d) === dateKey(new Date()));
+        if (todayIdx >= 0) {
+          if (typeof todayValue === "number") {
+            if (todayValue >= maxThreshold) weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "max";
+            else if (todayValue >= minThreshold) weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "min";
+          }
+          if (todayCompleted && weekArr[todayIdx] === "none") {
+            weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "min";
+          }
+        }
+
+        setStatuses(weekArr);
+      })();
     }
-    (async () => {
-      const startStr = dateKey(weekDates[0]);
-      // Buscamos los últimos 60 días para calcular best/current streaks correctamente
-      const sixtyAgo = new Date();
-      sixtyAgo.setDate(sixtyAgo.getDate() - 60);
-      const { data } = await supabase
-        .from("daily_systems_tracking")
-        .select("tracking_date, completions")
-        .gte("tracking_date", sixtyAgo.toISOString().split("T")[0])
-        .order("tracking_date", { ascending: true });
-
-      const map: Record<string, DayStatus> = {};
-      const key = `streak:${habitId}`;
-      (data || []).forEach((row: any) => {
-        const c = (row.completions || {}) as Record<string, string | boolean>;
-        const v = c[key];
-        if (v === "max" || v === "min") map[row.tracking_date] = v as DayStatus;
-        else if (v === true) map[row.tracking_date] = "min";
-      });
-
-      const weekArr: DayStatus[] = weekDates.map((d) => {
-        const k = dateKey(d);
-        if (map[k]) {
-          // Domingo con cumplimiento → special
-          if (d.getDay() === 0) return "special";
-          return map[k];
-        }
-        return "none";
-      });
-
-      // Aplicar override de hoy si se entregó
-      const todayIdx = weekDates.findIndex((d) => dateKey(d) === dateKey(new Date()));
-      if (todayIdx >= 0) {
-        if (typeof todayValue === "number") {
-          if (todayValue >= maxThreshold) weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "max";
-          else if (todayValue >= minThreshold) weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "min";
-        }
-        if (todayCompleted && weekArr[todayIdx] === "none") {
-          weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "min";
-        }
-      }
-
-      setStatuses(weekArr);
-    })();
-  }, [habitId, weekStatuses, todayValue, todayCompleted, minThreshold, maxThreshold]);
+  }, [habitId, weekStatuses, todayValue, todayCompleted, minThreshold, maxThreshold, variant, timeDataKey]);
 
   useEffect(() => {
     if (dbStreak.current > 0) {
@@ -139,8 +156,8 @@ export const WeekStreakBar = ({
     }
   }, [dbStreak.current]);
 
-
   const handleClick = (idx: number) => {
+    if (variant === "bars") return;
     if (statuses[idx] === "none") {
       setShaking(idx);
       onShake?.();
@@ -148,8 +165,56 @@ export const WeekStreakBar = ({
     }
   };
 
+  const maxMin = Math.max(...dailyMinutes, 1);
   const sizeCircle = compact ? "w-6 h-6 text-[9px]" : "w-7 h-7 text-[10px]";
 
+  if (variant === "bars") {
+    return (
+      <div className={cn(!hideStreak && "space-y-1.5", className)}>
+        <div className={cn("flex items-center", hideStreak ? "gap-1" : "justify-between")}>
+          <div className="flex items-end gap-1 h-20 w-full">
+            {weekDates.map((d, i) => {
+              const mins = dailyMinutes[i] || 0;
+              const pct = (mins / Math.max(maxMin, minThreshold)) * 100;
+              const isToday = dateKey(d) === dateKey(new Date());
+              const barColor = getBarColor(mins, minThreshold, maxThreshold);
+              const barLabel = getBarLabel(mins, minThreshold, maxThreshold);
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                  <div className="flex-1 w-full flex items-end justify-center" style={{ minHeight: "4px" }}>
+                    <div
+                      className={cn("w-full rounded-t-sm transition-all duration-300", barColor, isToday && "ring-1 ring-primary ring-offset-1 ring-offset-background")}
+                      style={{ height: `${Math.max(4, pct)}%` }}
+                      title={`${mins} min`}
+                    />
+                  </div>
+                  <span className={cn("text-[8px] font-medium", mins > 0 && barLabel ? "text-muted-foreground" : "text-muted-foreground/40")}>
+                    {barLabel || DAY_LABELS[i]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {!hideStreak && (
+            <div className={cn("flex items-center gap-2 text-[10px] font-medium transition-all ml-1", pulseStreak && "scale-110")}>
+              <span className="flex items-center gap-0.5 text-orange-500">
+                <Flame className="h-3 w-3" />
+                <span className={cn(pulseStreak && "animate-[bounce_0.5s_ease-out]")}>{streak.current}</span>
+              </span>
+              {streak.best > 0 && (
+                <span className="flex items-center gap-0.5 text-yellow-600">
+                  <Trophy className="h-3 w-3" />
+                  {streak.best}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Modo círculos (original)
   return (
     <div className={cn(!hideStreak && "space-y-1.5", className)}>
       <div className={cn("flex items-center", hideStreak ? "gap-1" : "justify-between")}>
@@ -185,12 +250,7 @@ export const WeekStreakBar = ({
         </div>
 
         {!hideStreak && (
-          <div
-            className={cn(
-              "flex items-center gap-2 text-[10px] font-medium transition-all ml-1",
-              pulseStreak && "scale-110"
-            )}
-          >
+          <div className={cn("flex items-center gap-2 text-[10px] font-medium transition-all ml-1", pulseStreak && "scale-110")}>
             <span className="flex items-center gap-0.5 text-orange-500">
               <Flame className="h-3 w-3" />
               <span className={cn(pulseStreak && "animate-[bounce_0.5s_ease-out]")}>{streak.current}</span>

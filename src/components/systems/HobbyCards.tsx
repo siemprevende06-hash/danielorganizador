@@ -15,9 +15,10 @@ import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
 import { toast } from "sonner";
 
-/** Color semáforo: rojo (0) · azul (>0 y <máx) · verde (≥máx) */
+/** Color semáforo: rojo (0) · azul (>0 y <mín) · azul (≥mín y <máx) · verde (máx exacto) · dorado (>máx = extra) */
 const semaphore = (value: number, min: number, max: number) => {
   if (value <= 0) return { ring: "ring-red-500/60", bg: "bg-red-500/5", text: "text-red-500", label: "Sin hacer" };
+  if (value > max) return { ring: "ring-amber-500/60", bg: "bg-amber-500/10", text: "text-amber-600", label: "Extra ✓" };
   if (value >= max) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Máximo ✓" };
   if (value >= min) return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "Mínimo ✓" };
   return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "En progreso" };
@@ -236,7 +237,7 @@ const MusicCard = ({ todayMin, onChange }: { todayMin: number; onChange: (v: num
           <p className="text-[9px] text-muted-foreground text-center">Min {MIN_GOAL} · Máx {MAX_GOAL} min</p>
         </div>
 
-        <WeekStreakBar habitId="musica" todayValue={todayMin} minThreshold={MIN_GOAL} maxThreshold={MAX_GOAL} compact />
+        <WeekStreakBar habitId="musica" variant="bars" timeDataKey="musica" todayValue={todayMin} minThreshold={MIN_GOAL} maxThreshold={MAX_GOAL} compact />
 
         <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t">
           <Stat label="Hoy" value={`${todayMin}m`} />
