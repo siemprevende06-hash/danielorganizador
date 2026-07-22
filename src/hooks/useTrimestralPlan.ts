@@ -22,6 +22,7 @@ export interface TrimestralPlanData {
   notes: Record<string, string>;
   timeGoals: Record<string, Record<string, number>>;
   areaTimeGoals: Record<string, Record<string, number>>;
+  chessGoals: Record<string, { partidas: number; minutos: number }>;
 }
 
 const defaultTrimestralData: TrimestralPlanData = {
@@ -51,6 +52,11 @@ const defaultTrimestralData: TrimestralPlanData = {
     month1: { universidad: 0, proyectos: 0, emprendimiento: 0 },
     month2: { universidad: 0, proyectos: 0, emprendimiento: 0 },
     month3: { universidad: 0, proyectos: 0, emprendimiento: 0 },
+  },
+  chessGoals: {
+    month1: { partidas: 0, minutos: 0 },
+    month2: { partidas: 0, minutos: 0 },
+    month3: { partidas: 0, minutos: 0 },
   },
 };
 
@@ -90,6 +96,7 @@ function migrateDistribution(data: any): TrimestralPlanData {
   if (!data.completedEvents) data.completedEvents = { month1: [], month2: [], month3: [] };
   if (!data.timeGoals) data.timeGoals = defaultTrimestralData.timeGoals;
   if (!data.areaTimeGoals) data.areaTimeGoals = defaultTrimestralData.areaTimeGoals;
+  if (!data.chessGoals) data.chessGoals = defaultTrimestralData.chessGoals;
   if (!data.distribution) return { ...defaultTrimestralData, ...data, distribution: defaultTrimestralData.distribution };
   const m1 = data.distribution.month1;
   if (m1 && typeof m1.books === 'number') {
@@ -143,6 +150,7 @@ export function useTrimestralPlan(quarter: number, year: number) {
   const [songs, setSongs] = useState<Song[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [entrepreneurships, setEntrepreneurships] = useState<Project[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [quarterTasks, setQuarterTasks] = useState<TaskItem[]>([]);
   const [monthlyTimeData, setMonthlyTimeData] = useState<Record<string, MonthlyTimeData>>({});
@@ -217,26 +225,38 @@ export function useTrimestralPlan(quarter: number, year: number) {
       }
       setMonthlyTimeData(monthTimes);
 
-      // Load projects from Supabase, fall back to localStorage for migration
+      // Load projects from Supabase projects table
       try {
-        const { data: projectsData } = await supabase
-          .from('app_settings')
-          .select('setting_value')
-          .eq('setting_key', 'user_projects')
-          .maybeSingle();
-        if (projectsData?.setting_value && Array.isArray(projectsData.setting_value)) {
-          setProjects(projectsData.setting_value.map((p: any) => ({ id: p.id, name: p.name })));
-          localStorage.removeItem('userProjects');
-        } else {
-          const storedProjects = localStorage.getItem('userProjects');
-          if (storedProjects) setProjects(JSON.parse(storedProjects).map((p: any) => ({ id: p.id, name: p.name })));
+        const { data: projRows } = await supabase
+          .from('projects')
+          .select('id, title')
+          .order('created_at', { ascending: true });
+        if (projRows && projRows.length > 0) {
+          setProjects(projRows.map((p: any) => ({ id: p.id, name: p.title })));
         }
-      } catch {
-        const storedProjects = localStorage.getItem('userProjects');
-        if (storedProjects) setProjects(JSON.parse(storedProjects).map((p: any) => ({ id: p.id, name: p.name })));
-      }
-      const storedSubjects = localStorage.getItem('university_subjects');
-      if (storedSubjects) setSubjects(JSON.parse(storedSubjects));
+      } catch (e) { console.error('Error loading projects:', e); }
+
+      // Load subjects from university_subjects table
+      try {
+        const { data: subjRows } = await supabase
+          .from('university_subjects')
+          .select('id, name')
+          .order('name');
+        if (subjRows && subjRows.length > 0) {
+          setSubjects(subjRows.map((s: any) => ({ id: s.id, name: s.name })));
+        }
+      } catch (e) { console.error('Error loading subjects:', e); }
+
+      // Load entrepreneurships from entrepreneurships table
+      try {
+        const { data: entrepRows } = await supabase
+          .from('entrepreneurships')
+          .select('id, name')
+          .order('created_at', { ascending: true });
+        if (entrepRows && entrepRows.length > 0) {
+          setEntrepreneurships(entrepRows.map((e: any) => ({ id: e.id, name: e.name })));
+        }
+      } catch (e) { console.error('Error loading entrepreneurships:', e); }
     } catch (e) { console.error('Error loading trimestral data:', e); }
   }, [quarter, year, getMonthRange]);
 
@@ -287,7 +307,7 @@ export function useTrimestralPlan(quarter: number, year: number) {
 
   return {
     planData, loading, saving, storageKey, quarter, year,
-    books, songs, projects, subjects, events, quarterTasks, monthlyTimeData,
+    books, songs, projects, subjects, entrepreneurships, events, quarterTasks, monthlyTimeData,
     updatePlanData, savePlan, fetchPlan, autoDistribute,
     toggleTaskCompletion, toggleEventCompletion,
     getMonthRange, getMonthNamesForQuarter: () => getMonthNamesForQuarter(quarter),

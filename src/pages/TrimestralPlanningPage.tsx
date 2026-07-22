@@ -47,7 +47,7 @@ export default function TrimestralPlanningPage() {
 
   const {
     planData, loading, saving,
-    books, songs, projects, subjects, events, quarterTasks,
+    books, songs, projects, subjects, entrepreneurships, events, quarterTasks,
     updatePlanData, savePlan,
     getMonthNamesForQuarter, toggleTaskCompletion, toggleEventCompletion, getMonthRange,
   } = useTrimestralPlan(quarter, year);
@@ -270,9 +270,38 @@ export default function TrimestralPlanningPage() {
                 <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Hobbies Intelectuales</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                <NoteCard icon={<Gamepad2 className="h-3.5 w-3.5" />} label="Ajedrez" value={planData.notes.ajedrez || ''} onChange={v => setNote('ajedrez', v)}>
-                  <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.ajedrez || 0} onChange={v => setTimeGoal('ajedrez', v)} />
-                </NoteCard>
+                <Card className="overflow-hidden border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-500 shrink-0">
+                        <Gamepad2 className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-xs font-semibold">Ajedrez</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="flex-1 space-y-1">
+                        <span className="text-[9px] text-muted-foreground">Partidas/mes</span>
+                        <Input type="number" min="0" step="5"
+                          value={planData.chessGoals?.[activeMonthKey]?.partidas || ''}
+                          onChange={e => updatePlanData(p => ({
+                            ...p,
+                            chessGoals: { ...p.chessGoals, [activeMonthKey]: { ...p.chessGoals[activeMonthKey], partidas: Math.max(0, parseInt(e.target.value) || 0) } },
+                          }))}
+                          className="h-7 text-xs" placeholder="0" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <span className="text-[9px] text-muted-foreground">Minutos/mes</span>
+                        <Input type="number" min="0" step="5"
+                          value={planData.chessGoals?.[activeMonthKey]?.minutos || ''}
+                          onChange={e => updatePlanData(p => ({
+                            ...p,
+                            chessGoals: { ...p.chessGoals, [activeMonthKey]: { ...p.chessGoals[activeMonthKey], minutos: Math.max(0, parseInt(e.target.value) || 0) } },
+                          }))}
+                          className="h-7 text-xs" placeholder="0" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
                 <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Italiano" value={planData.notes.italiano || ''} onChange={v => setNote('italiano', v)}>
                   <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.italiano || 0} onChange={v => setTimeGoal('italiano', v)} />
                 </NoteCard>
@@ -437,7 +466,17 @@ export default function TrimestralPlanningPage() {
                   <TimeGoalField label="Min/mes enfoque" value={planData.areaTimeGoals[activeMonthKey]?.emprendimiento || 0} onChange={v => setAreaTimeGoal('emprendimiento', v)} />
                 </div>
               </div>
-              <div className="max-w-md">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ItemSelector
+                  items={entrepreneurships.map(e => ({ id: e.id, title: e.name }))}
+                  selected={planData.monthEntrepreneurships[activeMonthKey] || []}
+                  onChange={ids => updatePlanData(p => ({
+                    ...p,
+                    monthEntrepreneurships: { ...p.monthEntrepreneurships, [activeMonthKey]: ids },
+                  }))}
+                  placeholder="Seleccionar emprendimientos..."
+                  searchPlaceholder="Buscar emprendimiento..."
+                />
                 <NoteCard icon={<Briefcase className="h-3.5 w-3.5" />} label="Enfoque del Mes" value={planData.notes.emprendimiento || ''} onChange={v => setNote('emprendimiento', v)} />
               </div>
             </div>

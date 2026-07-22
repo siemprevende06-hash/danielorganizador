@@ -122,6 +122,7 @@ export default function TwelveWeekYear() {
   const [songs, setSongs] = useState<SongDetail[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
+  const [entrepreneurships, setEntrepreneurships] = useState<ProjectItem[]>([]);
   const [monthTasks, setMonthTasks] = useState<Record<string, TaskItem[]>>({});
   const [monthEvents, setMonthEvents] = useState<Record<string, CalendarEvent[]>>({});
   const [monthlyTimeData, setMonthlyTimeData] = useState<Record<string, MonthlyTimeData>>({});
@@ -132,6 +133,7 @@ export default function TwelveWeekYear() {
     bookProgress: {}, songProgress: {},
   });
   const [focusAreaStats, setFocusAreaStats] = useState<Record<string, number>>({});
+  const [projectDetails, setProjectDetails] = useState<Record<string, any>>({});
   const [allBooks, setAllBooks] = useState<BookDetail[]>([]);
   const [slotDialogOpen, setSlotDialogOpen] = useState(false);
   const [slotSearch, setSlotSearch] = useState('');
@@ -188,13 +190,17 @@ export default function TwelveWeekYear() {
         if (songsRes.data) setSongs(songsRes.data);
 
         try {
-          const { data: projData } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
-          if (projData?.setting_value && Array.isArray(projData.setting_value)) {
-            setProjects(projData.setting_value.map((p: any) => ({ id: p.id, name: p.name })));
-          }
+          const { data: projRows } = await supabase.from('projects').select('id, title');
+          if (projRows) setProjects(projRows.map((p: any) => ({ id: p.id, name: p.title })));
         } catch {}
-        const storedSubjects = localStorage.getItem('university_subjects');
-        if (storedSubjects) setSubjects(JSON.parse(storedSubjects));
+        try {
+          const { data: subjRows } = await supabase.from('university_subjects').select('id, name');
+          if (subjRows) setSubjects(subjRows.map((s: any) => ({ id: s.id, name: s.name })));
+        } catch {}
+        try {
+          const { data: entRows } = await supabase.from('entrepreneurships').select('id, name');
+          if (entRows) setEntrepreneurships(entRows.map((e: any) => ({ id: e.id, name: e.name })));
+        } catch {}
 
         // Group tasks and events by month
         const tasksByMonth: Record<string, TaskItem[]> = { month1: [], month2: [], month3: [] };
@@ -310,6 +316,20 @@ export default function TwelveWeekYear() {
           });
         }
         setFocusAreaStats(areaStatsAccum);
+
+        // Load project details with tasks
+        if (allBookIds.length > 0 || monthProjectIds.length > 0) {
+          try {
+            const { data: projRows } = await supabase
+              .from('projects')
+              .select('id, title, tasks');
+            if (projRows) {
+              const details: Record<string, any> = {};
+              projRows.forEach((p: any) => { details[p.id] = { name: p.title, tasks: p.tasks || [] }; });
+              setProjectDetails(details);
+            }
+          } catch (e) { console.error('Error loading project details:', e); }
+        }
 
       } catch { console.error("Error loading plan"); }
       setLoading(false);
@@ -432,6 +452,7 @@ export default function TwelveWeekYear() {
   const monthSongsData = mp.songs.map(id => songs.find(s => s.id === id)).filter(Boolean) as SongDetail[];
   const monthSubjectIds = plan?.monthSubjects?.[monthKey] || [];
   const monthProjectIds = plan?.monthProjects?.[monthKey] || [];
+  const monthEntrepreneurshipIds = plan?.monthEntrepreneurships?.[monthKey] || [];
   const chessMonth = chessData[monthKey];
   const langMonth = langData[monthKey];
 
@@ -706,24 +727,24 @@ export default function TwelveWeekYear() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas meta/mes</p>
-                      <p className="text-lg font-bold text-teal-500">{chessMonth.targetGames}</p>
+                      <p className="text-lg font-bold text-teal-500">{plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas jugadas</p>
-                      <p className={cn("text-lg font-bold", chessMonth.gamesPlayed >= chessMonth.targetGames ? "text-emerald-500" : "text-amber-500")}>{chessMonth.gamesPlayed}</p>
+                      <p className={cn("text-lg font-bold", chessMonth.gamesPlayed >= (plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames) ? "text-emerald-500" : "text-amber-500")}>{chessMonth.gamesPlayed}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Días de práctica</p>
                       <p className="text-lg font-bold text-teal-500">{chessMonth.practiceDays}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Min/día objetivo</p>
-                      <p className="text-lg font-bold text-teal-500">{chessMonth.targetMinutes}min</p>
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos meta/mes</p>
+                      <p className="text-lg font-bold text-teal-500">{plan?.chessGoals?.[monthKey]?.minutos || 0}min</p>
                     </div>
                   </div>
-                  <Progress value={chessMonth.targetGames > 0 ? Math.min(100, Math.round((chessMonth.gamesPlayed / chessMonth.targetGames) * 100)) : 0} className="h-1.5" />
-                  <p className="text-[10px] text-muted-foreground">{chessMonth.gamesPlayed}/{chessMonth.targetGames} partidas este mes</p>
-                  <TimeGoalRow label="Minutos de ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={plan?.timeGoals?.[monthKey]?.ajedrez || 0} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
+                  <Progress value={(plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames) > 0 ? Math.min(100, Math.round((chessMonth.gamesPlayed / (plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames)) * 100)) : 0} className="h-1.5" />
+                  <p className="text-[10px] text-muted-foreground">{chessMonth.gamesPlayed}/{plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames} partidas este mes</p>
+                  <TimeGoalRow label="Minutos de ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={Math.max(plan?.chessGoals?.[monthKey]?.minutos || 0, plan?.timeGoals?.[monthKey]?.ajedrez || 0)} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
                 </div>
               )}
 
@@ -768,7 +789,8 @@ export default function TwelveWeekYear() {
                       </div>
                     </div>
                   </div>
-                  <TimeGoalRow label="Minutos de idiomas" actual={timeData?.byArea?.idiomas || 0} goal={(plan?.timeGoals?.[monthKey]?.italiano || 0) + (plan?.timeGoals?.[monthKey]?.ingles || 0)} color="sky" icon={<Globe className="h-3 w-3 text-sky-500" />} />
+                  <TimeGoalRow label="Minutos italiano" actual={(timeData?.byArea?.italiano || 0) + (timeData?.byArea?.idiomas || 0)} goal={plan?.timeGoals?.[monthKey]?.italiano || 0} color="green" icon={<Globe className="h-3 w-3 text-green-500" />} />
+                  <TimeGoalRow label="Minutos inglés" actual={timeData?.byArea?.ingles || 0} goal={plan?.timeGoals?.[monthKey]?.ingles || 0} color="blue" icon={<Globe className="h-3 w-3 text-blue-500" />} />
                 </div>
               )}
 
@@ -879,17 +901,9 @@ export default function TwelveWeekYear() {
                     <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Proyectos</span>
                     <Badge variant="secondary" className="text-[9px] px-1.5">{monthProjectIds.length}</Badge>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {monthProjectIds.map(pid => {
-                      const proj = projects.find(p => p.id === pid);
-                      return proj ? (
-                        <Badge key={pid} variant="outline" className="text-[10px] px-2.5 py-1 border-amber-200 bg-amber-50/30 dark:bg-amber-950/20">{proj.name}</Badge>
-                      ) : null;
-                    })}
-                  </div>
                   <div className="grid grid-cols-2 gap-2.5">
                     <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas</p>
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas (gral)</p>
                       <p className="text-base font-bold text-amber-500">{tasks.filter(t => completedTaskIds.includes(t.id) && t.source === 'proyecto').length}/{tasks.filter(t => t.source === 'proyecto').length}</p>
                     </div>
                     <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
@@ -900,15 +914,42 @@ export default function TwelveWeekYear() {
                     </div>
                   </div>
                   <Progress value={(plan?.areaTimeGoals?.[monthKey]?.proyectos || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.proyectos || 0) / (plan.areaTimeGoals[monthKey]?.proyectos || 0)) * 100)) : 0} className="h-1.5" />
+                  <div className="space-y-2">
+                    {monthProjectIds.map(pid => {
+                      const detail = projectDetails[pid];
+                      if (!detail) return null;
+                      const projTasks = detail.tasks || [];
+                      const doneTasks = projTasks.filter((t: any) => t.completed).length;
+                      return (
+                        <div key={pid} className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold">{detail.name}</p>
+                            <span className="text-[9px] text-muted-foreground">{doneTasks}/{projTasks.length} tareas</span>
+                          </div>
+                          {projTasks.length > 0 && (
+                            <Progress value={projTasks.length > 0 ? Math.round((doneTasks / projTasks.length) * 100) : 0} className="h-1" />
+                          )}
+                          {projTasks.slice(0, 5).map((t: any) => (
+                            <div key={t.id} className="flex items-center gap-1.5 text-[10px]">
+                              <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", t.completed ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+                              <span className={cn("truncate flex-1", t.completed && "line-through text-muted-foreground")}>{t.title}</span>
+                            </div>
+                          ))}
+                          {projTasks.length > 5 && <p className="text-[8px] text-muted-foreground">+{projTasks.length - 5} tareas más</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
               {/* ---- Emprendimiento ---- */}
-              {(plan.notes?.emprendimiento || tasks.some(t => t.source === 'emprendimiento')) && (
+              {(monthEntrepreneurshipIds.length > 0 || plan.notes?.emprendimiento || tasks.some(t => t.source === 'emprendimiento')) && (
                 <div className="space-y-2 pl-4 border-l-2 border-purple-200/50">
                   <div className="flex items-center gap-2">
                     <Briefcase className="h-3.5 w-3.5 text-purple-500" />
                     <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Emprendimiento</span>
+                    {monthEntrepreneurshipIds.length > 0 && <Badge variant="secondary" className="text-[9px] px-1.5">{monthEntrepreneurshipIds.length}</Badge>}
                   </div>
                   {plan.notes?.emprendimiento && (
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40">
@@ -928,6 +969,34 @@ export default function TwelveWeekYear() {
                     </div>
                   </div>
                   <Progress value={(plan?.areaTimeGoals?.[monthKey]?.emprendimiento || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.emprendimiento || 0) / (plan.areaTimeGoals[monthKey]?.emprendimiento || 0)) * 100)) : 0} className="h-1.5" />
+                  {monthEntrepreneurshipIds.length > 0 && (
+                    <div className="space-y-2">
+                      {monthEntrepreneurshipIds.map(eid => {
+                        const ent = entrepreneurships.find((e: any) => e.id === eid);
+                        if (!ent) return null;
+                        const entTasks = tasks.filter(t => t.source === 'emprendimiento');
+                        const doneEntTasks = entTasks.filter(t => completedTaskIds.includes(t.id)).length;
+                        return (
+                          <div key={eid} className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold">{ent.name}</p>
+                              <span className="text-[9px] text-muted-foreground">{doneEntTasks}/{entTasks.length} tareas</span>
+                            </div>
+                            {entTasks.length > 0 && (
+                              <Progress value={Math.round((doneEntTasks / entTasks.length) * 100)} className="h-1" />
+                            )}
+                            {entTasks.slice(0, 5).map(t => (
+                              <div key={t.id} className="flex items-center gap-1.5 text-[10px]">
+                                <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", completedTaskIds.includes(t.id) ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+                                <span className={cn("truncate flex-1", completedTaskIds.includes(t.id) && "line-through text-muted-foreground")}>{t.title}</span>
+                              </div>
+                            ))}
+                            {entTasks.length > 5 && <p className="text-[8px] text-muted-foreground">+{entTasks.length - 5} tareas más</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1002,7 +1071,8 @@ export default function TwelveWeekYear() {
                     <TimeGoalRow label="Música" actual={timeData?.byArea?.musica || 0} goal={plan.timeGoals[monthKey]?.musica || 0} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
                     <TimeGoalRow label="Ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={plan.timeGoals[monthKey]?.ajedrez || 0} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
                     <TimeGoalRow label="Game Seducción" actual={timeData?.byArea?.game || 0} goal={plan.timeGoals[monthKey]?.game || 0} color="pink" icon={<Sword className="h-3 w-3 text-pink-500" />} />
-                    <TimeGoalRow label="Idiomas" actual={timeData?.byArea?.idiomas || 0} goal={(plan.timeGoals[monthKey]?.italiano || 0) + (plan.timeGoals[monthKey]?.ingles || 0)} color="sky" icon={<Globe className="h-3 w-3 text-sky-500" />} />
+                    <TimeGoalRow label="Italiano" actual={(timeData?.byArea?.italiano || 0) + (timeData?.byArea?.idiomas || 0)} goal={plan.timeGoals[monthKey]?.italiano || 0} color="green" icon={<Globe className="h-3 w-3 text-green-500" />} />
+                    <TimeGoalRow label="Inglés" actual={timeData?.byArea?.ingles || 0} goal={plan.timeGoals[monthKey]?.ingles || 0} color="blue" icon={<Globe className="h-3 w-3 text-blue-500" />} />
                     <TimeGoalRow label="Gym" actual={timeData?.byArea?.['entrenamiento-fisico'] || 0} goal={plan.timeGoals[monthKey]?.gym || 0} color="orange" icon={<Zap className="h-3 w-3 text-orange-500" />} />
                   </div>
                 </CardContent>

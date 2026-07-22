@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { BookText, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 interface Skill {
   id: string;
@@ -26,20 +27,26 @@ const SKILLS: Skill[] = [
 interface Props {
   completions: Record<string, boolean>;
   onToggle: (id: string) => void;
-  timeMinutes?: number;
-  onTimeChange?: (minutes: number) => void;
-  onSaveTime?: (minutes: number) => void;
+  italianoTime?: number;
+  inglesTime?: number;
+  onItalianoTimeChange?: (minutes: number) => void;
+  onInglesTimeChange?: (minutes: number) => void;
 }
 
-export const LanguageSkillCards = ({ completions, onToggle, timeMinutes = 0, onTimeChange, onSaveTime }: Props) => {
-  const doneCount = SKILLS.filter(s => completions[`idioma-${s.id}`]).length;
+export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange }: Props) => {
+  const [activeLang, setActiveLang] = useState<'italian' | 'english'>('italian');
+  const langPrefix = activeLang === 'italian' ? 'idioma-italiano' : 'idioma-ingles';
+  const currentTime = activeLang === 'italian' ? italianoTime : inglesTime;
+  const today = format(new Date(), 'yyyy-MM-dd');
+
+  const doneCount = SKILLS.filter(s => completions[`${langPrefix}-${s.id}`]).length;
   const pct = Math.round((doneCount / SKILLS.length) * 100);
-  const [localTime, setLocalTime] = useState(timeMinutes);
+  const [localTime, setLocalTime] = useState(currentTime);
 
-  useEffect(() => { setLocalTime(timeMinutes); }, [timeMinutes]);
+  useEffect(() => { setLocalTime(currentTime); }, [currentTime]);
 
-  const minTime = 30;
-  const maxTime = 90;
+  const minTime = 15;
+  const maxTime = 60;
   const timeRatio = Math.max(0, Math.min(1, (localTime - minTime) / (maxTime - minTime)));
   const timeColor = localTime >= maxTime
     ? "ring-green-500/60"
@@ -53,10 +60,47 @@ export const LanguageSkillCards = ({ completions, onToggle, timeMinutes = 0, onT
     ? "ring-green-500/60"
     : "ring-blue-500/60";
 
-  const handleSave = () => {
-    if (onSaveTime && localTime !== timeMinutes) {
-      onSaveTime(localTime);
+  const upsertLanguageSession = async () => {
+    try {
+      const { data: existing } = await supabase
+        .from('language_sessions')
+        .select('id')
+        .eq('session_date', today)
+        .eq('language', activeLang)
+        .maybeSingle();
+
+      const updateData: any = {
+        session_date: today,
+        language: activeLang,
+        total_duration: localTime,
+      };
+
+      if (existing) {
+        await supabase.from('language_sessions').update(updateData).eq('id', existing.id);
+      } else {
+        await supabase.from('language_sessions').insert(updateData);
+      }
+    } catch (e) { console.error('Error saving language session:', e); }
+  };
+
+  const handleToggle = (skillId: string) => {
+    const key = `${langPrefix}-${skillId}`;
+    onToggle(key);
+    upsertLanguageSession();
+  };
+
+  const handleTimeSave = () => {
+    if (activeLang === 'italian' && onItalianoTimeChange && localTime !== italianoTime) {
+      onItalianoTimeChange(localTime);
+    } else if (activeLang === 'english' && onInglesTimeChange && localTime !== inglesTime) {
+      onInglesTimeChange(localTime);
     }
+    if (localTime > 0) upsertLanguageSession();
+  };
+
+  const switchLang = (lang: 'italian' | 'english') => {
+    setLocalTime(lang === 'italian' ? italianoTime : inglesTime);
+    setActiveLang(lang);
   };
 
   return (
@@ -74,15 +118,27 @@ export const LanguageSkillCards = ({ completions, onToggle, timeMinutes = 0, onT
         <span className="text-xs font-bold text-emerald-600">{doneCount}/{SKILLS.length}</span>
       </div>
 
+      {/* ITA / ING switch */}
+      <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-0.5 w-fit mx-auto">
+        <button onClick={() => switchLang('italian')}
+          className={cn("px-3 py-1 rounded-md text-xs font-semibold transition-all", activeLang === 'italian' ? "bg-green-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+          ITA
+        </button>
+        <button onClick={() => switchLang('english')}
+          className={cn("px-3 py-1 rounded-md text-xs font-semibold transition-all", activeLang === 'english' ? "bg-blue-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+          ING
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
         {SKILLS.map((s) => {
           const Icon = s.icon;
-          const id = `idioma-${s.id}`;
+          const id = `${langPrefix}-${s.id}`;
           const done = !!completions[id];
           return (
             <button
-              key={s.id}
-              onClick={() => onToggle(id)}
+              key={`${activeLang}-${s.id}`}
+              onClick={() => handleToggle(s.id)}
               className={cn(
                 "flex items-center gap-1.5 rounded-lg border-2 p-2 transition-all text-left",
                 done
@@ -112,7 +168,7 @@ export const LanguageSkillCards = ({ completions, onToggle, timeMinutes = 0, onT
           min={0}
           max={120}
           value={localTime || ""}
-          onChange={e => { const v = parseInt(e.target.value) || 0; setLocalTime(v); if (onTimeChange) onTimeChange(v); }}
+          onChange={e => { const v = parseInt(e.target.value) || 0; setLocalTime(v); }}
           className="h-7 w-14 text-xs text-center font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         <span className="text-[10px] text-muted-foreground">min</span>
@@ -124,6 +180,11 @@ export const LanguageSkillCards = ({ completions, onToggle, timeMinutes = 0, onT
           <div className={cn("w-2 h-2 rounded-full", localTime >= maxTime ? "bg-green-500" : localTime >= minTime ? "bg-blue-500" : "bg-red-500")} />
         </div>
       </div>
+
+      <button onClick={handleTimeSave}
+        className="w-full py-1 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors">
+        Guardar tiempo
+      </button>
 
       <WeekStreakBar habitId="idiomas" todayValue={doneCount} todayCompleted={doneCount > 0} minThreshold={1} maxThreshold={SKILLS.length} compact />
     </Card>
