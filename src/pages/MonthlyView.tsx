@@ -6,7 +6,7 @@ import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, startOf
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, CheckCircle2, Target, Flame, Clock, BarChart3, Trophy, Book, Music, FolderKanban, GraduationCap, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Book, Music, FolderKanban, GraduationCap, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { MonthlyGoals } from '@/components/monthly/MonthlyGoals';
@@ -19,6 +19,7 @@ import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
 import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
 import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan';
 import { ProgressRing } from '@/components/monthly-planning/ProgressRing';
+import { MonthlyReviewStats } from '@/components/self-review/MonthlyReviewStats';
 
 interface DayData {
   date: Date;
@@ -242,20 +243,7 @@ export default function MonthlyView() {
         </div>
       </header>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <MiniStat icon={<BarChart3 className="w-4 h-4" />} label="Score prom." value={`${stats.avg}%`}
-          extra={stats.trend === 'up' ? <TrendingUp className="w-3 h-3 text-green-500" /> : stats.trend === 'down' ? <TrendingDown className="w-3 h-3 text-destructive" /> : <Minus className="w-3 h-3 text-muted-foreground" />} />
-        <MiniStat icon={<CheckCircle2 className="w-4 h-4" />} label="Tareas" value={`${stats.totalCompleted}/${stats.totalTasks}`} />
-        <MiniStat icon={<Flame className="w-4 h-4" />} label="Días productivos" value={`${stats.productive}/${stats.totalDays}`} />
-        <MiniStat icon={<Clock className="w-4 h-4" />} label="Horas foco" value={`${stats.focusH}h`} />
-        <MiniStat icon={<Target className="w-4 h-4" />} label="Mejor día"
-          value={stats.best ? `${stats.best.score}%` : '–'}
-          extra={stats.best ? <span className="text-[9px] text-muted-foreground">{format(stats.best.date, 'd MMM', { locale: es })}</span> : null} />
-        <MiniStat icon={<Flame className="w-4 h-4 text-orange-500" />} label="Racha"
-          value={`${overallStreak.current}d`}
-          extra={overallStreak.longest > 0 ? <span className="flex items-center gap-0.5 text-[9px] text-yellow-600"><Trophy className="h-2.5 w-2.5" />{overallStreak.longest}</span> : null} />
-      </div>
+      <MonthlyReviewStats monthDate={currentMonth} />
 
       {/* Plan Trimestral */}
       {trimestralLoading ? (
@@ -473,22 +461,5 @@ export default function MonthlyView() {
         </Card>
       </section>
     </div>
-  );
-}
-
-function MiniStat({ icon, label, value, extra }: { icon: React.ReactNode; label: string; value: string; extra?: React.ReactNode }) {
-  return (
-    <Card>
-      <CardContent className="p-3 flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-muted">{icon}</div>
-        <div>
-          <div className="flex items-center gap-1">
-            <p className="text-lg font-bold leading-none">{value}</p>
-            {extra}
-          </div>
-          <p className="text-[10px] text-muted-foreground">{label}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

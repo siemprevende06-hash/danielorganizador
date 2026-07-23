@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { startOfWeek, endOfWeek, eachDayOfInterval, format, isToday, addWeeks, subWeeks, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Target, TrendingUp, Calendar, Flame, CheckCircle2, Clock, BarChart3, Zap, Brain, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { WeeklyObjectives } from '@/components/weekly/WeeklyObjectives';
 import { WeeklySystemsStats } from '@/components/systems/WeeklySystemsStats';
 import { WeeklyGoals } from '@/components/weekly/WeeklyGoals';
@@ -17,8 +17,8 @@ import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
 import { MonthlyPlanSummary } from '@/components/monthly-planning/MonthlyPlanSummary';
+import { WeeklyReviewStats } from '@/components/self-review/WeeklyReviewStats';
 
 const AREAS = [
   { id: 'universidad', label: 'Universidad', icon: '🎓', color: 'bg-blue-500' },
@@ -28,33 +28,14 @@ const AREAS = [
   { id: 'proyectos', label: 'Proyectos', icon: '🚀', color: 'bg-amber-500' },
 ];
 
-function StatCard({ icon, label, value, sub, gradient }: { icon: React.ReactNode; label: string; value: string; sub?: string; gradient?: string }) {
-  return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className={cn("h-1", gradient || "bg-gradient-to-r from-primary to-primary/60")} />
-      <CardContent className="p-3.5">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-muted/50">{icon}</div>
-          <div>
-            <p className="text-lg font-bold leading-none tabular-nums">{value}</p>
-            <p className="text-[10px] text-muted-foreground">{label}</p>
-            {sub && <p className="text-[9px] text-muted-foreground/60 mt-0.5">{sub}</p>}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
-  const { streak: overallStreak } = useOverallSystemStreak();
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart.toISOString()]);
 
-  const { objectives, loading: objectivesLoading, getOverallProgress } = useWeeklyObjectives();
+  const { objectives } = useWeeklyObjectives();
 
   const { data: weekData } = useQuery({
     queryKey: ['weeklyData', format(weekStart, 'yyyy-MM-dd')],
@@ -93,23 +74,6 @@ export default function WeeklyView() {
     return { tasks: dayTasks, completed, total, score, focusMin, activities, review, isFuture };
   };
 
-  const weekStats = useMemo(() => {
-    if (!weekData) return { tasks: 0, totalTasks: 0, focusHours: 0, avgScore: 0, bestStreak: 0 };
-    const completed = weekData.tasks.filter(t => t.completed).length;
-    const total = weekData.tasks.length;
-    const focusMin = weekData.focusSessions.reduce((s, f) => s + (f.duration_minutes || 0), 0);
-    const scores = weekDays.map(d => getDayData(d).score).filter(s => s > 0);
-    const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-    let streak = 0, maxStreak = 0;
-    weekDays.forEach(d => {
-      const dd = getDayData(d);
-      if (dd.score >= 50) { streak++; maxStreak = Math.max(maxStreak, streak); } else { streak = 0; }
-    });
-    return { tasks: completed, totalTasks: total, focusHours: Math.round(focusMin / 60 * 10) / 10, avgScore: avg, bestStreak: maxStreak };
-  }, [weekData, weekDays]);
-
-  const overallProgress = getOverallProgress();
-
   const areaBreakdown = useMemo(() => {
     if (!weekData) return [];
     return AREAS.map(area => {
@@ -147,15 +111,7 @@ export default function WeeklyView() {
           </div>
         </div>
 
-        {/* Stat cards — glassmorphism */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2.5">
-          <StatCard icon={<CheckCircle2 className="w-4 h-4 text-green-500" />} label="Tareas completadas" value={`${weekStats.tasks}/${weekStats.totalTasks}`} gradient="bg-gradient-to-r from-green-500 to-emerald-400" />
-          <StatCard icon={<Clock className="w-4 h-4 text-blue-500" />} label="Horas de foco" value={`${weekStats.focusHours}h`} gradient="bg-gradient-to-r from-blue-500 to-cyan-400" />
-          <StatCard icon={<BarChart3 className="w-4 h-4 text-purple-500" />} label="Score promedio" value={`${weekStats.avgScore}%`} gradient="bg-gradient-to-r from-purple-500 to-pink-400" />
-          <StatCard icon={<Target className="w-4 h-4 text-amber-500" />} label="Progreso objetivos" value={`${overallProgress}%`} gradient="bg-gradient-to-r from-amber-500 to-orange-400" />
-          <StatCard icon={<Flame className="w-4 h-4 text-red-500" />} label="Mejor racha" value={`${weekStats.bestStreak}d`} gradient="bg-gradient-to-r from-red-500 to-rose-400" />
-          <StatCard icon={<Flame className="w-4 h-4 text-orange-500" />} label="Racha global" value={`${overallStreak.current}d`} sub={overallStreak.longest > 0 ? `Mejor: ${overallStreak.longest}d` : undefined} gradient="bg-gradient-to-r from-orange-500 to-amber-400" />
-        </div>
+        <WeeklyReviewStats weekStart={weekStart} />
 
         {/* Plan Mensual */}
         <MonthlyPlanSummary currentMonth={monthForPlan} />
