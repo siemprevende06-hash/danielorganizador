@@ -3,86 +3,51 @@ import App from "./App.tsx";
 import "./index.css";
 import { toast } from "sonner";
 
-// === Registro del Service Worker (PWA) ===
-const isInIframe = (() => {
-  try {
-    return window.self !== window.top;
-  } catch {
-    return true;
-  }
-})();
+// === Kill-switch: desregistrar cualquier SW previo y limpiar cachés ===
+// Esto obliga a que las PWAs instaladas y navegadores con SW antiguo
+// obtengan la versión fresca en la próxima carga.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((r) => r.unregister());
+  });
+}
+if ("caches" in window) {
+  caches.keys().then((names) => {
+    names.forEach((n) => caches.delete(n));
+  });
+}
 
+// Registro del SW kill-switch (se auto-desinstala tras limpiar cachés)
+const isInIframe = (() => {
+  try { return window.self !== window.top; } catch { return true; }
+})();
 const isPreviewHost =
   window.location.hostname.includes("id-preview--") ||
   window.location.hostname.includes("lovableproject.com") ||
-  (window.location.hostname.includes("lovable.app") && window.location.hostname.startsWith("id-preview"));
+  window.location.hostname.includes("lovableproject-dev.com");
 
-async function clearOldCaches() {
-  if (!("caches" in window)) return;
-  // Keep all workbox-* caches (precache + runtime) and our named runtime caches.
-  const keep = new Set(["supabase-api", "supabase-storage", "images", "static-assets-v2", "data-files"]);
-  const names = await caches.keys();
-  await Promise.all(
-    names.map(n => {
-      if (n.startsWith("workbox-")) return;
-      if (keep.has(n)) return;
-      return caches.delete(n);
-    })
-  );
+if (!isPreviewHost && !isInIframe && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+  });
 }
 
-if (isPreviewHost || isInIframe) {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
-  }
-} else if ("serviceWorker" in navigator) {
-  clearOldCaches();
-
-  async function registerSW() {
-    try {
-      const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      console.log("[PWA] Service Worker registrado");
-
-      if (registration.active) {
-        toast("App lista para usar sin conexión", { duration: 4000 });
-      }
-
-      registration.addEventListener("updatefound", () => {
-        const newWorker = registration.installing;
-        if (newWorker) {
-          newWorker.addEventListener("statechange", () => {
-            if (newWorker.state === "activated") {
-              toast("App lista para usar sin conexión", { duration: 4000 });
-            }
-          });
-        }
-      });
-
-      setTimeout(() => registration.update(), 2000);
-      setInterval(() => registration.update().catch(() => {}), 2 * 60 * 1000);
-    } catch (err) {
-      console.error("[PWA] Error al registrar SW:", err);
+// Botón "forzar actualización" expuesto globalmente
+(window as any).__pwaCheckForUpdates = async () => {
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
     }
-  }
-
-  registerSW();
-
-  (window as any).__pwaCheckForUpdates = async () => {
-    try {
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (reg) {
-        await reg.update();
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: "SKIP_WAITING" });
-          toast("Nueva versión instalada. Se aplicará al recargar.", { duration: 6000 });
-        } else {
-          toast("Ya estás en la versión más reciente");
-        }
-      }
-    } catch {
-      toast("Error al buscar actualizaciones");
+    if ("caches" in window) {
+      const names = await caches.keys();
+      await Promise.all(names.map((n) => caches.delete(n)));
     }
-  };
-}
+    toast("Actualizando…", { duration: 1500 });
+    setTimeout(() => window.location.reload(), 400);
+  } catch {
+    window.location.reload();
+  }
+};
 
 createRoot(document.getElementById("root")!).render(<App />);
