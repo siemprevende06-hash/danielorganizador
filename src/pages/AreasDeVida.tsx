@@ -1,71 +1,16 @@
 import { useTimeframe } from "@/contexts/TimeframeContext"
 import { useAreaScores } from "@/hooks/useAreaScores"
+import type { SubAreaScore } from "@/hooks/useAreaScores"
 import { TimeframeSelector } from "@/components/TimeframeSelector"
 import { WheelOfLife } from "@/components/WheelOfLife"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Link } from "react-router-dom"
+import { SubAreaCard } from "@/components/areas/SubAreaCard"
 import { cn } from "@/lib/utils"
 import {
-  Heart, Brain, Compass, Shirt, Briefcase, DollarSign,
-  BookOpen, Users, HeartIcon, Gamepad2, Crown, Music,
-  Target, GraduationCap, Star, Sparkles, Anchor,
-  ExternalLink, LayoutDashboard
+  Anchor, Target, Sparkles, LayoutDashboard,
 } from "lucide-react"
-
-const AREA_LINKS: Record<string, { path: string; label: string }[]> = {
-  salud: [
-    { path: "/gym", label: "Gimnasio" },
-    { path: "/alimentacion", label: "Alimentación" },
-  ],
-  "fuerza-mental": [
-    { path: "/chess", label: "Ajedrez" },
-    { path: "/self-review", label: "Autocrítica" },
-  ],
-  proposito: [
-    { path: "/life-alignment", label: "Alineación" },
-    { path: "/vision", label: "Point B" },
-    { path: "/plan-identidad", label: "Plan Identidad" },
-  ],
-  apariencia: [
-    { path: "/morning-prep", label: "Alistamiento" },
-  ],
-  desarrollo: [
-    { path: "/languages-dashboard", label: "Idiomas" },
-    { path: "/reading-library", label: "Biblioteca" },
-    { path: "/music-dashboard", label: "Música" },
-  ],
-  profesional: [
-    { path: "/university", label: "Universidad" },
-    { path: "/entrepreneurship", label: "Emprendimiento" },
-    { path: "/projects", label: "Proyectos" },
-  ],
-  finanzas: [
-    { path: "/finance", label: "Finanzas" },
-  ],
-  familia: [],
-  amor: [
-    { path: "/vida-social", label: "Vida Social" },
-  ],
-  ocio: [
-    { path: "/chess", label: "Ajedrez" },
-  ],
-}
-
-const SUB_AREA_GROUPS: Record<string, { label: string; subIds: string[] }[]> = {
-  desarrollo: [
-    { label: "Habilidades Valiosas", subIds: ["habilidades"] },
-    { label: "Idiomas", subIds: ["ingles", "italiano"] },
-    { label: "Hobbies", subIds: ["lectura", "piano", "guitarra", "ajedrez"] },
-  ],
-  profesional: [
-    { label: "Universidad", subIds: ["universidad"] },
-    { label: "Emprendimiento", subIds: ["siemprevende", "autec"] },
-    { label: "Proyectos", subIds: ["proyectos"] },
-  ],
-}
 
 const SECTION_CONFIG = [
   {
@@ -226,8 +171,6 @@ export default function AreasDeVida() {
                 <AreaCard
                   key={area.id}
                   area={area}
-                  links={AREA_LINKS[area.id] || []}
-                  subGroups={SUB_AREA_GROUPS[area.id]}
                   progressColor={section.progressColor}
                   borderColor={section.border}
                 />
@@ -242,8 +185,6 @@ export default function AreasDeVida() {
 
 function AreaCard({
   area,
-  links,
-  subGroups,
   progressColor,
   borderColor,
 }: {
@@ -253,13 +194,13 @@ function AreaCard({
     icon: string
     esfuerzo: number
     resultados: number
-    sub: { id: string; label: string; esfuerzo: number; resultados: number; unit: string }[]
+    sub: SubAreaScore[]
   }
-  links: { path: string; label: string }[]
-  subGroups?: { label: string; subIds: string[] }[]
   progressColor: string
   borderColor: string
 }) {
+  const hasNested = area.sub.some(s => s.children && s.children.length > 0)
+
   return (
     <Card className={cn("overflow-hidden transition-all hover:shadow-md", borderColor)}>
       <CardHeader className={cn("pb-3 border-b", borderColor)}>
@@ -301,52 +242,12 @@ function AreaCard({
           </div>
         </div>
 
-        {/* Sub-areas groups */}
-        {subGroups && subGroups.length > 0 && (
-          <div className="space-y-2 pt-1">
-            {subGroups.map((group) => {
-              const matchedSubs = area.sub.filter((s) => group.subIds.includes(s.id))
-              if (matchedSubs.length === 0) return null
-              return (
-                <div key={group.label}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                    {group.label}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {matchedSubs.map((sub) => (
-                      <Badge
-                        key={sub.id}
-                        variant="secondary"
-                        className="text-[10px] font-normal gap-1"
-                      >
-                        <span>{sub.label}</span>
-                        <span className={cn("font-bold", getScoreColor(sub.resultados))}>
-                          {sub.resultados}%
-                        </span>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Quick Links */}
-        {links.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/50">
-            {links.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-accent"
-              >
-                <ExternalLink className="h-3 w-3" />
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Sub-areas */}
+        <div className={cn("space-y-2", hasNested ? "" : "grid grid-cols-2 gap-2")}>
+          {area.sub.map(sub => (
+            <SubAreaCard key={sub.id} data={sub} />
+          ))}
+        </div>
       </CardContent>
     </Card>
   )

@@ -253,6 +253,7 @@ export interface PointBSubAxis {
   target: number
   unit: string
   trackingIds: string[]
+  children?: PointBSubAxis[]
 }
 
 export interface PointBArea {
