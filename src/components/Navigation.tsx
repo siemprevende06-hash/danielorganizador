@@ -125,6 +125,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/systems', label: 'Sistemas', icon: Brain },
       { path: '/vision', label: 'Point B', icon: Eye },
       { path: '/antivision', label: 'Anti-Point B', icon: Flame },
+      { path: '/identidad', label: 'Identidad', icon: ListTodo },
       { path: '/plan-identidad', label: 'Plan Identidad', icon: Compass },
       { label: 'Motivos', icon: Heart, submenu: [
         { path: '/motivos', label: 'Motivos' },

@@ -76,6 +76,7 @@ import ObjetivoVision1Ano from "./pages/ObjetivoVision1Ano";
 import PlanManana from "./pages/PlanManana";
 import EstadisticasEsfuerzo from "./pages/EstadisticasEsfuerzo";
 import VisionVsRealidad from "./pages/VisionVsRealidad";
+import Identidad from "./pages/Identidad";
 
 const queryClient = new QueryClient();
 
@@ -140,6 +141,7 @@ function AppContent() {
         <Route path="/chess" element={<Chess />} />
         <Route path="/grocery" element={<Grocery />} />
         <Route path="/shopping-list" element={<ShoppingList />} />
+        <Route path="/identidad" element={<Identidad />} />
         <Route path="/plan-identidad" element={<PlanIdentidad />} />
         <Route path="/morning-prep" element={<MorningPrep />} />
         <Route path="/punto-partida" element={<PuntoPartida />} />
