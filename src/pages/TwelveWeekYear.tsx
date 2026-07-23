@@ -751,11 +751,11 @@ export default function TwelveWeekYear() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas meta/mes</p>
-                      <p className="text-lg font-bold text-teal-500">{plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames}</p>
+                      <p className="text-lg font-bold text-teal-500">{chessMonth.targetGames}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas jugadas</p>
-                      <p className={cn("text-lg font-bold", chessMonth.gamesPlayed >= (plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames) ? "text-emerald-500" : "text-amber-500")}>{chessMonth.gamesPlayed}</p>
+                      <p className={cn("text-lg font-bold", chessMonth.gamesPlayed >= chessMonth.targetGames ? "text-emerald-500" : "text-amber-500")}>{chessMonth.gamesPlayed}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Días de práctica</p>
@@ -763,12 +763,12 @@ export default function TwelveWeekYear() {
                     </div>
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos meta/mes</p>
-                      <p className="text-lg font-bold text-teal-500">{plan?.chessGoals?.[monthKey]?.minutos || 0}min</p>
+                      <p className="text-lg font-bold text-teal-500">{plan?.timeGoals?.[monthKey]?.ajedrez || 0}min</p>
                     </div>
                   </div>
-                  <Progress value={(plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames) > 0 ? Math.min(100, Math.round((chessMonth.gamesPlayed / (plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames)) * 100)) : 0} className="h-1.5" />
-                  <p className="text-[10px] text-muted-foreground">{chessMonth.gamesPlayed}/{plan?.chessGoals?.[monthKey]?.partidas || chessMonth.targetGames} partidas este mes</p>
-                  <TimeGoalRow label="Minutos de ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={Math.max(plan?.chessGoals?.[monthKey]?.minutos || 0, plan?.timeGoals?.[monthKey]?.ajedrez || 0)} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
+                  <Progress value={chessMonth.targetGames > 0 ? Math.min(100, Math.round((chessMonth.gamesPlayed / chessMonth.targetGames) * 100)) : 0} className="h-1.5" />
+                  <p className="text-[10px] text-muted-foreground">{chessMonth.gamesPlayed}/{chessMonth.targetGames} partidas este mes</p>
+                  <TimeGoalRow label="Minutos de ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={plan?.timeGoals?.[monthKey]?.ajedrez || 0} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
                 </div>
               )}
 
