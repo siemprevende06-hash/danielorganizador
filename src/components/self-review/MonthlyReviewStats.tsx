@@ -1,16 +1,69 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { format, startOfMonth, endOfMonth, getWeek } from "date-fns";
+import { format, startOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   CheckCircle2, Target, Clock, Flame, Brain,
   TrendingUp, Shield, Droplets, Dumbbell, Activity
 } from "lucide-react";
+import { PieChart, Pie, Cell } from "recharts";
 import { useMonthlyReview } from "@/hooks/useMonthlyReview";
 
 interface Props {
   monthDate: Date;
+}
+
+const COLORS = {
+  green: "#22c55e",
+  blue: "#3b82f6",
+  red: "#ef4444",
+  amber: "#f59e0b",
+  purple: "#a855f7",
+  emerald: "#10b981",
+  rose: "#f43f5e",
+};
+
+const AREA_COLORS: Record<string, string> = {
+  universidad: COLORS.blue,
+  emprendimiento: COLORS.purple,
+  proyectos: COLORS.amber,
+  idiomas: COLORS.emerald,
+};
+
+function DonutCell({ pct }: { pct: number }) {
+  const color = pct >= 90 ? COLORS.green : pct >= 60 ? COLORS.blue : pct >= 30 ? COLORS.amber : COLORS.red;
+  return <Cell fill={color} />;
+}
+
+function StatDonut({ pct, value, label }: { pct: number; value: string; label: string }) {
+  const data = [
+    { name: "done", value: Math.max(pct, 1) },
+    { name: "remaining", value: Math.max(100 - pct, 0) },
+  ];
+  const color = pct >= 90 ? COLORS.green : pct >= 60 ? COLORS.blue : pct >= 30 ? COLORS.amber : COLORS.red;
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative">
+        <PieChart width={80} height={80}>
+          <Pie
+            data={data}
+            cx={40} cy={40} innerRadius={28} outerRadius={36}
+            startAngle={90} endAngle={-270}
+            dataKey="value" stroke="none"
+          >
+            <Cell fill={color} />
+            <Cell fill="hsl(var(--muted))" />
+          </Pie>
+        </PieChart>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-[10px] font-bold leading-none">{pct}%</span>
+        </div>
+      </div>
+      <span className="text-xs font-semibold leading-tight text-center">{value}</span>
+      <span className="text-[9px] text-muted-foreground leading-tight text-center">{label}</span>
+    </div>
+  );
 }
 
 export function MonthlyReviewStats({ monthDate }: Props) {
@@ -43,25 +96,31 @@ export function MonthlyReviewStats({ monthDate }: Props) {
   const focusPct = pct(data.totalFocusMinutes, focusGoal);
   const workoutGoal = data.activeDays * 45;
   const workoutPct = pct(data.totalWorkoutMinutes, workoutGoal);
+  const totalTime = Object.values(data.timeData).reduce((a, b) => a + b, 0);
+  const timePct = totalTime > 0 ? Math.min(100, Math.round(totalTime / (data.activeDays * 480) * 100)) : 0;
+  const blocksPct = data.totalBlocks > 0 ? pct(data.totalBlockCompletions, data.totalBlocks) : 0;
+  const activePct = pct(data.activeDays, data.totalDays);
 
-  const semaphore = (value: number, min: number, max: number) => {
-    if (value >= max) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Excelente" };
-    if (value >= min) return { ring: "ring-blue-500/60", bg: "bg-blue-500/10", text: "text-blue-600", label: "Bien" };
-    if (value > 0) return { ring: "ring-red-500/60", bg: "bg-red-500/5", text: "text-red-500", label: "Bajo" };
-    return { ring: "ring-red-500/40", bg: "bg-red-500/5", text: "text-red-500", label: "Sin datos" };
+  const semLabel = (pctVal: number, min: number, max: number) => {
+    if (pctVal >= max) return "Excelente";
+    if (pctVal >= min) return "Bien";
+    if (pctVal > 0) return "Bajo";
+    return "Sin datos";
   };
 
-  const totalTime = Object.values(data.timeData).reduce((a, b) => a + b, 0);
+  const focusSem = semLabel(data.totalFocusMinutes, focusGoal * 0.6, focusGoal);
+  const workoutSem = semLabel(data.totalWorkoutMinutes, workoutGoal * 0.6, workoutGoal);
+  const activeSem = semLabel(data.activeDays, data.totalDays * 0.6, data.totalDays);
 
-  const statCards = [
-    { icon: CheckCircle2, label: "Tareas", value: `${data.totalTasksCompleted}/${data.totalTasks}`, pct: taskPct, min: data.totalTasks * 0.6, max: data.totalTasks },
-    { icon: Brain, label: "Rating promedio", value: `${data.avgOverallRating}/10`, pct: data.avgOverallRating * 10, min: 6, max: 9 },
-    { icon: Clock, label: "Foco total", value: `${data.totalFocusMinutes}m`, pct: focusPct, min: focusGoal * 0.6, max: focusGoal },
-    { icon: Dumbbell, label: "Ejercicio total", value: `${data.totalWorkoutMinutes}m`, pct: workoutPct, min: workoutGoal * 0.6, max: workoutGoal },
-    { icon: Droplets, label: "Agua", value: `${data.waterCompletions}/${data.waterTotal}`, pct: waterPct, min: data.waterTotal * 0.6, max: data.waterTotal },
-    { icon: Activity, label: "Días activos", value: `${data.activeDays}/${data.totalDays}`, pct: pct(data.activeDays, data.totalDays), min: data.totalDays * 0.6, max: data.totalDays },
-    { icon: TrendingUp, label: "Tiempo invertido", value: `${totalTime}m`, pct: totalTime > 0 ? Math.min(100, Math.round(totalTime / (data.activeDays * 480) * 100)) : 0, min: 50, max: 80 },
-    { icon: Flame, label: "Bloques completados", value: `${data.totalBlockCompletions}`, pct: data.totalBlocks > 0 ? pct(data.totalBlockCompletions, data.totalBlocks) : 0, min: data.totalBlocks * 0.5, max: data.totalBlocks },
+  const statDonuts = [
+    { pct: taskPct, value: `${data.totalTasksCompleted}/${data.totalTasks}`, label: "Tareas", min: 60, max: 100 },
+    { pct: Math.round(data.avgOverallRating * 10), value: `${data.avgOverallRating}/10`, label: "Rating", min: 60, max: 90 },
+    { pct: focusPct, value: `${Math.round(data.totalFocusMinutes / 60 * 10) / 10}h`, label: "Foco", min: 60, max: 100 },
+    { pct: workoutPct, value: `${Math.round(data.totalWorkoutMinutes / 60 * 10) / 10}h`, label: "Ejercicio", min: 60, max: 100 },
+    { pct: waterPct, value: `${data.waterCompletions}/${data.waterTotal}`, label: "Agua", min: 60, max: 100 },
+    { pct: activePct, value: `${data.activeDays}/${data.totalDays}`, label: "Días activos", min: 60, max: 100 },
+    { pct: timePct, value: `${Math.round(totalTime / 60 * 10) / 10}h`, label: "Tiempo invertido", min: 50, max: 80 },
+    { pct: blocksPct, value: `${data.totalBlockCompletions}`, label: "Bloques", min: 50, max: 100 },
   ];
 
   const timeAreas = [
@@ -85,10 +144,22 @@ export function MonthlyReviewStats({ monthDate }: Props) {
         <CardContent className="p-4 text-center">
           <div className="text-4xl font-bold mb-1">{data.avgOverallRating}</div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Rating promedio del mes</p>
-          <Progress
-            value={data.avgOverallRating * 10}
-            className="h-2 mt-2 max-w-xs mx-auto"
-          />
+          <div className="flex justify-center mt-2">
+            <PieChart width={120} height={40}>
+              <Pie
+                data={[
+                  { name: "done", value: Math.max(Math.round(data.avgOverallRating * 10), 1) },
+                  { name: "remaining", value: Math.max(100 - Math.round(data.avgOverallRating * 10), 0) },
+                ]}
+                cx={60} cy={40} innerRadius={30} outerRadius={38}
+                startAngle={180} endAngle={0}
+                dataKey="value" stroke="none"
+              >
+                <Cell fill={data.avgOverallRating >= 7 ? COLORS.green : data.avgOverallRating >= 5 ? COLORS.amber : COLORS.red} />
+                <Cell fill="hsl(var(--muted)/0.3)" />
+              </Pie>
+            </PieChart>
+          </div>
           <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
             <span>{data.activeDays} días activos</span>
             <span>·</span>
@@ -150,25 +221,12 @@ export function MonthlyReviewStats({ monthDate }: Props) {
       </div>
 
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        {statCards.map((stat, i) => {
-          const sem = semaphore((stat.value as unknown as number) || stat.pct, stat.min, stat.max);
-          return (
-            <Card key={i} className={cn("p-3 ring-2 transition-all", sem.ring, sem.bg)}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <stat.icon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-bold">{stat.label}</span>
-                </div>
-                <span className={cn("text-[10px] font-semibold", sem.text)}>{sem.label}</span>
-              </div>
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-2xl font-bold">{stat.value}</span>
-              </div>
-              <Progress value={stat.pct} className="h-1.5" />
-            </Card>
-          );
-        })}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {statDonuts.map((stat, i) => (
+          <Card key={i} className="p-3">
+            <StatDonut pct={stat.pct} value={stat.value} label={stat.label} />
+          </Card>
+        ))}
       </div>
 
       {/* Time Breakdown by Area */}
@@ -178,17 +236,28 @@ export function MonthlyReviewStats({ monthDate }: Props) {
             <Clock className="w-4 h-4 text-muted-foreground" />
             Tiempo por área
           </h3>
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {timeAreas.map(area => {
               const spent = data.timeData[area.id] || 0;
               const areaPct = Math.min(100, Math.round((spent / area.goal) * 100));
               return (
-                <div key={area.id}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span>{area.icon} {area.label}</span>
-                    <span className="text-muted-foreground">{Math.round(spent / 60 * 10) / 10}h / {Math.round(area.goal / 60 * 10) / 10}h</span>
-                  </div>
-                  <Progress value={areaPct} className="h-2" />
+                <div key={area.id} className="flex flex-col items-center gap-1.5">
+                  <PieChart width={64} height={64}>
+                    <Pie
+                      data={[
+                        { name: "done", value: Math.max(areaPct, 1) },
+                        { name: "remaining", value: Math.max(100 - areaPct, 0) },
+                      ]}
+                      cx={32} cy={32} innerRadius={22} outerRadius={30}
+                      startAngle={90} endAngle={-270}
+                      dataKey="value" stroke="none"
+                    >
+                      <Cell fill={AREA_COLORS[area.id] || COLORS.blue} />
+                      <Cell fill="hsl(var(--muted))" />
+                    </Pie>
+                  </PieChart>
+                  <span className="text-xs font-medium text-center leading-tight">{area.icon} {area.label}</span>
+                  <span className="text-[10px] text-muted-foreground">{Math.round(spent / 60 * 10) / 10}h / {Math.round(area.goal / 60 * 10) / 10}h</span>
                 </div>
               );
             })}

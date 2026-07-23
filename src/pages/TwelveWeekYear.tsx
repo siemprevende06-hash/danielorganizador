@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { PieChart, Pie, Cell } from "recharts";
 import { AreaEffortResultsPanel } from "@/components/areas/AreaEffortResultsPanel";
 import { LifeAreaScoresPanel } from "@/components/areas/LifeAreaScoresPanel";
 import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
@@ -90,15 +91,38 @@ const AREA_LABELS: Record<string, string> = {
   game: 'Game Seducción', 'entrenamiento-fisico': 'Gym',
 };
 
+const GOAL_COLORS: Record<string, string> = {
+  emerald: "#10b981", rose: "#f43f5e", teal: "#14b8a6",
+  pink: "#ec4899", green: "#22c55e", blue: "#3b82f6", orange: "#f97316",
+};
+
 function TimeGoalRow({ label, actual, goal, color, icon }: { label: string; actual: number; goal: number; color: string; icon: React.ReactNode }) {
   const pct = goal > 0 ? Math.min(100, Math.round((actual / goal) * 100)) : 0;
+  const fill = GOAL_COLORS[color] || "#6366f1";
   return (
-    <div className="space-y-0.5">
-      <div className="flex items-center justify-between text-[10px]">
-        <span className="flex items-center gap-1 text-muted-foreground">{icon} {label}</span>
-        <span className="font-medium tabular-nums">{Math.round(actual)}min / {goal}min</span>
+    <div className="flex items-center gap-2.5">
+      <div className="relative shrink-0">
+        <PieChart width={40} height={40}>
+          <Pie
+            data={[
+              { name: "done", value: Math.max(pct, 1) },
+              { name: "remaining", value: Math.max(100 - pct, 0) },
+            ]}
+            cx={20} cy={20} innerRadius={14} outerRadius={18}
+            startAngle={90} endAngle={-270}
+            dataKey="value" stroke="none"
+          >
+            <Cell fill={fill} />
+            <Cell fill="hsl(var(--muted))" />
+          </Pie>
+        </PieChart>
       </div>
-      <Progress value={pct} className="h-1" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between text-[10px]">
+          <span className="flex items-center gap-1 text-muted-foreground truncate">{icon} {label}</span>
+          <span className="font-medium tabular-nums shrink-0 ml-1">{Math.round(actual)}min / {goal}min</span>
+        </div>
+      </div>
     </div>
   );
 }
