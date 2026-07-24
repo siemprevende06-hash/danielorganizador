@@ -42,11 +42,12 @@ export function MonthlyTimeBreakdown({ currentMonth }: MonthlyTimeBreakdownProps
   const monthEnd = endOfMonth(currentMonth);
   const monthDays = useMemo(() => eachDayOfInterval({ start: monthStart, end: monthEnd }), [monthStart.getTime(), monthEnd.getTime()]);
 
+  const startStr = format(monthStart, 'yyyy-MM-dd');
+  const endStr = format(monthEnd, 'yyyy-MM-dd');
+
   const { data: focusData } = useQuery({
-    queryKey: ['monthlyFocusBreakdown', format(monthStart, 'yyyy-MM-dd')],
+    queryKey: ['monthlyFocusBreakdown', startStr],
     queryFn: async () => {
-      const startStr = format(monthStart, 'yyyy-MM-dd');
-      const endStr = format(monthEnd, 'yyyy-MM-dd');
       const { data } = await supabase
         .from('focus_sessions')
         .select('*')
@@ -56,27 +57,87 @@ export function MonthlyTimeBreakdown({ currentMonth }: MonthlyTimeBreakdownProps
     },
   });
 
+  const { data: systemsData } = useQuery({
+    queryKey: ['monthlySystemsTime', startStr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('daily_systems_tracking')
+        .select('tracking_date, time_data')
+        .gte('tracking_date', startStr)
+        .lte('tracking_date', endStr);
+      return data || [];
+    },
+  });
+
+  const { data: areaStatsData } = useQuery({
+    queryKey: ['monthlyAreaStatsTime', startStr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('daily_area_stats')
+        .select('area_id, stat_date, time_spent_minutes')
+        .gte('stat_date', startStr)
+        .lte('stat_date', endStr);
+      return data || [];
+    },
+  });
+
+  // Aggregate time from all sources
+  const totalEffortMinutes = useMemo(() => {
+    let total = 0;
+    (systemsData || []).forEach((row: any) => {
+      const td = row.time_data || {};
+      Object.values(td).forEach((v) => { total += Number(v) || 0; });
+    });
+    (areaStatsData || []).forEach((row: any) => {
+      total += row.time_spent_minutes || 0;
+    });
+    return total;
+  }, [systemsData, areaStatsData]);
+
+  const totalEffortHours = Math.round(totalEffortMinutes / 60 * 10) / 10;
+  const effortPct = Math.round((totalEffortMinutes / (TOTAL_MONTH_HOURS * 60)) * 100);
+
   const dayBreakdown = useMemo(() => {
-    if (!focusData) return [];
+    if (!systemsData && !areaStatsData) return [];
+    const sysByDay: Record<string, number> = {};
+    (systemsData || []).forEach((row: any) => {
+      const td = row.time_data || {};
+      let dayTotal = 0;
+      Object.values(td).forEach((v) => { dayTotal += Number(v) || 0; });
+      sysByDay[row.tracking_date] = (sysByDay[row.tracking_date] || 0) + dayTotal;
+    });
+    (areaStatsData || []).forEach((row: any) => {
+      sysByDay[row.stat_date] = (sysByDay[row.stat_date] || 0) + (row.time_spent_minutes || 0);
+    });
+    const focusByDay: Record<string, number> = {};
+    (focusData || []).forEach((f: any) => {
+      const d = format(new Date(f.start_time), 'yyyy-MM-dd');
+      focusByDay[d] = (focusByDay[d] || 0) + (f.duration_minutes || 0);
+    });
     return monthDays.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd');
-      const daySessions = focusData.filter((f: any) => format(new Date(f.start_time), 'yyyy-MM-dd') === dayStr);
-      const totalMin = daySessions.reduce((s: number, f: any) => s + (f.duration_minutes || 0), 0);
-      return { day, totalMin, sessionCount: daySessions.length };
+      const totalMin = (sysByDay[dayStr] || 0) + (focusByDay[dayStr] || 0);
+      return { day, totalMin, sessionCount: (focusData || []).filter((f: any) => format(new Date(f.start_time), 'yyyy-MM-dd') === dayStr).length };
     });
-  }, [focusData, monthDays]);
+  }, [systemsData, areaStatsData, focusData, monthDays]);
 
   const areaTotals = useMemo(() => {
-    if (!focusData) return [];
     const totals: Record<string, number> = {};
-    focusData.forEach((f: any) => {
-      const area = f.task_area || 'general';
-      totals[area] = (totals[area] || 0) + (f.duration_minutes || 0);
+    // From daily_systems_tracking time_data
+    (systemsData || []).forEach((row: any) => {
+      const td = row.time_data || {};
+      Object.entries(td).forEach(([key, val]) => {
+        totals[key] = (totals[key] || 0) + (Number(val) || 0);
+      });
+    });
+    // From daily_area_stats (focus areas like universidad, proyectos, etc.)
+    (areaStatsData || []).forEach((row: any) => {
+      totals[row.area_id] = (totals[row.area_id] || 0) + (row.time_spent_minutes || 0);
     });
     return Object.entries(totals)
       .map(([area, minutes]) => ({ area, minutes, hours: Math.round(minutes / 60 * 10) / 10 }))
       .sort((a, b) => b.minutes - a.minutes);
-  }, [focusData]);
+  }, [systemsData, areaStatsData]);
 
   const totalFocusMinutes = dayBreakdown.reduce((s, d) => s + d.totalMin, 0);
   const totalFocusHours = Math.round(totalFocusMinutes / 60 * 10) / 10;
@@ -101,7 +162,7 @@ export function MonthlyTimeBreakdown({ currentMonth }: MonthlyTimeBreakdownProps
             <div>
               <h2 className="text-base font-bold">Tienes ~720 horas este mes</h2>
               <p className="text-xs text-muted-foreground">
-                Has registrado {totalFocusHours}h de trabajo enfocado ({focusPct}% del mes)
+                Has registrado {totalFocusHours}h de esfuerzo total ({focusPct}% del mes)
               </p>
             </div>
           </div>
@@ -132,7 +193,7 @@ export function MonthlyTimeBreakdown({ currentMonth }: MonthlyTimeBreakdownProps
         <CardContent className="p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
             <BarChart3 className="w-3.5 h-3.5" />
-            Minutos de foco por día
+            Minutos de esfuerzo por día
           </h3>
           <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
             {dayBreakdown.map((d, i) => {

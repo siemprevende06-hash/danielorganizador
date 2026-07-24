@@ -255,71 +255,52 @@ export default function TwelveWeekYear() {
         setMonthTasks(tasksByMonth);
         setMonthEvents(eventsByMonth);
 
-        // Load time data per month
+        // Load time data, chess data, and language data per month (all from daily_systems_tracking)
         const monthTimes: Record<string, MonthlyTimeData> = {};
+        const chessByMonth: Record<string, ChessMonthData> = {};
+        const langByMonth: Record<string, LanguageMonthData> = {};
+        const [chessGoalsRes] = await Promise.all([
+          supabase.from('chess_goals').select('target_games_per_month, target_minutes_per_day').eq('is_active', true).maybeSingle(),
+        ]);
+        const chessTargetGames = (chessGoalsRes.data as any)?.target_games_per_month || 30;
+        const chessTargetMinutes = (chessGoalsRes.data as any)?.target_minutes_per_day || 30;
         for (let mi = 0; mi < 3; mi++) {
           const ms = new Date(year, qStartMonth + mi, 1);
           const me = new Date(year, qStartMonth + mi + 1, 0);
-          const { data: timeRows } = await supabase
+          const { data: trackingRows } = await supabase
             .from('daily_systems_tracking')
-            .select('tracking_date, time_data')
+            .select('tracking_date, time_data, count_data')
             .gte('tracking_date', format(ms, 'yyyy-MM-dd'))
             .lte('tracking_date', format(me, 'yyyy-MM-dd'));
           const byArea: Record<string, number> = {};
           let total = 0;
-          (timeRows || []).forEach((row: any) => {
+          let chessGames = 0;
+          const chessDays = new Set<string>();
+          const italianoDays = new Set<string>();
+          const inglesDays = new Set<string>();
+          (trackingRows || []).forEach((row: any) => {
             const td = row.time_data || {};
             Object.entries(td).forEach(([key, val]) => {
               const v = val as number;
               byArea[key] = (byArea[key] || 0) + v;
               total += v;
             });
+            const cd = row.count_data || {};
+            const cg = Number(cd.ajedrez) || 0;
+            if (cg > 0) {
+              chessGames += cg;
+              chessDays.add(row.tracking_date);
+            }
+            if ((Number(td.italiano) || 0) > 0) italianoDays.add(row.tracking_date);
+            if ((Number(td.ingles) || 0) > 0) inglesDays.add(row.tracking_date);
           });
-          monthTimes[`month${mi + 1}`] = { totalMinutes: total, byArea };
+          const mk = `month${mi + 1}`;
+          monthTimes[mk] = { totalMinutes: total, byArea };
+          chessByMonth[mk] = { gamesPlayed: chessGames, practiceDays: chessDays.size, targetGames: chessTargetGames, targetMinutes: chessTargetMinutes };
+          langByMonth[mk] = { italiano: { practiceDays: italianoDays.size }, ingles: { practiceDays: inglesDays.size } };
         }
         setMonthlyTimeData(monthTimes);
-
-        // Load chess data per month
-        const chessByMonth: Record<string, ChessMonthData> = {};
-        for (let mi = 0; mi < 3; mi++) {
-          const ms = new Date(year, qStartMonth + mi, 1);
-          const me = new Date(year, qStartMonth + mi + 1, 0);
-          const [chessSessionsRes, chessGoalsRes] = await Promise.all([
-            supabase.from('chess_sessions')
-              .select('session_date, games_played, duration_minutes')
-              .gte('session_date', format(ms, 'yyyy-MM-dd'))
-              .lte('session_date', format(me, 'yyyy-MM-dd')),
-            supabase.from('chess_goals').select('target_games_per_month, target_minutes_per_day').eq('is_active', true).maybeSingle(),
-          ]);
-          const sessions = chessSessionsRes.data || [];
-          const uniqueDays = new Set(sessions.map((s: any) => s.session_date));
-          chessByMonth[`month${mi + 1}`] = {
-            gamesPlayed: sessions.reduce((sum: number, s: any) => sum + (s.games_played || 0), 0),
-            practiceDays: uniqueDays.size,
-            targetGames: (chessGoalsRes.data as any)?.target_games_per_month || 30,
-            targetMinutes: (chessGoalsRes.data as any)?.target_minutes_per_day || 30,
-          };
-        }
         setChessData(chessByMonth);
-
-        // Load language data per month
-        const langByMonth: Record<string, LanguageMonthData> = {};
-        for (let mi = 0; mi < 3; mi++) {
-          const ms = new Date(year, qStartMonth + mi, 1);
-          const me = new Date(year, qStartMonth + mi + 1, 0);
-          const { data: langSessions } = await supabase
-            .from('language_sessions')
-            .select('session_date, language')
-            .gte('session_date', format(ms, 'yyyy-MM-dd'))
-            .lte('session_date', format(me, 'yyyy-MM-dd'));
-          const sessions = langSessions || [];
-          const italianoDays = new Set(sessions.filter((s: any) => s.language === 'italian').map((s: any) => s.session_date));
-          const inglesDays = new Set(sessions.filter((s: any) => s.language === 'english').map((s: any) => s.session_date));
-          langByMonth[`month${mi + 1}`] = {
-            italiano: { practiceDays: italianoDays.size },
-            ingles: { practiceDays: inglesDays.size },
-          };
-        }
         setLangData(langByMonth);
 
         // Load focus area stats (universidad, proyectos, emprendimiento)

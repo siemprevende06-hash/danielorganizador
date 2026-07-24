@@ -59,6 +59,12 @@ const FOCUS_AREAS = [
 
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+function getMejoraTime(td: Record<string, any> | undefined | null, habitId: string): number {
+  if (!td) return 0
+  if (habitId === 'idiomas') return (Number(td.italiano) || 0) + (Number(td.ingles) || 0)
+  return Number(td[habitId]) || 0
+}
+
 // ─── Utility: weekly buckets for trend analysis ───
 function getWeekId(dateStr: string) {
   const d = parseISO(dateStr);
@@ -178,7 +184,7 @@ export default function EstadisticasEsfuerzo() {
       weeks[wid].sostenTotal += ALL_SOSTEN_IDS.length;
       const td = row.time_data || {};
       MEJORA_HABITS.forEach(h => {
-        const mins = (td[h.id] || 0);
+        const mins = getMejoraTime(td, h.id);
         weeks[wid].mejoraMin += mins;
         weeks[wid].habitMinutes[h.id] = (weeks[wid].habitMinutes[h.id] || 0) + mins;
       });
@@ -218,7 +224,7 @@ export default function EstadisticasEsfuerzo() {
   const monthSostenPct = monthMaxSosten > 0 ? Math.round((monthTotalSosten / monthMaxSosten) * 100) : 0;
   const monthMejoraMin = monthDays.reduce((s, d) => {
     const td = d.time_data || {};
-    return s + MEJORA_HABITS.reduce((a, h) => a + (td[h.id] || 0), 0) + (d.workout_duration || 0);
+    return s + MEJORA_HABITS.reduce((a, h) => a + getMejoraTime(td, h.id), 0) + (d.workout_duration || 0);
   }, 0);
   const monthFocusMin = focusPerDay.reduce((s, d) => s + d.universidad + d.emprendimiento + d.proyectos, 0);
   const monthTareas = focusPerDay.reduce((s, d) => s + d.tareasGenerales, 0);
@@ -236,7 +242,7 @@ export default function EstadisticasEsfuerzo() {
   // ─── Top mejora habit ───
   const mejoraTotals = MEJORA_HABITS.map(h => ({
     ...h,
-    total: monthDays.reduce((s, d) => s + ((d.time_data?.[h.id] as number) || 0), 0),
+    total: monthDays.reduce((s, d) => s + getMejoraTime(d.time_data, h.id), 0),
   }));
   mejoraTotals.push({ id: 'entreno', label: 'Entreno', icon: Dumbbell, hasTime: true, total: monthDays.reduce((s, d) => s + (d.workout_duration || 0), 0) });
   const topMejora = [...mejoraTotals].sort((a, b) => b.total - a.total)[0];
@@ -402,7 +408,7 @@ export default function EstadisticasEsfuerzo() {
                     </thead>
                     <tbody>
                       {monthDays.map((day, idx) => {
-                        const vals = MEJORA_HABITS.map(h => h.id === 'entrenamiento-fisico' ? (day.workout_duration || 0) : ((day.time_data?.[h.id] as number) || 0));
+                        const vals = MEJORA_HABITS.map(h => h.id === 'entrenamiento-fisico' ? (day.workout_duration || 0) : getMejoraTime(day.time_data, h.id));
                         const total = vals.reduce((s, v) => s + v, 0) + (day.workout_duration || 0);
                         return (
                           <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-900/50" : "bg-muted/5")}>
@@ -438,7 +444,7 @@ export default function EstadisticasEsfuerzo() {
                         {MEJORA_HABITS.map(h => {
                           const total = h.id === 'entrenamiento-fisico'
                             ? monthDays.reduce((s, d) => s + (d.workout_duration || 0), 0)
-                            : monthDays.reduce((s, d) => s + ((d.time_data?.[h.id] as number) || 0), 0);
+                            : monthDays.reduce((s, d) => s + getMejoraTime(d.time_data, h.id), 0);
                           return (
                             <td key={h.id} className="text-center px-2 py-1.5 border border-border/20">{total > 0 ? `${total}'` : '—'}</td>
                           );

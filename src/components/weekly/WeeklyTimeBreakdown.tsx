@@ -42,11 +42,12 @@ interface WeeklyTimeBreakdownProps {
 export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownProps) {
   const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart.getTime(), weekEnd.getTime()]);
 
+  const startStr = format(weekStart, 'yyyy-MM-dd');
+  const endStr = format(weekEnd, 'yyyy-MM-dd');
+
   const { data: focusData } = useQuery({
-    queryKey: ['weeklyFocusBreakdown', format(weekStart, 'yyyy-MM-dd')],
+    queryKey: ['weeklyFocusBreakdown', startStr],
     queryFn: async () => {
-      const startStr = format(weekStart, 'yyyy-MM-dd');
-      const endStr = format(weekEnd, 'yyyy-MM-dd');
       const { data } = await supabase
         .from('focus_sessions')
         .select('*')
@@ -56,11 +57,33 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
     },
   });
 
-  const { data: taskData } = useQuery({
-    queryKey: ['weeklyTaskStats', format(weekStart, 'yyyy-MM-dd')],
+  const { data: systemsData } = useQuery({
+    queryKey: ['weeklySystemsTime', startStr],
     queryFn: async () => {
-      const startStr = format(weekStart, 'yyyy-MM-dd');
-      const endStr = format(weekEnd, 'yyyy-MM-dd');
+      const { data } = await supabase
+        .from('daily_systems_tracking')
+        .select('tracking_date, time_data')
+        .gte('tracking_date', startStr)
+        .lte('tracking_date', endStr);
+      return data || [];
+    },
+  });
+
+  const { data: areaStatsData } = useQuery({
+    queryKey: ['weeklyAreaStatsTime', startStr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('daily_area_stats')
+        .select('area_id, stat_date, time_spent_minutes')
+        .gte('stat_date', startStr)
+        .lte('stat_date', endStr);
+      return data || [];
+    },
+  });
+
+  const { data: taskData } = useQuery({
+    queryKey: ['weeklyTaskStats', startStr],
+    queryFn: async () => {
       const { data } = await supabase
         .from('tasks')
         .select('*')
@@ -71,11 +94,21 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
   });
 
   const dayBreakdown = useMemo(() => {
-    if (!focusData) return [];
+    const sysByDay: Record<string, number> = {};
+    (systemsData || []).forEach((row: any) => {
+      const td = row.time_data || {};
+      let dayTotal = 0;
+      Object.values(td).forEach((v) => { dayTotal += Number(v) || 0; });
+      sysByDay[row.tracking_date] = (sysByDay[row.tracking_date] || 0) + dayTotal;
+    });
+    (areaStatsData || []).forEach((row: any) => {
+      sysByDay[row.stat_date] = (sysByDay[row.stat_date] || 0) + (row.time_spent_minutes || 0);
+    });
     return weekDays.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd');
-      const daySessions = focusData.filter(f => format(new Date(f.start_time), 'yyyy-MM-dd') === dayStr);
-      const totalMin = daySessions.reduce((s, f) => s + (f.duration_minutes || 0), 0);
+      const daySessions = (focusData || []).filter(f => format(new Date(f.start_time), 'yyyy-MM-dd') === dayStr);
+      const focusMin = daySessions.reduce((s, f) => s + (f.duration_minutes || 0), 0);
+      const totalMin = (sysByDay[dayStr] || 0) + focusMin;
       const byArea: Record<string, number> = {};
       daySessions.forEach(f => {
         const area = f.task_area || 'general';
@@ -83,9 +116,9 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
       });
       return { day, totalMin, byArea, sessionCount: daySessions.length };
     });
-  }, [focusData, weekDays]);
+  }, [focusData, systemsData, areaStatsData, weekDays]);
 
-  // Aggregate by area across the whole week
+  // Aggregate by area across the whole week (combine focus areas + time_data areas)
   const areaTotals = useMemo(() => {
     const totals: Record<string, number> = {};
     dayBreakdown.forEach(d => {
@@ -93,10 +126,21 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
         totals[area] = (totals[area] || 0) + min;
       });
     });
+    // Also add time_data areas
+    (systemsData || []).forEach((row: any) => {
+      const td = row.time_data || {};
+      Object.entries(td).forEach(([key, val]) => {
+        totals[key] = (totals[key] || 0) + (Number(val) || 0);
+      });
+    });
+    // Add area_stats areas
+    (areaStatsData || []).forEach((row: any) => {
+      totals[row.area_id] = (totals[row.area_id] || 0) + (row.time_spent_minutes || 0);
+    });
     return Object.entries(totals)
       .map(([area, minutes]) => ({ area, minutes, hours: Math.round(minutes / 60 * 10) / 10 }))
       .sort((a, b) => b.minutes - a.minutes);
-  }, [dayBreakdown]);
+  }, [dayBreakdown, systemsData, areaStatsData]);
 
   const totalFocusMinutes = dayBreakdown.reduce((s, d) => s + d.totalMin, 0);
   const totalFocusHours = Math.round(totalFocusMinutes / 60 * 10) / 10;
@@ -116,7 +160,7 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
             <div>
               <h2 className="text-base font-bold">Tienes 168 horas esta semana</h2>
               <p className="text-xs text-muted-foreground">
-                Has registrado {totalFocusHours}h de trabajo enfocado ({focusPct}% de tu semana)
+                Has registrado {totalFocusHours}h de esfuerzo total ({focusPct}% de tu semana)
               </p>
             </div>
           </div>

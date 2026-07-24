@@ -6,7 +6,7 @@ import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, startOf
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Target, Book, Music, FolderKanban, GraduationCap, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target, Book, Music, FolderKanban, GraduationCap, ArrowRight, Clock, Gamepad2, Globe, Dumbbell, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { MonthlyGoals } from '@/components/monthly/MonthlyGoals';
@@ -32,6 +32,12 @@ interface DayData {
   reviewRating: number | null;
 }
 
+const SOSTEN_IDS = [
+  'rutina-activacion', 'alistamiento-desayuno', 'horario-regular', 'rutina-desactivacion',
+  'skincare-manana', 'skincare-noche', 'banarme-vestirme',
+  'pre-entreno', 'desayuno', 'merienda-1', 'almuerzo', 'merienda-2', 'comida', 'antes-dormir', 'suplementos',
+]
+
 const AREAS_META: Record<string, { icon: string; color: string }> = {
   universidad: { icon: '🎓', color: 'bg-blue-500' },
   emprendimiento: { icon: '💼', color: 'bg-purple-500' },
@@ -48,6 +54,7 @@ export default function MonthlyView() {
   const { streak: overallStreak } = useOverallSystemStreak();
   const [rawTasks, setRawTasks] = useState<any[]>([]);
   const [focusSessions, setFocusSessions] = useState<any[]>([]);
+  const [monthAreaMinutes, setMonthAreaMinutes] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const monthStart = startOfMonth(currentMonth);
@@ -67,21 +74,42 @@ export default function MonthlyView() {
     const s = format(monthStart, 'yyyy-MM-dd');
     const e = format(monthEnd, 'yyyy-MM-dd');
 
-    const [tasksRes, eTasksRes, reviewsRes, focusRes] = await Promise.all([
+    const [tasksRes, eTasksRes, reviewsRes, focusRes, systemsRes, areaStatsRes] = await Promise.all([
       supabase.from('tasks').select('*').gte('due_date', `${s}T00:00:00`).lte('due_date', `${e}T23:59:59`),
       supabase.from('entrepreneurship_tasks').select('*').gte('due_date', s).lte('due_date', e),
       supabase.from('daily_reviews').select('*').gte('review_date', s).lte('review_date', e),
       supabase.from('focus_sessions').select('*').gte('start_time', `${s}T00:00:00`).lte('start_time', `${e}T23:59:59`),
+      supabase.from('daily_systems_tracking').select('tracking_date, completions, time_data').gte('tracking_date', s).lte('tracking_date', e),
+      supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', s).lte('stat_date', e),
     ]);
 
     const allTasks = [...(tasksRes.data || []), ...(eTasksRes.data || [])];
     const reviews = reviewsRes.data || [];
     const focus = focusRes.data || [];
+    const systems = systemsRes.data || [];
+    const areaStats = areaStatsRes.data || [];
     const today = new Date();
     const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
     setRawTasks(tasksRes.data || []);
     setFocusSessions(focus);
+
+    // Aggregate time spent by area for the month
+    const areaMinutes: Record<string, number> = {};
+    (systemsRes.data || []).forEach((row: any) => {
+      const td = row.time_data || {};
+      Object.entries(td).forEach(([key, val]) => {
+        areaMinutes[key] = (areaMinutes[key] || 0) + (Number(val) || 0);
+      });
+    });
+    setMonthAreaMinutes(areaMinutes);
+
+    // Aggregate area time per day
+    const areaTimeByDay: Record<string, number> = {};
+    areaStats.forEach((a: any) => {
+      const key = a.stat_date;
+      areaTimeByDay[key] = (areaTimeByDay[key] || 0) + (a.time_spent_minutes || 0);
+    });
 
     const data: DayData[] = monthDays.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd');
@@ -93,7 +121,16 @@ export default function MonthlyView() {
       const total = dayTasks.length;
       const review = reviews.find(r => r.review_date === dayStr);
       const fMin = focus.filter(f => format(new Date(f.start_time), 'yyyy-MM-dd') === dayStr).reduce((a, f) => a + (f.duration_minutes || 0), 0);
-      const score = review?.overall_rating ? review.overall_rating * 20 : (total > 0 ? Math.round((completed / total) * 100) : 0);
+      const sysRow = systems.find((s: any) => s.tracking_date === dayStr);
+      const completions = sysRow?.completions || {};
+      const timeData = sysRow?.time_data || {};
+      const sosteenDone = SOSTEN_IDS.filter(id => completions[id] === true).length;
+      const sosteenPct = SOSTEN_IDS.length > 0 ? Math.round((sosteenDone / SOSTEN_IDS.length) * 100) : 0;
+      const totalMin = Object.values(timeData as Record<string, number>).reduce((s: number, v) => s + (Number(v) || 0), 0);
+      const taskPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const reviewScore = review?.overall_rating ? review.overall_rating * 20 : 0;
+      const effortScore = Math.min(100, Math.round(totalMin / 1.2));
+      const score = reviewScore > 0 ? reviewScore : Math.max(taskPct, sosteenPct, effortScore);
       return {
         date: day,
         tasksCompleted: completed,
@@ -296,6 +333,54 @@ export default function MonthlyView() {
             <Link to="/trimestral-planning" className="text-xs text-indigo-500 hover:text-indigo-600 font-medium flex items-center gap-1">
               Crear plan <ArrowRight className="w-3 h-3" />
             </Link>
+          </div>
+        </Card>
+      )}
+
+      {/* Time Goals from Trimestral Plan */}
+      {!trimestralLoading && trimestralPlan.timeGoals?.[monthKey] && Object.keys(trimestralPlan.timeGoals[monthKey]).length > 0 && (
+        <Card className="border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="w-4 h-4 text-indigo-500" />
+              <span className="text-sm font-semibold">Metas de Tiempo — Mes {monthIndex + 1}</span>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {Object.values(monthAreaMinutes).reduce((a, b) => a + b, 0)}min acumulados
+              </span>
+            </div>
+            <div className="space-y-2">
+              {Object.entries(trimestralPlan.timeGoals[monthKey]).map(([area, goal]) => {
+                if (!goal || (goal as number) <= 0) return null
+                const actual = monthAreaMinutes[area] || 0
+                const pct = Math.min(100, Math.round((actual / (goal as number)) * 100))
+                const icons: Record<string, React.ReactNode> = {
+                  lectura: <Book className="h-3.5 w-3.5 text-emerald-500" />,
+                  musica: <Music className="h-3.5 w-3.5 text-rose-500" />,
+                  ajedrez: <Gamepad2 className="h-3.5 w-3.5 text-teal-500" />,
+                  game: <Zap className="h-3.5 w-3.5 text-pink-500" />,
+                  italiano: <Globe className="h-3.5 w-3.5 text-green-500" />,
+                  ingles: <Globe className="h-3.5 w-3.5 text-blue-500" />,
+                  gym: <Dumbbell className="h-3.5 w-3.5 text-orange-500" />,
+                  piano: <Music className="h-3.5 w-3.5 text-pink-500" />,
+                  guitarra: <Music className="h-3.5 w-3.5 text-amber-500" />,
+                }
+                return (
+                  <div key={area} className="flex items-center gap-2 text-xs">
+                    {icons[area] || <Clock className="h-3.5 w-3.5 text-muted-foreground" />}
+                    <span className="w-20 capitalize truncate shrink-0">{area}</span>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full transition-all", pct >= 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-blue-500")}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="font-mono text-[10px] w-24 text-right shrink-0">
+                      {Math.round(actual)}min / {goal}min
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </Card>
       )}

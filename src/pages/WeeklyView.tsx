@@ -42,12 +42,14 @@ export default function WeeklyView() {
     queryFn: async () => {
       const startStr = format(weekStart, 'yyyy-MM-dd');
       const endStr = format(weekEnd, 'yyyy-MM-dd');
-      const [tasksRes, reviewsRes, activityRes, focusRes, habitsRes] = await Promise.all([
+      const [tasksRes, reviewsRes, activityRes, focusRes, habitsRes, systemsRes, areaStatsRes] = await Promise.all([
         supabase.from('tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
         supabase.from('daily_reviews').select('*').gte('review_date', startStr).lte('review_date', endStr),
         supabase.from('activity_tracking').select('*').gte('activity_date', startStr).lte('activity_date', endStr),
         supabase.from('focus_sessions').select('*').gte('start_time', `${startStr}T00:00:00`).lte('start_time', `${endStr}T23:59:59`),
         supabase.from('habit_history').select('*'),
+        supabase.from('daily_systems_tracking').select('tracking_date, completions, time_data').gte('tracking_date', startStr).lte('tracking_date', endStr),
+        supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', startStr).lte('stat_date', endStr),
       ]);
       return {
         tasks: tasksRes.data || [],
@@ -55,9 +57,18 @@ export default function WeeklyView() {
         activities: activityRes.data || [],
         focusSessions: focusRes.data || [],
         habits: habitsRes.data || [],
+        systems: systemsRes.data || [],
+        areaStats: areaStatsRes.data || [],
       };
     }
   });
+
+  const SOSTEN_IDS = [
+    'meditacion', 'lectura_inspiradora', 'oracion', 'diario_agradecimiento',
+    'ejercicio_mañana', 'caminata', 'hidratacion_agua',
+    'bajar_pantallas', 'orden_habitacion', 'lectura_biblia',
+    'suplementos', 'plan_dia', 'revision_dia',
+  ];
 
   const getDayData = (day: Date) => {
     const dateStr = format(day, 'yyyy-MM-dd');
@@ -69,7 +80,20 @@ export default function WeeklyView() {
       .reduce((sum, f) => sum + (f.duration_minutes || 0), 0) || 0;
     const completed = dayTasks.filter(t => t.completed).length;
     const total = dayTasks.length;
-    const score = review?.overall_rating ? review.overall_rating * 20 : (total > 0 ? Math.round((completed / total) * 100) : 0);
+
+    // Daily systems data
+    const sysRow = weekData?.systems.find((s: any) => s.tracking_date === dateStr);
+    const completions = sysRow?.completions || {};
+    const timeData = sysRow?.time_data || {};
+    const sosteenDone = SOSTEN_IDS.filter(id => completions[id] === true).length;
+    const sosteenPct = SOSTEN_IDS.length > 0 ? Math.round((sosteenDone / SOSTEN_IDS.length) * 100) : 0;
+    const totalMin = Object.values(timeData as Record<string, number>).reduce((s: number, v) => s + (Number(v) || 0), 0);
+
+    const taskPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const reviewScore = review?.overall_rating ? review.overall_rating * 20 : 0;
+    const effortScore = Math.min(100, Math.round(totalMin / 1.2));
+    const score = reviewScore > 0 ? reviewScore : Math.max(taskPct, sosteenPct, effortScore);
+
     const isFuture = isBefore(new Date(), day) && !isToday(day);
     return { tasks: dayTasks, completed, total, score, focusMin, activities, review, isFuture };
   };
