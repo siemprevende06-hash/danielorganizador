@@ -1,11 +1,10 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { format, eachDayOfInterval, startOfWeek, subMonths, isAfter, isBefore } from "date-fns";
+import { format, eachDayOfInterval, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   BookOpen, Music, Globe, Gamepad2, Zap,
@@ -14,9 +13,7 @@ import {
 } from "lucide-react";
 import {
   Area, Bar, ComposedChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line,
-  PieChart, Pie, Cell,
 } from "recharts";
-import { useFinance } from "@/hooks/useFinance";
 
 const MONTH_KEYS = ["month1", "month2", "month3"] as const;
 
@@ -498,54 +495,69 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
 }
 
 function FinanceContent() {
-  const { wallets, transactions, isLoading } = useFinance();
+  const currentMonth = new Date();
 
-  const exchangeRate = 360;
+  const { data: wallets, isLoading: wLoading } = useQuery({
+    queryKey: ['fin-wallets'],
+    queryFn: async () => {
+      const { data } = await supabase.from('wallets').select('*').order('created_at');
+      return data || [];
+    },
+    retry: 1,
+    staleTime: 60000,
+  });
 
-  const currentMonth = useMemo(() => new Date(), []);
+  const { data: allTransactions, isLoading: tLoading } = useQuery({
+    queryKey: ['fin-transactions'],
+    queryFn: async () => {
+      const { data } = await supabase.from('transactions').select('*').order('transaction_date', { ascending: false });
+      return (data || []).map((t: any) => ({ ...t, date: new Date(t.transaction_date), type: t.transaction_type, walletId: t.wallet_id, categoryId: t.category_id }));
+    },
+    retry: 1,
+    staleTime: 60000,
+  });
+
+  const totalBalance = useMemo(() => {
+    return Math.round((wallets || []).reduce((s: number, w: any) => s + (w.balance || 0), 0));
+  }, [wallets]);
 
   const monthlyData = useMemo(() => {
-    if (!transactions.length) return { income: 0, expenses: 0, balance: 0, savingsRate: 0, totalBalance: 0 };
-
-    const totalBalance = wallets.reduce((s, w) => s + w.balance, 0);
-
-    const thisMonth = transactions.filter(t => {
+    const tx = allTransactions || [];
+    const thisMonth = tx.filter((t: any) => {
       const td = new Date(t.date);
       return td.getMonth() === currentMonth.getMonth() && td.getFullYear() === currentMonth.getFullYear();
     });
-
-    const income = thisMonth
-      .filter(t => t.type === 'income' && t.categoryId !== 'cat-transfer')
-      .reduce((s, t) => s + t.amount, 0);
-    const expenses = thisMonth
-      .filter(t => t.type === 'expense' && t.categoryId !== 'cat-transfer')
-      .reduce((s, t) => s + t.amount, 0);
+    const income = Math.round(thisMonth
+      .filter((t: any) => t.type === 'income' && t.categoryId !== 'cat-transfer')
+      .reduce((s: number, t: any) => s + t.amount, 0));
+    const expenses = Math.round(thisMonth
+      .filter((t: any) => t.type === 'expense' && t.categoryId !== 'cat-transfer')
+      .reduce((s: number, t: any) => s + t.amount, 0));
     const balance = income - expenses;
     const savingsRate = income > 0 ? Math.round((balance / income) * 100) : 0;
+    return { income, expenses, balance, savingsRate };
+  }, [allTransactions, currentMonth]);
 
-    return { income: Math.round(income), expenses: Math.round(expenses), balance: Math.round(balance), savingsRate, totalBalance: Math.round(totalBalance) };
-  }, [wallets, transactions, currentMonth]);
-
-  // Last 6 months trend
   const monthlyTrend = useMemo(() => {
+    const tx = allTransactions || [];
     const months: { month: string; income: number; expenses: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = subMonths(currentMonth, i);
       const label = format(d, 'MMM', { locale: es });
-      const filtered = transactions.filter(t => {
+      const filtered = tx.filter((t: any) => {
         const td = new Date(t.date);
         return td.getMonth() === d.getMonth() && td.getFullYear() === d.getFullYear();
       });
-      const income = Math.round(filtered.filter(t => t.type === 'income' && t.categoryId !== 'cat-transfer').reduce((s, t) => s + t.amount, 0));
-      const expenses = Math.round(filtered.filter(t => t.type === 'expense' && t.categoryId !== 'cat-transfer').reduce((s, t) => s + t.amount, 0));
+      const income = Math.round(filtered.filter((t: any) => t.type === 'income' && t.categoryId !== 'cat-transfer').reduce((s: number, t: any) => s + t.amount, 0));
+      const expenses = Math.round(filtered.filter((t: any) => t.type === 'expense' && t.categoryId !== 'cat-transfer').reduce((s: number, t: any) => s + t.amount, 0));
       months.push({ month: label, income, expenses });
     }
     return months;
-  }, [transactions, currentMonth]);
+  }, [allTransactions, currentMonth]);
 
-  const maxFinanceValue = Math.max(...monthlyTrend.flatMap(m => [m.income, m.expenses]), 1);
+  const loading = wLoading || tLoading;
 
-  if (isLoading) {
+  if (loading) {
     return (
       <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardContent className="p-8 text-center text-muted-foreground">Cargando finanzas...</CardContent>
@@ -557,81 +569,48 @@ function FinanceContent() {
     <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
       <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
       <CardContent className="p-4 space-y-4">
-        {/* Finances header */}
         <div className="flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-green-500" />
           <span className="text-sm font-semibold">Resumen Financiero</span>
           <span className="text-[10px] text-muted-foreground ml-auto">{format(currentMonth, "MMMM yyyy", { locale: es })}</span>
         </div>
 
-        {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <StatCard
-            icon={<DollarSign className="h-3 w-3" />}
-            label="Balance total"
-            value={`$${monthlyData.totalBalance}`}
-            color="#10b981"
-          />
-          <StatCard
-            icon={<TrendingUp className="h-3 w-3" />}
-            label="Ingresos"
-            value={`$${monthlyData.income}`}
-            color="#3b82f6"
-          />
-          <StatCard
-            icon={<BarChart3 className="h-3 w-3" />}
-            label="Gastos"
-            value={`$${monthlyData.expenses}`}
-            color={monthlyData.expenses > monthlyData.income ? '#ef4444' : '#f59e0b'}
-          />
-          <StatCard
-            icon={<Activity className="h-3 w-3" />}
-            label="Tasa de ahorro"
-            value={monthlyData.savingsRate >= 0 ? `${monthlyData.savingsRate}%` : '—'}
-            color={monthlyData.savingsRate >= 20 ? '#10b981' : monthlyData.savingsRate >= 10 ? '#f59e0b' : '#ef4444'}
-          />
+          <StatCard icon={<DollarSign className="h-3 w-3" />} label="Balance total" value={`$${totalBalance}`} color="#10b981" />
+          <StatCard icon={<TrendingUp className="h-3 w-3" />} label="Ingresos" value={`$${monthlyData.income}`} color="#3b82f6" />
+          <StatCard icon={<BarChart3 className="h-3 w-3" />} label="Gastos" value={`$${monthlyData.expenses}`} color={monthlyData.expenses > monthlyData.income ? '#ef4444' : '#f59e0b'} />
+          <StatCard icon={<Activity className="h-3 w-3" />} label="Tasa de ahorro" value={monthlyData.savingsRate >= 0 ? `${monthlyData.savingsRate}%` : '—'} color={monthlyData.savingsRate >= 20 ? '#10b981' : monthlyData.savingsRate >= 10 ? '#f59e0b' : '#ef4444'} />
         </div>
 
-        {/* Monthly trend chart */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <TrendingUp className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Ingresos vs Gastos (6 meses)</span>
+        {monthlyTrend.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <TrendingUp className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Ingresos vs Gastos (6 meses)</span>
+            </div>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={monthlyTrend} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`} />
+                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid hsl(var(--border))' }} formatter={(value: number, name: string) => [`$${value}`, name === 'income' ? 'Ingresos' : 'Gastos']} />
+                  <Bar dataKey="income" name="income" fill="#3b82f6" radius={[3, 3, 0, 0]} opacity={0.8} maxBarSize={20} />
+                  <Bar dataKey="expenses" name="expenses" fill="#ef4444" radius={[3, 3, 0, 0]} opacity={0.8} maxBarSize={20} />
+                  <Line type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-3 mt-1 text-[9px] text-muted-foreground/60 justify-center">
+              <span className="flex items-center gap-1"><div className="w-3 h-1 rounded bg-blue-500" /> Ingresos</span>
+              <span className="flex items-center gap-1"><div className="w-3 h-1 rounded bg-red-500" /> Gastos</span>
+            </div>
           </div>
-          <div className="h-44">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={monthlyTrend} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid hsl(var(--border))' }} formatter={(value: number, name: string) => [`$${value}`, name === 'income' ? 'Ingresos' : 'Gastos']} />
-                <Bar dataKey="income" name="income" fill="#3b82f6" radius={[3, 3, 0, 0]} opacity={0.8} maxBarSize={20} />
-                <Bar dataKey="expenses" name="expenses" fill="#ef4444" radius={[3, 3, 0, 0]} opacity={0.8} maxBarSize={20} />
-                <Line type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} dot={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex gap-3 mt-1 text-[9px] text-muted-foreground/60 justify-center">
-            <span className="flex items-center gap-1"><div className="w-3 h-1 rounded bg-blue-500" /> Ingresos</span>
-            <span className="flex items-center gap-1"><div className="w-3 h-1 rounded bg-red-500" /> Gastos</span>
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function buildStats(sub: SubAreaDef): {
-  timeByDay: Record<string, number>;
-  activeDays: number;
-  totalDays: number;
-  totalMinutes: number;
-  avgMinutes: number;
-  streak: number;
-  goalPct: number;
-  consistency: number;
-  quarterlyGoal: number;
-} {
-  return { timeByDay: {}, activeDays: 0, totalDays: 0, totalMinutes: 0, avgMinutes: 0, streak: 0, goalPct: 0, consistency: 0, quarterlyGoal: 0 };
-}
+

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component, type ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,27 @@ import { LifeAreaScoresPanel } from "@/components/areas/LifeAreaScoresPanel";
 import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import { useTrimestralPlan, getMonthNamesForQuarter, loadTrimestralPlanFromLocal } from "@/hooks/useTrimestralPlan";
 import { CentralAreasSection } from "@/components/twelveweekyear/CentralAreasSection";
+
+class SafeSection extends Component<{ children: ReactNode; title: string }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode; title: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <CardContent className="p-6 text-center text-muted-foreground">
+            <p className="text-sm">No se pudo cargar {this.props.title}</p>
+            <button onClick={() => this.setState({ hasError: false })} className="text-xs text-primary mt-2 hover:underline">Reintentar</button>
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -564,7 +585,9 @@ export default function TwelveWeekYear() {
         </Card>
 
         {/* Áreas Centrales */}
-        <CentralAreasSection selectedQuarter={selectedQuarter} />
+        <SafeSection title="Áreas Centrales">
+          <CentralAreasSection selectedQuarter={selectedQuarter} />
+        </SafeSection>
 
         {!plan ? (
           <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
