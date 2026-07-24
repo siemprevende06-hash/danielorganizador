@@ -3,21 +3,6 @@ import App from "./App.tsx";
 import "./index.css";
 import { toast } from "sonner";
 
-// === Kill-switch: desregistrar cualquier SW previo y limpiar cachés ===
-// Esto obliga a que las PWAs instaladas y navegadores con SW antiguo
-// obtengan la versión fresca en la próxima carga.
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then((regs) => {
-    regs.forEach((r) => r.unregister());
-  });
-}
-if ("caches" in window) {
-  caches.keys().then((names) => {
-    names.forEach((n) => caches.delete(n));
-  });
-}
-
-// Registro del SW kill-switch (se auto-desinstala tras limpiar cachés)
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
 })();
@@ -28,23 +13,36 @@ const isPreviewHost =
 
 if (!isPreviewHost && !isInIframe && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).then((registration) => {
+      registration.addEventListener("updatefound", () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              toast("Nueva versión disponible. Recarga para actualizar.", {
+                action: {
+                  label: "Recargar",
+                  onClick: () => window.location.reload(),
+                },
+                duration: Infinity,
+              });
+            }
+          });
+        }
+      });
+    }).catch(() => {});
   });
 }
 
-// Botón "forzar actualización" expuesto globalmente
 (window as any).__pwaCheckForUpdates = async () => {
   try {
     if ("serviceWorker" in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        await registration.update();
+        toast("Buscando actualizaciones…", { duration: 2000 });
+      }
     }
-    if ("caches" in window) {
-      const names = await caches.keys();
-      await Promise.all(names.map((n) => caches.delete(n)));
-    }
-    toast("Actualizando…", { duration: 1500 });
-    setTimeout(() => window.location.reload(), 400);
   } catch {
     window.location.reload();
   }

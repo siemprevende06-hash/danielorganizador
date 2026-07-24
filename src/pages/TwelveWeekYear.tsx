@@ -10,6 +10,7 @@ import { AreaEffortResultsPanel } from "@/components/areas/AreaEffortResultsPane
 import { LifeAreaScoresPanel } from "@/components/areas/LifeAreaScoresPanel";
 import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import { useTrimestralPlan, getMonthNamesForQuarter, loadTrimestralPlanFromLocal } from "@/hooks/useTrimestralPlan";
+import { CentralAreasSection } from "@/components/twelveweekyear/CentralAreasSection";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -561,6 +562,9 @@ export default function TwelveWeekYear() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Áreas Centrales */}
+        <CentralAreasSection selectedQuarter={selectedQuarter} />
 
         {!plan ? (
           <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
