@@ -11,9 +11,6 @@ import {
   GraduationCap, Briefcase, FolderKanban, DollarSign,
   TrendingUp, BarChart3, Clock, Target, Flame, Activity,
 } from "lucide-react";
-import {
-  Area, Bar, ComposedChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line,
-} from "recharts";
 
 const MONTH_KEYS = ["month1", "month2", "month3"] as const;
 
@@ -32,52 +29,27 @@ function loadPlanForQuarter(quarter: number) {
   } catch { return null; }
 }
 
-function getTotalDaysActive(timeByDay: Record<string, number>): number {
-  return Object.values(timeByDay).filter(v => v > 0).length;
+function formatMinutes(m: number): string {
+  const h = Math.floor(m / 60);
+  const min = Math.round(m % 60);
+  return h > 0 ? `${h}h ${min}m` : `${min}m`;
 }
 
-function computeStreak(timeByDay: Record<string, number>, allDates: string[]): number {
-  let streak = 0;
-  for (let i = allDates.length - 1; i >= 0; i--) {
-    if ((timeByDay[allDates[i]] || 0) > 0) streak++;
-    else break;
-  }
-  return streak;
-}
-
-function getMonthlyGoal(plan: any, monthKey: string, area: string): number {
-  if (!plan) return 0;
-  const fromTimeGoals = plan.timeGoals?.[monthKey]?.[area];
-  if (fromTimeGoals && fromTimeGoals > 0) return fromTimeGoals;
-  const fromAreaGoals = plan.areaTimeGoals?.[monthKey]?.[area];
-  if (fromAreaGoals && fromAreaGoals > 0) return fromAreaGoals;
-  return 0;
-}
-
-interface SubAreaDef {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  color: string;
+export interface SubAreaDef {
+  id: string; label: string; icon: React.ReactNode; color: string;
   trackingSource: 'area_stats' | 'time_data' | 'both';
-  trackingId: string | string[];
-  timeGoalKey?: string;
+  trackingId: string | string[]; timeGoalKey?: string;
 }
 
-interface CentralAreaDef {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  gradient: string;
+export interface CentralAreaDef {
+  id: string; label: string; icon: React.ReactNode; gradient: string;
   subAreas: SubAreaDef[];
 }
 
-const CENTRAL_AREAS: CentralAreaDef[] = [
+export const CENTRAL_AREAS: CentralAreaDef[] = [
   {
-    id: 'desarrollo',
-    label: 'Desarrollo Personal',
-    icon: <BookOpen className="h-4 w-4" />,
-    gradient: 'from-emerald-500 to-teal-400',
+    id: 'desarrollo', label: 'Desarrollo Personal',
+    icon: <BookOpen className="h-4 w-4" />, gradient: 'from-emerald-500 to-teal-400',
     subAreas: [
       { id: 'lectura', label: 'Lectura', icon: <BookOpen className="h-3 w-3" />, color: 'emerald', trackingSource: 'area_stats', trackingId: 'lectura', timeGoalKey: 'lectura' },
       { id: 'musica', label: 'Música', icon: <Music className="h-3 w-3" />, color: 'rose', trackingSource: 'time_data', trackingId: 'musica', timeGoalKey: 'musica' },
@@ -87,10 +59,8 @@ const CENTRAL_AREAS: CentralAreaDef[] = [
     ],
   },
   {
-    id: 'profesional',
-    label: 'Profesional/Académico',
-    icon: <GraduationCap className="h-4 w-4" />,
-    gradient: 'from-sky-500 to-blue-400',
+    id: 'profesional', label: 'Profesional/Académico',
+    icon: <GraduationCap className="h-4 w-4" />, gradient: 'from-sky-500 to-blue-400',
     subAreas: [
       { id: 'universidad', label: 'Universidad', icon: <GraduationCap className="h-3 w-3" />, color: 'blue', trackingSource: 'area_stats', trackingId: 'universidad', timeGoalKey: 'universidad' },
       { id: 'emprendimiento', label: 'Emprendimiento', icon: <Briefcase className="h-3 w-3" />, color: 'purple', trackingSource: 'area_stats', trackingId: 'emprendimiento', timeGoalKey: 'emprendimiento' },
@@ -98,468 +68,218 @@ const CENTRAL_AREAS: CentralAreaDef[] = [
     ],
   },
   {
-    id: 'finanzas',
-    label: 'Finanzas',
-    icon: <DollarSign className="h-4 w-4" />,
-    gradient: 'from-green-500 to-emerald-400',
+    id: 'finanzas', label: 'Finanzas',
+    icon: <DollarSign className="h-4 w-4" />, gradient: 'from-green-500 to-emerald-400',
     subAreas: [],
   },
 ];
 
-const COLORS: Record<string, string> = {
-  emerald: "#10b981", rose: "#f43f5e", teal: "#14b8a6",
-  pink: "#ec4899", green: "#22c55e", blue: "#3b82f6",
-  orange: "#f97316", sky: "#0ea5e9", purple: "#a855f7",
-  amber: "#f59e0b",
-};
+interface StatBox { label: string; value: string; sub?: string; color: string }
 
-function formatMinutes(m: number): string {
-  const h = Math.floor(m / 60);
-  const min = Math.round(m % 60);
-  return h > 0 ? `${h}h ${min}m` : `${min}m`;
+function StatsRow({ stats }: { stats: StatBox[] }) {
+  return (
+    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+      {stats.map((s, i) => (
+        <div key={i} className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
+          <p className="text-xs font-bold" style={{ color: s.color }}>{s.value}</p>
+          {s.sub && <p className="text-[9px] text-muted-foreground">{s.sub}</p>}
+        </div>
+      ))}
+    </div>
+  );
 }
 
-export function CentralAreasSection({ selectedQuarter }: { selectedQuarter: number }) {
+export function CentralAreasSection({
+  selectedQuarter,
+  activeCentral,
+  onCentralChange,
+}: {
+  selectedQuarter: number;
+  activeCentral: string;
+  onCentralChange: (id: string) => void;
+}) {
   const qDates = useMemo(() => getQuarterDates(selectedQuarter), [selectedQuarter]);
-  const [activeCentral, setActiveCentral] = useState<string>('desarrollo');
   const [activeSub, setActiveSub] = useState<string>('lectura');
 
   const plan = useMemo(() => loadPlanForQuarter(selectedQuarter), [selectedQuarter]);
-  const activeCentralDef = CENTRAL_AREAS.find(a => a.id === activeCentral);
-  const activeSubDef = activeCentralDef?.subAreas?.find(s => s.id === activeSub);
+  const activeDef = CENTRAL_AREAS.find(a => a.id === activeCentral);
+  const activeSubDef = activeDef?.subAreas?.find(s => s.id === activeSub);
 
   const startStr = format(qDates.start, 'yyyy-MM-dd');
   const endStr = format(qDates.end, 'yyyy-MM-dd');
 
-  // Query daily_area_stats
-  const { data: areaStatsData } = useQuery({
-    queryKey: ['quarterAreaStats', startStr, endStr],
+  const { data: areaStats } = useQuery({
+    queryKey: ['qc-area', startStr, endStr],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('daily_area_stats')
-        .select('area_id, stat_date, time_spent_minutes, completed')
-        .gte('stat_date', startStr)
-        .lte('stat_date', endStr);
+      const { data } = await supabase.from('daily_area_stats')
+        .select('area_id, stat_date, time_spent_minutes')
+        .gte('stat_date', startStr).lte('stat_date', endStr);
       return data || [];
     },
   });
 
-  // Query daily_systems_tracking for time_data
-  const { data: timeDataRows } = useQuery({
-    queryKey: ['quarterSystemsTime', startStr, endStr],
+  const { data: systems } = useQuery({
+    queryKey: ['qc-sys', startStr, endStr],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('daily_systems_tracking')
+      const { data } = await supabase.from('daily_systems_tracking')
         .select('tracking_date, time_data')
-        .gte('tracking_date', startStr)
-        .lte('tracking_date', endStr);
+        .gte('tracking_date', startStr).lte('tracking_date', endStr);
       return data || [];
     },
   });
 
-  // Query area_streaks
-  const { data: streaksData } = useQuery({
-    queryKey: ['quarterStreaks'],
-    queryFn: async () => {
-      const { data } = await supabase.from('area_streaks').select('*');
-      return data || [];
-    },
-  });
+  const handleCentral = (id: string) => {
+    onCentralChange(id);
+    const def = CENTRAL_AREAS.find(a => a.id === id);
+    if (def?.subAreas?.length) setActiveSub(def.subAreas[0].id);
+  };
 
-  // Build day-by-day time map for a given sub-area
-  const buildTimeByDay = (sub: SubAreaDef): Record<string, number> => {
+  const stats = useMemo(() => {
+    if (!activeSubDef) return null;
+    const areaRows = areaStats || [];
+    const sysRows = systems || [];
     const timeByDay: Record<string, number> = {};
-    const areaStats = areaStatsData || [];
-    const timeRows = timeDataRows || [];
+    const ids = Array.isArray(activeSubDef.trackingId) ? activeSubDef.trackingId : [activeSubDef.trackingId];
 
-    // From daily_area_stats
-    if (sub.trackingSource === 'area_stats' || sub.trackingSource === 'both') {
-      const ids = Array.isArray(sub.trackingId) ? sub.trackingId : [sub.trackingId];
-      areaStats
-        .filter((r: any) => ids.includes(r.area_id))
-        .forEach((r: any) => {
-          timeByDay[r.stat_date] = (timeByDay[r.stat_date] || 0) + (r.time_spent_minutes || 0);
-        });
+    if (activeSubDef.trackingSource !== 'time_data') {
+      areaRows.filter((r: any) => ids.includes(r.area_id)).forEach((r: any) => {
+        timeByDay[r.stat_date] = (timeByDay[r.stat_date] || 0) + (r.time_spent_minutes || 0);
+      });
     }
-
-    // From daily_systems_tracking.time_data
-    if (sub.trackingSource === 'time_data' || sub.trackingSource === 'both') {
-      const ids = Array.isArray(sub.trackingId) ? sub.trackingId : [sub.trackingId];
-      timeRows.forEach((row: any) => {
+    if (activeSubDef.trackingSource !== 'area_stats' || activeSubDef.trackingSource === 'both') {
+      sysRows.forEach((row: any) => {
         const td = row.time_data || {};
         let sum = 0;
         ids.forEach((id: string) => { sum += Number(td[id]) || 0; });
-        if (sum > 0) {
-          timeByDay[row.tracking_date] = (timeByDay[row.tracking_date] || 0) + sum;
-        }
+        if (sum > 0) timeByDay[row.tracking_date] = (timeByDay[row.tracking_date] || 0) + sum;
       });
     }
 
-    return timeByDay;
-  };
-
-  const allDateStrings = useMemo(() => {
-    return eachDayOfInterval({ start: qDates.start, end: qDates.end }).map(d => format(d, 'yyyy-MM-dd'));
-  }, [qDates]);
-
-  // Compute stats for a sub-area
-  const computeStats = (sub: SubAreaDef) => {
-    const timeByDay = buildTimeByDay(sub);
-    const totalDays = allDateStrings.length;
-    const activeDays = getTotalDaysActive(timeByDay);
+    const allDates = eachDayOfInterval({ start: qDates.start, end: qDates.end }).map(d => format(d, 'yyyy-MM-dd'));
+    const totalDays = allDates.length;
+    const activeDays = Object.values(timeByDay).filter(v => v > 0).length;
     const totalMinutes = Object.values(timeByDay).reduce((s, v) => s + v, 0);
-    const avgMinutes = activeDays > 0 ? totalMinutes / activeDays : 0;
-    const streak = computeStreak(timeByDay, allDateStrings);
+    const avgMinutes = activeDays > 0 ? Math.round(totalMinutes / activeDays) : 0;
 
-    // Goal from trimestral plan
+    let streak = 0;
+    for (let i = allDates.length - 1; i >= 0; i--) {
+      if ((timeByDay[allDates[i]] || 0) > 0) streak++; else break;
+    }
+
     let quarterlyGoal = 0;
     MONTH_KEYS.forEach(mk => {
-      quarterlyGoal += getMonthlyGoal(plan, mk, sub.timeGoalKey || sub.id);
+      if (!plan) return;
+      const g = plan.timeGoals?.[mk]?.[activeSubDef.timeGoalKey || activeSubDef.id] || plan.areaTimeGoals?.[mk]?.[activeSubDef.timeGoalKey || activeSubDef.id] || 0;
+      quarterlyGoal += g;
     });
     const goalPct = quarterlyGoal > 0 ? Math.round((totalMinutes / quarterlyGoal) * 100) : 0;
-
-    // Consistency: % of days with any time
     const consistency = totalDays > 0 ? Math.round((activeDays / totalDays) * 100) : 0;
 
-    // Streak from area_streaks (if available)
-    let streakFromDb: number | null = null;
-    if (sub.trackingSource === 'area_stats' || sub.trackingSource === 'both') {
-      const ids = Array.isArray(sub.trackingId) ? sub.trackingId : [sub.trackingId];
-      ids.forEach((id: string) => {
-        const found = (streaksData || []).find((s: any) => s.area_id === id);
-        if (found && found.current_streak > (streakFromDb || 0)) {
-          streakFromDb = found.current_streak;
-        }
-      });
-    }
-    const displayStreak = streakFromDb !== null ? Math.max(streak, streakFromDb) : streak;
+    return [
+      { label: "DÍAS ACTIVOS", value: `${activeDays}/${totalDays}`, sub: `${Math.round((activeDays / Math.max(totalDays, 1)) * 100)}%`, color: "#10b981" },
+      { label: "RACHA", value: `${streak} días`, color: streak >= 7 ? '#10b981' : streak >= 3 ? '#f59e0b' : '#6366f1' },
+      { label: "TOTAL", value: formatMinutes(totalMinutes), color: "#6366f1" },
+      { label: "PROMEDIO", value: `${avgMinutes}min/día`, color: "#6366f1" },
+      { label: "VS META", value: quarterlyGoal > 0 ? `${goalPct}%` : '—', sub: quarterlyGoal > 0 ? `${formatMinutes(totalMinutes)} / ${formatMinutes(quarterlyGoal)}` : undefined, color: goalPct >= 100 ? '#10b981' : goalPct >= 50 ? '#f59e0b' : '#6366f1' },
+      { label: "CONSISTENCIA", value: `${consistency}%`, color: consistency >= 70 ? '#10b981' : consistency >= 40 ? '#f59e0b' : '#ef4444' },
+    ];
+  }, [activeSubDef, areaStats, systems, plan, qDates]);
 
-    return { timeByDay, activeDays, totalDays, totalMinutes, avgMinutes, streak: displayStreak, goalPct, consistency, quarterlyGoal };
-  };
-
-  const subStats = useMemo(() => {
-    if (!activeSubDef) return null;
-    return computeStats(activeSubDef);
-  }, [activeSubDef, areaStatsData, timeDataRows, streaksData, plan]);
-
-  // Build weekly chart data for the current sub-area
-  const weeklyChartData = useMemo(() => {
-    if (!activeSubDef || !subStats) return [];
-    const weeks: { week: number; label: string; minutes: number; trend: number }[] = [];
-    let weekNum = 1;
-    for (let d = new Date(qDates.start); d <= qDates.end; d.setDate(d.getDate() + 7)) {
-      const weekStart = new Date(d);
-      const weekEnd = new Date(d);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      if (weekEnd > qDates.end) break;
-      let total = 0;
-      for (let day = new Date(weekStart); day <= weekEnd; day.setDate(day.getDate() + 1)) {
-        const ds = format(day, 'yyyy-MM-dd');
-        total += subStats.timeByDay[ds] || 0;
-      }
-      weeks.push({
-        week: weekNum,
-        label: `S${weekNum}`,
-        minutes: total,
-        trend: 0,
-      });
-      weekNum++;
-    }
-    // Simple moving average for trend line
-    for (let i = 2; i < weeks.length - 1; i++) {
-      weeks[i].trend = Math.round((weeks[i - 2].minutes + weeks[i - 1].minutes + weeks[i].minutes + weeks[i + 1].minutes) / 4);
-    }
-    if (weeks.length > 0) weeks[weeks.length - 1].trend = weeks[weeks.length - 1].minutes;
-    return weeks;
-  }, [activeSubDef, subStats, qDates]);
-
-  // Change sub-area when central tab changes
-  const handleCentralChange = (id: string) => {
-    setActiveCentral(id);
-    const def = CENTRAL_AREAS.find(a => a.id === id);
-    if (def?.subAreas?.length) {
-      setActiveSub(def.subAreas[0].id);
-    }
-  };
-
-  const centralArea = CENTRAL_AREAS.find(a => a.id === activeCentral);
-  const activeGradient = centralArea?.gradient || 'from-primary to-primary/60';
-
-  if (!areaStatsData || !timeDataRows) {
-    return (
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-        <CardContent className="p-8 text-center text-muted-foreground">Cargando datos de áreas...</CardContent>
-      </Card>
-    );
-  }
+  const loading = !areaStats || !systems;
+  const grad = activeDef?.gradient || 'from-primary to-primary/60';
 
   return (
     <div className="space-y-4">
-      {/* Section title */}
       <div className="flex items-center gap-2">
         <Activity className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold">Áreas Centrales</h2>
         <span className="text-[10px] text-muted-foreground">{format(qDates.start, 'd MMM', { locale: es })} – {format(qDates.end, 'd MMM yyyy', { locale: es })}</span>
       </div>
 
-      {/* Central area tabs */}
       <div className="grid grid-cols-3 gap-2">
         {CENTRAL_AREAS.map(area => {
           const active = activeCentral === area.id;
           return (
-            <button
-              key={area.id}
-              onClick={() => handleCentralChange(area.id)}
+            <button key={area.id} onClick={() => handleCentral(area.id)}
               className={cn(
                 "relative rounded-xl p-3 text-left transition-all border-0",
-                active
-                  ? `bg-gradient-to-r ${area.gradient} text-white shadow-lg shadow-black/10 scale-[1.02]`
-                  : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md border border-border/40"
+                active ? `bg-gradient-to-r ${area.gradient} text-white shadow-lg shadow-black/10 scale-[1.02]` : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md border border-border/40"
               )}
             >
-              <div className="flex items-center gap-2">
-                {area.icon}
-                <span className="text-xs font-semibold">{area.label}</span>
-              </div>
+              <div className="flex items-center gap-2">{area.icon}<span className="text-xs font-semibold">{area.label}</span></div>
             </button>
           );
         })}
       </div>
 
-      {/* Sub-area tabs (only for non-finance) */}
-      {activeCentral !== 'finanzas' && activeCentralDef && activeCentralDef.subAreas.length > 0 && (
+      {activeCentral !== 'finanzas' && activeDef && activeDef.subAreas.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
-          {activeCentralDef.subAreas.map(sub => {
+          {activeDef.subAreas.map(sub => {
             const active = activeSub === sub.id;
             return (
-              <button
-                key={sub.id}
-                onClick={() => setActiveSub(sub.id)}
+              <button key={sub.id} onClick={() => setActiveSub(sub.id)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border",
-                  active
-                    ? `bg-gradient-to-r ${activeGradient} text-white shadow-sm border-transparent`
-                    : "bg-white/70 dark:bg-zinc-900/70 border-border/40 hover:border-foreground/20 text-muted-foreground"
+                  active ? `bg-gradient-to-r ${grad} text-white shadow-sm border-transparent` : "bg-white/70 dark:bg-zinc-900/70 border-border/40 hover:border-foreground/20 text-muted-foreground"
                 )}
-              >
-                {sub.icon}
-                {sub.label}
-              </button>
+              >{sub.icon}{sub.label}</button>
             );
           })}
         </div>
       )}
 
-      {/* Content */}
       {activeCentral === 'finanzas' ? (
-        <FinanceContent />
-      ) : activeSubDef && subStats ? (
-        <AreaContent
-          sub={activeSubDef}
-          stats={subStats}
-          chartData={weeklyChartData}
-          color={COLORS[activeSubDef.color] || "#6366f1"}
-          gradient={activeGradient}
-        />
+        <FinanceSummaryCard />
+      ) : loading ? (
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 rounded-2xl overflow-hidden">
+          <CardContent className="p-8 text-center text-muted-foreground">Cargando datos...</CardContent>
+        </Card>
+      ) : stats ? (
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <div className={cn("h-1 bg-gradient-to-r", grad)} />
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-muted">{activeSubDef?.icon}</div>
+              <span className="text-sm font-semibold">{activeSubDef?.label}</span>
+            </div>
+            <StatsRow stats={stats} />
+          </CardContent>
+        </Card>
       ) : null}
     </div>
   );
 }
 
-function AreaContent({
-  sub, stats, chartData, color, gradient,
-}: {
-  sub: SubAreaDef;
-  stats: ReturnType<typeof buildStats>;
-  chartData: { week: number; label: string; minutes: number; trend: number }[];
-  color: string;
-  gradient: string;
-}) {
-  const maxMin = Math.max(...chartData.map(d => d.minutes), 1);
+function FinanceSummaryCard() {
+  const today = useMemo(() => new Date(), []);
 
-  return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className={cn("h-1 bg-gradient-to-r", gradient)} />
-      <CardContent className="p-4 space-y-4">
-        {/* Area header */}
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${color}20` }}>
-            {sub.icon}
-          </div>
-          <span className="text-sm font-semibold">{sub.label}</span>
-        </div>
-
-        {/* Stats grid */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-          <StatCard
-            icon={<Calendar className="h-3 w-3" />}
-            label="Días activos"
-            value={`${stats.activeDays}/${stats.totalDays}`}
-            sub={`${Math.round((stats.activeDays / Math.max(stats.totalDays, 1)) * 100)}%`}
-            color={color}
-          />
-          <StatCard
-            icon={<Flame className="h-3 w-3" />}
-            label="Racha"
-            value={`${stats.streak} días`}
-            color={stats.streak >= 7 ? '#10b981' : stats.streak >= 3 ? '#f59e0b' : color}
-          />
-          <StatCard
-            icon={<Clock className="h-3 w-3" />}
-            label="Total"
-            value={formatMinutes(stats.totalMinutes)}
-            color={color}
-          />
-          <StatCard
-            icon={<BarChart3 className="h-3 w-3" />}
-            label="Promedio"
-            value={`${Math.round(stats.avgMinutes)}min/día`}
-            color={color}
-          />
-          <StatCard
-            icon={<Target className="h-3 w-3" />}
-            label="vs Meta"
-            value={stats.quarterlyGoal > 0 ? `${stats.goalPct}%` : '—'}
-            sub={stats.quarterlyGoal > 0 ? `${formatMinutes(stats.totalMinutes)} / ${formatMinutes(stats.quarterlyGoal)}` : undefined}
-            color={stats.goalPct >= 100 ? '#10b981' : stats.goalPct >= 50 ? '#f59e0b' : color}
-          />
-          <StatCard
-            icon={<Activity className="h-3 w-3" />}
-            label="Consistencia"
-            value={`${stats.consistency}%`}
-            color={stats.consistency >= 70 ? '#10b981' : stats.consistency >= 40 ? '#f59e0b' : '#ef4444'}
-          />
-        </div>
-
-        {/* Weekly chart */}
-        {chartData.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <TrendingUp className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Tendencia semanal</span>
-            </div>
-            <div className="h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} tickFormatter={(v: number) => `${Math.round(v / (v >= 60 ? 60 : 1))}${v >= 60 ? 'h' : 'm'}`} />
-                  <Tooltip
-                    contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid hsl(var(--border))' }}
-                    formatter={(value: number) => [`${formatMinutes(value)}`, 'Tiempo']}
-                  />
-                  <defs>
-                    <linearGradient id={`areaGrad-${sub.id}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-                      <stop offset="100%" stopColor={color} stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="trend" stroke={color} fill={`url(#areaGrad-${sub.id})`} strokeWidth={2} dot={false} />
-                  <Bar dataKey="minutes" fill={color} radius={[3, 3, 0, 0]} opacity={0.7} maxBarSize={24} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex gap-3 mt-1 text-[9px] text-muted-foreground/60 justify-center">
-              <span className="flex items-center gap-1"><div className="w-3 h-1 rounded" style={{ backgroundColor: color, opacity: 0.7 }} /> Minutos por semana</span>
-              <span className="flex items-center gap-1"><div className="w-3 h-0.5 rounded" style={{ backgroundColor: color }} /> Tendencia</span>
-            </div>
-          </div>
-        )}
-
-        {/* Progress to quarterly goal */}
-        {stats.quarterlyGoal > 0 && (
-          <div className="space-y-1">
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>Progreso vs meta trimestral</span>
-              <span>{stats.goalPct}%</span>
-            </div>
-            <Progress value={Math.min(stats.goalPct, 100)} className="h-1.5" />
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string; sub?: string; color: string }) {
-  return (
-    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
-      <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-        {icon}
-        <span className="uppercase tracking-wider">{label}</span>
-      </div>
-      <p className="text-xs font-bold" style={{ color }}>{value}</p>
-      {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-function FinanceContent() {
-  const currentMonth = new Date();
-
-  const { data: wallets, isLoading: wLoading } = useQuery({
-    queryKey: ['fin-wallets'],
-    queryFn: async () => {
-      const { data } = await supabase.from('wallets').select('*').order('created_at');
-      return data || [];
-    },
-    retry: 1,
-    staleTime: 60000,
+  const { data: wallets } = useQuery({
+    queryKey: ['fin-w'],
+    queryFn: async () => { const { data } = await supabase.from('wallets').select('*'); return data || []; },
+    retry: 1, staleTime: 60000,
   });
 
-  const { data: allTransactions, isLoading: tLoading } = useQuery({
-    queryKey: ['fin-transactions'],
-    queryFn: async () => {
-      const { data } = await supabase.from('transactions').select('*').order('transaction_date', { ascending: false });
-      return (data || []).map((t: any) => ({ ...t, date: new Date(t.transaction_date), type: t.transaction_type, walletId: t.wallet_id, categoryId: t.category_id }));
-    },
-    retry: 1,
-    staleTime: 60000,
+  const { data: txs } = useQuery({
+    queryKey: ['fin-t'],
+    queryFn: async () => { const { data } = await supabase.from('transactions').select('*').order('transaction_date', { ascending: false }); return data || []; },
+    retry: 1, staleTime: 60000,
   });
 
-  const totalBalance = useMemo(() => {
-    return Math.round((wallets || []).reduce((s: number, w: any) => s + (w.balance || 0), 0));
-  }, [wallets]);
-
-  const monthlyData = useMemo(() => {
-    const tx = allTransactions || [];
-    const thisMonth = tx.filter((t: any) => {
-      const td = new Date(t.date);
-      return td.getMonth() === currentMonth.getMonth() && td.getFullYear() === currentMonth.getFullYear();
-    });
-    const income = Math.round(thisMonth
-      .filter((t: any) => t.type === 'income' && t.categoryId !== 'cat-transfer')
-      .reduce((s: number, t: any) => s + t.amount, 0));
-    const expenses = Math.round(thisMonth
-      .filter((t: any) => t.type === 'expense' && t.categoryId !== 'cat-transfer')
-      .reduce((s: number, t: any) => s + t.amount, 0));
+  const stats = useMemo(() => {
+    const totalBalance = Math.round((wallets || []).reduce((s: number, w: any) => s + (w.balance || 0), 0));
+    const list = (txs || []).map((t: any) => ({ ...t, date: new Date(t.transaction_date), type: t.transaction_type, categoryId: t.category_id }));
+    const thisMonth = list.filter((t: any) => { const d = t.date; return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear(); });
+    const income = Math.round(thisMonth.filter((t: any) => t.type === 'income' && t.categoryId !== 'cat-transfer').reduce((s: number, t: any) => s + t.amount, 0));
+    const expenses = Math.round(thisMonth.filter((t: any) => t.type === 'expense' && t.categoryId !== 'cat-transfer').reduce((s: number, t: any) => s + t.amount, 0));
     const balance = income - expenses;
     const savingsRate = income > 0 ? Math.round((balance / income) * 100) : 0;
-    return { income, expenses, balance, savingsRate };
-  }, [allTransactions, currentMonth]);
+    return { totalBalance, income, expenses, balance, savingsRate };
+  }, [wallets, txs, today]);
 
-  const monthlyTrend = useMemo(() => {
-    const tx = allTransactions || [];
-    const months: { month: string; income: number; expenses: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = subMonths(currentMonth, i);
-      const label = format(d, 'MMM', { locale: es });
-      const filtered = tx.filter((t: any) => {
-        const td = new Date(t.date);
-        return td.getMonth() === d.getMonth() && td.getFullYear() === d.getFullYear();
-      });
-      const income = Math.round(filtered.filter((t: any) => t.type === 'income' && t.categoryId !== 'cat-transfer').reduce((s: number, t: any) => s + t.amount, 0));
-      const expenses = Math.round(filtered.filter((t: any) => t.type === 'expense' && t.categoryId !== 'cat-transfer').reduce((s: number, t: any) => s + t.amount, 0));
-      months.push({ month: label, income, expenses });
-    }
-    return months;
-  }, [allTransactions, currentMonth]);
-
-  const loading = wLoading || tLoading;
-
-  if (loading) {
+  if (!wallets || !txs) {
     return (
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 rounded-2xl overflow-hidden">
         <CardContent className="p-8 text-center text-muted-foreground">Cargando finanzas...</CardContent>
       </Card>
     );
@@ -572,45 +292,15 @@ function FinanceContent() {
         <div className="flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-green-500" />
           <span className="text-sm font-semibold">Resumen Financiero</span>
-          <span className="text-[10px] text-muted-foreground ml-auto">{format(currentMonth, "MMMM yyyy", { locale: es })}</span>
+          <span className="text-[10px] text-muted-foreground ml-auto">{format(today, "MMMM yyyy", { locale: es })}</span>
         </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <StatCard icon={<DollarSign className="h-3 w-3" />} label="Balance total" value={`$${totalBalance}`} color="#10b981" />
-          <StatCard icon={<TrendingUp className="h-3 w-3" />} label="Ingresos" value={`$${monthlyData.income}`} color="#3b82f6" />
-          <StatCard icon={<BarChart3 className="h-3 w-3" />} label="Gastos" value={`$${monthlyData.expenses}`} color={monthlyData.expenses > monthlyData.income ? '#ef4444' : '#f59e0b'} />
-          <StatCard icon={<Activity className="h-3 w-3" />} label="Tasa de ahorro" value={monthlyData.savingsRate >= 0 ? `${monthlyData.savingsRate}%` : '—'} color={monthlyData.savingsRate >= 20 ? '#10b981' : monthlyData.savingsRate >= 10 ? '#f59e0b' : '#ef4444'} />
-        </div>
-
-        {monthlyTrend.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <TrendingUp className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Ingresos vs Gastos (6 meses)</span>
-            </div>
-            <div className="h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={monthlyTrend} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid hsl(var(--border))' }} formatter={(value: number, name: string) => [`$${value}`, name === 'income' ? 'Ingresos' : 'Gastos']} />
-                  <Bar dataKey="income" name="income" fill="#3b82f6" radius={[3, 3, 0, 0]} opacity={0.8} maxBarSize={20} />
-                  <Bar dataKey="expenses" name="expenses" fill="#ef4444" radius={[3, 3, 0, 0]} opacity={0.8} maxBarSize={20} />
-                  <Line type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} dot={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex gap-3 mt-1 text-[9px] text-muted-foreground/60 justify-center">
-              <span className="flex items-center gap-1"><div className="w-3 h-1 rounded bg-blue-500" /> Ingresos</span>
-              <span className="flex items-center gap-1"><div className="w-3 h-1 rounded bg-red-500" /> Gastos</span>
-            </div>
-          </div>
-        )}
+        <StatsRow stats={[
+          { label: "BALANCE TOTAL", value: `$${stats.totalBalance}`, color: "#10b981" },
+          { label: "INGRESOS", value: `$${stats.income}`, color: "#3b82f6" },
+          { label: "GASTOS", value: `$${stats.expenses}`, color: stats.expenses > stats.income ? '#ef4444' : '#f59e0b' },
+          { label: "AHORRO", value: stats.savingsRate >= 0 ? `${stats.savingsRate}%` : '—', color: stats.savingsRate >= 20 ? '#10b981' : stats.savingsRate >= 10 ? '#f59e0b' : '#ef4444' },
+        ]} />
       </CardContent>
     </Card>
   );
 }
-
-

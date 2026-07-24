@@ -160,6 +160,7 @@ export default function TwelveWeekYear() {
     const month = new Date().getMonth();
     return (month % 3);
   });
+  const [activeCentral, setActiveCentral] = useState('desarrollo');
 
   const monthLabels = getMonthNamesForQuarter(selectedQuarter);
 
@@ -586,7 +587,7 @@ export default function TwelveWeekYear() {
 
         {/* Áreas Centrales */}
         <SafeSection title="Áreas Centrales">
-          <CentralAreasSection selectedQuarter={selectedQuarter} />
+          <CentralAreasSection selectedQuarter={selectedQuarter} activeCentral={activeCentral} onCentralChange={setActiveCentral} />
         </SafeSection>
 
         {!plan ? (
@@ -623,6 +624,7 @@ export default function TwelveWeekYear() {
               </CardContent>
             </Card>
 
+            {activeCentral === 'desarrollo' && (<>
             {/* ===== DESARROLLO PERSONAL ===== */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
@@ -882,7 +884,9 @@ export default function TwelveWeekYear() {
                 </div>
               )}
             </div>
+            </>)}
 
+            {activeCentral === 'profesional' && (<>
             {/* ===== PROFESIONAL ACADÉMICO ===== */}
             <div className="space-y-4 pt-2">
               <div className="flex items-center gap-3">
@@ -1032,6 +1036,7 @@ export default function TwelveWeekYear() {
                 </div>
               )}
             </div>
+            </>)}
 
             {/* ===== TAREAS Y EVENTOS ===== */}
             <div className="space-y-4 pt-2">
