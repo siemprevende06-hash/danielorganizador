@@ -1,32 +1,27 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { format, eachDayOfInterval, subMonths } from "date-fns";
+import { format, eachDayOfInterval, startOfWeek, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   BookOpen, Music, Globe, Gamepad2, Zap,
   GraduationCap, Briefcase, FolderKanban, DollarSign,
   TrendingUp, BarChart3, Clock, Target, Flame, Activity,
 } from "lucide-react";
+import { Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Area, Line } from "recharts";
 
 const MONTH_KEYS = ["month1", "month2", "month3"] as const;
 
 function getQuarterDates(quarter: number, year = 2026) {
   const startMonth = (quarter - 1) * 3;
-  return {
-    start: new Date(year, startMonth, 1),
-    end: new Date(year, startMonth + 3, 0),
-  };
+  return { start: new Date(year, startMonth, 1), end: new Date(year, startMonth + 3, 0) };
 }
 
 function loadPlanForQuarter(quarter: number) {
-  try {
-    const raw = localStorage.getItem(`trimestral_plan_Q${quarter}_2026`);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  try { const raw = localStorage.getItem(`trimestral_plan_Q${quarter}_2026`); return raw ? JSON.parse(raw) : null; } catch { return null; }
 }
 
 function formatMinutes(m: number): string {
@@ -91,21 +86,15 @@ function StatsRow({ stats }: { stats: StatBox[] }) {
 }
 
 export function CentralAreasSection({
-  selectedQuarter,
-  activeCentral,
-  onCentralChange,
+  selectedQuarter, activeCentral, activeSub, onCentralChange, onSubChange,
 }: {
-  selectedQuarter: number;
-  activeCentral: string;
-  onCentralChange: (id: string) => void;
+  selectedQuarter: number; activeCentral: string; activeSub: string;
+  onCentralChange: (id: string) => void; onSubChange: (id: string) => void;
 }) {
   const qDates = useMemo(() => getQuarterDates(selectedQuarter), [selectedQuarter]);
-  const [activeSub, setActiveSub] = useState<string>('lectura');
-
   const plan = useMemo(() => loadPlanForQuarter(selectedQuarter), [selectedQuarter]);
   const activeDef = CENTRAL_AREAS.find(a => a.id === activeCentral);
   const activeSubDef = activeDef?.subAreas?.find(s => s.id === activeSub);
-
   const startStr = format(qDates.start, 'yyyy-MM-dd');
   const endStr = format(qDates.end, 'yyyy-MM-dd');
 
@@ -132,7 +121,7 @@ export function CentralAreasSection({
   const handleCentral = (id: string) => {
     onCentralChange(id);
     const def = CENTRAL_AREAS.find(a => a.id === id);
-    if (def?.subAreas?.length) setActiveSub(def.subAreas[0].id);
+    if (def?.subAreas?.length) onSubChange(def.subAreas[0].id);
   };
 
   const stats = useMemo(() => {
@@ -176,18 +165,44 @@ export function CentralAreasSection({
     const goalPct = quarterlyGoal > 0 ? Math.round((totalMinutes / quarterlyGoal) * 100) : 0;
     const consistency = totalDays > 0 ? Math.round((activeDays / totalDays) * 100) : 0;
 
-    return [
-      { label: "DÍAS ACTIVOS", value: `${activeDays}/${totalDays}`, sub: `${Math.round((activeDays / Math.max(totalDays, 1)) * 100)}%`, color: "#10b981" },
-      { label: "RACHA", value: `${streak} días`, color: streak >= 7 ? '#10b981' : streak >= 3 ? '#f59e0b' : '#6366f1' },
-      { label: "TOTAL", value: formatMinutes(totalMinutes), color: "#6366f1" },
-      { label: "PROMEDIO", value: `${avgMinutes}min/día`, color: "#6366f1" },
-      { label: "VS META", value: quarterlyGoal > 0 ? `${goalPct}%` : '—', sub: quarterlyGoal > 0 ? `${formatMinutes(totalMinutes)} / ${formatMinutes(quarterlyGoal)}` : undefined, color: goalPct >= 100 ? '#10b981' : goalPct >= 50 ? '#f59e0b' : '#6366f1' },
-      { label: "CONSISTENCIA", value: `${consistency}%`, color: consistency >= 70 ? '#10b981' : consistency >= 40 ? '#f59e0b' : '#ef4444' },
-    ];
+    return {
+      statBoxes: [
+        { label: "DÍAS ACTIVOS", value: `${activeDays}/${totalDays}`, sub: `${Math.round((activeDays / Math.max(totalDays, 1)) * 100)}%`, color: "#10b981" },
+        { label: "RACHA", value: `${streak} días`, color: streak >= 7 ? '#10b981' : streak >= 3 ? '#f59e0b' : '#6366f1' },
+        { label: "TOTAL", value: formatMinutes(totalMinutes), color: "#6366f1" },
+        { label: "PROMEDIO", value: `${avgMinutes}min/día`, color: "#6366f1" },
+        { label: "VS META", value: quarterlyGoal > 0 ? `${goalPct}%` : '—', sub: quarterlyGoal > 0 ? `${formatMinutes(totalMinutes)} / ${formatMinutes(quarterlyGoal)}` : undefined, color: goalPct >= 100 ? '#10b981' : goalPct >= 50 ? '#f59e0b' : '#6366f1' },
+        { label: "CONSISTENCIA", value: `${consistency}%`, color: consistency >= 70 ? '#10b981' : consistency >= 40 ? '#f59e0b' : '#ef4444' },
+      ] as StatBox[],
+      timeByDay, totalMinutes, quarterlyGoal, goalPct,
+    };
   }, [activeSubDef, areaStats, systems, plan, qDates]);
+
+  // Weekly chart data
+  const chartData = useMemo(() => {
+    if (!stats || !activeSubDef) return [];
+    const weeks: { label: string; min: number; trend: number }[] = [];
+    for (let d = new Date(qDates.start); d <= qDates.end; d.setDate(d.getDate() + 7)) {
+      const ws = new Date(d);
+      const we = new Date(d); we.setDate(we.getDate() + 6);
+      if (we > qDates.end) break;
+      let total = 0;
+      for (let day = new Date(ws); day <= we; day.setDate(day.getDate() + 1)) {
+        total += stats.timeByDay[format(day, 'yyyy-MM-dd')] || 0;
+      }
+      weeks.push({ label: `S${weeks.length + 1}`, min: total, trend: 0 });
+    }
+    for (let i = 2; i < weeks.length - 1; i++) {
+      weeks[i].trend = Math.round((weeks[i - 2].min + weeks[i - 1].min + weeks[i].min + weeks[i + 1].min) / 4);
+    }
+    return weeks;
+  }, [stats, activeSubDef, qDates]);
 
   const loading = !areaStats || !systems;
   const grad = activeDef?.gradient || 'from-primary to-primary/60';
+  const colorMap: Record<string, string> = { emerald: "#10b981", rose: "#f43f5e", teal: "#14b8a6", sky: "#0ea5e9", orange: "#f97316", blue: "#3b82f6", purple: "#a855f7", amber: "#f59e0b" };
+  const chartColor = (activeSubDef && colorMap[activeSubDef.color]) || "#6366f1";
+  const maxMin = chartData.length > 0 ? Math.max(...chartData.map(d => d.min), 1) : 1;
 
   return (
     <div className="space-y-4">
@@ -198,34 +213,22 @@ export function CentralAreasSection({
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        {CENTRAL_AREAS.map(area => {
-          const active = activeCentral === area.id;
-          return (
-            <button key={area.id} onClick={() => handleCentral(area.id)}
-              className={cn(
-                "relative rounded-xl p-3 text-left transition-all border-0",
-                active ? `bg-gradient-to-r ${area.gradient} text-white shadow-lg shadow-black/10 scale-[1.02]` : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md border border-border/40"
-              )}
-            >
-              <div className="flex items-center gap-2">{area.icon}<span className="text-xs font-semibold">{area.label}</span></div>
-            </button>
-          );
-        })}
+        {CENTRAL_AREAS.map(area => (
+          <button key={area.id} onClick={() => handleCentral(area.id)}
+            className={cn("relative rounded-xl p-3 text-left transition-all border-0", activeCentral === area.id ? `bg-gradient-to-r ${area.gradient} text-white shadow-lg shadow-black/10 scale-[1.02]` : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md border border-border/40")}
+          >
+            <div className="flex items-center gap-2">{area.icon}<span className="text-xs font-semibold">{area.label}</span></div>
+          </button>
+        ))}
       </div>
 
       {activeCentral !== 'finanzas' && activeDef && activeDef.subAreas.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
-          {activeDef.subAreas.map(sub => {
-            const active = activeSub === sub.id;
-            return (
-              <button key={sub.id} onClick={() => setActiveSub(sub.id)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border",
-                  active ? `bg-gradient-to-r ${grad} text-white shadow-sm border-transparent` : "bg-white/70 dark:bg-zinc-900/70 border-border/40 hover:border-foreground/20 text-muted-foreground"
-                )}
-              >{sub.icon}{sub.label}</button>
-            );
-          })}
+          {activeDef.subAreas.map(sub => (
+            <button key={sub.id} onClick={() => onSubChange(sub.id)}
+              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border", activeSub === sub.id ? `bg-gradient-to-r ${grad} text-white shadow-sm border-transparent` : "bg-white/70 dark:bg-zinc-900/70 border-border/40 hover:border-foreground/20 text-muted-foreground")}
+            >{sub.icon}{sub.label}</button>
+          ))}
         </div>
       )}
 
@@ -243,7 +246,46 @@ export function CentralAreasSection({
               <div className="p-1.5 rounded-lg bg-muted">{activeSubDef?.icon}</div>
               <span className="text-sm font-semibold">{activeSubDef?.label}</span>
             </div>
-            <StatsRow stats={stats} />
+
+            <StatsRow stats={stats.statBoxes} />
+
+            {chartData.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Minutos por semana</span>
+                </div>
+                <div className="h-40">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} tickFormatter={(v: number) => `${Math.round(v / (v >= 60 ? 60 : 1))}${v >= 60 ? 'h' : 'm'}`} />
+                      <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid hsl(var(--border))' }} formatter={(value: number) => [formatMinutes(value), 'Tiempo']} />
+                      <defs>
+                        <linearGradient id={`cg-${activeSubDef?.id || 'a'}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={chartColor} stopOpacity={0.3} />
+                          <stop offset="100%" stopColor={chartColor} stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <Area type="monotone" dataKey="trend" stroke={chartColor} fill={`url(#cg-${activeSubDef?.id || 'a'})`} strokeWidth={2} dot={false} />
+                      <Bar dataKey="min" fill={chartColor} radius={[3, 3, 0, 0]} opacity={0.7} maxBarSize={20} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex gap-3 mt-1 text-[9px] text-muted-foreground/60 justify-center">
+                  <span className="flex items-center gap-1"><div className="w-3 h-1 rounded opacity-70" style={{ backgroundColor: chartColor }} /> Minutos por semana</span>
+                  <span className="flex items-center gap-1"><div className="w-3 h-0.5 rounded" style={{ backgroundColor: chartColor }} /> Tendencia</span>
+                </div>
+              </div>
+            )}
+
+            {stats.quarterlyGoal > 0 && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-muted-foreground"><span>Progreso vs meta trimestral</span><span>{stats.goalPct}%</span></div>
+                <Progress value={Math.min(stats.goalPct, 100)} className="h-1.5" />
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : null}
@@ -253,17 +295,11 @@ export function CentralAreasSection({
 
 function FinanceSummaryCard() {
   const today = useMemo(() => new Date(), []);
-
   const { data: wallets } = useQuery({
-    queryKey: ['fin-w'],
-    queryFn: async () => { const { data } = await supabase.from('wallets').select('*'); return data || []; },
-    retry: 1, staleTime: 60000,
+    queryKey: ['fin-w'], queryFn: async () => { const { data } = await supabase.from('wallets').select('*'); return data || []; }, retry: 1, staleTime: 60000,
   });
-
   const { data: txs } = useQuery({
-    queryKey: ['fin-t'],
-    queryFn: async () => { const { data } = await supabase.from('transactions').select('*').order('transaction_date', { ascending: false }); return data || []; },
-    retry: 1, staleTime: 60000,
+    queryKey: ['fin-t'], queryFn: async () => { const { data } = await supabase.from('transactions').select('*').order('transaction_date', { ascending: false }); return data || []; }, retry: 1, staleTime: 60000,
   });
 
   const stats = useMemo(() => {

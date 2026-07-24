@@ -10,7 +10,7 @@ import { AreaEffortResultsPanel } from "@/components/areas/AreaEffortResultsPane
 import { LifeAreaScoresPanel } from "@/components/areas/LifeAreaScoresPanel";
 import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import { useTrimestralPlan, getMonthNamesForQuarter, loadTrimestralPlanFromLocal } from "@/hooks/useTrimestralPlan";
-import { CentralAreasSection } from "@/components/twelveweekyear/CentralAreasSection";
+import { CentralAreasSection, CENTRAL_AREAS } from "@/components/twelveweekyear/CentralAreasSection";
 
 class SafeSection extends Component<{ children: ReactNode; title: string }, { hasError: boolean }> {
   constructor(props: { children: ReactNode; title: string }) {
@@ -161,6 +161,7 @@ export default function TwelveWeekYear() {
     return (month % 3);
   });
   const [activeCentral, setActiveCentral] = useState('desarrollo');
+  const [activeSub, setActiveSub] = useState('lectura');
 
   const monthLabels = getMonthNamesForQuarter(selectedQuarter);
 
@@ -587,7 +588,7 @@ export default function TwelveWeekYear() {
 
         {/* Áreas Centrales */}
         <SafeSection title="Áreas Centrales">
-          <CentralAreasSection selectedQuarter={selectedQuarter} activeCentral={activeCentral} onCentralChange={setActiveCentral} />
+          <CentralAreasSection selectedQuarter={selectedQuarter} activeCentral={activeCentral} activeSub={activeSub} onCentralChange={(id) => { setActiveCentral(id); const def = CENTRAL_AREAS.find(a => a.id === id); if (def?.subAreas?.length) setActiveSub(def.subAreas[0].id); }} onSubChange={setActiveSub} />
         </SafeSection>
 
         {!plan ? (
@@ -635,7 +636,7 @@ export default function TwelveWeekYear() {
                 </div>
               </div>
 
-              {/* ---- Lectura ---- */}
+              {activeSub === 'lectura' && (
               <div className="space-y-2 pl-4 border-l-2 border-emerald-200/50">
                 <div className="flex items-center gap-2">
                   <Book className="h-3.5 w-3.5 text-emerald-500" />
@@ -696,9 +697,9 @@ export default function TwelveWeekYear() {
                   })}
                 </div>
               </div>
+              )}
 
-              {/* ---- Música ---- */}
-              {(pianoSongs.length > 0 || guitarSongs.length > 0) && (
+              {activeSub === 'musica' && (pianoSongs.length > 0 || guitarSongs.length > 0) && (
                 <div className="space-y-2 pl-4 border-l-2 border-rose-200/50">
                   <div className="flex items-center gap-2">
                     <Music className="h-3.5 w-3.5 text-rose-500" />
@@ -751,8 +752,7 @@ export default function TwelveWeekYear() {
                 </div>
               )}
 
-              {/* ---- Ajedrez ---- */}
-              {chessMonth && (
+              {activeSub === 'ajedrez' && chessMonth && (
                 <div className="space-y-2 pl-4 border-l-2 border-teal-200/50">
                   <div className="flex items-center gap-2">
                     <Gamepad2 className="h-3.5 w-3.5 text-teal-500" />
@@ -782,8 +782,7 @@ export default function TwelveWeekYear() {
                 </div>
               )}
 
-              {/* ---- Idiomas ---- */}
-              {langMonth && (
+              {activeSub === 'idiomas' && langMonth && (
                 <div className="space-y-2 pl-4 border-l-2 border-sky-200/50">
                   <div className="flex items-center gap-2">
                     <Globe className="h-3.5 w-3.5 text-sky-500" />
@@ -897,8 +896,7 @@ export default function TwelveWeekYear() {
                 </div>
               </div>
 
-              {/* ---- Universidad ---- */}
-              {monthSubjectIds.length > 0 && (
+              {activeSub === 'universidad' && monthSubjectIds.length > 0 && (
                 <div className="space-y-2 pl-4 border-l-2 border-blue-200/50">
                   <div className="flex items-center gap-2">
                     <GraduationCap className="h-3.5 w-3.5 text-blue-500" />
@@ -929,8 +927,7 @@ export default function TwelveWeekYear() {
                 </div>
               )}
 
-              {/* ---- Proyectos ---- */}
-              {monthProjectIds.length > 0 && (
+              {activeSub === 'proyectos' && monthProjectIds.length > 0 && (
                 <div className="space-y-2 pl-4 border-l-2 border-amber-200/50">
                   <div className="flex items-center gap-2">
                     <FolderKanban className="h-3.5 w-3.5 text-amber-500" />
@@ -979,8 +976,7 @@ export default function TwelveWeekYear() {
                 </div>
               )}
 
-              {/* ---- Emprendimiento ---- */}
-              {(monthEntrepreneurshipIds.length > 0 || plan.notes?.emprendimiento || tasks.some(t => t.source === 'emprendimiento')) && (
+              {activeSub === 'emprendimiento' && (monthEntrepreneurshipIds.length > 0 || plan.notes?.emprendimiento || tasks.some(t => t.source === 'emprendimiento')) && (
                 <div className="space-y-2 pl-4 border-l-2 border-purple-200/50">
                   <div className="flex items-center gap-2">
                     <Briefcase className="h-3.5 w-3.5 text-purple-500" />
