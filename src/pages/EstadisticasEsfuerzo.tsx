@@ -39,6 +39,10 @@ const SOSTEN_GROUPS = [
 ];
 const ALL_SOSTEN_IDS = SOSTEN_GROUPS.flatMap(g => g.habits.map(h => h.id));
 
+const DAILY_TARGETS: Record<string, number> = {
+  lectura: 20, musica: 30, ajedrez: 15, idiomas: 30, game: 15, 'entrenamiento-fisico': 45,
+};
+
 // ---------- Mejora ----------
 const MEJORA_HABITS = [
   { id: 'lectura', label: 'Lectura', icon: BookOpen, hasTime: true },
@@ -420,8 +424,8 @@ export default function EstadisticasEsfuerzo() {
                               return (
                                 <td key={h.id} className="text-center px-2 py-1 border border-border/20">
                                   <span className={cn("tabular-nums",
-                                    h.hasTime && v >= 30 && "text-emerald-500 font-medium",
-                                    h.hasTime && v > 0 && v < 30 && "text-amber-500",
+                                    h.hasTime && v >= (DAILY_TARGETS[h.id] || 30) && "text-emerald-500 font-medium",
+                                    h.hasTime && v > 0 && v < (DAILY_TARGETS[h.id] || 30) && "text-red-500",
                                     v === 0 && "text-muted-foreground/30"
                                   )}>
                                     {v > 0 ? `${v}'` : '—'}

@@ -827,36 +827,6 @@ export default function TwelveWeekYear() {
                 </div>
               )}
 
-              {/* ---- Game Seducción ---- */}
-              <div className="space-y-2 pl-4 border-l-2 border-pink-200/50">
-                <div className="flex items-center gap-2">
-                  <Sword className="h-3.5 w-3.5 text-pink-500" />
-                  <span className="text-xs font-semibold text-pink-700 dark:text-pink-400">Game Seducción</span>
-                </div>
-                {(() => {
-                  const gameMins = timeData?.byArea?.game || 0;
-                  const gameGoal = plan?.timeGoals?.[monthKey]?.game || 0;
-                  const gameNotes = plan?.notes?.game_seduccion;
-                  return (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-pink-200/40 space-y-1">
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos acumulados</p>
-                          <p className={cn("text-lg font-bold", gameGoal > 0 && gameMins >= gameGoal ? "text-emerald-500" : "text-pink-500")}>{Math.round(gameMins)}min</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-pink-200/40 space-y-1">
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Meta mensual</p>
-                          <p className="text-lg font-bold text-pink-500">{gameGoal}min</p>
-                        </div>
-                      </div>
-                      <Progress value={gameGoal > 0 ? Math.min(100, Math.round((gameMins / gameGoal) * 100)) : 0} className="h-1.5" />
-                      <p className="text-[10px] text-muted-foreground">{Math.round(gameMins)}/{gameGoal} minutos este mes</p>
-                      {gameNotes && <p className="text-[10px] text-muted-foreground italic">{gameNotes}</p>}
-                    </div>
-                  );
-                })()}
-              </div>
-
               {/* ---- Metas Personales ---- */}
               {plan.personal_goals?.length > 0 && (
                 <div className="space-y-2 pl-4 border-l-2 border-purple-200/50">
@@ -1104,7 +1074,6 @@ export default function TwelveWeekYear() {
                     <TimeGoalRow label="Lectura" actual={timeData?.byArea?.lectura || 0} goal={plan.timeGoals[monthKey]?.lectura || 0} color="emerald" icon={<Book className="h-3 w-3 text-emerald-500" />} />
                     <TimeGoalRow label="Música" actual={timeData?.byArea?.musica || 0} goal={plan.timeGoals[monthKey]?.musica || 0} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
                     <TimeGoalRow label="Ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={plan.timeGoals[monthKey]?.ajedrez || 0} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
-                    <TimeGoalRow label="Game Seducción" actual={timeData?.byArea?.game || 0} goal={plan.timeGoals[monthKey]?.game || 0} color="pink" icon={<Sword className="h-3 w-3 text-pink-500" />} />
                     <TimeGoalRow label="Italiano" actual={(timeData?.byArea?.italiano || 0) + (timeData?.byArea?.idiomas || 0)} goal={plan.timeGoals[monthKey]?.italiano || 0} color="green" icon={<Globe className="h-3 w-3 text-green-500" />} />
                     <TimeGoalRow label="Inglés" actual={timeData?.byArea?.ingles || 0} goal={plan.timeGoals[monthKey]?.ingles || 0} color="blue" icon={<Globe className="h-3 w-3 text-blue-500" />} />
                     <TimeGoalRow label="Gym" actual={timeData?.byArea?.['entrenamiento-fisico'] || 0} goal={plan.timeGoals[monthKey]?.gym || 0} color="orange" icon={<Zap className="h-3 w-3 text-orange-500" />} />
