@@ -1031,64 +1031,65 @@ export default function TwelveWeekYear() {
                   )}
                 </div>
               )}
+
+              {activeSub === 'tareas' && (tasks.length > 0 || events.length > 0) && (
+              <div className="space-y-4 pt-2 border-t border-border/40">
+                <div className="flex items-center gap-2">
+                  <ListTodo className="h-3.5 w-3.5 text-foreground" />
+                  <span className="text-xs font-semibold">Tareas Generales</span>
+                </div>
+                {tasks.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <ListTodo className="h-3.5 w-3.5 text-emerald-500" />
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Tareas del Mes</span>
+                      <Badge variant="secondary" className="text-[9px] px-1.5">
+                        {tasks.filter(t => completedTaskIds.includes(t.id)).length}/{tasks.length}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {tasks.map(task => {
+                        const done = completedTaskIds.includes(task.id);
+                        return (
+                          <div key={task.id} className={cn("flex items-center gap-2 p-2 rounded-lg text-xs border border-border/40", done ? "text-muted-foreground bg-muted/20" : "hover:bg-muted/30")}>
+                            <Checkbox checked={done} className="h-3.5 w-3.5" />
+                            <span className={cn("flex-1 truncate", done && "line-through")}>{task.title}</span>
+                            <Badge variant="outline" className="text-[8px] px-1">{task.source}</Badge>
+                            {task.due_date && <span className="text-[9px] text-muted-foreground shrink-0">{format(new Date(task.due_date), 'd MMM', { locale: es })}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {events.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 text-red-500" />
+                      <span className="text-xs font-semibold text-red-700 dark:text-red-400">Eventos del Mes</span>
+                      <Badge variant="secondary" className="text-[9px] px-1.5">
+                        {events.filter(e => completedEventIds.includes(e.id)).length}/{events.length}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {events.map(ev => {
+                        const done = completedEventIds.includes(ev.id);
+                        return (
+                          <div key={ev.id} className={cn("flex items-center gap-2 p-2 rounded-lg text-xs border border-border/40", done ? "text-muted-foreground bg-muted/20" : "hover:bg-muted/30")}>
+                            <Checkbox checked={done} className="h-3.5 w-3.5" />
+                            <span className={cn("flex-1 truncate", done && "line-through")}>{ev.title}</span>
+                            <Badge variant="outline" className="text-[8px] px-1">{ev.category}</Badge>
+                            <span className="text-[9px] text-muted-foreground shrink-0">{format(new Date(ev.event_date), 'd MMM', { locale: es })}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              )}
             </div>
             </>)}
-
-            {/* ===== TAREAS Y EVENTOS ===== */}
-            <div className="space-y-4 pt-2">
-              {/* Tareas del Mes */}
-              {tasks.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <ListTodo className="h-3.5 w-3.5 text-emerald-500" />
-                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Tareas del Mes</span>
-                    <Badge variant="secondary" className="text-[9px] px-1.5">
-                      {tasks.filter(t => completedTaskIds.includes(t.id)).length}/{tasks.length}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    {tasks.map(task => {
-                      const done = completedTaskIds.includes(task.id);
-                      return (
-                        <div key={task.id} className={cn("flex items-center gap-2 p-2 rounded-lg text-xs border border-border/40", done ? "text-muted-foreground bg-muted/20" : "hover:bg-muted/30")}>
-                          <Checkbox checked={done} className="h-3.5 w-3.5" />
-                          <span className={cn("flex-1 truncate", done && "line-through")}>{task.title}</span>
-                          <Badge variant="outline" className="text-[8px] px-1">{task.source}</Badge>
-                          {task.due_date && <span className="text-[9px] text-muted-foreground shrink-0">{format(new Date(task.due_date), 'd MMM', { locale: es })}</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Eventos del Mes */}
-              {events.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-3.5 w-3.5 text-red-500" />
-                    <span className="text-xs font-semibold text-red-700 dark:text-red-400">Eventos del Mes</span>
-                    <Badge variant="secondary" className="text-[9px] px-1.5">
-                      {events.filter(e => completedEventIds.includes(e.id)).length}/{events.length}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    {events.map(ev => {
-                      const done = completedEventIds.includes(ev.id);
-                      return (
-                        <div key={ev.id} className={cn("flex items-center gap-2 p-2 rounded-lg text-xs border border-border/40", done ? "text-muted-foreground bg-muted/20" : "hover:bg-muted/30")}>
-                          <Checkbox checked={done} className="h-3.5 w-3.5" />
-                          <span className={cn("flex-1 truncate", done && "line-through")}>{ev.title}</span>
-                          <Badge variant="outline" className="text-[8px] px-1">{ev.category}</Badge>
-                          <span className="text-[9px] text-muted-foreground shrink-0">{format(new Date(ev.event_date), 'd MMM', { locale: es })}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* ===== METAS DE TIEMPO VS ESFUERZO REAL ===== */}
             {plan?.timeGoals?.[monthKey] && (
               <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
@@ -1114,26 +1115,7 @@ export default function TwelveWeekYear() {
           </>
         )}
 
-        {/* Effort & Results */}
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
-          <CardContent className="p-4 space-y-5">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              Esfuerzo y Resultados — {QUARTERS.find(q => q.id === selectedQuarter)?.name}
-            </h2>
-            <LifeAreaScoresPanel periodType="quarter" />
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border/50" />
-              </div>
-              <div className="relative flex justify-center text-[10px]">
-                <span className="bg-white/80 dark:bg-zinc-900/80 px-3 text-muted-foreground/60">Métricas detalladas</span>
-              </div>
-            </div>
-            <AreaEffortResultsPanel periodType="quarter" periodStart={new Date(2026, (selectedQuarter - 1) * 3, 1)} />
-          </CardContent>
-        </Card>
+
       </div>
 
       {/* Book selector dialog */}

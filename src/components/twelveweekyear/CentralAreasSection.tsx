@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 import { format, eachDayOfInterval, startOfWeek, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import {
-  BookOpen, Music, Globe, Gamepad2, Zap,
-  GraduationCap, Briefcase, FolderKanban, DollarSign,
+  BookOpen, Music, Globe, Gamepad2, Zap, Sword,
+  GraduationCap, Briefcase, FolderKanban, DollarSign, ListTodo,
   TrendingUp, BarChart3, Clock, Target, Flame, Activity,
 } from "lucide-react";
 import { Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Area, Line } from "recharts";
@@ -51,6 +51,7 @@ export const CENTRAL_AREAS: CentralAreaDef[] = [
       { id: 'idiomas', label: 'Idiomas', icon: <Globe className="h-3 w-3" />, color: 'sky', trackingSource: 'time_data', trackingId: ['italiano', 'ingles'], timeGoalKey: 'italiano' },
       { id: 'ajedrez', label: 'Ajedrez', icon: <Gamepad2 className="h-3 w-3" />, color: 'teal', trackingSource: 'both', trackingId: 'ajedrez', timeGoalKey: 'ajedrez' },
       { id: 'gym', label: 'Gimnasio', icon: <Zap className="h-3 w-3" />, color: 'orange', trackingSource: 'area_stats', trackingId: 'gym', timeGoalKey: 'gym' },
+      { id: 'game', label: 'Game', icon: <Sword className="h-3 w-3" />, color: 'pink', trackingSource: 'time_data', trackingId: 'game', timeGoalKey: 'game' },
     ],
   },
   {
@@ -60,6 +61,7 @@ export const CENTRAL_AREAS: CentralAreaDef[] = [
       { id: 'universidad', label: 'Universidad', icon: <GraduationCap className="h-3 w-3" />, color: 'blue', trackingSource: 'area_stats', trackingId: 'universidad', timeGoalKey: 'universidad' },
       { id: 'emprendimiento', label: 'Emprendimiento', icon: <Briefcase className="h-3 w-3" />, color: 'purple', trackingSource: 'area_stats', trackingId: 'emprendimiento', timeGoalKey: 'emprendimiento' },
       { id: 'proyectos', label: 'Proyectos', icon: <FolderKanban className="h-3 w-3" />, color: 'amber', trackingSource: 'area_stats', trackingId: 'proyectos', timeGoalKey: 'proyectos' },
+      { id: 'tareas', label: 'Tareas Grales', icon: <ListTodo className="h-3 w-3" />, color: 'slate', trackingSource: 'none', trackingId: '', timeGoalKey: '' },
     ],
   },
   {
