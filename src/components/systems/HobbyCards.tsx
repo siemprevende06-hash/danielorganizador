@@ -60,6 +60,7 @@ const ReadingCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number
   const MIN_GOAL = 15;
   const MAX_GOAL = 30;
   const sem = semaphore(todayMin, MIN_GOAL, MAX_GOAL);
+  const isSkipped = skipped && todayMin === 0;
 
   useEffect(() => setDraft(todayMin), [todayMin]);
 
