@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays } from 'date-fns';
 import { toast } from 'sonner';
+import { cachedQuery, cachedMutation } from '@/lib/supabaseCache';
 
 export interface DailyAreaStat {
   id: string;
@@ -92,16 +93,24 @@ export const useDailyAreaStats = () => {
     setIsLoading(true);
     try {
       const [statsRes, configsRes, streaksRes] = await Promise.all([
-        supabase
-          .from('daily_area_stats')
-          .select('*')
-          .eq('stat_date', today),
-        supabase
-          .from('area_goals_config')
-          .select('*'),
-        supabase
-          .from('area_streaks')
-          .select('*'),
+        cachedQuery<DailyAreaStat[]>(
+          'daily_area_stats',
+          `today_${today}`,
+          () => supabase.from('daily_area_stats').select('*').eq('stat_date', today).then(r => r.data as DailyAreaStat[] || []),
+          7 * 24 * 60 * 60 * 1000
+        ),
+        cachedQuery<AreaGoalsConfig[]>(
+          'area_goals_config',
+          'all',
+          () => supabase.from('area_goals_config').select('*').then(r => r.data as AreaGoalsConfig[] || []),
+          7 * 24 * 60 * 60 * 1000
+        ),
+        cachedQuery<AreaStreak[]>(
+          'area_streaks',
+          'all',
+          () => supabase.from('area_streaks').select('*').then(r => r.data as AreaStreak[] || []),
+          7 * 24 * 60 * 60 * 1000
+        ),
       ]);
 
       // Map stats by area_id
@@ -163,8 +172,23 @@ export const useDailyAreaStats = () => {
       setStats(prev => ({ ...prev, [areaId]: data }));
       return data;
     } catch (error) {
-      console.error('Error creating stat:', error);
-      return null;
+      // If offline, return a local placeholder so mutations queue
+      const placeholder: DailyAreaStat = {
+        id: `offline_${areaId}`,
+        area_id: areaId,
+        stat_date: today,
+        time_goal_minutes: config?.default_time_goal_minutes || defaults.time,
+        time_spent_minutes: 0,
+        completed: false,
+        completed_at: null,
+        pages_goal: config?.default_pages_goal || defaults.pages || 0,
+        pages_done: 0,
+        exercises_goal: config?.default_exercises_goal || defaults.exercises || 0,
+        exercises_done: 0,
+        notes: null,
+      };
+      setStats(prev => ({ ...prev, [areaId]: placeholder }));
+      return placeholder;
     }
   }, [stats, configs, today]);
 
@@ -179,25 +203,26 @@ export const useDailyAreaStats = () => {
 
     const newCompleted = !stat.completed;
 
-    try {
-      const { error } = await supabase
-        .from('daily_area_stats')
-        .update({
-          completed: newCompleted,
-          completed_at: newCompleted ? new Date().toISOString() : null,
-        })
-        .eq('id', stat.id);
+    const { error } = await cachedMutation('daily_area_stats', 'update', {
+      completed: newCompleted,
+      completed_at: newCompleted ? new Date().toISOString() : null,
+    }, { id: stat.id });
 
-      if (error) throw error;
-
-      // Refresh to get updated streak
-      await loadAllData();
-      
-      toast.success(newCompleted ? `${areaId} completado ✓` : `${areaId} desmarcado`);
-    } catch (error) {
+    if (error) {
       console.error('Error toggling completion:', error);
       toast.error('Error al actualizar');
+      return;
     }
+
+    setStats(prev => ({
+      ...prev,
+      [areaId]: { ...prev[areaId]!, completed: newCompleted, completed_at: newCompleted ? new Date().toISOString() : null }
+    }));
+
+    // Refresh to get updated streak
+    await loadAllData();
+
+    toast.success(newCompleted ? `${areaId} completado ✓` : `${areaId} desmarcado`);
   }, [stats, getOrCreateStat, loadAllData]);
 
   // Update time spent
@@ -209,22 +234,15 @@ export const useDailyAreaStats = () => {
       if (!stat) return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('daily_area_stats')
-        .update({
-          time_spent_minutes: minutes,
-        })
-        .eq('id', stat.id);
+    const { error } = await cachedMutation('daily_area_stats', 'update', {
+      time_spent_minutes: minutes,
+    }, { id: stat.id });
 
-      if (error) throw error;
-
+    if (!error) {
       setStats(prev => ({
         ...prev,
         [areaId]: { ...prev[areaId]!, time_spent_minutes: minutes }
       }));
-    } catch (error) {
-      console.error('Error updating time:', error);
     }
   }, [stats, getOrCreateStat]);
 
@@ -237,31 +255,26 @@ export const useDailyAreaStats = () => {
       if (!stat) return;
     }
 
-    try {
-      // Update today's stat
-      await supabase
-        .from('daily_area_stats')
-        .update({ time_goal_minutes: minutes })
-        .eq('id', stat.id);
+    const [r1, r2] = await Promise.all([
+      cachedMutation('daily_area_stats', 'update', { time_goal_minutes: minutes }, { id: stat.id }),
+      cachedMutation('area_goals_config', 'upsert', {
+        area_id: areaId,
+        default_time_goal_minutes: minutes,
+      }, undefined, 'area_id'),
+    ]);
 
-      // Also update config for future days
-      await supabase
-        .from('area_goals_config')
-        .upsert({
-          area_id: areaId,
-          default_time_goal_minutes: minutes,
-        }, { onConflict: 'area_id' });
-
-      setStats(prev => ({
-        ...prev,
-        [areaId]: { ...prev[areaId]!, time_goal_minutes: minutes }
-      }));
-
-      toast.success(`Objetivo de ${areaId} actualizado a ${minutes} min`);
-    } catch (error) {
-      console.error('Error updating goal:', error);
+    if (r1.error || r2.error) {
+      console.error('Error updating goal:', r1.error || r2.error);
       toast.error('Error al actualizar objetivo');
+      return;
     }
+
+    setStats(prev => ({
+      ...prev,
+      [areaId]: { ...prev[areaId]!, time_goal_minutes: minutes }
+    }));
+
+    toast.success(`Objetivo de ${areaId} actualizado a ${minutes} min`);
   }, [stats, getOrCreateStat]);
 
   // Update pages done
@@ -273,20 +286,13 @@ export const useDailyAreaStats = () => {
       if (!stat) return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('daily_area_stats')
-        .update({ pages_done: pages })
-        .eq('id', stat.id);
+    const { error } = await cachedMutation('daily_area_stats', 'update', { pages_done: pages }, { id: stat.id });
 
-      if (error) throw error;
-
+    if (!error) {
       setStats(prev => ({
         ...prev,
         [areaId]: { ...prev[areaId]!, pages_done: pages }
       }));
-    } catch (error) {
-      console.error('Error updating pages:', error);
     }
   }, [stats, getOrCreateStat]);
 
@@ -299,28 +305,25 @@ export const useDailyAreaStats = () => {
       if (!stat) return;
     }
 
-    try {
-      await supabase
-        .from('daily_area_stats')
-        .update({ pages_goal: pages })
-        .eq('id', stat.id);
+    const [r1, r2] = await Promise.all([
+      cachedMutation('daily_area_stats', 'update', { pages_goal: pages }, { id: stat.id }),
+      cachedMutation('area_goals_config', 'upsert', {
+        area_id: areaId,
+        default_pages_goal: pages,
+      }, undefined, 'area_id'),
+    ]);
 
-      await supabase
-        .from('area_goals_config')
-        .upsert({
-          area_id: areaId,
-          default_pages_goal: pages,
-        }, { onConflict: 'area_id' });
-
-      setStats(prev => ({
-        ...prev,
-        [areaId]: { ...prev[areaId]!, pages_goal: pages }
-      }));
-
-      toast.success(`Objetivo de páginas actualizado a ${pages}`);
-    } catch (error) {
-      console.error('Error updating pages goal:', error);
+    if (r1.error || r2.error) {
+      console.error('Error updating pages goal:', r1.error || r2.error);
+      return;
     }
+
+    setStats(prev => ({
+      ...prev,
+      [areaId]: { ...prev[areaId]!, pages_goal: pages }
+    }));
+
+    toast.success(`Objetivo de páginas actualizado a ${pages}`);
   }, [stats, getOrCreateStat]);
 
   // Add time to an area (from focus sessions, etc.)
@@ -334,20 +337,13 @@ export const useDailyAreaStats = () => {
 
     const newTime = (stat.time_spent_minutes || 0) + minutes;
 
-    try {
-      const { error } = await supabase
-        .from('daily_area_stats')
-        .update({ time_spent_minutes: newTime })
-        .eq('id', stat.id);
+    const { error } = await cachedMutation('daily_area_stats', 'update', { time_spent_minutes: newTime }, { id: stat.id });
 
-      if (error) throw error;
-
+    if (!error) {
       setStats(prev => ({
         ...prev,
         [areaId]: { ...prev[areaId]!, time_spent_minutes: newTime }
       }));
-    } catch (error) {
-      console.error('Error adding time:', error);
     }
   }, [stats, getOrCreateStat]);
 

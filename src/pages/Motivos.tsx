@@ -61,10 +61,20 @@ export default function Motivos() {
     precacheImages(urls);
   }, [sections]);
 
+  // Store images in IndexedDB + send URLs to SW for Cache API storage
   useEffect(() => {
     const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
     const valid = urls.filter(Boolean) as string[];
     if (valid.length === 0) return;
+
+    // Send to service worker for Cache API precaching
+    if (navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'PRECACHE_PHOTOS',
+        urls: valid,
+      });
+    }
+
     Promise.allSettled(
       valid.map(async (url) => {
         const { getImageBlob } = await import("@/lib/imageStore");

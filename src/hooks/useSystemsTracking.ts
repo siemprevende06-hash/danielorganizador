@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
 import { getCached, setCache, clearTableCache } from "@/lib/offlineCache";
-import { cachedMutation } from "@/lib/supabaseCache";
+import { cachedMutation, cachedQuery } from "@/lib/supabaseCache";
 import { getCubaDate } from "@/lib/cubaTime";
 
 const DEFAULT_TIME_GOALS: Record<string, number> = {
@@ -335,21 +335,30 @@ export function useSystemsTracking() {
     }));
   }, []);
 
-  // Load historical data for charts
+  // Load historical data for charts (with offline cache)
   const loadHistory = useCallback(async (days: number) => {
     const endDate = todayKey();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     const startStr = startDate.toISOString().split("T")[0];
+    const cacheKey = `history_${startStr}_${endDate}`;
 
-    const { data: rows } = await supabase
-      .from("daily_systems_tracking")
-      .select("*")
-      .gte("tracking_date", startStr)
-      .lte("tracking_date", endDate)
-      .order("tracking_date", { ascending: true });
+    const { data } = await cachedQuery(
+      "daily_systems_tracking",
+      cacheKey,
+      async () => {
+        const { data: rows } = await supabase
+          .from("daily_systems_tracking")
+          .select("*")
+          .gte("tracking_date", startStr)
+          .lte("tracking_date", endDate)
+          .order("tracking_date", { ascending: true });
+        return rows || [];
+      },
+      7 * 24 * 60 * 60 * 1000
+    );
 
-    return rows || [];
+    return data || [];
   }, []);
 
   return {

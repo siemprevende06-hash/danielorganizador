@@ -1,5 +1,5 @@
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { precacheAndRoute, cleanupOutdatedCaches, matchPrecache } from 'workbox-precaching';
+import { registerRoute, NavigationRoute, setCatchHandler } from 'workbox-routing';
 import { NetworkFirst, CacheFirst, StaleWhileRevalidate, NetworkOnly } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
@@ -14,11 +14,40 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+setCatchHandler(async ({ event }) => {
+  if (event.request.mode === 'navigate') {
+    const cached = await matchPrecache('/');
+    if (cached) return cached;
+    return new Response('Sin conexión', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+  }
+  return Response.error();
+});
+
 registerRoute(
   new NavigationRoute(
     new NetworkFirst({ cacheName: 'pages' })
   )
 );
+
+self.addEventListener('message', (event) => {
+  if (!event.data) return;
+  if (event.data.type === 'PRECACHE_PHOTOS') {
+    const urls = event.data.urls || [];
+    event.waitUntil(
+      (async () => {
+        const cache = await caches.open('supabase-storage');
+        await Promise.allSettled(
+          urls.map(async (url) => {
+            try {
+              const response = await fetch(url, { mode: 'cors' });
+              if (response.ok) await cache.put(url, response);
+            } catch {}
+          })
+        );
+      })()
+    );
+  }
+});
 
 registerRoute(
   /^https:\/\/qqskvbfofqrruqeyjbuy\.supabase\.co\/rest\/v1\/.*/i,

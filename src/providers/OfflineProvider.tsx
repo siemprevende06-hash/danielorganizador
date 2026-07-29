@@ -52,8 +52,14 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       setOnline(false);
       document.body.classList.add("app-offline");
     };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        flushNow();
+      }
+    };
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     if (!navigator.onLine) document.body.classList.add("app-offline");
 
@@ -67,11 +73,18 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       }
     }, 5000);
 
+    // Periodic sync every 60s when online
+    const periodicSync = setInterval(() => {
+      if (navigator.onLine) flushNow();
+    }, 60000);
+
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       clearInterval(t);
       clearInterval(healthCheck);
+      clearInterval(periodicSync);
     };
   }, [refreshPending, flushNow]);
 

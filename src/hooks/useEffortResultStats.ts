@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { getLocalTasksForDate } from '@/lib/dataSync';
+import { cachedQuery } from '@/lib/supabaseCache';
 
 export interface AreaEffortResult {
   id: string;
@@ -42,20 +43,6 @@ const AREAS = [
   { id: 'lectura', name: 'Lectura', icon: '📚', color: 'hsl(174, 72%, 40%)' },
 ];
 
-async function safeQuery<T = any>(query: any): Promise<T[] | null> {
-  try {
-    const { data, error } = await query;
-    if (error) {
-      console.warn('[safeQuery] Supabase error:', error.message);
-      return null;
-    }
-    return data as T[] | null;
-  } catch (err) {
-    console.warn('[safeQuery] Exception:', err);
-    return null;
-  }
-}
-
 export function useEffortResultStats(dateStr?: string): EffortResultSummary {
   const [summary, setSummary] = useState<EffortResultSummary>({
     areas: [], totalMinutesToday: 0, totalMinutesGoal: 0, effortScore: 0,
@@ -69,20 +56,37 @@ export function useEffortResultStats(dateStr?: string): EffortResultSummary {
 
     try {
       const [areaStats, areaStreaks, areaGoalsConfig, tasks, weekAreaStats] = await Promise.all([
-        safeQuery(supabase.from('daily_area_stats').select('*').eq('stat_date', today)),
-        safeQuery(supabase.from('area_streaks').select('*')),
-        safeQuery(supabase.from('area_goals_config').select('*')),
-        safeQuery(
-          supabase.from('tasks').select('id, completed, area_id, status')
-            .gte('due_date', `${today}T00:00:00`).lte('due_date', `${today}T23:59:59`)
+        cachedQuery<any[]>('daily_area_stats', `today_${today}`,
+          () => supabase.from('daily_area_stats').select('*').eq('stat_date', today).then(r => r.data || []),
+          7 * 24 * 60 * 60 * 1000
         ),
-        safeQuery(
-          supabase.from('daily_area_stats').select('area_id, stat_date, completed')
-            .gte('stat_date', weekStart).lte('stat_date', weekEnd)
+        cachedQuery<any[]>('area_streaks', 'all',
+          () => supabase.from('area_streaks').select('*').then(r => r.data || []),
+          7 * 24 * 60 * 60 * 1000
+        ),
+        cachedQuery<any[]>('area_goals_config', 'all',
+          () => supabase.from('area_goals_config').select('*').then(r => r.data || []),
+          7 * 24 * 60 * 60 * 1000
+        ),
+        cachedQuery<any[]>('tasks', `due_${today}`,
+          () => supabase.from('tasks').select('id, completed, area_id, status')
+            .gte('due_date', `${today}T00:00:00`).lte('due_date', `${today}T23:59:59`).then(r => r.data || []),
+          7 * 24 * 60 * 60 * 1000
+        ),
+        cachedQuery<any[]>('daily_area_stats', `week_${weekStart}_${weekEnd}`,
+          () => supabase.from('daily_area_stats').select('area_id, stat_date, completed')
+            .gte('stat_date', weekStart).lte('stat_date', weekEnd).then(r => r.data || []),
+          7 * 24 * 60 * 60 * 1000
         ),
       ]);
 
-      let allTasks = tasks || [];
+      const areaStatsData = areaStats.data || [];
+      const areaStreaksData = areaStreaks.data || [];
+      const areaGoalsConfigData = areaGoalsConfig.data || [];
+      const tasksData = tasks.data || [];
+      const weekAreaStatsData = weekAreaStats.data || [];
+
+      let allTasks = tasksData;
 
       if (allTasks.length === 0) {
         const localData = getLocalTasksForDate(today);
@@ -95,15 +99,15 @@ export function useEffortResultStats(dateStr?: string): EffortResultSummary {
       }
 
       const allAreas = AREAS.map(area => {
-        const stat = (areaStats || []).find((s: any) => s.area_id === area.id);
-        const config = (areaGoalsConfig || []).find((c: any) => c.area_id === area.id);
+        const stat = areaStatsData.find((s: any) => s.area_id === area.id);
+        const config = areaGoalsConfigData.find((c: any) => c.area_id === area.id);
 
         const minutesToday = stat?.time_spent_minutes || 0;
         const minutesGoal = config?.default_time_goal_minutes || 30;
-        const streak = (areaStreaks || []).find((s: any) => s.area_id === area.id);
+        const streak = areaStreaksData.find((s: any) => s.area_id === area.id);
 
         const daysActiveThisWeek = new Set(
-          (weekAreaStats || []).filter((s: any) => s.area_id === area.id && s.completed).map((s: any) => s.stat_date)
+          weekAreaStatsData.filter((s: any) => s.area_id === area.id && s.completed).map((s: any) => s.stat_date)
         ).size;
 
         const areaTasks = allTasks.filter((t: any) => t.area_id === area.id);

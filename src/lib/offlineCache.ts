@@ -1,7 +1,7 @@
 import { get, set, del, keys } from "idb-keyval";
 
 const CACHE_PREFIX = "offline_cache_v1_";
-const DEFAULT_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface CacheEntry<T> {
   data: T;
