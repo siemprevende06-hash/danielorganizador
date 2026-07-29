@@ -91,15 +91,19 @@ export default function EstadisticasEsfuerzo() {
       const startDate = `${year}-01-01`;
       const endDate = `${year}-12-31`;
 
-      const [sysRes, areaRes, tasksRes] = await Promise.all([
-        supabase.from('daily_systems_tracking').select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas').gte('tracking_date', startDate).lte('tracking_date', endDate).order('tracking_date', { ascending: true }),
-        supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', startDate).lte('stat_date', endDate).order('stat_date', { ascending: true }),
-        supabase.from('tasks').select('id, completed, completed_at, source, due_date, area_id').or(`completed_at.gte.${startDate},due_date.gte.${startDate}`),
-      ]);
+      try {
+        const results = await Promise.allSettled([
+          supabase.from('daily_systems_tracking').select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas').gte('tracking_date', startDate).lte('tracking_date', endDate).order('tracking_date', { ascending: true }),
+          supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', startDate).lte('stat_date', endDate).order('stat_date', { ascending: true }),
+          supabase.from('tasks').select('id, completed, completed_at, source, due_date, area_id').or(`completed_at.gte.${startDate},due_date.gte.${startDate}`),
+        ]);
 
-      setSystemsData(sysRes.data || []);
-      setAreaStats(areaRes.data || []);
-      setTaskCompletions(tasksRes.data || []);
+        setSystemsData(results[0].status === 'fulfilled' ? results[0].value.data || [] : []);
+        setAreaStats(results[1].status === 'fulfilled' ? results[1].value.data || [] : []);
+        setTaskCompletions(results[2].status === 'fulfilled' ? results[2].value.data || [] : []);
+      } catch (e) {
+        console.error('[EstadisticasEsfuerzo] Error loading data:', e);
+      }
       setLoading(false);
     };
     load();
