@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Flame, Zap, Heart, Activity } from "lucide-react";
+import { Dumbbell, Flame, Zap, Heart, Activity, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
 
@@ -14,6 +14,8 @@ interface Props {
   onIntensityChange: (v: string) => void;
   completed: boolean;
   onToggleCompleted: () => void;
+  skipped?: boolean;
+  onSkip?: () => void;
 }
 
 const INTENSITIES: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
@@ -28,7 +30,7 @@ const MIN_THRESHOLD = 30;
 
 export const WorkoutVisual = ({
   duration, intensity, onDurationChange, onIntensityChange,
-  completed, onToggleCompleted,
+  completed, onToggleCompleted, skipped, onSkip,
 }: Props) => {
   const pct = Math.min(100, Math.round((duration / GOAL_MIN) * 100));
   const intensityInfo = INTENSITIES.find((i) => i.id === intensity) || INTENSITIES[1];
@@ -91,7 +93,7 @@ export const WorkoutVisual = ({
       </div>
 
       <div className="p-3 space-y-3">
-        {/* Toggle completed */}
+        {/* Toggle completed + Skip */}
         <div className="flex items-center gap-2">
           <button onClick={onToggleCompleted}
             className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border",
@@ -104,7 +106,17 @@ export const WorkoutVisual = ({
             </div>
             {completed ? "Hecho" : "Sin hacer"}
           </button>
-          <span className="text-[9px] text-muted-foreground">Marca si entrenaste hoy</span>
+          <button
+            onClick={() => { onDurationChange(0); onSkip?.(); }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border",
+              skipped ? "bg-red-500/20 text-red-500 border-red-500/40" : "bg-muted text-muted-foreground border-border hover:border-red-400"
+            )}
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            {skipped ? "Saltado" : "No hice"}
+          </button>
+          <span className="text-[9px] text-muted-foreground">Marca si entrenaste o no hoy</span>
         </div>
 
         {/* Selector de intensidad como chips */}

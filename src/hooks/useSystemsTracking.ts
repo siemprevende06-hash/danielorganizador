@@ -53,6 +53,8 @@ export interface SystemsData {
   workoutDuration: number;
   workoutIntensity: string;
   mealPhotos: Record<string, string>;
+  skipped: Record<string, boolean>;
+  activeFocusAreas: string[];
 }
 
 const DEFAULT_DATA: SystemsData = {
@@ -67,6 +69,8 @@ const DEFAULT_DATA: SystemsData = {
   workoutDuration: 0,
   workoutIntensity: "moderate",
   mealPhotos: {},
+  skipped: {},
+  activeFocusAreas: ["universidad", "emprendimiento", "proyectos"],
 };
 
 export function useSystemsTracking() {
@@ -111,6 +115,8 @@ export function useSystemsTracking() {
         workoutDuration: row.workout_duration || 0,
         workoutIntensity: row.workout_intensity || "moderate",
         mealPhotos: (row.meal_photos as Record<string, string>) || {},
+        skipped: (row.skipped as Record<string, boolean>) || {},
+        activeFocusAreas: (row.active_focus_areas as string[]) || ["universidad", "emprendimiento", "proyectos"],
       });
 
       const cacheKey = `tracking_${today}`;
@@ -199,6 +205,8 @@ export function useSystemsTracking() {
       workout_duration: newData.workoutDuration,
       workout_intensity: newData.workoutIntensity,
       meal_photos: newData.mealPhotos,
+      skipped: newData.skipped,
+      active_focus_areas: newData.activeFocusAreas,
     };
 
     if (recordId) {
@@ -235,17 +243,36 @@ export function useSystemsTracking() {
   }, []);
 
   const toggleCompletion = useCallback((id: string) => {
-    setData(prev => ({
-      ...prev,
-      completions: { ...prev.completions, [id]: !prev.completions[id] },
-    }));
+    setData(prev => {
+      const done = !!prev.completions[id];
+      const skipped = !!prev.skipped[id];
+      if (!done && !skipped) {
+        return { ...prev, completions: { ...prev.completions, [id]: true } };
+      }
+      if (done) {
+        const newSkipped = { ...prev.skipped, [id]: true };
+        const newCompletions = { ...prev.completions };
+        delete newCompletions[id];
+        return { ...prev, completions: newCompletions, skipped: newSkipped };
+      }
+      const newSkipped = { ...prev.skipped };
+      delete newSkipped[id];
+      return { ...prev, skipped: newSkipped };
+    });
   }, []);
 
   const setTimeValue = useCallback((id: string, v: number) => {
-    setData(prev => ({
-      ...prev,
-      timeData: { ...prev.timeData, [id]: v },
-    }));
+    setData(prev => {
+      const newSkipped = { ...prev.skipped };
+      if (v > 0) {
+        delete newSkipped[id];
+      }
+      return {
+        ...prev,
+        timeData: { ...prev.timeData, [id]: v },
+        skipped: newSkipped,
+      };
+    });
   }, []);
 
   const setCountValue = useCallback((id: string, v: number) => {
@@ -274,6 +301,31 @@ export function useSystemsTracking() {
       ...prev,
       blockCompletions: { ...prev.blockCompletions, [blockId]: !prev.blockCompletions[blockId] },
     }));
+  }, []);
+
+  const toggleSkip = useCallback((id: string) => {
+    setData(prev => {
+      const wasSkipped = !!prev.skipped[id];
+      const newSkipped = { ...prev.skipped };
+      if (wasSkipped) {
+        delete newSkipped[id];
+      } else {
+        newSkipped[id] = true;
+      }
+      return { ...prev, skipped: newSkipped };
+    });
+  }, []);
+
+  const toggleActiveFocusArea = useCallback((areaId: string) => {
+    setData(prev => {
+      const has = prev.activeFocusAreas.includes(areaId);
+      return {
+        ...prev,
+        activeFocusAreas: has
+          ? prev.activeFocusAreas.filter(a => a !== areaId)
+          : [...prev.activeFocusAreas, areaId],
+      };
+    });
   }, []);
 
   const setMealPhoto = useCallback((mealId: string, url: string) => {
@@ -310,6 +362,8 @@ export function useSystemsTracking() {
     toggleWater,
     setWorkAssignment,
     toggleBlock,
+    toggleSkip,
+    toggleActiveFocusArea,
     setMealPhoto,
     loadHistory,
   };

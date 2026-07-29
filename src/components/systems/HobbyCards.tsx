@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Music2, Crown, Image as ImageIcon, ArrowRight, Plus, Save } from "lucide-react";
+import { BookOpen, Music2, Crown, Image as ImageIcon, ArrowRight, Plus, Save, XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useReadingLibrary } from "@/hooks/useReadingLibrary";
 import { useMusicRepertoire, type Song } from "@/hooks/useMusicRepertoire";
@@ -29,25 +29,29 @@ interface Props {
   onTimeChange: (id: string, v: number) => void;
   onCountChange: (id: string, v: number) => void;
   countData: { ajedrez?: number };
+  skipped?: Record<string, boolean>;
+  onSkipToggle?: (id: string) => void;
 }
 
-export const HobbyCards = ({ todayMinutes, onTimeChange, onCountChange, countData }: Props) => {
+export const HobbyCards = ({ todayMinutes, onTimeChange, onCountChange, countData, skipped, onSkipToggle }: Props) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-      <ReadingCard todayMin={todayMinutes.lectura || 0} onChange={(v) => onTimeChange("lectura", v)} />
-      <MusicCard todayMin={todayMinutes.musica || 0} onChange={(v) => onTimeChange("musica", v)} />
+      <ReadingCard todayMin={todayMinutes.lectura || 0} onChange={(v) => onTimeChange("lectura", v)} onSkip={() => onSkipToggle?.("lectura")} skipped={!!skipped?.lectura} />
+      <MusicCard todayMin={todayMinutes.musica || 0} onChange={(v) => onTimeChange("musica", v)} onSkip={() => onSkipToggle?.("musica")} skipped={!!skipped?.musica} />
       <ChessCard
         todayMin={todayMinutes.ajedrez || 0}
         todayGames={countData.ajedrez || 0}
         onMinChange={(v) => onTimeChange("ajedrez", v)}
         onGamesChange={(v) => onCountChange("ajedrez", v)}
+        onSkip={() => onSkipToggle?.("ajedrez")}
+        skipped={!!skipped?.ajedrez}
       />
     </div>
   );
 };
 
 // ============== LECTURA ==============
-const ReadingCard = ({ todayMin, onChange }: { todayMin: number; onChange: (v: number) => void }) => {
+const ReadingCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number; onChange: (v: number) => void; onSkip?: () => void; skipped?: boolean }) => {
   const { books, getCurrentlyReading, getStats } = useReadingLibrary();
   const [weekPages, setWeekPages] = useState(0);
   const [draft, setDraft] = useState(todayMin);
@@ -124,6 +128,17 @@ const ReadingCard = ({ todayMin, onChange }: { todayMin: number; onChange: (v: n
             <Button size="sm" className="h-8 px-2" onClick={() => { onChange(draft); toast.success("Guardado"); }}>
               <Save className="h-3 w-3" />
             </Button>
+            <button
+              onClick={() => { onChange(0); onSkip?.(); }}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+                isSkipped ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
+              )}
+              title="No lo hice"
+            >
+              <XCircle className="h-3 w-3" />
+              {isSkipped ? "Saltado" : "No hice"}
+            </button>
           </div>
           <Progress value={todayPct} className="h-1.5" />
           <p className="text-[9px] text-muted-foreground text-center">Min {MIN_GOAL} · Máx {MAX_GOAL} min</p>
@@ -142,7 +157,7 @@ const ReadingCard = ({ todayMin, onChange }: { todayMin: number; onChange: (v: n
 };
 
 // ============== MÚSICA ==============
-const MusicCard = ({ todayMin, onChange }: { todayMin: number; onChange: (v: number) => void }) => {
+const MusicCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number; onChange: (v: number) => void; onSkip?: () => void; skipped?: boolean }) => {
   const { songs, getSongsByInstrument } = useMusicRepertoire();
   const [instrument, setInstrument] = useState<"piano" | "guitar">("piano");
   const [weekMin, setWeekMin] = useState(0);
@@ -151,6 +166,7 @@ const MusicCard = ({ todayMin, onChange }: { todayMin: number; onChange: (v: num
   const MIN_GOAL = 15;
   const MAX_GOAL = 30;
   const sem = semaphore(todayMin, MIN_GOAL, MAX_GOAL);
+  const isSkipped = skipped && todayMin === 0;
 
   useEffect(() => setDraft(todayMin), [todayMin]);
 
@@ -232,6 +248,17 @@ const MusicCard = ({ todayMin, onChange }: { todayMin: number; onChange: (v: num
             <Button size="sm" className="h-8 px-2" onClick={() => { onChange(draft); toast.success("Guardado"); }}>
               <Save className="h-3 w-3" />
             </Button>
+            <button
+              onClick={() => { onChange(0); onSkip?.(); }}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+                isSkipped ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
+              )}
+              title="No lo hice"
+            >
+              <XCircle className="h-3 w-3" />
+              {isSkipped ? "Saltado" : "No hice"}
+            </button>
           </div>
           <Progress value={todayPct} className="h-1.5" />
           <p className="text-[9px] text-muted-foreground text-center">Min {MIN_GOAL} · Máx {MAX_GOAL} min</p>
@@ -251,15 +278,17 @@ const MusicCard = ({ todayMin, onChange }: { todayMin: number; onChange: (v: num
 
 // ============== AJEDREZ ==============
 const ChessCard = ({
-  todayMin, todayGames, onMinChange, onGamesChange,
+  todayMin, todayGames, onMinChange, onGamesChange, onSkip, skipped,
 }: {
   todayMin: number; todayGames: number;
   onMinChange: (v: number) => void; onGamesChange: (v: number) => void;
+  onSkip?: () => void; skipped?: boolean;
 }) => {
   const { stats, goals } = useChessTracking();
   const MIN_GOAL = 10;
   const MAX_GOAL = 20;
   const sem = semaphore(todayMin, MIN_GOAL, MAX_GOAL);
+  const isSkipped = skipped && todayMin === 0;
   const [draftMin, setDraftMin] = useState(todayMin);
   const [draftGames, setDraftGames] = useState(todayGames);
 
@@ -318,6 +347,19 @@ const ChessCard = ({
               />
               <p className="text-[9px] text-center text-muted-foreground mt-0.5">partidas</p>
             </div>
+          </div>
+          <div className="flex justify-center pt-1">
+            <button
+              onClick={() => { onMinChange(0); onSkip?.(); }}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+                isSkipped ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
+              )}
+              title="No lo hice"
+            >
+              <XCircle className="h-3 w-3" />
+              {isSkipped ? "Saltado" : "No hice"}
+            </button>
           </div>
           <Progress value={todayPct} className="h-1.5" />
           <p className="text-[9px] text-muted-foreground text-center">Min {MIN_GOAL} · Máx {MAX_GOAL} min</p>

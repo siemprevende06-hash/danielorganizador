@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { BookText, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check, Clock } from "lucide-react";
+import { BookText, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check, Clock, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,9 +31,11 @@ interface Props {
   inglesTime?: number;
   onItalianoTimeChange?: (minutes: number) => void;
   onInglesTimeChange?: (minutes: number) => void;
+  skipped?: Record<string, boolean>;
+  onSkipToggle?: (id: string) => void;
 }
 
-export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange }: Props) => {
+export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange, skipped, onSkipToggle }: Props) => {
   const [activeLang, setActiveLang] = useState<'italian' | 'english'>('italian');
   const langPrefix = activeLang === 'italian' ? 'idioma-italiano' : 'idioma-ingles';
   const currentTime = activeLang === 'italian' ? italianoTime : inglesTime;
@@ -172,6 +174,21 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
           className="h-7 w-14 text-xs text-center font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         <span className="text-[10px] text-muted-foreground">min</span>
+        <button
+          onClick={() => {
+            const langKey = activeLang === 'italian' ? 'italiano' : 'ingles';
+            const timeChange = activeLang === 'italian' ? onItalianoTimeChange : onInglesTimeChange;
+            timeChange?.(0);
+            onSkipToggle?.(langKey);
+          }}
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+            skipped?.[activeLang === 'italian' ? 'italiano' : 'ingles'] ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
+          )}
+        >
+          <XCircle className="h-3 w-3" />
+          {skipped?.[activeLang === 'italian' ? 'italiano' : 'ingles'] ? "Saltado" : "No hice"}
+        </button>
         <div className="flex-1" />
         <div className="flex items-center gap-1">
           <span className={cn("text-[9px] font-medium", localTime >= maxTime ? "text-green-600" : localTime >= minTime ? "text-blue-600" : "text-red-500")}>

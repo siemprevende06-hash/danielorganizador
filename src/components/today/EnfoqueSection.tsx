@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   GraduationCap, Briefcase, FolderKanban, ListTodo,
-  Focus, Clock, Target, ArrowRight, Save, CalendarDays, CheckCircle2, X, Sun, Moon, Coffee, Book, Music, Dumbbell
+  Focus, Clock, Target, ArrowRight, Save, CalendarDays, CheckCircle2, X, Sun, Moon, Coffee, Book, Music, Dumbbell, XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCombinedFocusTime } from "@/hooks/useCombinedFocusTime";
@@ -39,6 +39,10 @@ interface EnfoqueSectionProps {
   tasksByBlock?: Record<string, TaskItem[]>;
   onRemoveTask?: (taskId: string) => void;
   tasks?: TaskItem[];
+  activeFocusAreas?: string[];
+  onToggleActiveFocusArea?: (areaId: string) => void;
+  skipped?: Record<string, boolean>;
+  onSkipToggle?: (id: string) => void;
 }
 
 const AREA_CARD_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; gradient: string; color: string; bg: string; route: string }> = {
@@ -110,7 +114,7 @@ const parseTime = (timeStr: string): number => {
 // ============================================================
 //  ENFOQUE SECTION — Bloques + Tarjetas de enfoque
 // ============================================================
-export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: propTasks }: EnfoqueSectionProps) {
+export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: propTasks, activeFocusAreas, onToggleActiveFocusArea, skipped, onSkipToggle }: EnfoqueSectionProps) {
   const navigate = useNavigate();
   const tasks = propTasks ?? [];
   const { areas, loading, setManualTime } = useCombinedFocusTime();
@@ -370,6 +374,42 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: prop
         </Card>
       )}
 
+      {/* ===== SELECTOR DE ÁREAS ACTIVAS ===== */}
+      {activeFocusAreas && onToggleActiveFocusArea && (
+        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Target className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Áreas activas hoy</span>
+            </div>
+            <div className="flex gap-2">
+              {['universidad', 'emprendimiento', 'proyectos'].map(id => {
+                const cfg = AREA_CARD_CONFIG[id];
+                const active = activeFocusAreas.includes(id);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => onToggleActiveFocusArea(id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                      active
+                        ? "bg-primary/10 border-primary/30 text-primary"
+                        : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <cfg.icon className="h-3.5 w-3.5" />
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-muted-foreground mt-1.5">
+              Las áreas no seleccionadas aparecerán como "No enfoque" en estadísticas
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ===== TARJETAS DE ENFOQUE (como Mejora) ===== */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {areas.map((area) => {
@@ -380,6 +420,8 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: prop
           const info = infoByArea[area.id];
           const taskPct = info && info.total > 0 ? Math.round((info.done / info.total) * 100) : 0;
 
+          const areaActive = activeFocusAreas?.includes(area.id) ?? true;
+          const isSkipped = skipped?.[area.id] && area.manualMinutes === 0;
           return (
             <FocusCard
               key={area.id}
@@ -400,6 +442,9 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: prop
               progress={area.progress}
               onManualTimeChange={(v) => setManualTime(area.id, v)}
               onNavigate={navigate}
+              areaActive={areaActive}
+              isSkipped={isSkipped}
+              onSkip={() => onSkipToggle?.(area.id)}
             />
           );
         })}
@@ -429,6 +474,9 @@ function FocusCard({
   progress,
   onManualTimeChange,
   onNavigate,
+  areaActive = true,
+  isSkipped = false,
+  onSkip,
 }: {
   areaId: string;
   areaName: string;
@@ -447,6 +495,9 @@ function FocusCard({
   progress: number;
   onManualTimeChange: (v: number) => void;
   onNavigate: (url: string) => void;
+  areaActive?: boolean;
+  isSkipped?: boolean;
+  onSkip?: () => void;
 }) {
   const MIN_GOAL = Math.round(goalMinutes * 0.5);
   const [draft, setDraft] = useState(manualMinutes);
@@ -473,72 +524,98 @@ function FocusCard({
         <ArrowRight className="h-4 w-4 text-white/80" />
       </div>
 
-      <div className={cn("p-4 space-y-3", sem.bg)}>
-        {/* Active item info (subject/project name) */}
-        <button
-          type="button"
-          onClick={() => info && onNavigate(info.route)}
-          className="w-full text-left rounded-md border border-border/50 bg-background/50 px-2 py-1.5 hover:bg-background transition-colors"
-        >
-          {info ? (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-medium truncate">{info.name}</span>
-                <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">
-                  {info.done}/{info.total}
-                </Badge>
+      <div className={cn("p-4 space-y-3", isSkipped ? "bg-red-500/5" : areaActive ? sem.bg : "bg-muted/10")}>
+        {!areaActive && (
+          <div className="text-center py-3">
+            <Badge variant="secondary" className="text-[10px] px-2 py-1 bg-muted text-muted-foreground">
+              No enfoque hoy
+            </Badge>
+            <p className="text-[9px] text-muted-foreground mt-1">Área no seleccionada para hoy</p>
+          </div>
+        )}
+
+        {areaActive && (
+          <>
+            {/* Active item info (subject/project name) */}
+            <button
+              type="button"
+              onClick={() => info && onNavigate(info.route)}
+              className="w-full text-left rounded-md border border-border/50 bg-background/50 px-2 py-1.5 hover:bg-background transition-colors"
+            >
+              {info ? (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium truncate">{info.name}</span>
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">
+                      {info.done}/{info.total}
+                    </Badge>
+                  </div>
+                  <Progress value={taskPct} className="h-1 mt-1" />
+                </>
+              ) : (
+                <span className="text-[10px] text-muted-foreground">
+                  Selecciona {areaId === "universidad" ? "una asignatura" : areaId === "emprendimiento" ? "una iniciativa" : "un proyecto"} activa
+                </span>
+              )}
+            </button>
+
+            <Separator />
+
+            {/* Time input */}
+            <div className="bg-card/80 backdrop-blur rounded-lg p-2 border space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Tiempo manual (min)</span>
+                <span className={cn("text-[10px] font-bold", sem.text)}>{sem.label}</span>
               </div>
-              <Progress value={taskPct} className="h-1 mt-1" />
-            </>
-          ) : (
-            <span className="text-[10px] text-muted-foreground">
-              Selecciona {areaId === "universidad" ? "una asignatura" : areaId === "emprendimiento" ? "una iniciativa" : "un proyecto"} activa
-            </span>
-          )}
-        </button>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={draft || ""}
+                  onChange={(e) => setDraft(parseInt(e.target.value) || 0)}
+                  className="h-8 text-sm font-bold text-center"
+                  placeholder="0"
+                />
+                <Button size="sm" className="h-8 px-2" onClick={handleSave}>
+                  <Save className="h-3 w-3" />
+                </Button>
+                {onSkip && (
+                  <button
+                    onClick={() => { onManualTimeChange(0); onSkip(); }}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+                      isSkipped ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
+                    )}
+                    title="No lo hice"
+                  >
+                    <XCircle className="h-3 w-3" />
+                    {isSkipped ? "Saltado" : "No hice"}
+                  </button>
+                )}
+              </div>
+              <Progress value={Math.min(100, progress)} className="h-1.5" />
+              <p className="text-[9px] text-muted-foreground text-center">
+                {totalMinutes} / {goalMinutes} min ({progress}%)
+              </p>
+            </div>
 
-        <Separator />
-
-        {/* Time input */}
-        <div className="bg-card/80 backdrop-blur rounded-lg p-2 border space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Tiempo manual (min)</span>
-            <span className={cn("text-[10px] font-bold", sem.text)}>{sem.label}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={0}
-              value={draft || ""}
-              onChange={(e) => setDraft(parseInt(e.target.value) || 0)}
-              className="h-8 text-sm font-bold text-center"
-              placeholder="0"
+            {/* Week streak */}
+            <WeekStreakBar
+              habitId={`focus-${areaId}`}
+              todayValue={totalMinutes}
+              minThreshold={MIN_GOAL}
+              maxThreshold={goalMinutes}
+              compact
             />
-            <Button size="sm" className="h-8 px-2" onClick={handleSave}>
-              <Save className="h-3 w-3" />
-            </Button>
-          </div>
-          <Progress value={Math.min(100, progress)} className="h-1.5" />
-          <p className="text-[9px] text-muted-foreground text-center">
-            {totalMinutes} / {goalMinutes} min ({progress}%)
-          </p>
-        </div>
 
-        {/* Week streak */}
-        <WeekStreakBar
-          habitId={`focus-${areaId}`}
-          todayValue={totalMinutes}
-          minThreshold={MIN_GOAL}
-          maxThreshold={goalMinutes}
-          compact
-        />
-
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t">
-          <Stat label="Manual" value={`${manualMinutes}m`} />
-          <Stat label="Focus" value={`${focusMinutes}m`} />
-          <Stat label="Total" value={`${totalMinutes}m`} />
-        </div>
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t">
+              <Stat label="Manual" value={`${manualMinutes}m`} />
+              <Stat label="Focus" value={`${focusMinutes}m`} />
+              <Stat label="Total" value={`${totalMinutes}m`} />
+            </div>
+          </>
+        )}
       </div>
     </Card>
   );

@@ -92,7 +92,7 @@ export default function EstadisticasEsfuerzo() {
       const endDate = `${year}-12-31`;
 
       const [sysRes, areaRes, tasksRes] = await Promise.all([
-        supabase.from('daily_systems_tracking').select('tracking_date, completions, time_data, count_data, block_completions, workout_duration').gte('tracking_date', startDate).lte('tracking_date', endDate).order('tracking_date', { ascending: true }),
+        supabase.from('daily_systems_tracking').select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas').gte('tracking_date', startDate).lte('tracking_date', endDate).order('tracking_date', { ascending: true }),
         supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', startDate).lte('stat_date', endDate).order('stat_date', { ascending: true }),
         supabase.from('tasks').select('id, completed, completed_at, source, due_date, area_id').or(`completed_at.gte.${startDate},due_date.gte.${startDate}`),
       ]);
@@ -134,14 +134,24 @@ export default function EstadisticasEsfuerzo() {
         }
       }
     });
+    const sysByDate: Record<string, any> = {};
+    monthDays.forEach(d => { sysByDate[d.tracking_date] = d; });
     const dates = monthDays.map(d => d.tracking_date);
-    return dates.map(date => ({
-      date,
-      universidad: areaMap[date]?.universidad || 0,
-      emprendimiento: areaMap[date]?.emprendimiento || 0,
-      proyectos: areaMap[date]?.proyectos || 0,
-      tareasGenerales: taskMap[date] || 0,
-    }));
+    return dates.map(date => {
+      const sys = sysByDate[date];
+      const activeAreas = sys?.active_focus_areas;
+      const skipped = sys?.skipped || {};
+      return {
+        date,
+        universidad: areaMap[date]?.universidad || 0,
+        emprendimiento: areaMap[date]?.emprendimiento || 0,
+        proyectos: areaMap[date]?.proyectos || 0,
+        tareasGenerales: taskMap[date] || 0,
+        activeFocusAreas: activeAreas,
+        skipped: skipped,
+        noSystemsData: !sys,
+      };
+    });
   }, [monthDays, areaStats, taskCompletions, monthKey]);
 
   // ─── Weekly aggregated data for trends ───
@@ -329,7 +339,7 @@ export default function EstadisticasEsfuerzo() {
                 <div className="flex items-center gap-2 p-3 border-b border-border/30">
                   <Shield className="h-4 w-4 text-emerald-500" />
                   <h2 className="text-sm font-bold">Sostén</h2>
-                  <span className="text-[10px] text-muted-foreground">✅ completado · ❌ pendiente</span>
+                  <span className="text-[10px] text-muted-foreground">✅ hecho · ❌ no hice · — sin dato</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px]" style={{ borderCollapse: 'collapse' }}>
@@ -357,9 +367,15 @@ export default function EstadisticasEsfuerzo() {
                           </td>
                           {SOSTEN_GROUPS.flatMap(g => g.habits).map(h => {
                             const done = day.completions?.[h.id] === true;
+                            const skipped = day.skipped?.[h.id] === true;
+                            const noData = !done && !skipped;
                             return (
-                              <td key={h.id} className={cn("text-center px-1 py-1 border border-border/20", done ? "text-emerald-500" : "text-red-400/60")}>
-                                {done ? '✅' : '❌'}
+                              <td key={h.id} className={cn("text-center px-1 py-1 border border-border/20",
+                                done && "text-emerald-500",
+                                skipped && "text-red-400/80",
+                                noData && "text-muted-foreground/30"
+                              )}>
+                                {done ? '✅' : skipped ? '✗' : '—'}
                               </td>
                             );
                           })}
@@ -393,7 +409,7 @@ export default function EstadisticasEsfuerzo() {
                 <div className="flex items-center gap-2 p-3 border-b border-border/30">
                   <TrendingUp className="h-4 w-4 text-purple-500" />
                   <h2 className="text-sm font-bold">Mejora</h2>
-                  <span className="text-[10px] text-muted-foreground">minutos por día</span>
+                  <span className="text-[10px] text-muted-foreground">minutos · x = no hice · — = sin dato</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px]" style={{ borderCollapse: 'collapse' }}>
@@ -421,14 +437,21 @@ export default function EstadisticasEsfuerzo() {
                             </td>
                             {MEJORA_HABITS.map((h, i) => {
                               const v = vals[i];
+                              const skipped = h.id === 'entrenamiento-fisico'
+                                ? day.skipped?.['entrenamiento-fisico']
+                                : h.id === 'idiomas'
+                                  ? (day.skipped?.italiano || day.skipped?.ingles)
+                                  : day.skipped?.[h.id];
+                              const noData = v === 0 && !skipped;
                               return (
                                 <td key={h.id} className="text-center px-2 py-1 border border-border/20">
                                   <span className={cn("tabular-nums",
                                     h.hasTime && v >= (DAILY_TARGETS[h.id] || 30) && "text-emerald-500 font-medium",
                                     h.hasTime && v > 0 && v < (DAILY_TARGETS[h.id] || 30) && "text-red-500",
-                                    v === 0 && "text-muted-foreground/30"
+                                    skipped && "text-red-400/80",
+                                    noData && "text-muted-foreground/30"
                                   )}>
-                                    {v > 0 ? `${v}'` : '—'}
+                                    {v > 0 ? `${v}'` : skipped ? 'x' : '—'}
                                   </span>
                                   {h.hasCount && (day.count_data?.[h.id] as number || 0) > 0 && (
                                     <span className="text-[8px] text-muted-foreground ml-0.5">({day.count_data[h.id]})</span>
@@ -470,7 +493,7 @@ export default function EstadisticasEsfuerzo() {
                 <div className="flex items-center gap-2 p-3 border-b border-border/30">
                   <Target className="h-4 w-4 text-amber-500" />
                   <h2 className="text-sm font-bold">Enfoque</h2>
-                  <span className="text-[10px] text-muted-foreground">minutos de enfoque por área · tareas generales realizadas</span>
+                  <span className="text-[10px] text-muted-foreground">minutos · x = no hice · — = sin dato · -- = no enfoque</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px]" style={{ borderCollapse: 'collapse' }}>
@@ -490,26 +513,46 @@ export default function EstadisticasEsfuerzo() {
                     <tbody>
                       {focusPerDay.map((d, idx) => {
                         const total = d.universidad + d.emprendimiento + d.proyectos;
+
+                        const renderFocusCell = (areaId: string, value: number) => {
+                          const activeAreas = d.activeFocusAreas;
+                          const isActive = !activeAreas || activeAreas.includes(areaId);
+                          const isSkipped = d.skipped?.[areaId] === true;
+
+                          if (value > 0) return value;
+                          if (!isActive) return null; // No enfoque
+                          if (isSkipped) return 'x';
+                          return undefined; // sin datos
+                        };
+
+                        const u = renderFocusCell('universidad', d.universidad);
+                        const e = renderFocusCell('emprendimiento', d.emprendimiento);
+                        const p = renderFocusCell('proyectos', d.proyectos);
+
+                        const renderUCell = (val: number | string | null | undefined) => {
+                          const c = typeof val === 'number' ? (val >= 60 ? "text-blue-500 font-medium" : "text-blue-400") : val === 'x' ? "text-red-400/80" : val === null ? "text-muted-foreground/50 italic" : "text-muted-foreground/30";
+                          const t = typeof val === 'number' ? `${val}'` : val === 'x' ? 'x' : val === null ? '--' : '—';
+                          return <span className={c}>{t}</span>;
+                        };
+                        const renderECell = (val: number | string | null | undefined) => {
+                          const c = typeof val === 'number' ? (val >= 30 ? "text-purple-500 font-medium" : "text-purple-400") : val === 'x' ? "text-red-400/80" : val === null ? "text-muted-foreground/50 italic" : "text-muted-foreground/30";
+                          const t = typeof val === 'number' ? `${val}'` : val === 'x' ? 'x' : val === null ? '--' : '—';
+                          return <span className={c}>{t}</span>;
+                        };
+                        const renderPCell = (val: number | string | null | undefined) => {
+                          const c = typeof val === 'number' ? (val >= 30 ? "text-amber-500 font-medium" : "text-amber-400") : val === 'x' ? "text-red-400/80" : val === null ? "text-muted-foreground/50 italic" : "text-muted-foreground/30";
+                          const t = typeof val === 'number' ? `${val}'` : val === 'x' ? 'x' : val === null ? '--' : '—';
+                          return <span className={c}>{t}</span>;
+                        };
+
                         return (
                           <tr key={d.date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-900/50" : "bg-muted/5")}>
                             <td className="sticky left-0 z-10 px-2 py-1 font-medium whitespace-nowrap border border-border/20" style={{ background: 'inherit' }}>
                               {format(parseISO(d.date), 'EEE d', { locale: es })}
                             </td>
-                            <td className="text-center px-2 py-1 border border-border/20 tabular-nums">
-                              <span className={cn(d.universidad >= 60 ? "text-blue-500 font-medium" : d.universidad > 0 ? "text-blue-400" : "text-muted-foreground/30")}>
-                                {d.universidad > 0 ? `${d.universidad}'` : '—'}
-                              </span>
-                            </td>
-                            <td className="text-center px-2 py-1 border border-border/20 tabular-nums">
-                              <span className={cn(d.emprendimiento >= 30 ? "text-purple-500 font-medium" : d.emprendimiento > 0 ? "text-purple-400" : "text-muted-foreground/30")}>
-                                {d.emprendimiento > 0 ? `${d.emprendimiento}'` : '—'}
-                              </span>
-                            </td>
-                            <td className="text-center px-2 py-1 border border-border/20 tabular-nums">
-                              <span className={cn(d.proyectos >= 30 ? "text-amber-500 font-medium" : d.proyectos > 0 ? "text-amber-400" : "text-muted-foreground/30")}>
-                                {d.proyectos > 0 ? `${d.proyectos}'` : '—'}
-                              </span>
-                            </td>
+                            <td className="text-center px-2 py-1 border border-border/20 tabular-nums">{renderUCell(u)}</td>
+                            <td className="text-center px-2 py-1 border border-border/20 tabular-nums">{renderECell(e)}</td>
+                            <td className="text-center px-2 py-1 border border-border/20 tabular-nums">{renderPCell(p)}</td>
                             <td className="text-center px-2 py-1 border border-border/20 tabular-nums">
                               <span className={cn(d.tareasGenerales > 0 ? "text-foreground font-medium" : "text-muted-foreground/30")}>
                                 {d.tareasGenerales > 0 ? d.tareasGenerales : '—'}

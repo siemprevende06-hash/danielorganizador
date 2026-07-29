@@ -105,7 +105,7 @@ export default function DailyView() {
   const dayOfYear = Math.ceil((today.getTime() - new Date(today.getFullYear(), 0, 1).getTime()) / 86400000);
   const yearProgress = Math.round((dayOfYear / 365) * 100);
 
-  const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, setMealPhoto, update } = useSystemsTracking();
+  const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleActiveFocusArea } = useSystemsTracking();
   const { streak: overallStreak } = useOverallSystemStreak();
 
   const dailyPlanData = useDailyPlanData(today);
@@ -471,7 +471,7 @@ export default function DailyView() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {SOSTEN_GROUPS.map(group => (
-                  <SystemHabitGroup key={group.id} group={group} completions={data.completions} timeData={data.timeData} countData={data.countData} waterData={data.waterData} onToggle={toggleCompletion} onTimeChange={setTimeValue} onCountChange={setCountValue} onWaterToggle={toggleWater} workoutDuration={data.workoutDuration} workoutIntensity={data.workoutIntensity} onWorkoutDurationChange={v => update("workoutDuration", v)} onWorkoutIntensityChange={v => update("workoutIntensity", v)} wakeTime={data.wakeTime} sleepTime={data.sleepTime} onWakeTimeChange={v => update("wakeTime", v)} onSleepTimeChange={v => update("sleepTime", v)} mealPhotos={data.mealPhotos} onMealPhotoUpload={setMealPhoto} />
+                  <SystemHabitGroup key={group.id} group={group} completions={data.completions} timeData={data.timeData} countData={data.countData} waterData={data.waterData} onToggle={toggleCompletion} onTimeChange={setTimeValue} onCountChange={setCountValue} onWaterToggle={toggleWater} workoutDuration={data.workoutDuration} workoutIntensity={data.workoutIntensity} onWorkoutDurationChange={v => update("workoutDuration", v)} onWorkoutIntensityChange={v => update("workoutIntensity", v)} wakeTime={data.wakeTime} sleepTime={data.sleepTime} onWakeTimeChange={v => update("wakeTime", v)} onSleepTimeChange={v => update("sleepTime", v)} mealPhotos={data.mealPhotos} onMealPhotoUpload={setMealPhoto} skipped={data.skipped} onSkipToggle={toggleSkip} />
                 ))}
               </CardContent>
             </Card>
@@ -510,11 +510,11 @@ export default function DailyView() {
               <CardContent className="space-y-4">
                 <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Física</p>
-                <WorkoutVisual duration={data.workoutDuration} intensity={data.workoutIntensity} onDurationChange={(v) => update("workoutDuration", v)} onIntensityChange={(v) => update("workoutIntensity", v)} completed={!!data.completions["entrenamiento-fisico"]} onToggleCompleted={() => toggleCompletion("entrenamiento-fisico")} />
+                <WorkoutVisual duration={data.workoutDuration} intensity={data.workoutIntensity} onDurationChange={(v) => update("workoutDuration", v)} onIntensityChange={(v) => update("workoutIntensity", v)} completed={!!data.completions["entrenamiento-fisico"]} onToggleCompleted={() => toggleCompletion("entrenamiento-fisico")} skipped={!!data.skipped["entrenamiento-fisico"]} onSkip={() => toggleSkip("entrenamiento-fisico")} />
               </div>
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Hobbys</p>
-                <HobbyCards todayMinutes={{ lectura: data.timeData["lectura"] || 0, musica: data.timeData["musica"] || 0, ajedrez: data.timeData["ajedrez"] || 0 }} countData={{ ajedrez: data.countData["ajedrez"] || 0 }} onTimeChange={setTimeValue} onCountChange={setCountValue} />
+                <HobbyCards todayMinutes={{ lectura: data.timeData["lectura"] || 0, musica: data.timeData["musica"] || 0, ajedrez: data.timeData["ajedrez"] || 0 }} countData={{ ajedrez: data.countData["ajedrez"] || 0 }} onTimeChange={setTimeValue} onCountChange={setCountValue} skipped={data.skipped} onSkipToggle={toggleSkip} />
               </div>
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Gaming</p>
@@ -534,13 +534,22 @@ export default function DailyView() {
                         placeholder="min"
                         className="w-16 h-7 text-xs text-center"
                       />
+                      <button
+                        onClick={() => toggleSkip("game")}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+                          data.skipped?.["game"] ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
+                        )}
+                      >
+                        {data.skipped?.["game"] ? "Saltado" : "No hice"}
+                      </button>
                     </div>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">Tiempo diario para aprender seducción</p>
                 </Card>
               </div>
               <div>
-                <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} italianoTime={data.timeData?.italiano || 0} inglesTime={data.timeData?.ingles || 0} onItalianoTimeChange={(m) => setTimeValue('italiano', m)} onInglesTimeChange={(m) => setTimeValue('ingles', m)} />
+                <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} italianoTime={data.timeData?.italiano || 0} inglesTime={data.timeData?.ingles || 0} onItalianoTimeChange={(m) => setTimeValue('italiano', m)} onInglesTimeChange={(m) => setTimeValue('ingles', m)} skipped={data.skipped} onSkipToggle={toggleSkip} />
               </div>
             </CardContent>
           </Card>
@@ -555,6 +564,10 @@ export default function DailyView() {
               tasksByBlock={tasksByBlock}
               onRemoveTask={removeTaskFromBlock}
               tasks={tasks}
+              activeFocusAreas={data.activeFocusAreas}
+              onToggleActiveFocusArea={toggleActiveFocusArea}
+              skipped={data.skipped}
+              onSkipToggle={toggleSkip}
             />
             <div>
               <div className="flex items-center gap-2 mb-3">

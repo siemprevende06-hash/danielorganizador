@@ -57,6 +57,9 @@ interface Props {
   // Meal photos
   mealPhotos?: Record<string, string>;
   onMealPhotoUpload?: (mealId: string, url: string) => void;
+  // 3-state
+  skipped?: Record<string, boolean>;
+  onSkipToggle?: (habitId: string) => void;
 }
 
 export function SystemHabitGroup({
@@ -65,6 +68,7 @@ export function SystemHabitGroup({
   workoutDuration, workoutIntensity, onWorkoutDurationChange, onWorkoutIntensityChange,
   wakeTime, sleepTime, onWakeTimeChange, onSleepTimeChange,
   mealPhotos, onMealPhotoUpload,
+  skipped, onSkipToggle,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
   const navigate = useNavigate();
@@ -135,33 +139,35 @@ export function SystemHabitGroup({
       {expanded && (
         <div className="px-4 pb-4 space-y-2">
           {group.habits.map(habit => (
-            <HabitRow
-              key={habit.id}
-              habit={habit}
-              completions={completions}
-              onToggle={onToggle}
-              timeData={timeData}
-              countData={countData}
-              waterData={waterData}
-              onTimeChange={onTimeChange}
-              onCountChange={onCountChange}
-              onWaterToggle={onWaterToggle}
-              navigate={navigate}
-              mealPhotos={mealPhotos}
-              onMealPhotoUpload={onMealPhotoUpload}
-              handlePhotoUpload={handlePhotoUpload}
-              fileInputRefs={fileInputRefs}
-              workoutDuration={workoutDuration}
-              workoutIntensity={workoutIntensity}
-              onWorkoutDurationChange={onWorkoutDurationChange}
-              onWorkoutIntensityChange={onWorkoutIntensityChange}
-              wakeTime={wakeTime}
-              sleepTime={sleepTime}
-              onWakeTimeChange={onWakeTimeChange}
-              onSleepTimeChange={onSleepTimeChange}
-              getWakeTimeStatus={getWakeTimeStatus}
-              getSleepTimeStatus={getSleepTimeStatus}
-            />
+              <HabitRow
+                key={habit.id}
+                habit={habit}
+                completions={completions}
+                onToggle={onToggle}
+                timeData={timeData}
+                countData={countData}
+                waterData={waterData}
+                onTimeChange={onTimeChange}
+                onCountChange={onCountChange}
+                onWaterToggle={onWaterToggle}
+                navigate={navigate}
+                mealPhotos={mealPhotos}
+                onMealPhotoUpload={onMealPhotoUpload}
+                handlePhotoUpload={handlePhotoUpload}
+                fileInputRefs={fileInputRefs}
+                workoutDuration={workoutDuration}
+                workoutIntensity={workoutIntensity}
+                onWorkoutDurationChange={onWorkoutDurationChange}
+                onWorkoutIntensityChange={onWorkoutIntensityChange}
+                wakeTime={wakeTime}
+                sleepTime={sleepTime}
+                onWakeTimeChange={onWakeTimeChange}
+                onSleepTimeChange={onSleepTimeChange}
+                getWakeTimeStatus={getWakeTimeStatus}
+                getSleepTimeStatus={getSleepTimeStatus}
+                skipped={skipped}
+                onSkipToggle={onSkipToggle}
+              />
           ))}
         </div>
       )}
@@ -177,6 +183,7 @@ function HabitRow({
   onWorkoutDurationChange, onWorkoutIntensityChange,
   wakeTime, sleepTime, onWakeTimeChange, onSleepTimeChange,
   getWakeTimeStatus, getSleepTimeStatus,
+  skipped, onSkipToggle,
 }: {
   habit: SystemHabit;
   completions: Record<string, boolean>;
@@ -202,22 +209,30 @@ function HabitRow({
   onSleepTimeChange?: (v: string) => void;
   getWakeTimeStatus: (time: string) => { label: string; color: string } | null;
   getSleepTimeStatus: (time: string) => { label: string; color: string } | null;
+  skipped?: Record<string, boolean>;
+  onSkipToggle?: (id: string) => void;
 }) {
   const { streak } = useSystemHabitStreak(habit.id);
+  const isSkipped = !!skipped?.[habit.id];
+  const isDone = !!completions[habit.id];
+  const noData = !isDone && !isSkipped;
+  const checkState = isSkipped ? false : isDone ? true : "indeterminate";
 
   return (
     <div>
       <div
         className={cn(
           "flex items-center gap-2 p-3 rounded-lg border transition-all",
-          completions[habit.id]
+          isDone
             ? "bg-primary/5 border-primary/20"
+            : isSkipped
+            ? "bg-red-500/5 border-red-500/20"
             : "bg-background border-border hover:border-primary/30"
         )}
       >
         <div className="flex items-center gap-1">
           <Checkbox
-            checked={!!completions[habit.id]}
+            checked={checkState}
             onCheckedChange={() => onToggle(habit.id)}
             className="h-5 w-5"
           />
@@ -241,9 +256,11 @@ function HabitRow({
         <div className="flex-1 flex items-center gap-2 min-w-0">
           <span className={cn(
             "text-sm font-medium truncate",
-            completions[habit.id] && "line-through text-muted-foreground"
+            isDone && "line-through text-muted-foreground",
+            isSkipped && "text-red-400/60"
           )}>
             {habit.name}
+            {isSkipped && <span className="ml-1.5 text-[9px] text-red-400 font-normal">(No lo hice)</span>}
           </span>
           <WeekStreakBar
             habitId={habit.id}
