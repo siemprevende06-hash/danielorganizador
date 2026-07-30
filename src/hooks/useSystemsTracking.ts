@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
-import { getCached, setCache, clearTableCache } from "@/lib/offlineCache";
-import { cachedMutation, cachedQuery } from "@/lib/supabaseCache";
 import { getCubaDate } from "@/lib/cubaTime";
 
 const DEFAULT_TIME_GOALS: Record<string, number> = {
@@ -119,8 +117,6 @@ export function useSystemsTracking() {
         activeFocusAreas: (row.active_focus_areas as string[]) || ["universidad", "emprendimiento", "proyectos"],
       });
 
-      const cacheKey = `tracking_${today}`;
-
       let row: any = null;
       try {
         const { data } = await supabase
@@ -131,12 +127,8 @@ export function useSystemsTracking() {
         row = data;
         if (row) {
           setRecordId(row.id);
-          await setCache("daily_systems_tracking", cacheKey, row);
         }
-      } catch {
-        const cached = await getCached<any>("daily_systems_tracking", cacheKey);
-        row = cached;
-      }
+      } catch {}  // offline, row stays null
 
       if (row) {
         setData(buildData(row));
@@ -210,10 +202,9 @@ export function useSystemsTracking() {
     };
 
     if (recordId) {
-      const r = await cachedMutation("daily_systems_tracking", "update", payload, { id: recordId });
-      if (!r.queued) {
-        await clearTableCache("daily_systems_tracking").catch(() => {});
-      }
+      try {
+        await supabase.from("daily_systems_tracking").update(payload).eq("id", recordId);
+      } catch {}  // offline, data will be lost
     } else {
       try {
         const { data: row, error } = await supabase
@@ -223,9 +214,7 @@ export function useSystemsTracking() {
           .single();
         if (error) throw error;
         if (row) setRecordId(row.id);
-      } catch {
-        await cachedMutation("daily_systems_tracking", "upsert", payload, undefined, "tracking_date");
-      }
+      } catch {}  // offline
     }
 
     syncToAreaStats(newData)
@@ -335,30 +324,24 @@ export function useSystemsTracking() {
     }));
   }, []);
 
-  // Load historical data for charts (with offline cache)
+  // Load historical data for charts
   const loadHistory = useCallback(async (days: number) => {
     const endDate = todayKey();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     const startStr = startDate.toISOString().split("T")[0];
-    const cacheKey = `history_${startStr}_${endDate}`;
 
-    const { data } = await cachedQuery(
-      "daily_systems_tracking",
-      cacheKey,
-      async () => {
-        const { data: rows } = await supabase
-          .from("daily_systems_tracking")
-          .select("*")
-          .gte("tracking_date", startStr)
-          .lte("tracking_date", endDate)
-          .order("tracking_date", { ascending: true });
-        return rows || [];
-      },
-      7 * 24 * 60 * 60 * 1000
-    );
-
-    return data || [];
+    try {
+      const { data: rows } = await supabase
+        .from("daily_systems_tracking")
+        .select("*")
+        .gte("tracking_date", startStr)
+        .lte("tracking_date", endDate)
+        .order("tracking_date", { ascending: true });
+      return rows || [];
+    } catch {
+      return [];
+    }
   }, []);
 
   return {
