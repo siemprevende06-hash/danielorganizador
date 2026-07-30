@@ -50,7 +50,7 @@ self.addEventListener('message', (event) => {
 });
 
 registerRoute(
-  /^https:\/\/qqskvbfofqrruqeyjbuy\.supabase\.co\/rest\/v1\/.*/i,
+  /^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/rest\/v1\/.*/i,
   new NetworkFirst({
     cacheName: 'supabase-api',
     networkTimeoutSeconds: 3,
@@ -64,7 +64,7 @@ registerRoute(
 );
 
 registerRoute(
-  /^https:\/\/qqskvbfofqrruqeyjbuy\.supabase\.co\/storage\/v1\/.*/i,
+  /^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/storage\/v1\/.*/i,
   new CacheFirst({
     cacheName: 'supabase-storage',
     plugins: [
@@ -76,7 +76,7 @@ registerRoute(
 );
 
 registerRoute(
-  /^https:\/\/qqskvbfofqrruqeyjbuy\.supabase\.co\/auth\/.*/i,
+  /^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/auth\/.*/i,
   new NetworkOnly(),
   'GET'
 );

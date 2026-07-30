@@ -90,7 +90,7 @@ define(['./workbox-06b39193'], (function (workbox) { 'use strict';
     allowlist: [/^\/$/],
     denylist: [/^\/~oauth/]
   }));
-  workbox.registerRoute(/^https:\/\/qqskvbfofqrruqeyjbuy\.supabase\.co\/rest\/v1\/.*/i, new workbox.NetworkFirst({
+  workbox.registerRoute(/^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/rest\/v1\/.*/i, new workbox.NetworkFirst({
     "cacheName": "supabase-api",
     "networkTimeoutSeconds": 3,
     plugins: [new workbox.ExpirationPlugin({
@@ -102,7 +102,7 @@ define(['./workbox-06b39193'], (function (workbox) { 'use strict';
       maxRetentionTime: 1440
     })]
   }), 'GET');
-  workbox.registerRoute(/^https:\/\/qqskvbfofqrruqeyjbuy\.supabase\.co\/storage\/v1\/.*/i, new workbox.CacheFirst({
+  workbox.registerRoute(/^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/storage\/v1\/.*/i, new workbox.CacheFirst({
     "cacheName": "supabase-storage",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 2000,
@@ -111,7 +111,7 @@ define(['./workbox-06b39193'], (function (workbox) { 'use strict';
       statuses: [0, 200]
     })]
   }), 'GET');
-  workbox.registerRoute(/^https:\/\/qqskvbfofqrruqeyjbuy\.supabase\.co\/auth\/.*/i, new workbox.NetworkOnly({
+  workbox.registerRoute(/^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/auth\/.*/i, new workbox.NetworkOnly({
     "cacheName": "supabase-auth",
     plugins: []
   }), 'GET');
