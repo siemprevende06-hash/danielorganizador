@@ -39,9 +39,19 @@ self.addEventListener('message', (event) => {
         await Promise.allSettled(
           urls.map(async (url) => {
             try {
-              const response = await fetch(url, { mode: 'cors' });
-              if (response.ok) await cache.put(url, response);
-            } catch {}
+              let response = await fetch(url, { mode: 'cors' });
+              if (!response.ok && response.type === 'opaque') {
+                response = await fetch(url, { mode: 'no-cors' });
+              }
+              if (response.ok || response.type === 'opaque') {
+                await cache.put(url, response.clone());
+              }
+            } catch {
+              try {
+                const response = await fetch(url, { mode: 'no-cors' });
+                await cache.put(url, response.clone());
+              } catch {}
+            }
           })
         );
       })()
@@ -68,7 +78,7 @@ registerRoute(
   new CacheFirst({
     cacheName: 'supabase-storage',
     plugins: [
-      new ExpirationPlugin({ maxEntries: 2000, maxAgeSeconds: 90 * 24 * 60 * 60 }),
+      new ExpirationPlugin({ maxEntries: 5000, maxAgeSeconds: 365 * 10 * 24 * 60 * 60 }),
       new CacheableResponsePlugin({ statuses: [0, 200] }),
     ],
   }),

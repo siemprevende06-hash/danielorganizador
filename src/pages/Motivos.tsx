@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { cacheImageNow, precacheImages } from "@/lib/imageCache";
-import { storeImageFromFile, removeImageBlob } from "@/lib/imageStore";
+import { storeImageFromFile, removeImageBlob, getImageBlob, storeImageBlob } from "@/lib/imageStore";
 import { useTextSection } from "@/hooks/useTextSection";
 import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2 } from "lucide-react";
 import { ImageLightbox } from "@/components/ImageLightbox";
@@ -58,16 +58,11 @@ export default function Motivos() {
 
   useEffect(() => {
     const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
-    precacheImages(urls);
-  }, [sections]);
-
-  // Store images in IndexedDB + send URLs to SW for Cache API storage
-  useEffect(() => {
-    const urls = sections.flatMap((s) => s.cards.map((c) => c.image_url));
     const valid = urls.filter(Boolean) as string[];
     if (valid.length === 0) return;
 
-    // Send to service worker for Cache API precaching
+    precacheImages(valid);
+
     if (navigator.serviceWorker?.controller) {
       navigator.serviceWorker.controller.postMessage({
         type: 'PRECACHE_PHOTOS',
@@ -75,21 +70,14 @@ export default function Motivos() {
       });
     }
 
-    Promise.allSettled(
-      valid.map(async (url) => {
-        const { getImageBlob } = await import("@/lib/imageStore");
-        const existing = await getImageBlob(url);
+    valid.forEach((url) => {
+      getImageBlob(url).then((existing) => {
         if (existing) return;
-        try {
-          const response = await fetch(url, { mode: "cors" });
-          if (response.ok) {
-            const blob = await response.blob();
-            const { storeImageBlob } = await import("@/lib/imageStore");
-            await storeImageBlob(url, blob);
-          }
-        } catch {}
-      })
-    );
+        fetch(url, { mode: "cors" }).then((res) => {
+          if (res.ok) res.blob().then((blob) => storeImageBlob(url, blob));
+        }).catch(() => {});
+      });
+    });
   }, [sections]);
 
   const persist = useCallback((next: MotivoSection[]) => {
