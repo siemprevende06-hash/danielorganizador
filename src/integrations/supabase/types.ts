@@ -1238,6 +1238,7 @@ export type Database = {
           area_id: string | null
           cover_image: string | null
           created_at: string
+          daily_system: string | null
           description: string | null
           id: string
           progress_percentage: number | null
@@ -1251,6 +1252,7 @@ export type Database = {
           area_id?: string | null
           cover_image?: string | null
           created_at?: string
+          daily_system?: string | null
           description?: string | null
           id?: string
           progress_percentage?: number | null
@@ -1264,6 +1266,7 @@ export type Database = {
           area_id?: string | null
           cover_image?: string | null
           created_at?: string
+          daily_system?: string | null
           description?: string | null
           id?: string
           progress_percentage?: number | null

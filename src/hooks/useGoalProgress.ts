@@ -5,6 +5,7 @@ export interface Goal {
   id: string;
   title: string;
   description: string | null;
+  daily_system: string | null;
   area_id: string | null;
   target_date: string | null;
   progress_percentage: number;
@@ -104,6 +105,72 @@ export function useGoalProgress() {
     }
   };
 
+  const createGoal = async (data: {
+    title: string;
+    description?: string;
+    daily_system?: string;
+    area_id?: string | null;
+    target_date?: string | null;
+  }): Promise<string> => {
+    const { data: created, error } = await supabase
+      .from('goals')
+      .insert({
+        title: data.title,
+        description: data.description || null,
+        daily_system: data.daily_system || null,
+        area_id: data.area_id || null,
+        target_date: data.target_date || null,
+        status: 'active',
+        progress_percentage: 0,
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    await fetchGoals();
+    return created.id;
+  };
+
+  const updateDailySystem = async (goalId: string, dailySystem: string) => {
+    const { error } = await supabase
+      .from('goals')
+      .update({ daily_system: dailySystem || null })
+      .eq('id', goalId);
+    if (error) throw error;
+    await fetchGoals();
+  };
+
+  const addGoalTask = async (goalId: string, title: string, dueDate?: string | null) => {
+    const { error } = await supabase.from('goal_tasks').insert({
+      goal_id: goalId,
+      title,
+      completed: false,
+      due_date: dueDate || null,
+    });
+    if (error) throw error;
+    await updateGoalProgress(goalId);
+  };
+
+  const toggleGoalTask = async (task: GoalTask) => {
+    const { error } = await supabase
+      .from('goal_tasks')
+      .update({ completed: !task.completed })
+      .eq('id', task.id);
+    if (error) throw error;
+    await updateGoalProgress(task.goal_id);
+  };
+
+  const deleteGoal = async (goalId: string) => {
+    const { error } = await supabase.from('goals').delete().eq('id', goalId);
+    if (error) throw error;
+    await fetchGoals();
+  };
+
+  const deleteGoalTask = async (task: GoalTask) => {
+    const { error } = await supabase.from('goal_tasks').delete().eq('id', task.id);
+    if (error) throw error;
+    await updateGoalProgress(task.goal_id);
+  };
+
   const getActiveGoalsForToday = () => {
     return goals.filter(goal => goal.status === 'active');
   };
@@ -119,6 +186,12 @@ export function useGoalProgress() {
     fetchGoalTasks,
     fetchGoalBlocks,
     updateGoalProgress,
+    createGoal,
+    updateDailySystem,
+    addGoalTask,
+    toggleGoalTask,
+    deleteGoal,
+    deleteGoalTask,
     getActiveGoalsForToday,
   };
 }
