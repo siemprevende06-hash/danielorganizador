@@ -34,7 +34,7 @@ export interface RoutineInfo {
 
 export const ROUTINES: RoutineInfo[] = [
   { type: 'disciplina', label: 'Disciplina', shortLabel: 'Disciplina', wakeTime: '5:00', sleepTime: '9:00', icon: '🔥', color: 'orange', description: 'Máximo enfoque y estructura', totalBlocks: 15 },
-  { type: 'normal', label: 'Normal', shortLabel: 'Normal', wakeTime: '6:30', sleepTime: '10:30', icon: '⚖️', color: 'blue', description: 'Balance productivo diario', totalBlocks: 15 },
+  { type: 'normal', label: 'Normal', shortLabel: 'Normal', wakeTime: '6:30', sleepTime: '10:30', icon: '⚖️', color: 'blue', description: 'Balance productivo diario', totalBlocks: 16 },
   { type: 'super', label: 'Súper Productividad', shortLabel: 'Súper', wakeTime: '5:00', sleepTime: '10:30', icon: '⚡', color: 'purple', description: 'Días de carga intensa', totalBlocks: 16 },
   { type: 'descanso', label: 'Descanso', shortLabel: 'Descanso', wakeTime: '8:00', sleepTime: '10:30', icon: '🌿', color: 'green', description: 'Recuperación y ocio', totalBlocks: 14 },
 ];
@@ -92,11 +92,12 @@ const NORMAL_BLOCKS: RoutineBlock[] = [
   makeBlock('n-almuerzo', 'Almuerzo + Video + Ajedrez', '13:20', '14:00', 7, false, ['Almorzar', 'Ver video', 'Jugar ajedrez']),
   makeBlock('n-deep4', '4to Deep Work', '14:00', '15:20', 8, true, ['Tareas pendientes']),
   makeBlock('n-deep5', '5to Deep Work', '15:30', '16:50', 9, true, ['Finalizar tareas']),
-  makeBlock('n-idiomas', 'Idiomas', '17:00', '18:30', 10, false, ['Inglés', 'Italiano', 'Práctica']),
+  makeBlock('n-trabajo', 'Bloque de Trabajo', '17:00', '18:30', 10, true, ['Trabajo', 'Tareas pendientes']),
   makeBlock('n-bloque-extra', 'Bloque Extra', '18:30', '20:00', 11, false, ['Tareas pendientes', 'Estudio extra']),
-  makeBlock('n-ocio', 'Ocio', '20:00', '21:30', 12, false, ['Entretenimiento', 'Descanso']),
-  makeBlock('n-musica', 'Música (Piano o Guitarra)', '21:30', '22:00', 13, false, ['Práctica musical']),
-  makeBlock('n-desactivacion', 'Rutina de Desactivación', '22:00', '22:30', 14, false, ['Skincare', 'Preparación para dormir']),
+  makeBlock('n-idiomas', 'Idiomas', '20:00', '20:30', 12, false, ['Inglés', 'Italiano', 'Práctica']),
+  makeBlock('n-ocio', 'Ocio', '20:30', '21:30', 13, false, ['Entretenimiento', 'Descanso']),
+  makeBlock('n-musica', 'Música (Piano o Guitarra)', '21:30', '22:00', 14, false, ['Práctica musical']),
+  makeBlock('n-desactivacion', 'Rutina de Desactivación', '22:00', '22:30', 15, false, ['Skincare', 'Preparación para dormir']),
 ];
 
 const SUPER_BLOCKS: RoutineBlock[] = [

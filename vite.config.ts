@@ -19,7 +19,8 @@ export default defineConfig(({ mode }) => ({
       srcDir: "public",
       filename: "sw.js",
       injectManifest: {
-        injectionPoint: undefined,
+        injectionPoint: "self.__WB_MANIFEST",
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
       devOptions: { enabled: false },
       includeAssets: ["pwa-192x192.png", "pwa-512x512.png", "pwa-512x512-maskable.png", "app-icon.svg", "robots.txt", "favicon.ico", "favicon.svg"],

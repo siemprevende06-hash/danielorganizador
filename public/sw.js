@@ -16,7 +16,7 @@ self.addEventListener('activate', (event) => {
 
 setCatchHandler(async ({ event }) => {
   if (event.request.mode === 'navigate') {
-    const cached = await matchPrecache('/');
+    const cached = (await matchPrecache('/index.html')) || (await matchPrecache('/'));
     if (cached) return cached;
     return new Response('Sin conexión', { status: 503, headers: { 'Content-Type': 'text/plain' } });
   }
