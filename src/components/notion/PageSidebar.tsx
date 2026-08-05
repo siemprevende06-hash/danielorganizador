@@ -169,9 +169,12 @@ function PageItem({
       <span className="truncate flex-1 text-sm">{page.title || 'Sin título'}</span>
       <button
         onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}
+        aria-label={page.is_favorite ? 'Quitar favorito' : 'Marcar favorito'}
         className={cn(
-          'opacity-0 group-hover:opacity-100 shrink-0 transition-opacity',
-          page.is_favorite && 'opacity-100'
+          'shrink-0 transition-opacity',
+          page.is_favorite
+            ? 'opacity-100 pointer-events-auto'
+            : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto pointer-coarse:opacity-70 pointer-coarse:pointer-events-auto'
         )}
       >
         <Star
@@ -183,7 +186,13 @@ function PageItem({
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-          <button className="opacity-0 group-hover:opacity-100 shrink-0">
+          <button
+            aria-label="Opciones de página"
+            className={cn(
+              'shrink-0 transition-opacity',
+              'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto pointer-coarse:opacity-70 pointer-coarse:pointer-events-auto'
+            )}
+          >
             <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         </DropdownMenuTrigger>
