@@ -10,6 +10,7 @@ import { useAutoTheme } from "./hooks/useAutoTheme";
 import { TimeframeProvider } from "./contexts/TimeframeContext";
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
 import Index from "./pages/Index";
+import Inicio2 from "./pages/Inicio2";
 import NotFound from "./pages/NotFound";
 import ControlRoom from "./pages/ControlRoom";
 import Habits from "./pages/Habits";
@@ -90,6 +91,7 @@ function AppContent() {
       <Navigation />
       <Routes>
         <Route path="/" element={<Index />} />
+        <Route path="/inicio-2" element={<Inicio2 />} />
         <Route path="/control-room" element={<ControlRoom />} />
         <Route path="/habits" element={<Habits />} />
         <Route path="/routine" element={<DailyRoutine />} />
