@@ -7,13 +7,15 @@ import { DailyGuide } from '@/components/today/DailyGuide';
 import { TaskAccordion } from '@/components/today/TaskAccordion';
 import { TodayWorkout } from '@/components/today/TodayWorkout';
 import { SystemHabitGroup, type SystemGroup } from '@/components/systems/SystemHabitGroup';
-import { SystemsStatsPanel } from '@/components/systems/SystemsStatsPanel';
+
 import { EnfoqueSection } from '@/components/today/EnfoqueSection';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { HobbyCards } from '@/components/systems/HobbyCards';
 import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
+import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
+import { type MejoraAreaId } from '@/components/mejora/mejoraAreas';
 import { HealthSection } from '@/components/dashboard/HealthSection';
 import { Input } from '@/components/ui/input';
 import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
@@ -21,7 +23,7 @@ import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
-import { useOverallSystemStreak } from '@/hooks/useOverallSystemStreak';
+
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
@@ -29,7 +31,7 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, Activity, CheckCircle2, Droplets, Dumbbell, Moon, Timer, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2 } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2 } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -88,9 +90,6 @@ const MEJORA_GROUPS: SystemGroup[] = [
 ];
 
 const ALL_GROUPS = [...SOSTEN_GROUPS, ...MEJORA_GROUPS];
-const TOTAL_HABITS = ALL_GROUPS.reduce((a, g) => a + g.habits.length, 0);
-const WATER_HABIT_IDS = SOSTEN_GROUPS.flatMap(g => g.habits).filter(h => h.hasWater).map(h => h.id);
-const TOTAL_WATER_HABITS = WATER_HABIT_IDS.length;
 
 const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> = {
   disciplina: { active: "bg-orange-500/20 border-orange-500/60 text-orange-500", inactive: "border-orange-500/20 text-orange-400/60 hover:border-orange-500/40" },
@@ -106,7 +105,6 @@ export default function DailyView() {
   const yearProgress = Math.round((dayOfYear / 365) * 100);
 
   const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleActiveFocusArea } = useSystemsTracking();
-  const { streak: overallStreak } = useOverallSystemStreak();
 
   const dailyPlanData = useDailyPlanData(today);
   const {
@@ -183,6 +181,14 @@ export default function DailyView() {
   const totalHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.length, 0);
   const mejoraMinutes = (data.timeData?.lectura || 0) + (data.timeData?.musica || 0) + (data.timeData?.ajedrez || 0) + (data.workoutDuration || 0);
   const sostenMinutes = Object.entries(data.timeData || {}).filter(([k]) => !['lectura', 'musica', 'ajedrez'].includes(k)).reduce((s, [, v]) => s + v, 0);
+  const todayMinutes: Record<MejoraAreaId, number> = {
+    lectura: data.timeData?.lectura || 0,
+    musica: data.timeData?.musica || 0,
+    ajedrez: data.timeData?.ajedrez || 0,
+    idiomas: (data.timeData?.italiano || 0) + (data.timeData?.ingles || 0),
+    game: data.timeData?.game || 0,
+    gym: data.workoutDuration || 0,
+  };
   const SECTIONS = [
     { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: data.workoutDuration || 0 },
     { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: 0 },
@@ -197,14 +203,6 @@ export default function DailyView() {
       </div>
     );
   }
-
-  const completedHabits = ALL_GROUPS.reduce((sum, g) => sum + g.habits.filter(h => data.completions?.[h.id]).length, 0);
-  const habitPct = TOTAL_HABITS > 0 ? Math.round((completedHabits / TOTAL_HABITS) * 100) : 0;
-  const waterCompleted = WATER_HABIT_IDS.filter(id => data.completions?.[id]).length;
-  const waterPct = TOTAL_WATER_HABITS > 0 ? Math.round((waterCompleted / TOTAL_WATER_HABITS) * 100) : 0;
-  const totalBlocks = Object.keys(data.workAssignments).filter(id => !id.startsWith('__mode__')).length;
-  const doneBlocks = Object.entries(data.workAssignments).filter(([id, area]) => area && !id.startsWith('__mode__') && data.blockCompletions?.[id]).length;
-  const blockPct = totalBlocks > 0 ? Math.round((doneBlocks / totalBlocks) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-background p-3 md:p-6 pt-20 pb-24">
@@ -224,82 +222,6 @@ export default function DailyView() {
             Día {dayOfYear} · {yearProgress}% del año
           </Badge>
         </div>
-
-        <SystemsStatsPanel
-          completions={data.completions}
-          waterData={data.waterData}
-          timeData={data.timeData}
-          totalHabits={TOTAL_HABITS}
-          blockCompletions={data.blockCompletions}
-          workoutDuration={data.workoutDuration}
-          wakeTime={data.wakeTime}
-          sleepTime={data.sleepTime}
-          currentStreak={overallStreak.current}
-          longestStreak={overallStreak.longest}
-        />
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />
-              Indicadores de Hoy
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span className="text-[10px] font-medium uppercase">Hábitos</span>
-                </div>
-                <p className="text-2xl font-bold">{completedHabits}<span className="text-sm text-muted-foreground">/{TOTAL_HABITS}</span></p>
-                <div className="w-full bg-muted rounded-full h-1.5">
-                  <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${habitPct}%` }} />
-                </div>
-              </div>
-              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Droplets className="h-3.5 w-3.5" />
-                  <span className="text-[10px] font-medium uppercase">Agua</span>
-                </div>
-                <p className="text-2xl font-bold">{waterCompleted}<span className="text-sm text-muted-foreground">/{TOTAL_WATER_HABITS}</span></p>
-                <div className="w-full bg-muted rounded-full h-1.5">
-                  <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${waterPct}%` }} />
-                </div>
-              </div>
-              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Dumbbell className="h-3.5 w-3.5" />
-                  <span className="text-[10px] font-medium uppercase">Ejercicio</span>
-                </div>
-                <p className="text-2xl font-bold">{data.workoutDuration || 0}<span className="text-sm text-muted-foreground"> min</span></p>
-                <p className="text-[10px] text-muted-foreground">Intensidad: {data.workoutIntensity || 0}/10</p>
-              </div>
-              <div className="rounded-lg bg-muted/30 p-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Moon className="h-3.5 w-3.5" />
-                  <span className="text-[10px] font-medium uppercase">Sueño</span>
-                </div>
-                <p className="text-lg font-bold">{data.wakeTime || '—'}<span className="text-xs text-muted-foreground"> / {data.sleepTime || '—'}</span></p>
-                <p className="text-[10px] text-muted-foreground">Despertar / Dormir</p>
-              </div>
-            </div>
-            {totalBlocks > 0 && (
-              <div className="mt-3 pt-3 border-t border-border space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Timer className="h-3.5 w-3.5" />
-                    <span>Bloques de trabajo</span>
-                  </div>
-                  <span className="font-medium">{doneBlocks}/{totalBlocks}</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div className="bg-amber-500 h-2 rounded-full transition-all" style={{ width: `${blockPct}%` }} />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Section tabs as cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -498,8 +420,9 @@ export default function DailyView() {
                 </div>
               </CardContent>
             </Card>
-            <MySystemsSection />
-            <Card className="border-purple-500/20">
+            <MejoraProcessPanel todayMinutes={todayMinutes}>
+              <MySystemsSection />
+              <Card className="border-purple-500/20">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-purple-500" />
@@ -553,6 +476,7 @@ export default function DailyView() {
               </div>
             </CardContent>
           </Card>
+            </MejoraProcessPanel>
           </>
         )}
 
