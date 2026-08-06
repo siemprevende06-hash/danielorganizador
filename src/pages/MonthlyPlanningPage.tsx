@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Save, Target } from 'lucide-react';
@@ -13,6 +13,7 @@ import {
   getQuarterFromDate,
   getMonthKeyOf,
   reconcileMonthlyToQuarter,
+  syncMonthlyFromQuarter,
   ALL_HIERARCHY_AREAS,
   AREA_LABELS,
 } from '@/lib/hierarchy';
@@ -29,12 +30,17 @@ import { InheritedBanner } from '@/components/planning/InheritedBanner';
 export default function MonthlyPlanningPage() {
   const [month, setMonth] = useState(new Date());
   const {
-    planData, loading, saving,
+    planData, loading, saving, monthStr,
     books, songs, projects, subjects, topics, events,
     trimestralData,
     updatePlanData, savePlan,
   } = useMonthlyPlan(month);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const synced = syncMonthlyFromQuarter(month);
+    if (synced) updatePlanData(() => synced);
+  }, [monthStr]);
 
   const navigateMonth = (dir: 'prev' | 'next') => {
     setMonth(prev => {
