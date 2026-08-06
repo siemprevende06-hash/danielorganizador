@@ -14,7 +14,6 @@ import { MonthlyTasks } from '@/components/monthly/MonthlyTasks';
 import { MonthlySystemsStats } from '@/components/systems/MonthlySystemsStats';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
-import { LifeAreaScoresPanel } from '@/components/areas/LifeAreaScoresPanel';
 import { MonthlyReviewStats } from '@/components/self-review/MonthlyReviewStats';
 import { getQuarterFromDate } from '@/lib/hierarchy';
 import PeriodSections from '@/components/hierarchy/PeriodSections';
@@ -352,16 +351,7 @@ export default function MonthlyView() {
         <section className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Esfuerzo</h2>
           <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-            <CardContent className="p-4 space-y-4">
-              <LifeAreaScoresPanel periodType="month" />
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border/50" />
-                </div>
-                <div className="relative flex justify-center text-[10px]">
-                  <span className="bg-white dark:bg-zinc-900 px-3 text-muted-foreground/60">Métricas detalladas</span>
-                </div>
-              </div>
+            <CardContent className="p-4">
               <AreaEffortResultsPanel periodType="month" periodStart={monthStart} />
             </CardContent>
           </Card>
