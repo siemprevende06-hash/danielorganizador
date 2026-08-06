@@ -16,7 +16,7 @@ const formatCurrency = (v: number) =>
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 shadow-lg shadow-black/5 text-xs">
+    <div className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 shadow-lg shadow-black/5 text-xs">
       <p className="font-medium text-zinc-500 dark:text-zinc-400 mb-1.5">{label}</p>
       {payload.map((entry: any, idx: number) => (
         <div key={idx} className="flex items-center gap-2 py-0.5">
@@ -33,7 +33,7 @@ const PieTooltip = ({ active, payload }: any) => {
   if (!active || !payload?.length) return null;
   const d = payload[0];
   return (
-    <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 shadow-lg shadow-black/5 text-xs">
+    <div className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 shadow-lg shadow-black/5 text-xs">
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />
         <span className="font-medium text-zinc-900 dark:text-zinc-100">{d.name}</span>

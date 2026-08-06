@@ -17,6 +17,7 @@ import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { type MejoraAreaId } from '@/components/mejora/mejoraAreas';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
+import { ReadingTrackingPanel } from '@/components/reading/ReadingSessionTracker';
 import { HealthSection } from '@/components/dashboard/HealthSection';
 import { Input } from '@/components/ui/input';
 import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
@@ -239,7 +240,7 @@ export default function DailyView() {
                   "relative rounded-2xl p-3 text-left transition-all border-0 backdrop-blur-xl overflow-hidden",
                   isActive
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                    : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                    : "bg-white/80 dark:bg-zinc-950/80 shadow-sm hover:shadow-md"
                 )}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className={cn("text-lg", isActive ? "text-primary-foreground" : "text-primary")}>{s.icon}</span>
@@ -270,7 +271,7 @@ export default function DailyView() {
         {/* ===== SECCIÓN: TAREAS Y HORARIO ===== */}
         {activeSection === 'tasks' && (
           <>
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <CardContent className="p-3 flex items-center gap-4">
                 <div className="relative w-12 h-12 shrink-0">
                   <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
@@ -289,7 +290,7 @@ export default function DailyView() {
             </Card>
             <DailyGuide />
             {Object.keys(groupedTasks).length > 0 && (
-              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
@@ -371,7 +372,7 @@ export default function DailyView() {
         {/* ===== SECCIÓN: SOSTÉN ===== */}
         {activeSection === 'sosten' && (
           <>
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <CardContent className="p-3 flex items-center gap-4">
                 <div className="relative w-12 h-12 shrink-0">
                   <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
@@ -409,7 +410,7 @@ export default function DailyView() {
         {/* ===== SECCIÓN: MEJORA ===== */}
         {activeSection === 'mejora' && (
           <>
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <CardContent className="p-3 flex items-center gap-4">
                 <div className="relative w-12 h-12 shrink-0">
                   <svg className="w-12 h-12 -rotate-90" viewBox="0 0 40 40">
@@ -445,6 +446,7 @@ export default function DailyView() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Hobbys</p>
                 <HobbyCards todayMinutes={{ lectura: data.timeData["lectura"] || 0, musica: data.timeData["musica"] || 0, ajedrez: data.timeData["ajedrez"] || 0 }} countData={{ ajedrez: data.countData["ajedrez"] || 0 }} onTimeChange={setTimeValue} onCountChange={setCountValue} skipped={data.skipped} onSkipToggle={toggleSkip} />
               </div>
+              <ReadingTrackingPanel minutes={data.timeData["lectura"] || 0} onMinChange={(v) => setTimeValue("lectura", v)} />
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Gaming</p>
                 <Card className="p-3 ring-2 ring-purple-500/30">

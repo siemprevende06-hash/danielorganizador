@@ -745,7 +745,7 @@ export default function Finance() {
         const progress = (row.original.paidAmount / row.original.totalAmount) * 100;
         return (
           <div className="flex items-center gap-3 min-w-[140px]">
-            <Progress value={progress} className="h-1.5 rounded-full flex-1 bg-zinc-200 dark:bg-zinc-700" />
+            <Progress value={progress} className="h-1.5 rounded-full flex-1 bg-zinc-200 dark:bg-zinc-950" />
             <span className="text-xs font-medium text-zinc-500 w-10 text-right">{Math.round(progress)}%</span>
           </div>
         );
@@ -771,7 +771,7 @@ export default function Finance() {
         <Badge className={`rounded-full text-xs px-3 py-0.5 font-medium ${
           row.original.status === "paid"
             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-            : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+            : "bg-zinc-100 text-zinc-700 dark:bg-zinc-950 dark:text-zinc-400"
         }`}>
           {row.original.status === "paid" ? "Pagado" : "Pendiente"}
         </Badge>
@@ -936,11 +936,11 @@ export default function Finance() {
           </div>
         </div>
 
-        <div className="h-px bg-zinc-200/50 dark:bg-zinc-800/50" />
+        <div className="h-px bg-zinc-200/50 dark:bg-zinc-950/50" />
 
         {/* Summary Cards */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
             <div className="h-0.5 bg-blue-500" />
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
@@ -952,7 +952,7 @@ export default function Finance() {
               <CurrencyDisplay usd={totalBalance} exchangeRate={exchangeRate} large />
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
             <div className="h-0.5 bg-green-500" />
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
@@ -973,7 +973,7 @@ export default function Finance() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
             <div className="h-0.5 bg-red-400" />
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
@@ -994,7 +994,7 @@ export default function Finance() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
             <div className={cn("h-0.5", monthlyBalance >= 0 ? "bg-green-500" : "bg-red-400")} />
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
@@ -1028,7 +1028,7 @@ export default function Finance() {
 
         {/* Charts Section */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
             <CardHeader className="pb-1 px-4 pt-4">
               <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Resumen 6 Meses</CardTitle>
               <CardDescription className="text-xs text-zinc-400">Ingresos vs Gastos</CardDescription>
@@ -1037,7 +1037,7 @@ export default function Finance() {
               <MonthlySummaryChart data={chartData.monthlySummary} />
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
             <CardHeader className="pb-1 px-4 pt-4">
               <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Gastos por Categoría</CardTitle>
               <CardDescription className="text-xs text-zinc-400">Distribución del mes</CardDescription>
@@ -1046,7 +1046,7 @@ export default function Finance() {
               <CategorySpendChart data={chartData.categorySpend} />
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
             <CardHeader className="pb-1 px-4 pt-4">
               <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Distribución de Balance</CardTitle>
               <CardDescription className="text-xs text-zinc-400">Por billetera</CardDescription>
@@ -1055,7 +1055,7 @@ export default function Finance() {
               <WalletDistributionChart data={chartData.walletDistribution} />
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+          <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
             <CardHeader className="pb-1 px-4 pt-4">
               <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Tendencia del Balance</CardTitle>
               <CardDescription className="text-xs text-zinc-400">Evolución patrimonial</CardDescription>
@@ -1067,7 +1067,7 @@ export default function Finance() {
         </div>
 
         {/* Budget Section */}
-        <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+        <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
           <CardHeader className="pb-2 px-4 pt-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1110,7 +1110,7 @@ export default function Finance() {
                       </span>
                     </div>
                   </div>
-                  <div className="relative h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="relative h-1.5 bg-zinc-100 dark:bg-zinc-950 rounded-full overflow-hidden">
                     <div
                       className={cn(
                         "h-full rounded-full transition-all duration-500",
@@ -1161,11 +1161,11 @@ export default function Finance() {
             {wallets.map((wallet, idx) => {
               const Icon = getWalletIcon(wallet.id);
               return (
-                <Card key={wallet.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl hover:shadow-md transition-all duration-200" style={{ animationDelay: `${idx * 0.05}s` }}>
+                <Card key={wallet.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl hover:shadow-md transition-all duration-200" style={{ animationDelay: `${idx * 0.05}s` }}>
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <div className="p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                        <div className="p-1 rounded-lg bg-zinc-100 dark:bg-zinc-950">
                           <Icon className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
                         </div>
                         <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{wallet.name}</span>
@@ -1221,14 +1221,14 @@ export default function Finance() {
           </div>
 
           {distributionBags.length === 0 ? (
-            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
               <CardContent className="p-6 text-center text-xs text-zinc-400">
                 No hay bolsas de distribución. Crea una para empezar.
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                 <CardContent className="p-3 sm:p-4">
                   <DistributionBagChart data={distributionBags.map(b => ({ name: b.name, percentage: b.percentage, color: b.color }))} />
                 </CardContent>
@@ -1244,7 +1244,7 @@ export default function Finance() {
                       return <span className="text-amber-500 font-medium">Falta {100 - total}%</span>;
                     })()}
                   </div>
-                  <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden flex">
+                  <div className="h-2 bg-zinc-100 dark:bg-zinc-950 rounded-full overflow-hidden flex">
                     {distributionBags.map((bag) => {
                       const color = bagColorMap[bag.color] || bagColorMap.blue;
                       return (
@@ -1262,7 +1262,7 @@ export default function Finance() {
                     const IconComponent = iconMap[bag.icon] || WalletIcon;
                     const color = bagColorMap[bag.color] || bagColorMap.blue;
                     return (
-                      <Card key={bag.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl hover:shadow-md transition-all duration-200" style={{ animationDelay: `${idx * 0.05}s` }}>
+                      <Card key={bag.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl hover:shadow-md transition-all duration-200" style={{ animationDelay: `${idx * 0.05}s` }}>
                         <CardContent className="p-2.5 space-y-1.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
@@ -1310,7 +1310,7 @@ export default function Finance() {
           </div>
 
           {financialGoals.length === 0 ? (
-            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
               <CardContent className="p-6 text-center text-xs text-zinc-400">
                 {isEditMode ? 'Crea tu primera meta financiera.' : 'No hay metas financieras definidas.'}
               </CardContent>
@@ -1322,7 +1322,7 @@ export default function Finance() {
                 const color = bagColorMap[goal.color] || bagColorMap.blue;
                 const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
                 return (
-                  <Card key={goal.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl hover:shadow-md transition-all duration-200">
+                  <Card key={goal.id} className="border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl hover:shadow-md transition-all duration-200">
                     <CardContent className="p-3 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -1354,7 +1354,7 @@ export default function Finance() {
                             {goal.targetAmount.toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP
                           </span>
                         </div>
-                        <div className="relative h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="relative h-2 bg-zinc-100 dark:bg-zinc-950 rounded-full overflow-hidden">
                           <div
                             className={cn("h-full rounded-full transition-all duration-500", color.bar)}
                             style={{ width: `${Math.min(progress, 100)}%` }}
@@ -1381,11 +1381,11 @@ export default function Finance() {
           )}
         </section>
 
-        <div className="h-px bg-zinc-200/50 dark:bg-zinc-800/50" />
+        <div className="h-px bg-zinc-200/50 dark:bg-zinc-950/50" />
 
         {/* Tabs Section */}
         <Tabs defaultValue="expenses" className="space-y-4">
-          <TabsList className="inline-flex h-9 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 gap-0.5">
+          <TabsList className="inline-flex h-9 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-950 gap-0.5">
             <TabsTrigger value="expenses" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Gastos</TabsTrigger>
             <TabsTrigger value="incomes" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Ingresos</TabsTrigger>
             <TabsTrigger value="transfers" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Traspasos</TabsTrigger>
@@ -1394,7 +1394,7 @@ export default function Finance() {
           </TabsList>
 
           <TabsContent value="expenses">
-            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
               <CardHeader className="pb-2 px-4 pt-4">
                 <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Gastos</CardTitle>
                 <CardDescription className="text-xs text-zinc-400">{expenses.length} transacciones</CardDescription>
@@ -1407,21 +1407,21 @@ export default function Finance() {
 
           <TabsContent value="incomes" className="space-y-3">
             <div className="grid gap-2 grid-cols-3">
-              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                 <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Ingresos este mes</p>
                   <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{(monthlyIncome * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP</p>
                   <p className="text-[10px] text-zinc-400">${monthlyIncome.toFixed(2)} USD</p>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                 <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Transacciones</p>
                   <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{incomes.filter(t => isThisMonth(t.date)).length}</p>
                   <p className="text-[10px] text-zinc-400">este mes</p>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+              <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                 <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Promedio</p>
                   <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
@@ -1434,7 +1434,7 @@ export default function Finance() {
               </Card>
             </div>
 
-            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
               <CardHeader className="pb-2 px-4 pt-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1471,7 +1471,7 @@ export default function Finance() {
           </TabsContent>
 
           <TabsContent value="transfers">
-            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
               <CardHeader className="pb-2 px-4 pt-4">
                 <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Traspasos</CardTitle>
               </CardHeader>
@@ -1491,25 +1491,25 @@ export default function Finance() {
               return (
                 <>
                   <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Prestado activo</p>
                         <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{(totalLent * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Recuperado</p>
                         <p className="text-sm sm:text-base font-bold text-green-600">{(totalRecovered * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Por cobrar</p>
                         <p className="text-sm sm:text-base font-bold text-amber-600">{(totalPending * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Préstamos</p>
                         <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{outstandingLoans.length} activos</p>
@@ -1526,7 +1526,7 @@ export default function Finance() {
                           const progress = (loan.paidAmount / loan.totalAmount) * 100;
                           const remaining = loan.totalAmount - loan.paidAmount;
                           return (
-                            <Card key={loan.id} className={cn("border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl", "ring-1 ring-amber-500/10")}>
+                            <Card key={loan.id} className={cn("border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl", "ring-1 ring-amber-500/10")}>
                               <CardContent className="p-3 space-y-2">
                                 <div className="flex items-start justify-between">
                                   <div className="space-y-0.5">
@@ -1539,7 +1539,7 @@ export default function Finance() {
                                   </Button>
                                 </div>
                                 <div className="space-y-1">
-                                  <Progress value={progress} className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                                  <Progress value={progress} className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-950" />
                                   <div className="flex justify-between text-[10px] text-zinc-400">
                                     <span>Pagado: {(loan.paidAmount * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
                                     <span>Falta: {(remaining * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
@@ -1554,13 +1554,13 @@ export default function Finance() {
                   )}
 
                   {paidLoans.length > 0 && (
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardHeader className="pb-2 px-4 pt-4">
                         <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Completados ({paidLoans.length})</CardTitle>
                       </CardHeader>
                       <CardContent className="px-4 space-y-1.5">
                         {paidLoans.map(loan => (
-                          <div key={loan.id} className="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl text-xs">
+                          <div key={loan.id} className="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-950/50 rounded-xl text-xs">
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-zinc-700 dark:text-zinc-300">{loan.person}</span>
                               <span className="text-zinc-400">— {loan.description}</span>
@@ -1575,7 +1575,7 @@ export default function Finance() {
                     </Card>
                   )}
 
-                  <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                  <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                     <CardHeader className="pb-2 px-4 pt-4">
                       <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Todos los Préstamos</CardTitle>
                     </CardHeader>
@@ -1598,25 +1598,25 @@ export default function Finance() {
               return (
                 <>
                   <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Deuda activa</p>
                         <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{(totalDebt * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Pagado</p>
                         <p className="text-sm sm:text-base font-bold text-green-600">{(totalPaid * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Por pagar</p>
                         <p className="text-sm sm:text-base font-bold text-red-500">{(totalRemaining * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
                       </CardContent>
                     </Card>
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                         <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Deudas</p>
                         <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{outstandingDebts.length} activas</p>
@@ -1634,7 +1634,7 @@ export default function Finance() {
                           const remaining = debt.totalAmount - debt.paidAmount;
                           const isOverdue = debt.dueDate && new Date(debt.dueDate) < new Date();
                           return (
-                            <Card key={debt.id} className={cn("border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl", isOverdue ? "ring-1 ring-red-500/20" : "ring-1 ring-zinc-200/50 dark:ring-zinc-700/50")}>
+                            <Card key={debt.id} className={cn("border border-zinc-100 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl", isOverdue ? "ring-1 ring-red-500/20" : "ring-1 ring-zinc-200/50 dark:ring-zinc-700/50")}>
                               <CardContent className="p-3 space-y-2">
                                 <div className="flex items-start justify-between">
                                   <div className="space-y-0.5">
@@ -1653,7 +1653,7 @@ export default function Finance() {
                                   </Button>
                                 </div>
                                 <div className="space-y-1">
-                                  <Progress value={progress} className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                                  <Progress value={progress} className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-950" />
                                   <div className="flex justify-between text-[10px] text-zinc-400">
                                     <span>Pagado: {(debt.paidAmount * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
                                     <span className="text-red-500 font-medium">Falta: {(remaining * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</span>
@@ -1668,13 +1668,13 @@ export default function Finance() {
                   )}
 
                   {paidDebts.length > 0 && (
-                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                    <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                       <CardHeader className="pb-2 px-4 pt-4">
                         <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Pagadas ({paidDebts.length})</CardTitle>
                       </CardHeader>
                       <CardContent className="px-4 space-y-1.5">
                         {paidDebts.map(debt => (
-                          <div key={debt.id} className="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl text-xs">
+                          <div key={debt.id} className="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-950/50 rounded-xl text-xs">
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-zinc-700 dark:text-zinc-300">{debt.person}</span>
                               <span className="text-zinc-400">— {debt.description}</span>
@@ -1689,7 +1689,7 @@ export default function Finance() {
                     </Card>
                   )}
 
-                  <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl">
+                  <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                     <CardHeader className="pb-2 px-4 pt-4">
                       <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Todas las Deudas</CardTitle>
                     </CardHeader>
@@ -1977,14 +1977,14 @@ export default function Finance() {
             </DialogHeader>
             {goalToDeposit && (
               <div className="space-y-3">
-                <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl space-y-1">
+                <div className="p-3 bg-zinc-50 dark:bg-zinc-950/50 rounded-xl space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-zinc-400">Progreso actual</span>
                     <span className={cn("text-[10px] font-semibold text-white px-1.5 py-0.5 rounded-full", bagColorMap[goalToDeposit.color]?.badge || "bg-blue-500")}>
                       {goalToDeposit.targetAmount > 0 ? Math.round((goalToDeposit.currentAmount / goalToDeposit.targetAmount) * 100) : 0}%
                     </span>
                   </div>
-                  <div className="relative h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                  <div className="relative h-2 bg-zinc-200 dark:bg-zinc-950 rounded-full overflow-hidden">
                     <div
                       className={cn("h-full rounded-full transition-all duration-500", bagColorMap[goalToDeposit.color]?.bar || "bg-blue-500")}
                       style={{ width: `${Math.min((goalToDeposit.currentAmount / goalToDeposit.targetAmount) * 100, 100)}%` }}
@@ -2054,7 +2054,7 @@ export default function Finance() {
               const total = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
               return (
                 <div className="space-y-3">
-                  <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+                  <div className="p-3 bg-zinc-50 dark:bg-zinc-950/50 rounded-xl">
                     <p className="text-[10px] text-zinc-400">Total a distribuir</p>
                     <CurrencyDisplay usd={total} exchangeRate={exchangeRate} large />
                     <p className="text-[10px] text-zinc-400 mt-1">{undistributedIncomes.length} ingreso(s) sin distribuir</p>
@@ -2064,7 +2064,7 @@ export default function Finance() {
                       const amount = total * (bag.percentage / 100);
                       const color = bagColorMap[bag.color] || bagColorMap.blue;
                       return (
-                        <div key={bag.id} className="flex items-center justify-between p-2.5 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-xl">
+                        <div key={bag.id} className="flex items-center justify-between p-2.5 bg-zinc-50/50 dark:bg-zinc-950/30 rounded-xl">
                           <div className="flex items-center gap-2">
                             <div className={cn("p-1 rounded-lg", color.bg)}>
                               <div className={cn("h-3 w-3", color.text)} />

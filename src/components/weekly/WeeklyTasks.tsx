@@ -98,7 +98,7 @@ export function WeeklyTasks({ weekStart, weekEnd }: WeeklyTasksProps) {
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -156,7 +156,7 @@ export function WeeklyTasks({ weekStart, weekEnd }: WeeklyTasksProps) {
 
           return (
             <Card key={dayStr} className={cn(
-              "border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden",
+              "border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden",
               isToday && "ring-2 ring-primary ring-offset-2"
             )}>
               <div className={cn(

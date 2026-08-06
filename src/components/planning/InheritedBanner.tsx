@@ -1,4 +1,4 @@
-﻿import { Card } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Layers, Book, Music, FolderKanban, GraduationCap, Target } from 'lucide-react';
@@ -39,7 +39,7 @@ export function InheritedBanner({ trimestral, onImport }: InheritedBannerProps) 
           <div className="mt-3 space-y-2">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               {categories.map(cat => (
-                <div key={cat.key} className="flex items-center justify-between bg-white/60 dark:bg-zinc-900/40 rounded-lg px-2.5 py-1.5">
+                <div key={cat.key} className="flex items-center justify-between bg-white/60 dark:bg-zinc-950/40 rounded-lg px-2.5 py-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="text-muted-foreground">{cat.icon}</span>
                     <span className="text-xs">{cat.label}</span>

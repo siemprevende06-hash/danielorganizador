@@ -83,7 +83,7 @@ export function AreaEffortResultsPanel({ periodType, periodStart }: AreaEffortRe
               }
 
               return (
-                <Card key={area.areaId} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+                <Card key={area.areaId} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                   <div className={cn("h-1", area.color)} />
                   <CardContent className="p-4 space-y-4">
                     <div className="flex items-center gap-2.5">

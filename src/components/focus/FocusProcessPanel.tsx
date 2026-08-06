@@ -124,18 +124,20 @@ function getFocusMinutes(row: any, area: FocusAreaId): number {
 }
 
 interface Props {
-  todayMinutes: Record<FocusAreaId, number>;
+  todayMinutes?: Record<FocusAreaId, number>;
+  anchorDate?: Date;
   children?: ReactNode;
 }
 
-export function FocusProcessPanel({ todayMinutes, children }: Props) {
+export function FocusProcessPanel({ todayMinutes, anchorDate, children }: Props) {
   const [selected, setSelected] = useState<FocusAreaId | null>(null);
+  const anchor = anchorDate ?? new Date();
 
   return (
     <div className="space-y-3">
       <AreaSelector selected={selected} onSelect={setSelected} />
       {selected ? (
-        <AreaDetail area={selected} todayMinutes={todayMinutes} onBack={() => setSelected(null)} />
+        <AreaDetail area={selected} todayMinutes={todayMinutes} anchor={anchor} onBack={() => setSelected(null)} />
       ) : (
         children
       )}
@@ -145,7 +147,7 @@ export function FocusProcessPanel({ todayMinutes, children }: Props) {
 
 function AreaSelector({ selected, onSelect }: { selected: FocusAreaId | null; onSelect: (id: FocusAreaId | null) => void }) {
   return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
       <CardContent className="p-3">
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {FOCUS_AREAS.map((area) => {
@@ -174,15 +176,15 @@ function AreaSelector({ selected, onSelect }: { selected: FocusAreaId | null; on
   );
 }
 
-function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMinutes: Record<FocusAreaId, number>; onBack: () => void }) {
+function AreaDetail({ area, todayMinutes, anchor, onBack }: { area: FocusAreaId; todayMinutes?: Record<FocusAreaId, number>; anchor: Date; onBack: () => void }) {
   const meta = FOCUS_AREAS.find((a) => a.id === area)!;
-  const today = new Date();
-  const todayStr = format(today, 'yyyy-MM-dd');
+  const anchorStr = format(anchor, 'yyyy-MM-dd');
+  const isTodayAnchor = anchorStr === format(new Date(), 'yyyy-MM-dd');
   const [history, setHistory] = useState<any[] | null>(null);
 
   useEffect(() => {
     let active = true;
-    const start = format(subDays(today, 119), 'yyyy-MM-dd');
+    const start = format(subDays(anchor, 119), 'yyyy-MM-dd');
     const fetchData = async () => {
       const [tracking, stats] = await Promise.allSettled([
         supabase.from('daily_systems_tracking').select('tracking_date, time_data').gte('tracking_date', start).order('tracking_date', { ascending: true }),
@@ -194,7 +196,8 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
     };
     fetchData();
     return () => { active = false; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchorStr]);
 
   const [areaStats, setAreaStats] = useState<any[] | null>(null);
 
@@ -207,31 +210,31 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
         if (r.area_id === area) map.set(r.stat_date, Math.max(map.get(r.stat_date) || 0, Number(r.time_spent_minutes) || 0));
       });
     }
-    map.set(todayStr, Math.max(map.get(todayStr) || 0, todayMinutes[area] || 0));
+    if (isTodayAnchor) map.set(anchorStr, Math.max(map.get(anchorStr) || 0, todayMinutes?.[area] || 0));
     const arr: { date: string; minutes: number }[] = [];
     for (let i = 119; i >= 0; i--) {
-      const d = subDays(today, i);
+      const d = subDays(anchor, i);
       const key = format(d, 'yyyy-MM-dd');
       arr.push({ date: key, minutes: map.get(key) || 0 });
     }
     return arr;
-  }, [history, areaStats, area, todayMinutes, todayStr, today]);
+  }, [history, areaStats, area, todayMinutes, anchorStr, anchor, isTodayAnchor]);
 
   const periodStats = useMemo(() => {
     if (!series) return null;
     return PERIODS.map((p) => {
-      const from = p.id === 'dia' ? todayStr : format(p.id === 'semana' ? startOfWeek(today, { weekStartsOn: 1 }) : p.id === 'mes' ? startOfMonth(today) : startOfQuarter(today), 'yyyy-MM-dd');
-      const done = series.filter(s => s.date >= from && s.date <= todayStr).reduce((a, b) => a + b.minutes, 0);
-      const planned = getPlannedMinutes(area, p, today);
+      const from = p.id === 'dia' ? anchorStr : format(p.id === 'semana' ? startOfWeek(anchor, { weekStartsOn: 1 }) : p.id === 'mes' ? startOfMonth(anchor) : startOfQuarter(anchor), 'yyyy-MM-dd');
+      const done = series.filter(s => s.date >= from && s.date <= anchorStr).reduce((a, b) => a + b.minutes, 0);
+      const planned = getPlannedMinutes(area, p, anchor);
       const goal = planned > 0 ? planned : Math.round(meta.dailyTarget * p.days);
       return { ...p, from, done, goal, pct: goal > 0 ? Math.round((done / goal) * 100) : 0, pctUncapped: goal > 0 ? Math.round((done / goal) * 100) : 0 };
     });
-  }, [series, area, meta.dailyTarget, today, todayStr]);
+  }, [series, area, meta.dailyTarget, anchor, anchorStr]);
 
   const controlData = useMemo(() => (series ? series.slice(-30) : null), [series]);
   const spc = useMemo(() => (controlData ? computeSpc(controlData.map((d) => d.minutes)) : null), [controlData]);
 
-  const todayMin = todayMinutes[area] || 0;
+  const todayMin = todayMinutes?.[area] || 0;
   const todayExtra = Math.max(0, todayMin - meta.max);
   const stateInfo = spc ? STATE_INFO[spc.state] : null;
   const StateIcon = stateInfo?.icon || Activity;
@@ -245,7 +248,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
     if (!series) return null;
     const weeks: { label: string; total: number; goal: number }[] = [];
     for (let w = 7; w >= 0; w--) {
-      const end = subDays(today, w * 7);
+      const end = subDays(anchor, w * 7);
       const start = subDays(end, 6);
       const sKey = format(start, 'yyyy-MM-dd');
       const eKey = format(end, 'yyyy-MM-dd');
@@ -257,7 +260,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
       });
     }
     return weeks;
-  }, [series, area, today]);
+  }, [series, area, anchor]);
 
   const consistency = useMemo(() => {
     if (!series) return null;
@@ -281,7 +284,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
         </button>
       </div>
 
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -355,7 +358,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
       </Card>
 
       {/* Resultados reales */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
@@ -365,9 +368,9 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <AreaResult icon={Clock} label="Hoy" value={`${todayMin} min`} color={meta.color} />
-            <AreaResult icon={Flame} label="Días activos semana" value={activeDays(series, startOfWeek(today, { weekStartsOn: 1 }), todayStr)} color={meta.color} />
-            <AreaResult icon={Flame} label="Días activos mes" value={activeDays(series, startOfMonth(today), todayStr)} color={meta.color} />
-            <AreaResult icon={Trophy} label="Días activos trimestre" value={activeDays(series, startOfQuarter(today), todayStr)} color="text-emerald-500" />
+            <AreaResult icon={Flame} label="Días activos semana" value={activeDays(series, startOfWeek(anchor, { weekStartsOn: 1 }), anchorStr)} color={meta.color} />
+            <AreaResult icon={Flame} label="Días activos mes" value={activeDays(series, startOfMonth(anchor), anchorStr)} color={meta.color} />
+            <AreaResult icon={Trophy} label="Días activos trimestre" value={activeDays(series, startOfQuarter(anchor), anchorStr)} color="text-emerald-500" />
           </div>
         </CardContent>
       </Card>
@@ -379,7 +382,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
         <StatCard icon={Trophy} label="Mejor día (30d)" value={`${consistency?.best ?? 0} min`} color="text-purple-500" />
       </div>
 
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
@@ -470,7 +473,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
         </CardContent>
       </Card>
 
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-purple-500" />
@@ -512,7 +515,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: FocusAreaId; todayMi
         </CardContent>
       </Card>
 
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -577,7 +580,7 @@ function AreaResult({ icon: Icon, label, value, color = "text-primary" }: { icon
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
   return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
       <CardContent className="p-3 flex items-center gap-2.5">
         <Icon className={cn("h-5 w-5 shrink-0", color)} />
         <div className="min-w-0">

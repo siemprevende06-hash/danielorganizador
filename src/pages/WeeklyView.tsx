@@ -20,6 +20,8 @@ import { MonthlyPlanSummary } from '@/components/monthly-planning/MonthlyPlanSum
 import { WeeklyReviewStats } from '@/components/self-review/WeeklyReviewStats';
 import { getQuarterFromDate } from '@/lib/hierarchy';
 import PeriodSections from '@/components/hierarchy/PeriodSections';
+import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
+import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
 
 const AREAS = [
   { id: 'universidad', label: 'Universidad', icon: '🎓', color: 'bg-blue-500' },
@@ -155,7 +157,7 @@ export default function WeeklyView() {
               const active = isToday(day);
               const scoreColor = d.isFuture ? 'border-muted/30' : d.score >= 70 ? 'border-green-500/40 bg-green-500/5' : d.score >= 40 ? 'border-amber-500/40 bg-amber-500/5' : d.score > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-muted/20';
               return (
-                <Card key={day.toISOString()} className={cn("border bg-white/70 dark:bg-zinc-900/70 backdrop-blur-sm rounded-2xl transition-all", scoreColor, active && "ring-2 ring-primary ring-offset-2")}>
+                <Card key={day.toISOString()} className={cn("border bg-white/70 dark:bg-zinc-950/70 backdrop-blur-sm rounded-2xl transition-all", scoreColor, active && "ring-2 ring-primary ring-offset-2")}>
                   <CardContent className="p-2.5 space-y-2">
                     <div className="text-center">
                       <p className="text-[9px] uppercase font-semibold text-muted-foreground/60">{format(day, 'EEE', { locale: es })}</p>
@@ -193,7 +195,7 @@ export default function WeeklyView() {
           </div>
 
           {/* Heatmap */}
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
             <CardContent className="p-4">
               <p className="text-xs font-medium text-muted-foreground mb-3">Rendimiento diario</p>
               <div className="flex gap-1.5 h-20 items-end">
@@ -250,12 +252,12 @@ export default function WeeklyView() {
           <h2 className="text-lg font-semibold tracking-tight">Áreas</h2>
           <div className="space-y-2.5">
             {areaBreakdown.length === 0 && (
-              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+              <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
                 <CardContent className="p-8 text-center text-muted-foreground text-sm">Sin actividad por áreas esta semana.</CardContent>
               </Card>
             )}
             {areaBreakdown.map(area => (
-              <Card key={area.id} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <Card key={area.id} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
@@ -279,15 +281,35 @@ export default function WeeklyView() {
         {/* Systems section */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
-          <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl p-4">
+          <div className="bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl p-4">
             <WeeklySystemsStats weekStart={weekStart} />
           </div>
+        </section>
+
+        {/* Mejora section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Mejora</h2>
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <CardContent className="p-4">
+              <MejoraProcessPanel anchorDate={weekStart} />
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Enfoque section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Enfoque</h2>
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <CardContent className="p-4">
+              <FocusProcessPanel anchorDate={weekStart} />
+            </CardContent>
+          </Card>
         </section>
 
         {/* Effort section */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Esfuerzo</h2>
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
             <CardContent className="p-4">
               <AreaEffortResultsPanel periodType="week" periodStart={weekStart} />
             </CardContent>

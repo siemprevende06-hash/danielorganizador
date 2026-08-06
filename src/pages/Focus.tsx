@@ -312,7 +312,7 @@ export default function Focus() {
               <Card
                 key={area.id}
                 onClick={() => selectArea(area.id)}
-                className={`relative cursor-pointer transition-all p-3 border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-lg rounded-2xl hover:shadow-xl ${
+                className={`relative cursor-pointer transition-all p-3 border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-lg rounded-2xl hover:shadow-xl ${
                   isSelected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
                 } ${isRunning ? "opacity-70 cursor-not-allowed" : ""}`}
               >
@@ -372,7 +372,7 @@ export default function Focus() {
         {/* Timer Card — iPhone style glassmorphism */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent rounded-3xl blur-xl" />
-          <Card className="relative border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-xl rounded-3xl overflow-hidden">
+          <Card className="relative border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-xl rounded-3xl overflow-hidden">
             <div className="p-8 flex flex-col items-center gap-6">
               {/* Pomodoro selector */}
               <div className="flex gap-1.5 bg-muted/50 p-1 rounded-xl w-full">
@@ -459,7 +459,7 @@ export default function Focus() {
 
         {/* Task Picker */}
         {showTaskPicker ? (
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-lg rounded-2xl p-4 space-y-3">
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-lg rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {selectedArea ? `Tareas de ${FOCUS_AREAS.find(a => a.id === selectedArea)?.name}` : "¿En qué te enfocas?"}

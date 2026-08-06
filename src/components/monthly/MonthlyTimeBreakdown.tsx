@@ -215,7 +215,7 @@ export function MonthlyTimeBreakdown({ currentMonth }: MonthlyTimeBreakdownProps
       </Card>
 
       {/* Daily heatmap — barras apiladas por área */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
         <CardContent className="p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
@@ -266,7 +266,7 @@ export function MonthlyTimeBreakdown({ currentMonth }: MonthlyTimeBreakdownProps
       </Card>
 
       {/* Area breakdown — mismos totales que la página Esfuerzo */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-400" />
         <CardContent className="p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
@@ -302,7 +302,7 @@ export function MonthlyTimeBreakdown({ currentMonth }: MonthlyTimeBreakdownProps
       </Card>
 
       {/* Session list */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
         <CardContent className="p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">

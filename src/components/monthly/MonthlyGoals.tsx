@@ -86,7 +86,7 @@ export function MonthlyGoals({ currentMonth }: MonthlyGoalsProps) {
   return (
     <div className="space-y-4">
       {/* System Indicators */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
         <CardContent className="p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
@@ -148,7 +148,7 @@ export function MonthlyGoals({ currentMonth }: MonthlyGoalsProps) {
       </div>
 
       {activeGoals.length === 0 ? (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
           <CardContent className="p-8 text-center">
             <Target className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">No hay metas activas este trimestre</p>
@@ -162,7 +162,7 @@ export function MonthlyGoals({ currentMonth }: MonthlyGoalsProps) {
             const completedInMonth = monthTasks.filter(t => t.completed).length;
 
             return (
-              <Card key={goal.id} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <Card key={goal.id} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -198,7 +198,7 @@ export function MonthlyGoals({ currentMonth }: MonthlyGoalsProps) {
       )}
 
       {/* 12-Week Goals */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-400" />
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">

@@ -115,7 +115,7 @@ export function DragDropDistribution({
             <p className="text-[10px] font-medium text-amber-600/70">Sin asignar — elige un mes para cada elemento</p>
             <div className="flex flex-wrap gap-2">
               {unassignedBooks.map(book => (
-                <div key={book.id} className="flex items-center gap-1.5 p-1.5 pr-1 rounded-xl bg-white dark:bg-zinc-800 border shadow-sm">
+                <div key={book.id} className="flex items-center gap-1.5 p-1.5 pr-1 rounded-xl bg-white dark:bg-zinc-950 border shadow-sm">
                   <div className="w-7 h-10 rounded overflow-hidden bg-gradient-to-br from-indigo-500/20 shrink-0 flex items-center justify-center">
                     {book.cover_image_url ? (
                       <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" />
@@ -135,7 +135,7 @@ export function DragDropDistribution({
                 </div>
               ))}
               {unassignedSongs.map(song => (
-                <div key={song.id} className="flex items-center gap-1 p-1.5 pr-1 rounded-lg bg-white dark:bg-zinc-800 border shadow-sm">
+                <div key={song.id} className="flex items-center gap-1 p-1.5 pr-1 rounded-lg bg-white dark:bg-zinc-950 border shadow-sm">
                   {song.instrument === "piano" ? <Piano className="h-3 w-3 text-rose-400" /> : <Guitar className="h-3 w-3 text-amber-400" />}
                   <span className="text-[10px] font-medium max-w-[80px] truncate">{song.title}</span>
                   <div className="flex gap-0.5 ml-1">
@@ -163,7 +163,7 @@ export function DragDropDistribution({
           const otherMonths = MONTH_KEYS.filter(k => k !== key);
 
           return (
-            <div key={key} className="min-h-[180px] rounded-2xl border-2 border-border/40 bg-white/50 dark:bg-zinc-900/50 p-3 space-y-2">
+            <div key={key} className="min-h-[180px] rounded-2xl border-2 border-border/40 bg-white/50 dark:bg-zinc-950/50 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold">{monthLabels[mi]}</span>
                 <Badge variant="outline" className="text-[9px] px-1.5">
@@ -172,7 +172,7 @@ export function DragDropDistribution({
               </div>
 
               {monthBooks.map(book => (
-                <div key={book.id} className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-zinc-800 border border-border/50 shadow-sm group">
+                <div key={book.id} className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-zinc-950 border border-border/50 shadow-sm group">
                   <div className="w-8 h-11 rounded-md overflow-hidden bg-gradient-to-br from-indigo-500/20 shrink-0 flex items-center justify-center shadow-sm">
                     {book.cover_image_url ? (
                       <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" />
@@ -203,7 +203,7 @@ export function DragDropDistribution({
               ))}
 
               {monthSongs.map(song => (
-                <div key={song.id} className="flex items-center gap-1.5 p-1.5 px-2 rounded-lg bg-white dark:bg-zinc-800 border border-border/50 shadow-sm group">
+                <div key={song.id} className="flex items-center gap-1.5 p-1.5 px-2 rounded-lg bg-white dark:bg-zinc-950 border border-border/50 shadow-sm group">
                   {song.instrument === "piano" ? <Piano className="h-3 w-3 text-rose-400 shrink-0" /> : <Guitar className="h-3 w-3 text-amber-400 shrink-0" />}
                   <span className="text-[10px] font-medium flex-1 truncate">{song.title}</span>
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -62,7 +62,7 @@ export function WeeklyGoals({ weekStart, weekEnd }: WeeklyGoalsProps) {
     <div className="space-y-4">
       {/* Weekly Objectives */}
       {objectives.length > 0 && (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
@@ -109,7 +109,7 @@ export function WeeklyGoals({ weekStart, weekEnd }: WeeklyGoalsProps) {
       </div>
 
       {activeGoals.length === 0 ? (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
           <CardContent className="p-8 text-center">
             <Target className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">No hay metas activas</p>
@@ -126,7 +126,7 @@ export function WeeklyGoals({ weekStart, weekEnd }: WeeklyGoalsProps) {
 
             return (
               <Card key={goal.id} className={cn(
-                "border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all hover:shadow-md",
+                "border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all hover:shadow-md",
                 isCore && "ring-1 ring-primary/20"
               )}>
                 {isCore && <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />}
@@ -191,7 +191,7 @@ export function WeeklyGoals({ weekStart, weekEnd }: WeeklyGoalsProps) {
       )}
 
       {/* 12-Week Goals */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-400" />
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">

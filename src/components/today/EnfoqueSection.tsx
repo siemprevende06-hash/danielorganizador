@@ -262,7 +262,7 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: prop
 
       {/* ===== BLOQUES DE TRABAJO CON TAREAS ===== */}
       {hasBlocksContent && (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2">
@@ -322,7 +322,7 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: prop
 
       {/* ===== TAREAS DEL DÍA AGRUPADAS ===== */}
       {taskCount > 0 && (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2">
@@ -376,7 +376,7 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: prop
 
       {/* ===== SELECTOR DE ÁREAS ACTIVAS ===== */}
       {activeFocusAreas && onToggleActiveFocusArea && (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-2">
               <Target className="h-3.5 w-3.5 text-muted-foreground" />

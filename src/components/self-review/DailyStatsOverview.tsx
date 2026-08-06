@@ -205,7 +205,7 @@ export function DailyStatsOverview({
                 "rounded-2xl p-3 text-left transition-all border-0 overflow-hidden",
                 isActive
                   ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                  : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                  : "bg-white/80 dark:bg-zinc-950/80 shadow-sm hover:shadow-md"
               )}>
               <div className="flex items-center mb-1.5">
                 <tab.icon className={cn("w-5 h-5", isActive ? "text-primary-foreground" : tab.color)} />

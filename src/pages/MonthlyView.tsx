@@ -17,6 +17,8 @@ import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPane
 import { MonthlyReviewStats } from '@/components/self-review/MonthlyReviewStats';
 import { getQuarterFromDate } from '@/lib/hierarchy';
 import PeriodSections from '@/components/hierarchy/PeriodSections';
+import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
+import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
 
 interface DayData {
   date: Date;
@@ -347,10 +349,30 @@ export default function MonthlyView() {
           <MonthlySystemsStats monthDate={currentMonth} />
         </section>
 
+        {/* Mejora section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Mejora</h2>
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <CardContent className="p-4">
+              <MejoraProcessPanel anchorDate={monthStart} />
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Enfoque section */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Enfoque</h2>
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <CardContent className="p-4">
+              <FocusProcessPanel anchorDate={monthStart} />
+            </CardContent>
+          </Card>
+        </section>
+
         {/* Effort section */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Esfuerzo</h2>
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
             <CardContent className="p-4">
               <AreaEffortResultsPanel periodType="month" periodStart={monthStart} />
             </CardContent>

@@ -89,7 +89,7 @@ export default function JournalingPage() {
             { icon: <Sparkles className="h-4 w-4 text-amber-500" />, label: "Racha (días)", value: streak, gradient: "from-amber-500 to-orange-400" },
             { icon: <BookOpen className="h-4 w-4 text-blue-500" />, label: "Total palabras", value: entries.reduce((s, e) => s + e.content.split(/\s+/).filter(Boolean).length, 0), gradient: "from-blue-500 to-cyan-400" },
           ].map((s, i) => (
-            <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className={cn("h-1 bg-gradient-to-r", s.gradient)} />
               <CardContent className="p-3.5 text-center space-y-1">
                 <div className="flex justify-center">{s.icon}</div>
@@ -101,7 +101,7 @@ export default function JournalingPage() {
         </div>
 
         {/* New Entry */}
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2">
@@ -135,7 +135,7 @@ export default function JournalingPage() {
           </div>
 
           {entries.length === 0 ? (
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <BookOpen className="h-10 w-10 text-muted-foreground mb-3" />
                 <p className="font-medium mb-1">Sin entradas aún</p>
@@ -148,7 +148,7 @@ export default function JournalingPage() {
                 const entryDate = new Date(entry.date);
                 const isToday = format(entryDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
                 return (
-                  <Card key={entry.id} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all hover:shadow-md">
+                  <Card key={entry.id} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all hover:shadow-md">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">

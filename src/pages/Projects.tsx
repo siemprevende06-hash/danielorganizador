@@ -168,7 +168,7 @@ export default function ProjectsPage() {
             { icon: <CheckCheck className="h-4 w-4 text-green-500" />, label: "Completadas", value: totalDone, gradient: "from-green-400 to-emerald-400" },
             { icon: <Target className="h-4 w-4 text-amber-500" />, label: "Sub-tareas", value: totalSubs, gradient: "from-amber-500 to-orange-400" },
           ].map((s, i) => (
-            <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className={cn("h-1 bg-gradient-to-r", s.gradient)} />
               <CardContent className="p-3.5 text-center space-y-1">
                 <div className="flex justify-center">{s.icon}</div>
@@ -181,7 +181,7 @@ export default function ProjectsPage() {
 
         {/* Projects grid */}
         {projects.length === 0 ? (
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <FolderKanban className="h-10 w-10 text-muted-foreground mb-3" />
               <p className="font-medium mb-1">Sin proyectos</p>
@@ -198,7 +198,7 @@ export default function ProjectsPage() {
               const pendingTasks = project.tasks.filter(t => !t.completed).length;
               return (
                 <Card key={project.id} className={cn(
-                  "border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all",
+                  "border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden transition-all",
                   isSelected && "ring-2 ring-primary shadow-lg shadow-primary/10"
                 )}>
                   {project.coverImage && (

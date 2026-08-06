@@ -9,7 +9,8 @@ import { AreaChart, Area, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, R
 import { MEJORA_AREAS, getAreaMinutes, getExtraMinutes, type MejoraAreaId } from './mejoraAreas';
 import { ProgressRing } from '@/components/monthly-planning/ProgressRing';
 import { getDayGoalEffective, getWeekGoalEffective, getMonthGoal, getQuarterGoal, getQuarterBookGoal, getWeekId } from '@/lib/hierarchy';
-import { Activity, AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Dumbbell, Flame, Gamepad2, Globe, Music2, Sparkles, Target, TrendingUp, Trophy, FileText, Flame as FlameIcon } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Dumbbell, Flame, Gamepad2, Globe, Music2, Sparkles, Target, TrendingUp, Trophy, FileText, Flame as FlameIcon, CalendarDays, BarChart3 } from 'lucide-react';
+import { useReadingSessions } from '@/hooks/useReadingSessions';
 
 const FireIcon = FlameIcon;
 
@@ -49,20 +50,46 @@ const AREA_LABELS: Record<string, string> = {
 };
 
 interface Props {
-  todayMinutes: Record<MejoraAreaId, number>;
+  todayMinutes?: Record<MejoraAreaId, number>;
+  anchorDate?: Date;
   children?: ReactNode;
 }
 
-export function MejoraProcessPanel({ todayMinutes, children }: Props) {
+export function MejoraProcessPanel({ todayMinutes, anchorDate, children }: Props) {
   const [selected, setSelected] = useState<MejoraAreaId | null>(null);
+  const [history, setHistory] = useState<any[] | null>(null);
+  const [areaStats, setAreaStats] = useState<any[] | null>(null);
+  const anchor = anchorDate ?? new Date();
+  const anchorStr = format(anchor, 'yyyy-MM-dd');
+
+  useEffect(() => {
+    let active = true;
+    const start = format(subDays(anchor, 119), 'yyyy-MM-dd');
+    const fetchData = async () => {
+      const [tracking, stats, sessions] = await Promise.allSettled([
+        supabase.from('daily_systems_tracking').select('tracking_date, time_data, workout_duration, completions, skipped, active_focus_areas').gte('tracking_date', start).order('tracking_date', { ascending: true }),
+        supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes, pages_done').gte('stat_date', start),
+        supabase.from('reading_sessions').select('session_date, pages_read, minutes').gte('session_date', start),
+      ]);
+      if (!active) return;
+      setHistory(tracking.status === 'fulfilled' ? tracking.value.data || [] : []);
+      setAreaStats(stats.status === 'fulfilled' ? stats.value.data || [] : []);
+    };
+    fetchData();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchorStr]);
 
   return (
     <div className="space-y-3">
       <AreaSelector selected={selected} onSelect={setSelected} />
       {selected ? (
-        <AreaDetail area={selected} todayMinutes={todayMinutes} onBack={() => setSelected(null)} />
+        <AreaDetail area={selected} todayMinutes={todayMinutes} anchor={anchor} history={history} areaStats={areaStats} onBack={() => setSelected(null)} />
       ) : (
-        children
+        <>
+          <MejoraOverview anchor={anchor} history={history} areaStats={areaStats} />
+          {children}
+        </>
       )}
     </div>
   );
@@ -70,7 +97,7 @@ export function MejoraProcessPanel({ todayMinutes, children }: Props) {
 
 function AreaSelector({ selected, onSelect }: { selected: MejoraAreaId | null; onSelect: (id: MejoraAreaId | null) => void }) {
   return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
       <CardContent className="p-3">
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {MEJORA_AREAS.map((area) => {
@@ -170,47 +197,36 @@ interface ResultsData {
   musicSessions: any[];
   langSessions: any[];
   songs: any[];
-  areaStats: any[];
 }
 
 function sumInRange(rows: any[], dateField: string, from: string, to: string, valueField: string): number {
   return (rows || []).filter(r => r[dateField] && r[dateField] >= from && r[dateField] <= to).reduce((s, r) => s + (Number(r[valueField]) || 0), 0);
 }
 
-function countInRange(rows: any[], dateField: string, from: string, to: string): number {
-  return (rows || []).filter(r => r[dateField] && r[dateField] >= from && r[dateField] <= to).length;
-}
-
-function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayMinutes: Record<MejoraAreaId, number>; onBack: () => void }) {
+function AreaDetail({ area, todayMinutes, anchor, history, areaStats, onBack }: { area: MejoraAreaId; todayMinutes?: Record<MejoraAreaId, number>; anchor: Date; history: any[] | null; areaStats: any[] | null; onBack: () => void }) {
   const meta = MEJORA_AREAS.find((a) => a.id === area)!;
-  const today = new Date();
-  const todayStr = format(today, 'yyyy-MM-dd');
-  const [history, setHistory] = useState<any[] | null>(null);
+  const anchorStr = format(anchor, 'yyyy-MM-dd');
+  const isTodayAnchor = anchorStr === format(new Date(), 'yyyy-MM-dd');
   const [results, setResults] = useState<ResultsData | null>(null);
+  const { perDayPages } = useReadingSessions();
 
   useEffect(() => {
     let active = true;
-    const start = format(subDays(today, 119), 'yyyy-MM-dd');
-    const qStart = startOfQuarter(today);
     const fetchData = async () => {
-      const [tracking, books, chess, musicSessions, langSessions, songs, areaStats] = await Promise.allSettled([
-        supabase.from('daily_systems_tracking').select('tracking_date, time_data, workout_duration').gte('tracking_date', start).order('tracking_date', { ascending: true }),
+      const [books, chess, musicSessions, langSessions, songs] = await Promise.allSettled([
         supabase.from('reading_library').select('title, author, status, finish_date, pages_read, pages_total'),
         supabase.from('chess_sessions').select('session_date, games_played, current_elo'),
         supabase.from('music_practice_sessions').select('practice_date, duration_minutes'),
         supabase.from('language_sessions').select('session_date, total_duration'),
         supabase.from('music_repertoire').select('status'),
-        supabase.from('daily_area_stats').select('area_id, stat_date, pages_done').gte('stat_date', start),
       ]);
       if (!active) return;
-      setHistory(tracking.status === 'fulfilled' ? tracking.value.data || [] : []);
       setResults({
         books: books.status === 'fulfilled' ? books.value.data || [] : [],
         chessSessions: chess.status === 'fulfilled' ? chess.value.data || [] : [],
         musicSessions: musicSessions.status === 'fulfilled' ? musicSessions.value.data || [] : [],
         langSessions: langSessions.status === 'fulfilled' ? langSessions.value.data || [] : [],
         songs: songs.status === 'fulfilled' ? songs.value.data || [] : [],
-        areaStats: areaStats.status === 'fulfilled' ? areaStats.value.data || [] : [],
       });
     };
     fetchData();
@@ -221,26 +237,31 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
     if (!history) return null;
     const map = new Map<string, number>();
     history.forEach((row) => map.set(row.tracking_date, getAreaMinutes(row, area)));
-    map.set(todayStr, todayMinutes[area] || 0);
+    if (areaStats) {
+      areaStats.forEach((r) => {
+        if (r.area_id === area) map.set(r.stat_date, Math.max(map.get(r.stat_date) || 0, Number(r.time_spent_minutes) || 0));
+      });
+    }
+    if (isTodayAnchor) map.set(anchorStr, Math.max(map.get(anchorStr) || 0, todayMinutes?.[area] || 0));
     const arr: { date: string; minutes: number }[] = [];
     for (let i = 119; i >= 0; i--) {
-      const d = subDays(today, i);
+      const d = subDays(anchor, i);
       const key = format(d, 'yyyy-MM-dd');
       arr.push({ date: key, minutes: map.get(key) || 0 });
     }
     return arr;
-  }, [history, area, todayMinutes, todayStr, today]);
+  }, [history, areaStats, area, todayMinutes, anchorStr, anchor]);
 
   const periodStats = useMemo(() => {
     if (!series) return null;
     return PERIODS.map((p) => {
-      const from = p.id === 'dia' ? todayStr : format(p.id === 'semana' ? startOfWeek(today, { weekStartsOn: 1 }) : p.id === 'mes' ? startOfMonth(today) : startOfQuarter(today), 'yyyy-MM-dd');
-      const done = series.filter(s => s.date >= from && s.date <= todayStr).reduce((a, b) => a + b.minutes, 0);
-      const planned = getPlannedMinutes(area, p, today);
+      const from = p.id === 'dia' ? anchorStr : format(p.id === 'semana' ? startOfWeek(anchor, { weekStartsOn: 1 }) : p.id === 'mes' ? startOfMonth(anchor) : startOfQuarter(anchor), 'yyyy-MM-dd');
+      const done = series.filter(s => s.date >= from && s.date <= anchorStr).reduce((a, b) => a + b.minutes, 0);
+      const planned = getPlannedMinutes(area, p, anchor);
       const goal = planned > 0 ? planned : Math.round(meta.dailyTarget * p.days);
       return { ...p, from, done, goal, pct: goal > 0 ? Math.round((done / goal) * 100) : 0, pctUncapped: goal > 0 ? Math.round((done / goal) * 100) : 0 };
     });
-  }, [series, area, meta.dailyTarget, today, todayStr]);
+  }, [series, area, meta.dailyTarget, anchor, anchorStr]);
 
   const controlData = useMemo(() => (series ? series.slice(-30) : null), [series]);
   const spc = useMemo(() => (controlData ? computeSpc(controlData.map((d) => d.minutes)) : null), [controlData]);
@@ -254,7 +275,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
     if (!series) return null;
     const weeks: { label: string; total: number; goal: number }[] = [];
     for (let w = 7; w >= 0; w--) {
-      const end = subDays(today, w * 7);
+      const end = subDays(anchor, w * 7);
       const start = subDays(end, 6);
       const sKey = format(start, 'yyyy-MM-dd');
       const eKey = format(end, 'yyyy-MM-dd');
@@ -266,7 +287,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
       });
     }
     return weeks;
-  }, [series, area, today]);
+  }, [series, area, anchor]);
 
   const consistency = useMemo(() => {
     if (!series) return null;
@@ -285,32 +306,33 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
   // Resultados de lectura: páginas
   const readingResult = useMemo(() => {
     if (area !== 'lectura' || !results) return null;
-    const fromW = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const fromM = format(startOfMonth(today), 'yyyy-MM-dd');
-    const fromQ = format(startOfQuarter(today), 'yyyy-MM-dd');
+    const fromW = format(startOfWeek(anchor, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const fromM = format(startOfMonth(anchor), 'yyyy-MM-dd');
+    const fromQ = format(startOfQuarter(anchor), 'yyyy-MM-dd');
     const completed = (results.books || []).filter(b => b.status === 'completed');
     const currentBook = (results.books || []).find(b => b.status === 'reading');
     const completedWeek = completed.filter(b => b.finish_date && b.finish_date >= fromW).length;
     const completedMonth = completed.filter(b => b.finish_date && b.finish_date >= fromM).length;
     const completedQuarter = completed.filter(b => b.finish_date && b.finish_date >= fromQ).length;
-    const { quarter, year } = getQuarter(today);
+    const { quarter, year } = getQuarter(anchor);
     const bookGoal = getQuarterBookGoal(quarter, year);
-    const readingStats = (results.areaStats || []).filter((s) => s.area_id === 'lectura');
-    const pages = (from: string) => readingStats.filter(s => s.stat_date >= from && s.stat_date <= todayStr).reduce((a, s) => a + (Number(s.pages_done) || 0), 0);
-    const pagesToday = readingStats.filter(s => s.stat_date === todayStr).reduce((a, s) => a + (Number(s.pages_done) || 0), 0);
+    const readingStats = (areaStats || []).filter((s) => s.area_id === 'lectura');
+    const pages = (from: string) => readingStats.filter(s => s.stat_date >= from && s.stat_date <= anchorStr).reduce((a, s) => a + (Number(s.pages_done) || 0), 0);
+    const viaSessions = (from: string) => Object.entries(perDayPages).filter(([d]) => d >= from && d <= anchorStr).reduce((a, [, v]) => a + v, 0);
+    const pagesTodaySaved = perDayPages[anchorStr] || 0;
     return {
       currentBook,
-      pagesToday,
-      pagesWeek: pages(fromW),
-      pagesMonth: pages(fromM),
-      pagesQuarter: pages(fromQ),
+      pagesToday: Math.max(pages(anchorStr), pagesTodaySaved),
+      pagesWeek: viaSessions(fromW),
+      pagesMonth: viaSessions(fromM),
+      pagesQuarter: viaSessions(fromQ),
       completedWeek, completedMonth, completedQuarter, bookGoal,
     };
-  }, [area, results, today, todayStr]);
+  }, [area, results, anchorStr, perDayPages]);
 
   if (!history || !results) {
     return (
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
         <CardContent className="flex flex-col items-center justify-center py-16 space-y-2">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           <p className="text-sm text-muted-foreground">Cargando datos reales de {meta.label}...</p>
@@ -321,7 +343,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
 
   const stateInfo = spc ? STATE_INFO[spc.state] : null;
   const StateIcon = stateInfo?.icon || Activity;
-  const todayMin = todayMinutes[area] || 0;
+  const todayMin = todayMinutes?.[area] || series?.find((s) => s.date === anchorStr)?.minutes || 0;
   const todayExtra = getExtraMinutes(todayMin, meta);
   const withinTarget = todayMin >= meta.min && todayMin <= meta.max;
 
@@ -334,7 +356,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
         <ArrowLeft className="h-3.5 w-3.5" /> Volver a vista general
       </button>
 
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -355,7 +377,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className={cn("text-[10px] font-mono", todayMin >= meta.max ? "text-amber-600" : "" )}>hoy: {todayMin} min</Badge>
+            <Badge variant="outline" className={cn("text-[10px] font-mono", todayMin >= meta.max ? "text-amber-600" : "" )}>{format(anchor, 'dd/MM')}: {todayMin} min</Badge>
           </div>
 
           {/* Indicadores circulares: objetivos del plan (día · semana · mes · trimestre) */}
@@ -417,7 +439,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
       {/* Resultados reales por área */}
       <ResultSection
         area={area}
-        today={today}
+        anchor={anchor}
         results={results}
         readingResult={readingResult}
         series={series}
@@ -430,7 +452,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
         <StatCard icon={Activity} label="Mejor día (30d)" value={`${consistency?.best ?? 0} min`} color="text-purple-500" />
       </div>
 
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
@@ -521,7 +543,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
         </CardContent>
       </Card>
 
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-purple-500" />
@@ -564,7 +586,7 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
         </CardContent>
       </Card>
 
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -607,6 +629,153 @@ function AreaDetail({ area, todayMinutes, onBack }: { area: MejoraAreaId; todayM
   );
 }
 
+// ============ Resumen de mejora/ esfuerzo (vista general, con todos los datos del esfuerzo) ============
+
+function MejoraOverview({ anchor, history, areaStats }: { anchor: Date; history: any[] | null; areaStats: any[] | null }) {
+  const anchorStr = format(anchor, 'yyyy-MM-dd');
+  const isTodayAnchor = anchorStr === format(new Date(), 'yyyy-MM-dd');
+
+  const daily = useMemo(() => {
+    if (!history) return null;
+    const arr: { date: string; min: number; focus: number; pages: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = subDays(anchor, i);
+      const key = format(d, 'yyyy-MM-dd');
+      const row = history.find((r) => r.tracking_date === key);
+      let total = 0;
+      if (row) MEJORA_AREAS.forEach((a) => { total += getAreaMinutes(row, a.id); });
+      const focus = (areaStats || []).filter((s) => s.stat_date === key && ['universidad', 'emprendimiento', 'proyectos'].includes(s.area_id)).reduce((acc, s) => acc + (Number(s.time_spent_minutes) || 0), 0);
+      const pages = (areaStats || []).filter((s) => s.stat_date === key && s.area_id === 'lectura').reduce((acc, s) => acc + (Number(s.pages_done) || 0), 0);
+      arr.push({ date: key, total, focus, pages });
+    }
+    return arr;
+  }, [history, areaStats, anchorStr]);
+
+  const stats = useMemo(() => {
+    if (!daily) return null;
+    const activeDays = daily.filter((d) => d.total > 0).length;
+    const totalMejora = daily.reduce((a, d) => a + d.total, 0);
+    const totalFocus = daily.reduce((a, d) => a + d.focus, 0);
+    const totalPages = daily.reduce((a, d) => a + d.pages, 0);
+    const goalPerDay = MEJORA_AREAS.reduce((a, m) => a + m.dailyTarget, 0);
+    return { activeDays, totalMejora, totalFocus, totalPages, goalPerDay };
+  }, [daily]);
+
+  const weeklyChart = useMemo(() => {
+    if (!daily) return null;
+    const weeks: { label: string; total: number; goal: number }[] = [];
+    for (let w = 7; w >= 0; w--) {
+      const end = subDays(anchor, w * 7);
+      const start = subDays(end, 6);
+      const sKey = format(start, 'yyyy-MM-dd');
+      const eKey = format(end, 'yyyy-MM-dd');
+      const total = daily.filter((d) => d.date >= sKey && d.date <= eKey).reduce((a, d) => a + d.total + d.focus, 0);
+      const weeklyGoal = MEJORA_AREAS.reduce((a, m) => a + (getWeekGoalEffective(start, m.id) || 0), 0);
+      weeks.push({
+        label: getWeekId(start),
+        total,
+        goal: weeklyGoal,
+      });
+    }
+    return weeks;
+  }, [daily, anchor]);
+
+  const topArea = useMemo(() => {
+    if (!history) return null;
+    const totals: Record<string, number> = {};
+    history.slice(-30).forEach((row) => {
+      MEJORA_AREAS.forEach((a) => {
+        const v = getAreaMinutes(row, a.id);
+        if (v > 0) totals[a.id] = (totals[a.id] || 0) + v;
+      });
+    });
+    const best = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
+    if (!best) return null;
+    const meta = MEJORA_AREAS.find((m) => m.id === best[0]);
+    return meta ? { meta, total: best[1] } : null;
+  }, [history]);
+
+  if (!daily || !stats) return null;
+
+  return (
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-purple-500 to-indigo-400" />
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-purple-500" />
+          <h2 className="text-sm font-bold">Resumen Esfuerzo · {format(anchor, 'MMMM yyyy', { locale: es })}</h2>
+          <Badge variant="outline" className="text-[10px] font-mono ml-auto">últimos 30 días</Badge>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="rounded-xl bg-purple-500/10 p-3 text-center">
+            <p className="text-xl font-extrabold text-purple-500">{stats.totalMejora}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Min Mejora 30d</p>
+          </div>
+          <div className="rounded-xl bg-amber-500/10 p-3 text-center">
+            <p className="text-xl font-extrabold text-amber-500">{stats.totalFocus}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Min Enfoque 30d</p>
+          </div>
+          <div className="rounded-xl bg-indigo-500/10 p-3 text-center">
+            <p className="text-xl font-extrabold text-indigo-500">{stats.totalPages}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Páginas 30d</p>
+          </div>
+          <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
+            <p className="text-xl font-extrabold text-emerald-500">{stats.activeDays}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Días activos 30d</p>
+          </div>
+        </div>
+
+        {topArea && (
+          <div className="flex items-center gap-2 rounded-xl bg-muted/40 p-2.5 text-xs">
+            <topArea.icon className={cn("h-4 w-4", topArea.meta.color)} />
+            <span className="text-muted-foreground">Top mejora: <b className="text-foreground">{topArea.meta.label}</b> · {Math.round(topArea.total)} min en 30d</span>
+          </div>
+        )}
+
+        <div>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Tendencia diaria — mejora vs objetivo</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={daily} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+              <defs>
+                <linearGradient id="gradEffort" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#a855f7" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.14)" />
+              <XAxis dataKey="date" tick={{ fontSize: 7, fill: 'currentColor' }} interval={4} tickFormatter={(v) => format(new Date(v), 'dd/MM')} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 8, fill: 'currentColor' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ fontSize: 11 }} formatter={(v: number) => [`${v} min`]} labelFormatter={(d: string) => format(new Date(d), 'EEEE dd/MM', { locale: es })} />
+              <ReferenceLine y={stats.goalPerDay} stroke="#10b981" strokeDasharray="5 4" strokeOpacity={0.6} />
+              <Area type="monotone" dataKey="total" stroke="#a855f7" strokeWidth={2} fill="url(#gradEffort)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Semanas vs objetivo (mejora + enfoque, min)</p>
+          {weeklyChart ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={weeklyChart} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.14)" />
+                <XAxis dataKey="label" tick={{ fontSize: 7, fill: 'currentColor' }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(-2)} />
+                <YAxis tick={{ fontSize: 8, fill: 'currentColor' }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Bar dataKey="total" radius={[5, 5, 0, 0]}>
+                  {weeklyChart.map((w: any, i: number) => (
+                    <Cell key={i} fill={w.total >= w.goal && w.goal > 0 ? '#10b981' : w.total >= (w.goal || 0) * 0.6 ? '#f59e0b' : '#ef4444'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ============ Sección de resultados reales por área ============
 
 function AreaResult({ icon: Icon, label, value, sub, color = "text-primary" }: { icon: any; label: string; value: ReactNode; sub?: string; color?: string }) {
@@ -622,11 +791,11 @@ function AreaResult({ icon: Icon, label, value, sub, color = "text-primary" }: {
   );
 }
 
-function ResultSection({ area, today, results, readingResult, series }: { area: MejoraAreaId; today: Date; results: ResultsData; readingResult: any; series: any[] | null }) {
-  const todayStr = format(today, 'yyyy-MM-dd');
-  const fromW = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const fromM = format(startOfMonth(today), 'yyyy-MM-dd');
-  const fromQ = format(startOfQuarter(today), 'yyyy-MM-dd');
+function ResultSection({ area, anchor, results, readingResult, series }: { area: MejoraAreaId; anchor: Date; results: ResultsData; readingResult: any; series: any[] | null }) {
+  const anchorStr = format(anchor, 'yyyy-MM-dd');
+  const fromW = format(startOfWeek(anchor, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const fromM = format(startOfMonth(anchor), 'yyyy-MM-dd');
+  const fromQ = format(startOfQuarter(anchor), 'yyyy-MM-dd');
 
   const render = () => {
     if (area === 'lectura') {
@@ -642,10 +811,10 @@ function ResultSection({ area, today, results, readingResult, series }: { area: 
       );
     }
     if (area === 'ajedrez') {
-      const gamesToday = sumInRange(results.chessSessions, 'session_date', todayStr, todayStr, 'games_played');
-      const gamesWeek = sumInRange(results.chessSessions, 'session_date', fromW, todayStr, 'games_played');
-      const gamesMonth = sumInRange(results.chessSessions, 'session_date', fromM, todayStr, 'games_played');
-      const gamesQuarter = sumInRange(results.chessSessions, 'session_date', fromQ, todayStr, 'games_played');
+      const gamesToday = sumInRange(results.chessSessions, 'session_date', anchorStr, anchorStr, 'games_played');
+      const gamesWeek = sumInRange(results.chessSessions, 'session_date', fromW, anchorStr, 'games_played');
+      const gamesMonth = sumInRange(results.chessSessions, 'session_date', fromM, anchorStr, 'games_played');
+      const gamesQuarter = sumInRange(results.chessSessions, 'session_date', fromQ, anchorStr, 'games_played');
       const lastSession = results.chessSessions[results.chessSessions.length - 1];
       return (
         <>
@@ -661,7 +830,7 @@ function ResultSection({ area, today, results, readingResult, series }: { area: 
         if (!series) return 0;
         return new Set(series.filter(s => s.date >= from && s.minutes > 0).map(s => s.date)).size;
       };
-      const totalToday = series?.find(s => s.date === todayStr)?.minutes || 0;
+      const totalToday = series?.find(s => s.date === anchorStr)?.minutes || 0;
       return (
         <>
           <AreaResult icon={Dumbbell} label="Hoy" value={`${totalToday} min`} color="text-orange-500" />
@@ -672,8 +841,8 @@ function ResultSection({ area, today, results, readingResult, series }: { area: 
       );
     }
     if (area === 'musica') {
-      const minWeek = sumInRange(results.musicSessions, 'practice_date', fromW, todayStr, 'duration_minutes');
-      const minMonth = sumInRange(results.musicSessions, 'practice_date', fromM, todayStr, 'duration_minutes');
+      const minWeek = sumInRange(results.musicSessions, 'practice_date', fromW, anchorStr, 'duration_minutes');
+      const minMonth = sumInRange(results.musicSessions, 'practice_date', fromM, anchorStr, 'duration_minutes');
       const mastered = (results.songs || []).filter(s => s.status === 'mastered').length;
       return (
         <>
@@ -689,8 +858,8 @@ function ResultSection({ area, today, results, readingResult, series }: { area: 
       (results.langSessions || []).forEach((s) => {
         langByDay.set(s.session_date, (langByDay.get(s.session_date) || 0) + (Number(s.total_duration) || 0));
       });
-      const langSum = (from: string) => Array.from(langByDay.entries()).filter(([d]) => d >= from && d <= todayStr).reduce((a, [, v]) => a + v, 0);
-      const langDays = (from: string) => Array.from(langByDay.keys()).filter((d) => d >= from && d <= todayStr).length;
+      const langSum = (from: string) => Array.from(langByDay.entries()).filter(([d]) => d >= from && d <= anchorStr).reduce((a, [, v]) => a + v, 0);
+      const langDays = (from: string) => Array.from(langByDay.keys()).filter((d) => d >= from && d <= anchorStr).length;
       return (
         <>
           <AreaResult icon={Globe} label="Minutos semana" value={`${langSum(fromW)}`} color="text-emerald-500" />
@@ -705,7 +874,7 @@ function ResultSection({ area, today, results, readingResult, series }: { area: 
         if (!series) return 0;
         return new Set(series.filter(s => s.date >= from && s.minutes > 0).map(s => s.date)).size;
       };
-      const gameToday = series?.find(s => s.date === todayStr)?.minutes || 0;
+      const gameToday = series?.find(s => s.date === anchorStr)?.minutes || 0;
       return (
         <>
           <AreaResult icon={Sparkles} label="Hoy" value={`${gameToday} min`} color="text-amber-500" />
@@ -721,7 +890,7 @@ function ResultSection({ area, today, results, readingResult, series }: { area: 
     const content = render();
     if (!content) return null;
     return (
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
@@ -740,7 +909,7 @@ function ResultSection({ area, today, results, readingResult, series }: { area: 
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
   return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
       <CardContent className="p-3 flex items-center gap-2.5">
         <Icon className={cn("h-5 w-5 shrink-0", color)} />
         <div className="min-w-0">

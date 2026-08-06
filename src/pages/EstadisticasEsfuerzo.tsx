@@ -303,7 +303,7 @@ export default function EstadisticasEsfuerzo() {
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Cargando...</div>
         ) : monthDays.length === 0 ? (
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <BarChart3 className="h-10 w-10 text-muted-foreground mb-3" />
               <p className="font-medium mb-1">Sin datos en {MONTHS[monthIdx]} {year}</p>
@@ -322,7 +322,7 @@ export default function EstadisticasEsfuerzo() {
                 { icon: TrendingUp, label: 'Total mejora', value: `${monthMejoraMin}min`, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-950/20' },
                 { icon: Target, label: 'Total enfoque', value: `${monthFocusMin}min`, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/20' },
               ].map((s, i) => (
-                <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+                <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
                   <CardContent className="p-3 text-center space-y-1">
                     <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center mx-auto", s.bg)}>
                       <s.icon className={cn("h-3.5 w-3.5", s.color)} />
@@ -337,7 +337,7 @@ export default function EstadisticasEsfuerzo() {
             {/* ════════════════════════════════════════ */}
             {/* TABLA SOSTÉN */}
             {/* ════════════════════════════════════════ */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
               <CardContent className="p-0">
                 <div className="flex items-center gap-2 p-3 border-b border-border/30">
@@ -365,7 +365,7 @@ export default function EstadisticasEsfuerzo() {
                     </thead>
                     <tbody>
                       {monthDays.map((day, idx) => (
-                        <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-900/50" : "bg-muted/5")}>
+                        <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-950/50" : "bg-muted/5")}>
                           <td className="sticky left-0 z-10 px-2 py-1 font-medium whitespace-nowrap border border-border/20" style={{ background: 'inherit' }}>
                             {format(parseISO(day.tracking_date), 'EEE d', { locale: es })}
                           </td>
@@ -407,7 +407,7 @@ export default function EstadisticasEsfuerzo() {
             {/* ════════════════════════════════════════ */}
             {/* TABLA MEJORA */}
             {/* ════════════════════════════════════════ */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-400" />
               <CardContent className="p-0">
                 <div className="flex items-center gap-2 p-3 border-b border-border/30">
@@ -435,7 +435,7 @@ export default function EstadisticasEsfuerzo() {
                         const vals = MEJORA_HABITS.map(h => h.id === 'entrenamiento-fisico' ? (day.workout_duration || 0) : getMejoraTime(day.time_data, h.id));
                         const total = vals.reduce((s, v) => s + v, 0) + (day.workout_duration || 0);
                         return (
-                          <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-900/50" : "bg-muted/5")}>
+                          <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-950/50" : "bg-muted/5")}>
                             <td className="sticky left-0 z-10 px-2 py-1 font-medium whitespace-nowrap border border-border/20" style={{ background: 'inherit' }}>
                               {format(parseISO(day.tracking_date), 'EEE d', { locale: es })}
                             </td>
@@ -491,7 +491,7 @@ export default function EstadisticasEsfuerzo() {
             {/* ════════════════════════════════════════ */}
             {/* TABLA ENFOQUE */}
             {/* ════════════════════════════════════════ */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
               <CardContent className="p-0">
                 <div className="flex items-center gap-2 p-3 border-b border-border/30">
@@ -550,7 +550,7 @@ export default function EstadisticasEsfuerzo() {
                         };
 
                         return (
-                          <tr key={d.date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-900/50" : "bg-muted/5")}>
+                          <tr key={d.date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-950/50" : "bg-muted/5")}>
                             <td className="sticky left-0 z-10 px-2 py-1 font-medium whitespace-nowrap border border-border/20" style={{ background: 'inherit' }}>
                               {format(parseISO(d.date), 'EEE d', { locale: es })}
                             </td>
@@ -590,7 +590,7 @@ export default function EstadisticasEsfuerzo() {
             {/* ════════════════════════════════════════ */}
             {/* TENDENCIAS */}
             {/* ════════════════════════════════════════ */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-indigo-500 to-cyan-400" />
               <CardContent className="p-4 space-y-5">
                 <div className="flex items-center gap-2">
@@ -769,7 +769,7 @@ export default function EstadisticasEsfuerzo() {
                           </thead>
                           <tbody>
                             {weeklyTrends.map((w, idx) => (
-                              <tr key={w.weekId} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-900/50" : "bg-muted/5")}>
+                              <tr key={w.weekId} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-950/50" : "bg-muted/5")}>
                                 <td className="px-2 py-1 border border-border/20 font-medium">{w.label}</td>
                                 <td className="text-center px-2 py-1 border border-border/20">{w.days}</td>
                                 <td className={cn("text-center px-2 py-1 border border-border/20 font-medium", w.sostenPct >= 80 ? "text-emerald-500" : w.sostenPct >= 50 ? "text-amber-500" : "text-red-400")}>{w.sostenPct}%</td>

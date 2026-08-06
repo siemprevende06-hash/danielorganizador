@@ -77,7 +77,7 @@ function StatsRow({ stats }: { stats: StatBox[] }) {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
       {stats.map((s, i) => (
-        <div key={i} className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+        <div key={i} className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
           <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
           <p className="text-xs font-bold" style={{ color: s.color }}>{s.value}</p>
           {s.sub && <p className="text-[9px] text-muted-foreground">{s.sub}</p>}
@@ -234,7 +234,7 @@ export function CentralAreasSection({
       <div className="grid grid-cols-3 gap-2">
         {CENTRAL_AREAS.map(area => (
           <button key={area.id} onClick={() => handleCentral(area.id)}
-            className={cn("relative rounded-xl p-3 text-left transition-all border-0", activeCentral === area.id ? `bg-gradient-to-r ${area.gradient} text-white shadow-lg shadow-black/10 scale-[1.02]` : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md border border-border/40")}
+            className={cn("relative rounded-xl p-3 text-left transition-all border-0", activeCentral === area.id ? `bg-gradient-to-r ${area.gradient} text-white shadow-lg shadow-black/10 scale-[1.02]` : "bg-white/80 dark:bg-zinc-950/80 shadow-sm hover:shadow-md border border-border/40")}
           >
             <div className="flex items-center gap-2">{area.icon}<span className="text-xs font-semibold">{area.label}</span></div>
           </button>
@@ -245,7 +245,7 @@ export function CentralAreasSection({
         <div className="flex gap-1.5 flex-wrap">
           {activeDef.subAreas.map(sub => (
             <button key={sub.id} onClick={() => onSubChange(sub.id)}
-              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border", activeSub === sub.id ? `bg-gradient-to-r ${grad} text-white shadow-sm border-transparent` : "bg-white/70 dark:bg-zinc-900/70 border-border/40 hover:border-foreground/20 text-muted-foreground")}
+              className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all border", activeSub === sub.id ? `bg-gradient-to-r ${grad} text-white shadow-sm border-transparent` : "bg-white/70 dark:bg-zinc-950/70 border-border/40 hover:border-foreground/20 text-muted-foreground")}
             >{sub.icon}{sub.label}</button>
           ))}
         </div>
@@ -254,11 +254,11 @@ export function CentralAreasSection({
       {activeCentral === 'finanzas' ? (
         <FinanceSummaryCard />
       ) : loading ? (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 rounded-2xl overflow-hidden">
           <CardContent className="p-8 text-center text-muted-foreground">Cargando datos...</CardContent>
         </Card>
       ) : stats ? (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className={cn("h-1 bg-gradient-to-r", grad)} />
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center gap-2">
@@ -334,14 +334,14 @@ function FinanceSummaryCard() {
 
   if (!wallets || !txs) {
     return (
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 rounded-2xl overflow-hidden">
         <CardContent className="p-8 text-center text-muted-foreground">Cargando finanzas...</CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
       <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
       <CardContent className="p-4 space-y-4">
         <div className="flex items-center gap-2">

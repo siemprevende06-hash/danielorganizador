@@ -36,7 +36,7 @@ class SafeSection extends Component<{ children: ReactNode; title: string }, { ha
   render() {
     if (this.state.hasError) {
       return (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <CardContent className="p-6 text-center text-muted-foreground">
             <p className="text-sm">No se pudo cargar {this.props.title}</p>
             <button onClick={() => this.setState({ hasError: false })} className="text-xs text-primary mt-2 hover:underline">Reintentar</button>
@@ -583,7 +583,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
           { icon: <Music className="h-4 w-4 text-rose-500" />, label: "Canciones", value: `${songsDone}/${songsGoal}`, gradient: "from-rose-500 to-pink-400" },
           { icon: <Flame className="h-4 w-4 text-orange-500" />, label: `Racha ${overallStreak.current}d`, value: overallStreak.longest > 0 ? `${overallStreak.longest}` : `${overallStreak.current}d`, gradient: "from-orange-500 to-amber-400" },
         ].map((s, i) => (
-          <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
             <div className={cn("h-1 bg-gradient-to-r", s.gradient)} />
             <CardContent className="p-3.5 text-center space-y-1">
               <div className="flex justify-center">{s.icon}</div>
@@ -595,7 +595,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
       </div>
 
       {/* Time progress */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
@@ -618,7 +618,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
       </SafeSection>
 
       {noPlan ? (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Target className="h-10 w-10 text-muted-foreground mb-3" />
             <p className="font-medium mb-1">Sin plan {scope === 'year' ? 'anual' : 'trimestral'}</p>
@@ -628,7 +628,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
       ) : (
         <>
           {/* Overall progress */}
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-violet-500 to-indigo-400" />
             <CardContent className="p-4 space-y-3">
               <h2 className="text-sm font-semibold flex items-center gap-2">
@@ -784,19 +784,19 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                   <span className="text-xs font-semibold text-teal-700 dark:text-teal-400">Ajedrez</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas meta</p>
                     <p className="text-lg font-bold text-teal-500">{chessTarget}</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas jugadas</p>
                     <p className={cn("text-lg font-bold", chessGames >= chessTarget ? "text-emerald-500" : "text-amber-500")}>{chessGames}</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Días de práctica</p>
                     <p className="text-lg font-bold text-teal-500">{chessPracticeDays}</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos meta</p>
                     <p className="text-lg font-bold text-teal-500">{periodGoal('ajedrez')}min</p>
                   </div>
@@ -814,7 +814,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                   <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Idiomas</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-2">
+                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-2">
                     <div className="flex items-center gap-1.5">
                       <Globe className="h-3 w-3 text-green-500" />
                       <span className="text-xs font-semibold text-green-700 dark:text-green-400">Italiano</span>
@@ -830,7 +830,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                       </div>
                     </div>
                   </div>
-                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-2">
+                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-2">
                     <div className="flex items-center gap-1.5">
                       <Globe className="h-3 w-3 text-blue-500" />
                       <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Inglés</span>
@@ -905,11 +905,11 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                   })}
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-blue-200/40 space-y-1">
+                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-blue-200/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas</p>
                     <p className="text-base font-bold text-blue-500">{tasks.filter(t => completedTaskIds.includes(t.id)).length}/{tasks.length}</p>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-blue-200/40 space-y-1">
+                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-blue-200/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
                     <p className={cn("text-base font-bold", periodGoal('universidad') > 0 && (focusAreaMinutes.universidad || 0) >= periodGoal('universidad') ? "text-emerald-500" : "text-blue-500")}>
                       {Math.round(focusAreaMinutes.universidad || 0)}min / {periodGoal('universidad')}min
@@ -928,11 +928,11 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                   <Badge variant="secondary" className="text-[9px] px-1.5">{monthProjectIds.length}</Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
+                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-amber-200/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas (gral)</p>
                     <p className="text-base font-bold text-amber-500">{tasks.filter(t => completedTaskIds.includes(t.id) && t.source === 'proyecto').length}/{tasks.filter(t => t.source === 'proyecto').length}</p>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
+                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-amber-200/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
                     <p className={cn("text-base font-bold", periodGoal('proyectos') > 0 && (focusAreaMinutes.proyectos || 0) >= periodGoal('proyectos') ? "text-emerald-500" : "text-amber-500")}>
                       {Math.round(focusAreaMinutes.proyectos || 0)}min / {periodGoal('proyectos')}min
@@ -951,16 +951,16 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                   {monthEntrepreneurshipIds.length > 0 && <Badge variant="secondary" className="text-[9px] px-1.5">{monthEntrepreneurshipIds.length}</Badge>}
                 </div>
                 {plan?.notes?.emprendimiento && (
-                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40">
+                  <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-purple-200/40">
                     <p className="text-[11px] text-muted-foreground">{plan.notes.emprendimiento}</p>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1">
+                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-purple-200/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas</p>
                     <p className="text-base font-bold text-purple-500">{tasks.filter(t => completedTaskIds.includes(t.id) && t.source === 'emprendimiento').length}/{tasks.filter(t => t.source === 'emprendimiento').length}</p>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1">
+                  <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-purple-200/40 space-y-1">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
                     <p className={cn("text-base font-bold", periodGoal('emprendimiento') > 0 && (focusAreaMinutes.emprendimiento || 0) >= periodGoal('emprendimiento') ? "text-emerald-500" : "text-purple-500")}>
                       {Math.round(focusAreaMinutes.emprendimiento || 0)}min / {periodGoal('emprendimiento')}min
@@ -1043,7 +1043,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
 
           {/* ===== METAS DE TIEMPO VS ESFUERZO REAL ===== */}
           {ALL_HIERARCHY_AREAS.some(a => periodGoal(a) > 0) && (
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-2">

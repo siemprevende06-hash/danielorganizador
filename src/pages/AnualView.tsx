@@ -65,7 +65,7 @@ export default function AnualView() {
                   "relative rounded-2xl p-3.5 text-left transition-all border-0 backdrop-blur-xl",
                   isCurrent
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                    : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                    : "bg-white/80 dark:bg-zinc-950/80 shadow-sm hover:shadow-md"
                 )}
                 title="Abrir trimestre en 3 Meses"
               >

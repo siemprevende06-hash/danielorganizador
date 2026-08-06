@@ -119,7 +119,7 @@ function DateSwitchTabs({ mode, onModeChange }: { mode: TabMode; onModeChange: (
           className={cn(
             "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all",
             mode === 'hoy'
-              ? "bg-white dark:bg-zinc-800 text-foreground shadow-sm border border-border/60"
+              ? "bg-white dark:bg-zinc-950 text-foreground shadow-sm border border-border/60"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -132,7 +132,7 @@ function DateSwitchTabs({ mode, onModeChange }: { mode: TabMode; onModeChange: (
           className={cn(
             "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all",
             mode === 'manana'
-              ? "bg-white dark:bg-zinc-800 text-foreground shadow-sm border border-border/60"
+              ? "bg-white dark:bg-zinc-950 text-foreground shadow-sm border border-border/60"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -457,7 +457,7 @@ export default function PlanManana() {
         </div>
 
         {/* Routine Type */}
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
           <CardContent className="p-3.5">
             <div className="flex items-center gap-2 mb-2">
@@ -471,7 +471,7 @@ export default function PlanManana() {
                     "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all border",
                     routineType === r.type
                       ? "bg-indigo-500 text-white border-indigo-500 shadow-sm"
-                      : "bg-white/50 dark:bg-zinc-800/50 border-border/60 hover:border-indigo-300 text-muted-foreground hover:text-foreground"
+                      : "bg-white/50 dark:bg-zinc-950/50 border-border/60 hover:border-indigo-300 text-muted-foreground hover:text-foreground"
                   )}>
                   <span className="text-sm">{r.icon}</span>
                   <span>{r.label}</span>
@@ -663,7 +663,7 @@ export default function PlanManana() {
             </Card>
 
             {/* Language & Music preferences */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-pink-500 to-rose-400" />
               <CardContent className="p-4 space-y-3">
                 <h3 className="text-xs font-semibold flex items-center gap-2">
@@ -714,7 +714,7 @@ export default function PlanManana() {
 
             {/* Selected Tasks Pool — grouped by source, draggable to timeline */}
             {selectedPoolTasks.length > 0 && (
-              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 shadow-sm rounded-2xl overflow-hidden">
+              <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
                 <CardContent className="p-3 space-y-2">
                   <div className="flex items-center justify-between">
@@ -775,7 +775,7 @@ export default function PlanManana() {
         </div>
 
         {/* Systems / Habit intensity */}
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
           <CardContent className="p-4 space-y-3">
             <h2 className="text-sm font-semibold flex items-center gap-2">

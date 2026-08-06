@@ -93,7 +93,7 @@ export function LifeAreaScoresPanel({ periodType }: LifeAreaScoresPanelProps) {
 
             <div className="grid gap-2 md:grid-cols-2">
               {sectionAreas.map((area) => (
-                <Card key={area.id} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-xl overflow-hidden">
+                <Card key={area.id} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-xl overflow-hidden">
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{area.icon}</span>

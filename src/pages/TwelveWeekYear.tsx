@@ -22,7 +22,7 @@ class SafeSection extends Component<{ children: ReactNode; title: string }, { ha
   render() {
     if (this.state.hasError) {
       return (
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <CardContent className="p-6 text-center text-muted-foreground">
             <p className="text-sm">No se pudo cargar {this.props.title}</p>
             <button onClick={() => this.setState({ hasError: false })} className="text-xs text-primary mt-2 hover:underline">Reintentar</button>
@@ -605,7 +605,7 @@ export default function TwelveWeekYear() {
               <button key={q.id} onClick={() => setSelectedQuarter(q.id)}
                 className={cn(
                   "relative rounded-2xl p-3.5 text-left transition-all border-0 backdrop-blur-xl",
-                  isActive ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]" : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                  isActive ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]" : "bg-white/80 dark:bg-zinc-950/80 shadow-sm hover:shadow-md"
                 )}>
                 <div className="text-lg font-bold">{q.name}</div>
                 <div className={cn("text-[10px] mt-0.5", isActive ? "text-primary-foreground/70" : "text-muted-foreground")}>{q.dates}</div>
@@ -617,7 +617,7 @@ export default function TwelveWeekYear() {
         {/* Scope: Mes / Trimestre */}
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Período</span>
-          <div className="inline-flex gap-1 p-1 rounded-xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm border border-border/40">
+          <div className="inline-flex gap-1 p-1 rounded-xl bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm border border-border/40">
             {(['month', 'quarter'] as const).map(s => (
               <button key={s} onClick={() => setScope(s)}
                 className={cn(
@@ -641,7 +641,7 @@ export default function TwelveWeekYear() {
                   "flex-1 relative rounded-2xl p-3 text-center transition-all border-0 backdrop-blur-xl",
                   isActive
                     ? `bg-gradient-to-r ${colors[i]} text-white shadow-lg scale-[1.02]`
-                    : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                    : "bg-white/80 dark:bg-zinc-950/80 shadow-sm hover:shadow-md"
                 )}>
                 <div className="text-base font-bold">{label}</div>
                 <div className={cn("text-[10px] mt-0.5", isActive ? "text-white/70" : "text-muted-foreground")}>
@@ -661,7 +661,7 @@ export default function TwelveWeekYear() {
             { icon: <Music className="h-4 w-4 text-rose-500" />, label: "Canciones", value: `${completedSongsCount}/${totalSongsTarget}`, gradient: "from-rose-500 to-pink-400" },
             { icon: <Flame className="h-4 w-4 text-orange-500" />, label: `Racha ${overallStreak.current}d`, value: overallStreak.longest > 0 ? `${overallStreak.longest}` : `${overallStreak.current}d`, gradient: "from-orange-500 to-amber-400" },
           ].map((s, i) => (
-            <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className={cn("h-1 bg-gradient-to-r", s.gradient)} />
               <CardContent className="p-3.5 text-center space-y-1">
                 <div className="flex justify-center">{s.icon}</div>
@@ -673,7 +673,7 @@ export default function TwelveWeekYear() {
         </div>
 
         {/* Time progress */}
-        <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -705,7 +705,7 @@ export default function TwelveWeekYear() {
         </SafeSection>
 
         {!plan ? (
-          <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl">
+          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <LayoutDashboard className="h-10 w-10 text-muted-foreground mb-3" />
               <p className="font-medium mb-1">Sin plan trimestral</p>
@@ -715,7 +715,7 @@ export default function TwelveWeekYear() {
         ) : (
           <>
             {/* Overall progress */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-violet-500 to-indigo-400" />
               <CardContent className="p-4 space-y-3">
                 <h2 className="text-sm font-semibold flex items-center gap-2">
@@ -873,19 +873,19 @@ export default function TwelveWeekYear() {
                     <span className="text-xs font-semibold text-teal-700 dark:text-teal-400">Ajedrez</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas meta/{isQuarterScope ? 'trimestre' : 'mes'}</p>
                       <p className="text-lg font-bold text-teal-500">{chessMonth.targetGames}</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas jugadas</p>
                       <p className={cn("text-lg font-bold", chessMonth.gamesPlayed >= chessMonth.targetGames ? "text-emerald-500" : "text-amber-500")}>{chessMonth.gamesPlayed}</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Días de práctica</p>
                       <p className="text-lg font-bold text-teal-500">{chessMonth.practiceDays}</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
+                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos meta/{isQuarterScope ? 'trimestre' : 'mes'}</p>
                       <p className="text-lg font-bold text-teal-500">{goalFor('ajedrez')}min</p>
                     </div>
@@ -903,7 +903,7 @@ export default function TwelveWeekYear() {
                     <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Idiomas</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-2">
+                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-2">
                       <div className="flex items-center gap-1.5">
                         <Globe className="h-3 w-3 text-green-500" />
                         <span className="text-xs font-semibold text-green-700 dark:text-green-400">Italiano</span>
@@ -919,7 +919,7 @@ export default function TwelveWeekYear() {
                         </div>
                       </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-2">
+                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-border/40 space-y-2">
                       <div className="flex items-center gap-1.5">
                         <Globe className="h-3 w-3 text-blue-500" />
                         <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Inglés</span>
@@ -996,11 +996,11 @@ export default function TwelveWeekYear() {
                     })}
                   </div>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-blue-200/40 space-y-1">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-blue-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas</p>
                       <p className="text-base font-bold text-blue-500">{tasks.filter(t => completedTaskIds.includes(t.id)).length}/{tasks.length}</p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-blue-200/40 space-y-1">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-blue-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
                       <p className={cn("text-base font-bold", (areaGoalFor('universidad') || 0) > 0 && (focusAreaStats.universidad || 0) >= (areaGoalFor('universidad') || 0) ? "text-emerald-500" : "text-blue-500")}>
                         {Math.round(focusAreaStats.universidad || 0)}min / {areaGoalFor('universidad') || 0}min
@@ -1019,11 +1019,11 @@ export default function TwelveWeekYear() {
                     <Badge variant="secondary" className="text-[9px] px-1.5">{monthProjectIds.length}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-amber-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas (gral)</p>
                       <p className="text-base font-bold text-amber-500">{tasks.filter(t => completedTaskIds.includes(t.id) && t.source === 'proyecto').length}/{tasks.filter(t => t.source === 'proyecto').length}</p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-amber-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
                       <p className={cn("text-base font-bold", (areaGoalFor('proyectos') || 0) > 0 && (focusAreaStats.proyectos || 0) >= (areaGoalFor('proyectos') || 0) ? "text-emerald-500" : "text-amber-500")}>
                         {Math.round(focusAreaStats.proyectos || 0)}min / {areaGoalFor('proyectos') || 0}min
@@ -1038,7 +1038,7 @@ export default function TwelveWeekYear() {
                       const projTasks = detail.tasks || [];
                       const doneTasks = projTasks.filter((t: any) => t.completed).length;
                       return (
-                        <div key={pid} className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1.5">
+                        <div key={pid} className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-amber-200/40 space-y-1.5">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">{detail.name}</p>
                             <span className="text-[9px] text-muted-foreground">{doneTasks}/{projTasks.length} tareas</span>
@@ -1068,16 +1068,16 @@ export default function TwelveWeekYear() {
                     {monthEntrepreneurshipIds.length > 0 && <Badge variant="secondary" className="text-[9px] px-1.5">{monthEntrepreneurshipIds.length}</Badge>}
                   </div>
                   {plan.notes?.emprendimiento && (
-                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40">
+                    <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-purple-200/40">
                       <p className="text-[11px] text-muted-foreground">{plan.notes.emprendimiento}</p>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-purple-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tareas completadas</p>
                       <p className="text-base font-bold text-purple-500">{tasks.filter(t => completedTaskIds.includes(t.id) && t.source === 'emprendimiento').length}/{tasks.filter(t => t.source === 'emprendimiento').length}</p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1">
+                    <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-purple-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
                       <p className={cn("text-base font-bold", (areaGoalFor('emprendimiento') || 0) > 0 && (focusAreaStats.emprendimiento || 0) >= (areaGoalFor('emprendimiento') || 0) ? "text-emerald-500" : "text-purple-500")}>
                         {Math.round(focusAreaStats.emprendimiento || 0)}min / {areaGoalFor('emprendimiento') || 0}min
@@ -1093,7 +1093,7 @@ export default function TwelveWeekYear() {
                         const entTasks = tasks.filter(t => t.source === 'emprendimiento');
                         const doneEntTasks = entTasks.filter(t => completedTaskIds.includes(t.id)).length;
                         return (
-                          <div key={eid} className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1.5">
+                          <div key={eid} className="p-3 rounded-xl bg-white/60 dark:bg-zinc-950/60 border border-purple-200/40 space-y-1.5">
                             <div className="flex items-center justify-between">
                               <p className="text-xs font-semibold">{ent.name}</p>
                               <span className="text-[9px] text-muted-foreground">{doneEntTasks}/{entTasks.length} tareas</span>
@@ -1176,7 +1176,7 @@ export default function TwelveWeekYear() {
             </>)}
             {/* ===== METAS DE TIEMPO VS ESFUERZO REAL ===== */}
             {showTimeGoalsCard && (
-              <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">

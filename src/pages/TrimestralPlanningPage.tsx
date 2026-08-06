@@ -219,7 +219,7 @@ export default function TrimestralPlanningPage() {
                   "flex-1 relative rounded-2xl p-3.5 text-left transition-all border-0",
                   activeMonth === i
                     ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 scale-[1.02]"
-                    : "bg-white/80 dark:bg-zinc-900/80 shadow-sm hover:shadow-md"
+                    : "bg-white/80 dark:bg-zinc-950/80 shadow-sm hover:shadow-md"
                 )}
               >
                 <div className="text-base font-bold">{label}</div>
