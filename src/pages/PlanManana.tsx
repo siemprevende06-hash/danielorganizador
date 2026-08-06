@@ -20,6 +20,14 @@ import { flattenAreas } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
 import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
 import HoyDashboard from "@/components/today/HoyDashboard";
+import { MinutesGoalInput } from "@/components/hierarchy/MinutesGoalInput";
+import {
+  setDayGoal,
+  getDayGoalEffective,
+  getDayGoalSum,
+  ALL_HIERARCHY_AREAS,
+  AREA_LABELS,
+} from "@/lib/hierarchy";
 import {
   Sun, Moon, Clock, Target, ListTodo, Briefcase, GraduationCap,
   Languages, FolderKanban, Save, Dumbbell, Coffee, BookOpen, ChevronDown,
@@ -174,6 +182,16 @@ export default function PlanManana() {
   const [saving, setSaving] = useState(false);
   const [languageChoice, setLanguageChoice] = useState<string>("ingles");
   const [musicInstrument, setMusicInstrument] = useState<string>("piano");
+
+  const [goalsVersion, setGoalsVersion] = useState(0);
+
+  const applyDayGoal = (area: string, value: string) => {
+    const mins = Math.max(0, parseInt(value) || 0);
+    setDayGoal(tomorrow, area, mins);
+    setGoalsVersion(v => v + 1);
+  };
+
+  const dayGoalSum = getDayGoalSum(tomorrow);
 
   const tasksByBlockForPlanner = useMemo(() => {
     const result: Record<string, { id: string; title: string; source: string; completed: boolean }[]> = {};
@@ -615,6 +633,34 @@ export default function PlanManana() {
               languageChoice={languageChoice as "ingles" | "italiano"}
               isFutureView={true}
             />
+
+            {/* Daily minute goals */}
+            <Card className="border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-sm rounded-2xl overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
+              <CardContent className="p-3">
+                <h3 className="text-xs font-semibold flex items-center gap-2 mb-1">
+                  <Target className="h-3.5 w-3.5 text-indigo-500" /> Metas de minutos del día
+                </h3>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  Precargadas del mes/semana. Editarlas propaga hacia arriba.
+                </p>
+                <div className="space-y-1.5">
+                  {ALL_HIERARCHY_AREAS.map(area => (
+                    <div key={area} className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-muted-foreground">{AREA_LABELS[area]}</span>
+                      <MinutesGoalInput
+                        value={getDayGoalEffective(tomorrow, area)}
+                        onApply={v => applyDayGoal(area, v)}
+                        className="h-6 w-20 text-[10px]"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400 mt-2">
+                  Total día: {dayGoalSum} min
+                </p>
+              </CardContent>
+            </Card>
 
             {/* Language & Music preferences */}
             <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 shadow-sm rounded-2xl overflow-hidden">

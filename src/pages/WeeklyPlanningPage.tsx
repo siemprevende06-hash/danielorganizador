@@ -10,6 +10,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useWeeklyPlan } from '@/hooks/useWeeklyPlan';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { cn } from '@/lib/utils';
+import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
+import {
+  setWeekGoal,
+  getWeekGoalEffective,
+  getWeekGoalSum,
+  ALL_HIERARCHY_AREAS,
+  AREA_LABELS,
+} from '@/lib/hierarchy';
 
 const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string }> = {
   book: { icon: <Book className="w-3 h-3" />, color: 'text-indigo-500' },
@@ -66,6 +74,16 @@ export default function WeeklyPlanningPage() {
   const completedCount = planData.actions.filter(a => a.completed).length;
   const totalCount = planData.actions.length;
 
+  const [goalsVersion, setGoalsVersion] = useState(0);
+
+  const applyWeekGoal = (area: string, value: string) => {
+    const mins = Math.max(0, parseInt(value) || 0);
+    setWeekGoal(weekStart, area, mins);
+    setGoalsVersion(v => v + 1);
+  };
+
+  const weekGoalSum = getWeekGoalSum(weekStart);
+
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
       <header className="flex items-center justify-between mb-6">
@@ -102,7 +120,7 @@ export default function WeeklyPlanningPage() {
           {loading ? (
             <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
           ) : (
-            <>
+<>
               <Card className="border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -197,21 +215,44 @@ export default function WeeklyPlanningPage() {
                 </p>
                 <div className="space-y-1">
                   {trimestralData.books.goal > 0 && (
-                    <p className="text-[10px] text-muted-foreground">­ƒôÜ {trimestralData.books.selected}/{trimestralData.books.goal} libros</p>
+                    <p className="text-[10px] text-muted-foreground">📚 {trimestralData.books.selected}/{trimestralData.books.goal} libros</p>
                   )}
                   {trimestralData.songs.goal > 0 && (
-                    <p className="text-[10px] text-muted-foreground">­ƒÄÁ {trimestralData.songs.selected}/{trimestralData.songs.goal} canciones</p>
+                    <p className="text-[10px] text-muted-foreground">🎵 {trimestralData.songs.selected}/{trimestralData.songs.goal} canciones</p>
                   )}
                   {trimestralData.projects > 0 && (
-                    <p className="text-[10px] text-muted-foreground">­ƒôï {trimestralData.projects} proyectos</p>
+                    <p className="text-[10px] text-muted-foreground">📁 {trimestralData.projects} proyectos</p>
                   )}
                   {trimestralData.personal_goals > 0 && (
-                    <p className="text-[10px] text-muted-foreground">­ƒÄ» {trimestralData.personal_goals} metas</p>
+                    <p className="text-[10px] text-muted-foreground">🎯 {trimestralData.personal_goals} metas</p>
                   )}
                 </div>
               </div>
             </Card>
           )}
+
+          <Card className="border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/20">
+            <div className="p-3">
+              <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 mb-1.5 flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5" /> Metas de minutos de la semana
+              </p>
+              <div className="space-y-1.5">
+                {ALL_HIERARCHY_AREAS.map(area => (
+                  <div key={area} className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-muted-foreground">{AREA_LABELS[area]}</span>
+                    <MinutesGoalInput
+                      value={getWeekGoalEffective(weekStart, area)}
+                      onApply={v => applyWeekGoal(area, v)}
+                      className="h-6 w-20 text-[10px]"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mt-2">
+                Total semana: {weekGoalSum} min
+              </p>
+            </div>
+          </Card>
 
           <Card className="border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
             <div className="p-3">

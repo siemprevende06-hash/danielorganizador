@@ -8,6 +8,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan';
 import { ItemSelector } from '@/components/monthly-planning/ItemSelector';
+import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
+import { setQuarterGoal } from '@/lib/hierarchy';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -149,6 +151,25 @@ export default function TrimestralPlanningPage() {
     </div>
   );
 
+  const quarterGoalValue = (bucket: 'timeGoals' | 'areaTimeGoals', area: string) =>
+    (planData[bucket]?.month1?.[area] || 0) + (planData[bucket]?.month2?.[area] || 0) + (planData[bucket]?.month3?.[area] || 0);
+
+  const applyQuarterGoal = async (area: string, value: string) => {
+    const mins = Math.max(0, parseInt(value) || 0);
+    await savePlan();
+    setQuarterGoal(quarter, year, area, mins);
+    fetchPlan();
+  };
+
+  const QuarterGoalField = ({ bucket, area }: { bucket: 'timeGoals' | 'areaTimeGoals'; area: string }) => (
+    <MinutesGoalInput
+      label="Meta trimestre"
+      value={quarterGoalValue(bucket, area)}
+      onApply={v => applyQuarterGoal(area, v)}
+      className="h-6 w-24 text-[10px]"
+    />
+  );
+
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
       <header className="flex items-center justify-between mb-6">
@@ -245,6 +266,7 @@ export default function TrimestralPlanningPage() {
                   />
                 </div>
                 <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.lectura || 0} onChange={v => setTimeGoal('lectura', v)} />
+                <QuarterGoalField bucket="timeGoals" area="lectura" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ItemSelector
@@ -304,12 +326,15 @@ export default function TrimestralPlanningPage() {
                 </Card>
                 <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Italiano" value={planData.notes.italiano || ''} onChange={v => setNote('italiano', v)}>
                   <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.italiano || 0} onChange={v => setTimeGoal('italiano', v)} />
+                  <QuarterGoalField bucket="timeGoals" area="italiano" />
                 </NoteCard>
                 <NoteCard icon={<Globe className="h-3.5 w-3.5" />} label="Inglés" value={planData.notes.ingles || ''} onChange={v => setNote('ingles', v)}>
                   <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.ingles || 0} onChange={v => setTimeGoal('ingles', v)} />
+                  <QuarterGoalField bucket="timeGoals" area="ingles" />
                 </NoteCard>
                 <NoteCard icon={<Sword className="h-3.5 w-3.5" />} label="Game Seducción" value={planData.notes.game_seduccion || ''} onChange={v => setNote('game_seduccion', v)}>
                   <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.game || 0} onChange={v => setTimeGoal('game', v)} />
+                  <QuarterGoalField bucket="timeGoals" area="game" />
                 </NoteCard>
               </div>
             </div>
@@ -321,6 +346,7 @@ export default function TrimestralPlanningPage() {
                 <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Canciones</span>
                 <div className="ml-auto">
                   <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.musica || 0} onChange={v => setTimeGoal('musica', v)} />
+                  <QuarterGoalField bucket="timeGoals" area="musica" />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -366,6 +392,7 @@ export default function TrimestralPlanningPage() {
               </div>
               <div className="flex items-center gap-2">
                 <TimeGoalField label="Min/mes (Gym)" value={planData.timeGoals[activeMonthKey]?.gym || 0} onChange={v => setTimeGoal('gym', v)} />
+                <QuarterGoalField bucket="timeGoals" area="gym" />
               </div>
             </div>
 
@@ -418,6 +445,7 @@ export default function TrimestralPlanningPage() {
                 <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Asignaturas</span>
                 <div className="ml-auto">
                   <TimeGoalField label="Min/mes enfoque" value={planData.areaTimeGoals[activeMonthKey]?.universidad || 0} onChange={v => setAreaTimeGoal('universidad', v)} />
+                  <QuarterGoalField bucket="areaTimeGoals" area="universidad" />
                 </div>
               </div>
               <div className="max-w-md">
@@ -441,6 +469,7 @@ export default function TrimestralPlanningPage() {
                 <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Proyectos</span>
                 <div className="ml-auto">
                   <TimeGoalField label="Min/mes enfoque" value={planData.areaTimeGoals[activeMonthKey]?.proyectos || 0} onChange={v => setAreaTimeGoal('proyectos', v)} />
+                  <QuarterGoalField bucket="areaTimeGoals" area="proyectos" />
                 </div>
               </div>
               <div className="max-w-md">
@@ -464,6 +493,7 @@ export default function TrimestralPlanningPage() {
                 <span className="text-xs font-semibold text-purple-700 dark:text-purple-400">Emprendimiento</span>
                 <div className="ml-auto">
                   <TimeGoalField label="Min/mes enfoque" value={planData.areaTimeGoals[activeMonthKey]?.emprendimiento || 0} onChange={v => setAreaTimeGoal('emprendimiento', v)} />
+                  <QuarterGoalField bucket="areaTimeGoals" area="emprendimiento" />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -3,8 +3,19 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Save, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
+import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
+import {
+  setMonthGoal,
+  getMonthGoalsSummary,
+  getQuarterFromDate,
+  getMonthKeyOf,
+  reconcileMonthlyToQuarter,
+  ALL_HIERARCHY_AREAS,
+  AREA_LABELS,
+} from '@/lib/hierarchy';
 import {
   BookPlannerWidget,
   SongPlannerWidget,
@@ -33,9 +44,21 @@ export default function MonthlyPlanningPage() {
     });
   };
 
-  const handleSave = async () => {
+const handleSave = async () => {
     await savePlan();
-    toast({ title: 'Plan guardado', description: `Planificaci├│n de ${format(month, 'MMMM', { locale: es })} actualizada.` });
+    reconcileMonthlyToQuarter(month);
+    toast({ title: 'Plan guardado', description: `Planificación de ${format(month, 'MMMM', { locale: es })} actualizada.` });
+  };
+
+  const monthGoalsSummary = getMonthGoalsSummary(month);
+
+  const [goalsVersion, setGoalsVersion] = useState(0);
+
+  const applyMonthGoal = (area: string, value: string) => {
+    const mins = Math.max(0, parseInt(value) || 0);
+    const { quarter, year } = getQuarterFromDate(month);
+    setMonthGoal(quarter, year, getMonthKeyOf(month, quarter), area, mins);
+    setGoalsVersion(v => v + 1);
   };
 
   const bookItems = books.map(b => ({ id: b.id, title: b.title, subtitle: b.author || undefined }));
@@ -118,6 +141,29 @@ export default function MonthlyPlanningPage() {
             <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
             <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
           </div>
+
+          <Card className="border border-indigo-200/60 dark:border-indigo-800/40 shadow-sm overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
+            <div className="p-4">
+              <h3 className="text-xs font-semibold mb-1 flex items-center gap-2">
+                <Target className="w-3.5 h-3.5 text-indigo-500" /> Metas de minutos del mes
+              </h3>
+              <p className="text-[10px] text-muted-foreground mb-3">
+                Se reparten a las semanas y días. Editarlas propaga a los niveles superiores.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2">
+                {ALL_HIERARCHY_AREAS.map(area => (
+                  <div key={area} className="flex items-center justify-between gap-2">
+                    <span className="text-xs">{AREA_LABELS[area]}</span>
+                    <MinutesGoalInput value={monthGoalsSummary[area] || 0} onApply={v => applyMonthGoal(area, v)} className="h-6 w-20 text-[10px]" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-3">
+                Meta mes total: {ALL_HIERARCHY_AREAS.reduce((s, a) => s + (monthGoalsSummary[a] || 0), 0)} min
+              </p>
+            </div>
+          </Card>
         </div>
       )}
 
