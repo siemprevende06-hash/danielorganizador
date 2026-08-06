@@ -50,7 +50,7 @@ export default function TrimestralPlanningPage() {
   const {
     planData, loading, saving,
     books, songs, projects, subjects, entrepreneurships, events, quarterTasks,
-    updatePlanData, savePlan,
+    updatePlanData, savePlan, fetchPlan,
     getMonthNamesForQuarter, toggleTaskCompletion, toggleEventCompletion, getMonthRange,
   } = useTrimestralPlan(quarter, year);
   const { toast } = useToast();

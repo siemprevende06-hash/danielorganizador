@@ -32,7 +32,7 @@ function formatMinutes(m: number): string {
 
 export interface SubAreaDef {
   id: string; label: string; icon: React.ReactNode; color: string;
-  trackingSource: 'area_stats' | 'time_data' | 'both';
+  trackingSource: 'area_stats' | 'time_data' | 'both' | 'none';
   trackingId: string | string[]; timeGoalKey?: string;
 }
 
@@ -91,8 +91,8 @@ export function CentralAreasSection({
   selectedQuarter, activeCentral, activeSub, onCentralChange, onSubChange,
   year, start, end, getGoal,
 }: {
-  selectedQuarter: number; activeCentral: string; activeSub: string;
-  onCentralChange: (id: string) => void; onSubChange: (id: string) => void;
+  selectedQuarter: number; activeCentral?: string; activeSub?: string;
+  onCentralChange?: (id: string) => void; onSubChange?: (id: string) => void;
   year?: number; start?: Date; end?: Date;
   getGoal?: (subAreaId: string) => number;
 }) {
@@ -145,7 +145,7 @@ export function CentralAreasSection({
         timeByDay[r.stat_date] = (timeByDay[r.stat_date] || 0) + (r.time_spent_minutes || 0);
       });
     }
-    if (activeSubDef.trackingSource !== 'area_stats' || activeSubDef.trackingSource === 'both') {
+    if (activeSubDef.trackingSource === 'time_data' || activeSubDef.trackingSource === 'both') {
       sysRows.forEach((row: any) => {
         const td = row.time_data || {};
         let sum = 0;

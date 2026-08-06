@@ -45,10 +45,10 @@ interface EnfoqueSectionProps {
   onSkipToggle?: (id: string) => void;
 }
 
-const AREA_CARD_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; gradient: string; color: string; bg: string; route: string }> = {
-  universidad: { icon: GraduationCap, gradient: "from-purple-600 to-purple-400", color: "text-purple-500", bg: "bg-purple-500/10", route: "/university" },
-  emprendimiento: { icon: Briefcase, gradient: "from-amber-600 to-amber-400", color: "text-amber-500", bg: "bg-amber-500/10", route: "/entrepreneurship" },
-  proyectos: { icon: FolderKanban, gradient: "from-cyan-600 to-cyan-400", color: "text-cyan-500", bg: "bg-cyan-500/10", route: "/projects" },
+const AREA_CARD_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; gradient: string; color: string; bg: string; route: string; label: string }> = {
+  universidad: { label: 'Universidad', icon: GraduationCap, gradient: "from-purple-600 to-purple-400", color: "text-purple-500", bg: "bg-purple-500/10", route: "/university" },
+  emprendimiento: { label: 'Emprendimiento', icon: Briefcase, gradient: "from-amber-600 to-amber-400", color: "text-amber-500", bg: "bg-amber-500/10", route: "/entrepreneurship" },
+  proyectos: { label: 'Proyectos', icon: FolderKanban, gradient: "from-cyan-600 to-cyan-400", color: "text-cyan-500", bg: "bg-cyan-500/10", route: "/projects" },
 };
 
 const progressSemaphore = (pct: number) => {
