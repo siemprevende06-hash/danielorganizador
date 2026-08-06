@@ -1,4 +1,5 @@
 import { useState, useEffect, Component, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -153,8 +154,11 @@ function TimeGoalRow({ label, actual, goal, color, icon }: { label: string; actu
 
 export default function TwelveWeekYear() {
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
   const { streak: overallStreak } = useOverallSystemStreak();
   const [selectedQuarter, setSelectedQuarter] = useState(() => {
+    const qp = parseInt(searchParams.get('q') || '', 10);
+    if (qp >= 1 && qp <= 4) return qp;
     const month = new Date().getMonth();
     return Math.floor(month / 3) + 1;
   });

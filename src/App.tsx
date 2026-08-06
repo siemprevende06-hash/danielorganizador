@@ -79,6 +79,7 @@ import EstadisticasEsfuerzo from "./pages/EstadisticasEsfuerzo";
 import VisionVsRealidad from "./pages/VisionVsRealidad";
 import Identidad from "./pages/Identidad";
 import DestinoALlegar from "./pages/DestinoALlegar";
+import AnualView from "./pages/AnualView";
 
 const queryClient = new QueryClient();
 
@@ -125,6 +126,7 @@ function AppContent() {
         <Route path="/antivision" element={<AntiVisionPage />} />
         <Route path="/12-week-year" element={<TwelveWeekYear />} />
         <Route path="/3-meses" element={<TwelveWeekYear />} />
+        <Route path="/anual" element={<AnualView />} />
         <Route path="/weeks" element={<Weeks />} />
         <Route path="/goal-alignment" element={<GoalAlignment />} />
         <Route path="/vida-daniel" element={<VidaDanielEstadisticas />} />

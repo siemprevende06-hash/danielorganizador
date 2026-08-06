@@ -81,6 +81,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/weekly', label: 'Semana', icon: CalendarRange },
       { path: '/monthly', label: 'Mes', icon: Calendar },
       { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
+      { path: '/anual', label: 'Año', icon: CalendarDays },
       { path: '/weeks', label: 'Semanas', icon: CalendarDays },
       { path: '/goals', label: 'Metas', icon: Goal },
       { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },

@@ -19,6 +19,8 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { MonthlyPlanSummary } from '@/components/monthly-planning/MonthlyPlanSummary';
 import { WeeklyReviewStats } from '@/components/self-review/WeeklyReviewStats';
+import { getQuarterFromDate } from '@/lib/hierarchy';
+import PeriodSections from '@/components/hierarchy/PeriodSections';
 
 const AREAS = [
   { id: 'universidad', label: 'Universidad', icon: '🎓', color: 'bg-blue-500' },
@@ -112,6 +114,7 @@ export default function WeeklyView() {
   }, [weekData, objectives]);
 
   const monthForPlan = weekStart;
+  const { quarter, year } = getQuarterFromDate(weekStart);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
@@ -136,6 +139,9 @@ export default function WeeklyView() {
         </div>
 
         <WeeklyReviewStats weekStart={weekStart} />
+
+        {/* Secciones de la Semana (mismo diseño que 3 Meses) */}
+        <PeriodSections scope="week" year={year} quarter={quarter} weekStart={weekStart} />
 
         {/* Plan Mensual */}
         <MonthlyPlanSummary currentMonth={monthForPlan} />
