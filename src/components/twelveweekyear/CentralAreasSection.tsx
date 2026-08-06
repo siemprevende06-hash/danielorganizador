@@ -15,13 +15,13 @@ import { Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Compose
 
 const MONTH_KEYS = ["month1", "month2", "month3"] as const;
 
-function getQuarterDates(quarter: number, year = 2026) {
+function getQuarterDates(quarter: number, year: number) {
   const startMonth = (quarter - 1) * 3;
   return { start: new Date(year, startMonth, 1), end: new Date(year, startMonth + 3, 0) };
 }
 
-function loadPlanForQuarter(quarter: number) {
-  try { const raw = localStorage.getItem(`trimestral_plan_Q${quarter}_2026`); return raw ? JSON.parse(raw) : null; } catch { return null; }
+function loadPlanForQuarter(quarter: number, year: number) {
+  try { const raw = localStorage.getItem(`trimestral_plan_Q${quarter}_${year}`); return raw ? JSON.parse(raw) : null; } catch { return null; }
 }
 
 function formatMinutes(m: number): string {
@@ -89,12 +89,19 @@ function StatsRow({ stats }: { stats: StatBox[] }) {
 
 export function CentralAreasSection({
   selectedQuarter, activeCentral, activeSub, onCentralChange, onSubChange,
+  year, start, end, getGoal,
 }: {
   selectedQuarter: number; activeCentral: string; activeSub: string;
   onCentralChange: (id: string) => void; onSubChange: (id: string) => void;
+  year?: number; start?: Date; end?: Date;
+  getGoal?: (subAreaId: string) => number;
 }) {
-  const qDates = useMemo(() => getQuarterDates(selectedQuarter), [selectedQuarter]);
-  const plan = useMemo(() => loadPlanForQuarter(selectedQuarter), [selectedQuarter]);
+  const periodYear = year ?? new Date().getFullYear();
+  const qDates = useMemo(
+    () => (start && end ? { start, end } : getQuarterDates(selectedQuarter, periodYear)),
+    [selectedQuarter, start, end, periodYear]
+  );
+  const plan = useMemo(() => loadPlanForQuarter(selectedQuarter, periodYear), [selectedQuarter, periodYear]);
   const activeDef = CENTRAL_AREAS.find(a => a.id === activeCentral);
   const activeSubDef = activeDef?.subAreas?.find(s => s.id === activeSub);
   const startStr = format(qDates.start, 'yyyy-MM-dd');
@@ -159,11 +166,15 @@ export function CentralAreasSection({
     }
 
     let quarterlyGoal = 0;
-    MONTH_KEYS.forEach(mk => {
-      if (!plan) return;
-      const g = plan.timeGoals?.[mk]?.[activeSubDef.timeGoalKey || activeSubDef.id] || plan.areaTimeGoals?.[mk]?.[activeSubDef.timeGoalKey || activeSubDef.id] || 0;
-      quarterlyGoal += g;
-    });
+    if (getGoal) {
+      quarterlyGoal = getGoal(activeSubDef.timeGoalKey || activeSubDef.id) || 0;
+    } else {
+      MONTH_KEYS.forEach(mk => {
+        if (!plan) return;
+        const g = plan.timeGoals?.[mk]?.[activeSubDef.timeGoalKey || activeSubDef.id] || plan.areaTimeGoals?.[mk]?.[activeSubDef.timeGoalKey || activeSubDef.id] || 0;
+        quarterlyGoal += g;
+      });
+    }
     const goalPct = quarterlyGoal > 0 ? Math.round((totalMinutes / quarterlyGoal) * 100) : 0;
     const consistency = totalDays > 0 ? Math.round((activeDays / totalDays) * 100) : 0;
 
@@ -178,7 +189,7 @@ export function CentralAreasSection({
       ] as StatBox[],
       timeByDay, totalMinutes, quarterlyGoal, goalPct,
     };
-  }, [activeSubDef, areaStats, systems, plan, qDates]);
+  }, [activeSubDef, areaStats, systems, plan, qDates, getGoal]);
 
   // Weekly chart data
   const chartData = useMemo(() => {
@@ -284,7 +295,7 @@ export function CentralAreasSection({
 
             {stats.quarterlyGoal > 0 && (
               <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-muted-foreground"><span>Progreso vs meta trimestral</span><span>{stats.goalPct}%</span></div>
+                <div className="flex justify-between text-[10px] text-muted-foreground"><span>Progreso vs meta del período</span><span>{stats.goalPct}%</span></div>
                 <Progress value={Math.min(stats.goalPct, 100)} className="h-1.5" />
               </div>
             )}

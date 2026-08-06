@@ -106,6 +106,8 @@ const MONTH_KEYS = ["month1", "month2", "month3"] as const;
 
 const PROGRESS_KEY = "trimestral_progress_Q";
 
+const YEAR = 2026;
+
 const AREA_LABELS: Record<string, string> = {
   lectura: 'Lectura', musica: 'Música', ajedrez: 'Ajedrez',
   idiomas: 'Idiomas', gym: 'Gimnasio', piano: 'Piano', guitarra: 'Guitarra',
@@ -160,6 +162,7 @@ export default function TwelveWeekYear() {
     const month = new Date().getMonth();
     return (month % 3);
   });
+  const [scope, setScope] = useState<'month' | 'quarter'>('month');
   const [activeCentral, setActiveCentral] = useState('desarrollo');
   const [activeSub, setActiveSub] = useState('lectura');
 
@@ -186,14 +189,14 @@ export default function TwelveWeekYear() {
   const [slotDialogOpen, setSlotDialogOpen] = useState(false);
   const [slotSearch, setSlotSearch] = useState('');
 
-  const storageKey = `${PROGRESS_KEY}${selectedQuarter}_2026`;
+  const storageKey = `${PROGRESS_KEY}${selectedQuarter}_${YEAR}`;
   const monthKey = MONTH_KEYS[selectedMonth];
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const parsed = loadTrimestralPlanFromLocal(`Q${selectedQuarter}_2026`);
+        const parsed = loadTrimestralPlanFromLocal(`Q${selectedQuarter}_${YEAR}`);
         setPlan(parsed as TrimestralPlan | null);
 
         const progRaw = localStorage.getItem(storageKey);
@@ -214,7 +217,7 @@ export default function TwelveWeekYear() {
         ])];
 
         const qStartMonth = (selectedQuarter - 1) * 3;
-        const year = 2026;
+        const year = YEAR;
         const quarterStart = new Date(year, qStartMonth, 1);
         const quarterEnd = new Date(year, qStartMonth + 3, 0);
         const qs = format(quarterStart, 'yyyy-MM-dd');
@@ -402,8 +405,8 @@ export default function TwelveWeekYear() {
   };
 
   const handleAddBookToMonth = (bookId: string) => {
-    const storageKey = `trimestral_plan_Q${selectedQuarter}_2026`;
-    const currentPlan = loadTrimestralPlanFromLocal(`Q${selectedQuarter}_2026`);
+    const storageKey = `trimestral_plan_Q${selectedQuarter}_${YEAR}`;
+    const currentPlan = loadTrimestralPlanFromLocal(`Q${selectedQuarter}_${YEAR}`);
     if (!currentPlan) return;
 
     const currentBooks = [...(currentPlan.distribution[monthKey]?.books || [])];
@@ -429,7 +432,7 @@ export default function TwelveWeekYear() {
 
   const getWeekInQuarter = () => {
     const now = new Date();
-    const startOfYear = new Date(2026, 0, 1);
+    const startOfYear = new Date(YEAR, 0, 1);
     const week = Math.min(Math.ceil((now.getTime() - startOfYear.getTime()) / (7 * 24 * 60 * 60 * 1000)), 52);
     return ((week - 1) % 12) + 1;
   };
@@ -466,27 +469,105 @@ export default function TwelveWeekYear() {
     };
   };
 
-  const mp = getMonthProgress(monthKey);
-  const timeData = monthlyTimeData[monthKey];
-  const tasks = monthTasks[monthKey] || [];
-  const events = monthEvents[monthKey] || [];
-  const completedTaskIds: string[] = plan?.completedTasks?.[monthKey] || [];
-  const completedEventIds: string[] = plan?.completedEvents?.[monthKey] || [];
+  const isQuarterScope = scope === 'quarter';
+  const qStartMonth = (selectedQuarter - 1) * 3;
+  const quarterStartDate = new Date(YEAR, qStartMonth, 1);
+  const quarterEndDate = new Date(YEAR, qStartMonth + 3, 0);
+  const monthStartDate = new Date(YEAR, qStartMonth + selectedMonth, 1);
+  const monthEndDate = new Date(YEAR, qStartMonth + selectedMonth + 1, 0);
+
+  const monthMp = getMonthProgress(monthKey);
+  const mp = isQuarterScope
+    ? (() => {
+        const months = MONTH_KEYS.map(mk => getMonthProgress(mk));
+        const qBooks = [...new Set(months.flatMap(m => m.books))];
+        const qSongs = [...new Set(months.flatMap(m => m.songs))];
+        const qCompletedBooks = qBooks.filter(id => progress.completedBooks.includes(id)).length;
+        const qCompletedSongs = qSongs.filter(id => progress.completedSongs.includes(id)).length;
+        return {
+          books: qBooks, songs: qSongs,
+          booksCount: qBooks.length, songsCount: qSongs.length,
+          completedBooks: qCompletedBooks, completedSongs: qCompletedSongs,
+          booksPct: qBooks.length > 0 ? Math.round((qCompletedBooks / qBooks.length) * 100) : 0,
+          songsPct: qSongs.length > 0 ? Math.round((qCompletedSongs / qSongs.length) * 100) : 0,
+        };
+      })()
+    : monthMp;
+
+  const timeData = isQuarterScope
+    ? (() => {
+        const byArea: Record<string, number> = {};
+        let totalMinutes = 0;
+        MONTH_KEYS.forEach(mk => {
+          const t = monthlyTimeData[mk];
+          if (!t) return;
+          totalMinutes += t.totalMinutes || 0;
+          Object.entries(t.byArea || {}).forEach(([k, v]) => { byArea[k] = (byArea[k] || 0) + (v || 0); });
+        });
+        return { totalMinutes, byArea };
+      })()
+    : monthlyTimeData[monthKey];
+
+  const tasks = isQuarterScope ? MONTH_KEYS.flatMap(mk => monthTasks[mk] || []) : (monthTasks[monthKey] || []);
+  const events = isQuarterScope ? MONTH_KEYS.flatMap(mk => monthEvents[mk] || []) : (monthEvents[monthKey] || []);
+  const completedTaskIds: string[] = isQuarterScope
+    ? MONTH_KEYS.flatMap(mk => plan?.completedTasks?.[mk] || [])
+    : (plan?.completedTasks?.[monthKey] || []);
+  const completedEventIds: string[] = isQuarterScope
+    ? MONTH_KEYS.flatMap(mk => plan?.completedEvents?.[mk] || [])
+    : (plan?.completedEvents?.[monthKey] || []);
+
   const monthBooks = mp.books.map(id => books.find(b => b.id === id)).filter(Boolean) as BookDetail[];
-  const availableForSlot = allBooks.filter(b => !monthBooks.find(mb => mb.id === b.id));
+  const availableForSlot = allBooks.filter(b => !monthMp.books.includes(b.id));
   const filteredSlotBooks = availableForSlot.filter(b =>
     b.title.toLowerCase().includes(slotSearch.toLowerCase()) ||
     (b.author && b.author.toLowerCase().includes(slotSearch.toLowerCase()))
   );
   const monthSongsData = mp.songs.map(id => songs.find(s => s.id === id)).filter(Boolean) as SongDetail[];
-  const monthSubjectIds = plan?.monthSubjects?.[monthKey] || [];
-  const monthProjectIds = plan?.monthProjects?.[monthKey] || [];
-  const monthEntrepreneurshipIds = plan?.monthEntrepreneurships?.[monthKey] || [];
-  const chessMonth = chessData[monthKey];
-  const langMonth = langData[monthKey];
+  const monthSubjectIds = isQuarterScope
+    ? [...new Set(MONTH_KEYS.flatMap(mk => plan?.monthSubjects?.[mk] || []))]
+    : (plan?.monthSubjects?.[monthKey] || []);
+  const monthProjectIds = isQuarterScope
+    ? [...new Set(MONTH_KEYS.flatMap(mk => plan?.monthProjects?.[mk] || []))]
+    : (plan?.monthProjects?.[monthKey] || []);
+  const monthEntrepreneurshipIds = isQuarterScope
+    ? [...new Set(MONTH_KEYS.flatMap(mk => plan?.monthEntrepreneurships?.[mk] || []))]
+    : (plan?.monthEntrepreneurships?.[monthKey] || []);
+
+  const chessMonth = isQuarterScope
+    ? {
+        gamesPlayed: MONTH_KEYS.reduce((s, mk) => s + (chessData[mk]?.gamesPlayed || 0), 0),
+        practiceDays: MONTH_KEYS.reduce((s, mk) => s + (chessData[mk]?.practiceDays || 0), 0),
+        targetGames: MONTH_KEYS.reduce((s, mk) => s + (chessData[mk]?.targetGames || 0), 0),
+        targetMinutes: MONTH_KEYS.reduce((s, mk) => s + (chessData[mk]?.targetMinutes || 0), 0),
+      }
+    : chessData[monthKey];
+
+  const langMonth = isQuarterScope
+    ? {
+        italiano: { practiceDays: MONTH_KEYS.reduce((s, mk) => s + (langData[mk]?.italiano?.practiceDays || 0), 0) },
+        ingles: { practiceDays: MONTH_KEYS.reduce((s, mk) => s + (langData[mk]?.ingles?.practiceDays || 0), 0) },
+      }
+    : langData[monthKey];
 
   const pianoSongs = monthSongsData.filter(s => s.instrument === 'piano');
   const guitarSongs = monthSongsData.filter(s => s.instrument === 'guitar');
+
+  const goalFor = (area: string) => isQuarterScope
+    ? MONTH_KEYS.reduce((s, mk) => s + (plan?.timeGoals?.[mk]?.[area] || 0), 0)
+    : (plan?.timeGoals?.[monthKey]?.[area] || 0);
+
+  const areaGoalFor = (area: string) => isQuarterScope
+    ? MONTH_KEYS.reduce((s, mk) => s + (plan?.areaTimeGoals?.[mk]?.[area] || 0), 0)
+    : (plan?.areaTimeGoals?.[monthKey]?.[area] || 0);
+
+  const periodLabel = isQuarterScope ? `Q${selectedQuarter} · Trimestre` : monthLabels[selectedMonth];
+  const periodSuffix = isQuarterScope ? 'Trimestre' : 'Mes';
+  const showTimeGoalsCard = isQuarterScope
+    ? MONTH_KEYS.some(mk => !!plan?.timeGoals?.[mk])
+    : !!plan?.timeGoals?.[monthKey];
+  const showChessSection = isQuarterScope ? MONTH_KEYS.some(mk => !!chessData[mk]) : !!chessMonth;
+  const showLangSection = isQuarterScope ? MONTH_KEYS.some(mk => !!langData[mk]) : !!langMonth;
 
   if (loading) {
     return (
@@ -529,13 +610,29 @@ export default function TwelveWeekYear() {
           })}
         </div>
 
+        {/* Scope: Mes / Trimestre */}
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Período</span>
+          <div className="inline-flex gap-1 p-1 rounded-xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm border border-border/40">
+            {(['month', 'quarter'] as const).map(s => (
+              <button key={s} onClick={() => setScope(s)}
+                className={cn(
+                  "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                  scope === s ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground"
+                )}>
+                {s === 'month' ? 'Mes' : 'Trimestre'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Month selector */}
-        <div className="flex gap-2">
+        <div className={cn("flex gap-2 transition-opacity", isQuarterScope && "opacity-50")}>
           {monthLabels.map((label, i) => {
             const isActive = selectedMonth === i;
             const colors = ["from-sky-500 to-cyan-400", "from-violet-500 to-purple-400", "from-amber-500 to-orange-400"];
             return (
-              <button key={i} onClick={() => setSelectedMonth(i)}
+              <button key={i} onClick={() => { setSelectedMonth(i); setScope('month'); }}
                 className={cn(
                   "flex-1 relative rounded-2xl p-3 text-center transition-all border-0 backdrop-blur-xl",
                   isActive
@@ -588,7 +685,19 @@ export default function TwelveWeekYear() {
 
         {/* Áreas Centrales */}
         <SafeSection title="Áreas Centrales">
-          <CentralAreasSection selectedQuarter={selectedQuarter} activeCentral={activeCentral} activeSub={activeSub} onCentralChange={(id) => { setActiveCentral(id); const def = CENTRAL_AREAS.find(a => a.id === id); if (def?.subAreas?.length) setActiveSub(def.subAreas[0].id); }} onSubChange={setActiveSub} />
+          <CentralAreasSection
+            selectedQuarter={selectedQuarter}
+            activeCentral={activeCentral}
+            activeSub={activeSub}
+            onCentralChange={(id) => { setActiveCentral(id); const def = CENTRAL_AREAS.find(a => a.id === id); if (def?.subAreas?.length) setActiveSub(def.subAreas[0].id); }}
+            onSubChange={setActiveSub}
+            year={YEAR}
+            start={isQuarterScope ? quarterStartDate : monthStartDate}
+            end={isQuarterScope ? quarterEndDate : monthEndDate}
+            getGoal={(subId) => isQuarterScope
+              ? MONTH_KEYS.reduce((s, mk) => s + ((plan?.timeGoals?.[mk]?.[subId] || 0) + (plan?.areaTimeGoals?.[mk]?.[subId] || 0)), 0)
+              : ((plan?.timeGoals?.[monthKey]?.[subId] || 0) + (plan?.areaTimeGoals?.[monthKey]?.[subId] || 0))}
+          />
         </SafeSection>
 
         {!plan ? (
@@ -606,7 +715,7 @@ export default function TwelveWeekYear() {
               <div className="h-1 bg-gradient-to-r from-violet-500 to-indigo-400" />
               <CardContent className="p-4 space-y-3">
                 <h2 className="text-sm font-semibold flex items-center gap-2">
-                  <Target className="h-4 w-4 text-violet-500" /> Progreso General — {monthLabels[selectedMonth]}
+                  <Target className="h-4 w-4 text-violet-500" /> Progreso General — {periodLabel}
                 </h2>
                 <div className="grid grid-cols-3 gap-3">
                   {[
@@ -632,7 +741,7 @@ export default function TwelveWeekYear() {
                 <div className="w-1 h-8 rounded-full bg-gradient-to-b from-emerald-400 to-emerald-500" />
                 <div>
                   <h2 className="text-base font-bold">Desarrollo Personal</h2>
-                  <p className="text-[10px] text-muted-foreground">{monthLabels[selectedMonth]} · Crecimiento intelectual, creatividad y bienestar</p>
+                  <p className="text-[10px] text-muted-foreground">{periodLabel} · Crecimiento intelectual, creatividad y bienestar</p>
                 </div>
               </div>
 
@@ -647,9 +756,9 @@ export default function TwelveWeekYear() {
                     {mp.completedBooks}/{mp.booksCount} leídos
                   </Badge>
                 </div>
-                <TimeGoalRow label="Minutos de lectura" actual={timeData?.byArea?.lectura || 0} goal={plan?.timeGoals?.[monthKey]?.lectura || 0} color="emerald" icon={<Book className="h-3 w-3 text-emerald-500" />} />
+                <TimeGoalRow label="Minutos de lectura" actual={timeData?.byArea?.lectura || 0} goal={goalFor('lectura')} color="emerald" icon={<Book className="h-3 w-3 text-emerald-500" />} />
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {Array.from({ length: Math.max(slotsPerMonth, monthBooks.length) }).map((_, i) => {
+                  {Array.from({ length: isQuarterScope ? monthBooks.length : Math.max(slotsPerMonth, monthBooks.length) }).map((_, i) => {
                     if (i < monthBooks.length) {
                       const book = monthBooks[i];
                       const done = progress.completedBooks.includes(book.id);
@@ -684,6 +793,7 @@ export default function TwelveWeekYear() {
                         </div>
                       );
                     }
+                    if (isQuarterScope) return null;
                     return (
                       <div key={`slot-${i}`}
                         className="space-y-1.5 p-2 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/10 cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-all"
@@ -706,7 +816,7 @@ export default function TwelveWeekYear() {
                     <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">Música</span>
                     <span className="text-[10px] text-muted-foreground">{mp.completedSongs}/{mp.songsCount} completadas</span>
                   </div>
-                  <TimeGoalRow label="Minutos de práctica" actual={timeData?.byArea?.musica || 0} goal={plan?.timeGoals?.[monthKey]?.musica || 0} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
+                  <TimeGoalRow label="Minutos de práctica" actual={timeData?.byArea?.musica || 0} goal={goalFor('musica')} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {pianoSongs.map(song => {
                       const done = progress.completedSongs.includes(song.id);
@@ -752,7 +862,7 @@ export default function TwelveWeekYear() {
                 </div>
               )}
 
-              {activeSub === 'ajedrez' && chessMonth && (
+              {activeSub === 'ajedrez' && showChessSection && chessMonth && (
                 <div className="space-y-2 pl-4 border-l-2 border-teal-200/50">
                   <div className="flex items-center gap-2">
                     <Gamepad2 className="h-3.5 w-3.5 text-teal-500" />
@@ -760,7 +870,7 @@ export default function TwelveWeekYear() {
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas meta/mes</p>
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Partidas meta/{isQuarterScope ? 'trimestre' : 'mes'}</p>
                       <p className="text-lg font-bold text-teal-500">{chessMonth.targetGames}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
@@ -772,17 +882,17 @@ export default function TwelveWeekYear() {
                       <p className="text-lg font-bold text-teal-500">{chessMonth.practiceDays}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-border/40 space-y-1">
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos meta/mes</p>
-                      <p className="text-lg font-bold text-teal-500">{plan?.timeGoals?.[monthKey]?.ajedrez || 0}min</p>
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos meta/{isQuarterScope ? 'trimestre' : 'mes'}</p>
+                      <p className="text-lg font-bold text-teal-500">{goalFor('ajedrez')}min</p>
                     </div>
                   </div>
                   <Progress value={chessMonth.targetGames > 0 ? Math.min(100, Math.round((chessMonth.gamesPlayed / chessMonth.targetGames) * 100)) : 0} className="h-1.5" />
-                  <p className="text-[10px] text-muted-foreground">{chessMonth.gamesPlayed}/{chessMonth.targetGames} partidas este mes</p>
-                  <TimeGoalRow label="Minutos de ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={plan?.timeGoals?.[monthKey]?.ajedrez || 0} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
+                  <p className="text-[10px] text-muted-foreground">{chessMonth.gamesPlayed}/{chessMonth.targetGames} partidas este {isQuarterScope ? 'trimestre' : 'mes'}</p>
+                  <TimeGoalRow label="Minutos de ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={goalFor('ajedrez')} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
                 </div>
               )}
 
-              {activeSub === 'idiomas' && langMonth && (
+              {activeSub === 'idiomas' && showLangSection && langMonth && (
                 <div className="space-y-2 pl-4 border-l-2 border-sky-200/50">
                   <div className="flex items-center gap-2">
                     <Globe className="h-3.5 w-3.5 text-sky-500" />
@@ -822,8 +932,8 @@ export default function TwelveWeekYear() {
                       </div>
                     </div>
                   </div>
-                  <TimeGoalRow label="Minutos italiano" actual={(timeData?.byArea?.italiano || 0) + (timeData?.byArea?.idiomas || 0)} goal={plan?.timeGoals?.[monthKey]?.italiano || 0} color="green" icon={<Globe className="h-3 w-3 text-green-500" />} />
-                  <TimeGoalRow label="Minutos inglés" actual={timeData?.byArea?.ingles || 0} goal={plan?.timeGoals?.[monthKey]?.ingles || 0} color="blue" icon={<Globe className="h-3 w-3 text-blue-500" />} />
+                  <TimeGoalRow label="Minutos italiano" actual={(timeData?.byArea?.italiano || 0) + (timeData?.byArea?.idiomas || 0)} goal={goalFor('italiano')} color="green" icon={<Globe className="h-3 w-3 text-green-500" />} />
+                  <TimeGoalRow label="Minutos inglés" actual={timeData?.byArea?.ingles || 0} goal={goalFor('ingles')} color="blue" icon={<Globe className="h-3 w-3 text-blue-500" />} />
                 </div>
               )}
 
@@ -862,7 +972,7 @@ export default function TwelveWeekYear() {
                 <div className="w-1 h-8 rounded-full bg-gradient-to-b from-sky-400 to-blue-500" />
                 <div>
                   <h2 className="text-base font-bold">Profesional Académico</h2>
-                  <p className="text-[10px] text-muted-foreground">{monthLabels[selectedMonth]} · Carrera, estudios y proyectos</p>
+                  <p className="text-[10px] text-muted-foreground">{periodLabel} · Carrera, estudios y proyectos</p>
                 </div>
               </div>
 
@@ -888,12 +998,12 @@ export default function TwelveWeekYear() {
                     </div>
                     <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-blue-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
-                      <p className={cn("text-base font-bold", (plan?.areaTimeGoals?.[monthKey]?.universidad || 0) > 0 && (focusAreaStats.universidad || 0) >= (plan.areaTimeGoals[monthKey]?.universidad || 0) ? "text-emerald-500" : "text-blue-500")}>
-                        {Math.round(focusAreaStats.universidad || 0)}min / {plan?.areaTimeGoals?.[monthKey]?.universidad || 0}min
+                      <p className={cn("text-base font-bold", (areaGoalFor('universidad') || 0) > 0 && (focusAreaStats.universidad || 0) >= (areaGoalFor('universidad') || 0) ? "text-emerald-500" : "text-blue-500")}>
+                        {Math.round(focusAreaStats.universidad || 0)}min / {areaGoalFor('universidad') || 0}min
                       </p>
                     </div>
                   </div>
-                  <Progress value={(plan?.areaTimeGoals?.[monthKey]?.universidad || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.universidad || 0) / (plan.areaTimeGoals[monthKey]?.universidad || 0)) * 100)) : 0} className="h-1.5" />
+                  <Progress value={(areaGoalFor('universidad') || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.universidad || 0) / (areaGoalFor('universidad') || 0)) * 100)) : 0} className="h-1.5" />
                 </div>
               )}
 
@@ -911,12 +1021,12 @@ export default function TwelveWeekYear() {
                     </div>
                     <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-amber-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
-                      <p className={cn("text-base font-bold", (plan?.areaTimeGoals?.[monthKey]?.proyectos || 0) > 0 && (focusAreaStats.proyectos || 0) >= (plan.areaTimeGoals[monthKey]?.proyectos || 0) ? "text-emerald-500" : "text-amber-500")}>
-                        {Math.round(focusAreaStats.proyectos || 0)}min / {plan?.areaTimeGoals?.[monthKey]?.proyectos || 0}min
+                      <p className={cn("text-base font-bold", (areaGoalFor('proyectos') || 0) > 0 && (focusAreaStats.proyectos || 0) >= (areaGoalFor('proyectos') || 0) ? "text-emerald-500" : "text-amber-500")}>
+                        {Math.round(focusAreaStats.proyectos || 0)}min / {areaGoalFor('proyectos') || 0}min
                       </p>
                     </div>
                   </div>
-                  <Progress value={(plan?.areaTimeGoals?.[monthKey]?.proyectos || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.proyectos || 0) / (plan.areaTimeGoals[monthKey]?.proyectos || 0)) * 100)) : 0} className="h-1.5" />
+                  <Progress value={(areaGoalFor('proyectos') || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.proyectos || 0) / (areaGoalFor('proyectos') || 0)) * 100)) : 0} className="h-1.5" />
                   <div className="space-y-2">
                     {monthProjectIds.map(pid => {
                       const detail = projectDetails[pid];
@@ -965,12 +1075,12 @@ export default function TwelveWeekYear() {
                     </div>
                     <div className="p-2.5 rounded-xl bg-white/60 dark:bg-zinc-900/60 border border-purple-200/40 space-y-1">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Minutos enfoque / meta</p>
-                      <p className={cn("text-base font-bold", (plan?.areaTimeGoals?.[monthKey]?.emprendimiento || 0) > 0 && (focusAreaStats.emprendimiento || 0) >= (plan.areaTimeGoals[monthKey]?.emprendimiento || 0) ? "text-emerald-500" : "text-purple-500")}>
-                        {Math.round(focusAreaStats.emprendimiento || 0)}min / {plan?.areaTimeGoals?.[monthKey]?.emprendimiento || 0}min
+                      <p className={cn("text-base font-bold", (areaGoalFor('emprendimiento') || 0) > 0 && (focusAreaStats.emprendimiento || 0) >= (areaGoalFor('emprendimiento') || 0) ? "text-emerald-500" : "text-purple-500")}>
+                        {Math.round(focusAreaStats.emprendimiento || 0)}min / {areaGoalFor('emprendimiento') || 0}min
                       </p>
                     </div>
                   </div>
-                  <Progress value={(plan?.areaTimeGoals?.[monthKey]?.emprendimiento || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.emprendimiento || 0) / (plan.areaTimeGoals[monthKey]?.emprendimiento || 0)) * 100)) : 0} className="h-1.5" />
+                  <Progress value={(areaGoalFor('emprendimiento') || 0) > 0 ? Math.min(100, Math.round(((focusAreaStats.emprendimiento || 0) / (areaGoalFor('emprendimiento') || 0)) * 100)) : 0} className="h-1.5" />
                   {monthEntrepreneurshipIds.length > 0 && (
                     <div className="space-y-2">
                       {monthEntrepreneurshipIds.map(eid => {
@@ -1012,7 +1122,7 @@ export default function TwelveWeekYear() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <ListTodo className="h-3.5 w-3.5 text-emerald-500" />
-                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Tareas del Mes</span>
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Tareas del {periodSuffix}</span>
                       <Badge variant="secondary" className="text-[9px] px-1.5">
                         {tasks.filter(t => completedTaskIds.includes(t.id)).length}/{tasks.length}
                       </Badge>
@@ -1036,7 +1146,7 @@ export default function TwelveWeekYear() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3.5 w-3.5 text-red-500" />
-                      <span className="text-xs font-semibold text-red-700 dark:text-red-400">Eventos del Mes</span>
+                      <span className="text-xs font-semibold text-red-700 dark:text-red-400">Eventos del {periodSuffix}</span>
                       <Badge variant="secondary" className="text-[9px] px-1.5">
                         {events.filter(e => completedEventIds.includes(e.id)).length}/{events.length}
                       </Badge>
@@ -1061,22 +1171,22 @@ export default function TwelveWeekYear() {
             </div>
             </>)}
             {/* ===== METAS DE TIEMPO VS ESFUERZO REAL ===== */}
-            {plan?.timeGoals?.[monthKey] && (
+            {showTimeGoalsCard && (
               <Card className="border-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-primary to-primary/60" />
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Timer className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-sm font-semibold">Metas de Tiempo — {monthLabels[selectedMonth]}</span>
+                    <span className="text-sm font-semibold">Metas de Tiempo — {periodLabel}</span>
                     <span className="text-[10px] text-muted-foreground ml-auto">{timeData?.totalMinutes || 0}min acumulados</span>
                   </div>
                   <div className="space-y-2">
-                    <TimeGoalRow label="Lectura" actual={timeData?.byArea?.lectura || 0} goal={plan.timeGoals[monthKey]?.lectura || 0} color="emerald" icon={<Book className="h-3 w-3 text-emerald-500" />} />
-                    <TimeGoalRow label="Música" actual={timeData?.byArea?.musica || 0} goal={plan.timeGoals[monthKey]?.musica || 0} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
-                    <TimeGoalRow label="Ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={plan.timeGoals[monthKey]?.ajedrez || 0} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
-                    <TimeGoalRow label="Italiano" actual={(timeData?.byArea?.italiano || 0) + (timeData?.byArea?.idiomas || 0)} goal={plan.timeGoals[monthKey]?.italiano || 0} color="green" icon={<Globe className="h-3 w-3 text-green-500" />} />
-                    <TimeGoalRow label="Inglés" actual={timeData?.byArea?.ingles || 0} goal={plan.timeGoals[monthKey]?.ingles || 0} color="blue" icon={<Globe className="h-3 w-3 text-blue-500" />} />
-                    <TimeGoalRow label="Gym" actual={timeData?.byArea?.['entrenamiento-fisico'] || 0} goal={plan.timeGoals[monthKey]?.gym || 0} color="orange" icon={<Zap className="h-3 w-3 text-orange-500" />} />
+                    <TimeGoalRow label="Lectura" actual={timeData?.byArea?.lectura || 0} goal={goalFor('lectura')} color="emerald" icon={<Book className="h-3 w-3 text-emerald-500" />} />
+                    <TimeGoalRow label="Música" actual={timeData?.byArea?.musica || 0} goal={goalFor('musica')} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
+                    <TimeGoalRow label="Ajedrez" actual={timeData?.byArea?.ajedrez || 0} goal={goalFor('ajedrez')} color="teal" icon={<Gamepad2 className="h-3 w-3 text-teal-500" />} />
+                    <TimeGoalRow label="Italiano" actual={(timeData?.byArea?.italiano || 0) + (timeData?.byArea?.idiomas || 0)} goal={goalFor('italiano')} color="green" icon={<Globe className="h-3 w-3 text-green-500" />} />
+                    <TimeGoalRow label="Inglés" actual={timeData?.byArea?.ingles || 0} goal={goalFor('ingles')} color="blue" icon={<Globe className="h-3 w-3 text-blue-500" />} />
+                    <TimeGoalRow label="Gym" actual={timeData?.byArea?.['entrenamiento-fisico'] || 0} goal={goalFor('gym')} color="orange" icon={<Zap className="h-3 w-3 text-orange-500" />} />
                   </div>
                 </CardContent>
               </Card>
