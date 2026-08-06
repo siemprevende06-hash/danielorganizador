@@ -39,7 +39,7 @@ export default function MonthlyPlanningPage() {
 
   useEffect(() => {
     const synced = syncMonthlyFromQuarter(month);
-    if (synced) updatePlanData(() => synced);
+    if (synced) updatePlanData(() => synced as any);
   }, [monthStr]);
 
   const navigateMonth = (dir: 'prev' | 'next') => {

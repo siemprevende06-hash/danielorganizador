@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +32,7 @@ function formatMinutes(m: number): string {
 
 export interface SubAreaDef {
   id: string; label: string; icon: React.ReactNode; color: string;
-  trackingSource: 'area_stats' | 'time_data' | 'both';
+  trackingSource: 'area_stats' | 'time_data' | 'both' | 'none';
   trackingId: string | string[]; timeGoalKey?: string;
 }
 
@@ -88,14 +88,20 @@ function StatsRow({ stats }: { stats: StatBox[] }) {
 }
 
 export function CentralAreasSection({
-  selectedQuarter, activeCentral, activeSub, onCentralChange, onSubChange,
+  selectedQuarter, activeCentral: activeCentralProp, activeSub: activeSubProp, onCentralChange: onCentralChangeProp, onSubChange: onSubChangeProp,
   year, start, end, getGoal,
 }: {
-  selectedQuarter: number; activeCentral: string; activeSub: string;
-  onCentralChange: (id: string) => void; onSubChange: (id: string) => void;
+  selectedQuarter: number; activeCentral?: string; activeSub?: string;
+  onCentralChange?: (id: string) => void; onSubChange?: (id: string) => void;
   year?: number; start?: Date; end?: Date;
   getGoal?: (subAreaId: string) => number;
 }) {
+  const [internalCentral, setInternalCentral] = useState(activeCentralProp ?? CENTRAL_AREAS[0].id);
+  const [internalSub, setInternalSub] = useState(activeSubProp ?? CENTRAL_AREAS[0].subAreas[0]?.id ?? '');
+  const activeCentral = activeCentralProp ?? internalCentral;
+  const activeSub = activeSubProp ?? internalSub;
+  const onCentralChange = onCentralChangeProp ?? setInternalCentral;
+  const onSubChange = onSubChangeProp ?? setInternalSub;
   const periodYear = year ?? new Date().getFullYear();
   const qDates = useMemo(
     () => (start && end ? { start, end } : getQuarterDates(selectedQuarter, periodYear)),
@@ -145,7 +151,7 @@ export function CentralAreasSection({
         timeByDay[r.stat_date] = (timeByDay[r.stat_date] || 0) + (r.time_spent_minutes || 0);
       });
     }
-    if (activeSubDef.trackingSource !== 'area_stats' || activeSubDef.trackingSource === 'both') {
+    if (activeSubDef.trackingSource === 'time_data' || activeSubDef.trackingSource === 'both') {
       sysRows.forEach((row: any) => {
         const td = row.time_data || {};
         let sum = 0;

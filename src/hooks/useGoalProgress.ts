@@ -5,7 +5,7 @@ export interface Goal {
   id: string;
   title: string;
   description: string | null;
-  daily_system: string | null;
+  daily_system?: string | null;
   area_id: string | null;
   target_date: string | null;
   progress_percentage: number;
@@ -46,7 +46,7 @@ export function useGoalProgress() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setGoals(data || []);
+      setGoals((data || []) as any);
     } catch (error) {
       console.error('Error fetching goals:', error);
     } finally {
@@ -133,7 +133,7 @@ export function useGoalProgress() {
   const updateDailySystem = async (goalId: string, dailySystem: string) => {
     const { error } = await supabase
       .from('goals')
-      .update({ daily_system: dailySystem || null })
+      .update({ daily_system: dailySystem || null } as any)
       .eq('id', goalId);
     if (error) throw error;
     await fetchGoals();
