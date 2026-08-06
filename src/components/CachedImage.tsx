@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { getImageDataURL } from "@/lib/imageStore";
+import { getImageDataURL, getImageBlob, storeImageBlob } from "@/lib/imageStore";
+import { cacheImageNow } from "@/lib/imageCache";
 import { isVideoUrl } from "@/lib/utils";
 
 interface CachedImageProps {
@@ -11,92 +12,118 @@ interface CachedImageProps {
 
 const CACHE_NAME = "supabase-storage";
 
-async function getFromCache(url: string): Promise<string | null> {
+async function getFromCacheObject(url: string): Promise<string | null> {
   try {
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(url);
     if (cached) {
       const blob = await cached.blob();
-      return URL.createObjectURL(blob);
+      if (blob && blob.size > 0) return URL.createObjectURL(blob);
     }
   } catch {}
   return null;
 }
 
+async function resolveCachedSource(src: string, isVideo: boolean): Promise<string | null> {
+  const stored = await getImageBlob(src);
+  if (stored && stored.size > 0) {
+    if (isVideo) return URL.createObjectURL(stored);
+    const dataUrl = await getImageDataURL(src);
+    if (dataUrl) return dataUrl;
+  }
+  return getFromCacheObject(src);
+}
+
 export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
-  const [dataSrc, setDataSrc] = useState<string | null>(null);
-  const [useUrl, setUseUrl] = useState(true);
+  const [localSrc, setLocalSrc] = useState<string | null>(null);
+  const [status, setStatus] = useState<"loading" | "local" | "url">("loading");
   const loadedRef = useRef(false);
   const objectUrlRef = useRef<string | null>(null);
   const isVideo = isVideoUrl(src);
 
   useEffect(() => {
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
+    let active = true;
+    (async () => {
+      loadedRef.current = false;
       objectUrlRef.current = null;
-    }
-    setDataSrc(null);
-    setUseUrl(true);
-    loadedRef.current = false;
-  }, [src]);
+      setLocalSrc(null);
+      setStatus("loading");
 
-  const handleError = async () => {
-    if (loadedRef.current) return;
-    setUseUrl(false);
+      const cached = await resolveCachedSource(src, isVideo);
+      if (!active) return;
 
-    const cacheUrl = await getFromCache(src);
-    if (cacheUrl) {
-      objectUrlRef.current = cacheUrl;
-      setDataSrc(cacheUrl);
-      return;
-    }
+      if (cached) {
+        objectUrlRef.current = cached;
+        setLocalSrc(cached);
+        setStatus("local");
+      } else {
+        setStatus("url");
+      }
+    })();
+    return () => {
+      active = false;
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, [src, isVideo]);
 
-    const dataUrl = await getImageDataURL(src);
-    if (dataUrl) {
-      setDataSrc(dataUrl);
+  const persistToCaches = () => {
+    try {
+      cacheImageNow(src);
+    } catch {}
+    if (navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "PRECACHE_PHOTOS",
+        urls: [src],
+      });
     }
+    fetch(src, { mode: "cors" })
+      .then(async (res) => {
+        if (res.ok) {
+          const blob = await res.blob();
+          if (blob && blob.size > 0) await storeImageBlob(src, blob);
+        }
+      })
+      .catch(() => {});
   };
 
   const handleLoad = () => {
+    if (loadedRef.current) return;
     loadedRef.current = true;
+    if (status === "url") persistToCaches();
     onLoad?.();
   };
 
   if (isVideo) {
     return (
       <video
-        src={useUrl ? src : dataSrc ?? undefined}
+        src={status === "local" ? localSrc ?? undefined : src}
         className={className}
         autoPlay
         loop
         muted
         playsInline
-        onError={useUrl ? handleError : undefined}
         onLoadedData={handleLoad}
       />
     );
   }
 
-  if (useUrl) {
+  if (status === "local" && localSrc) {
+    return (
+      <img src={localSrc} alt={alt} className={className} onLoad={handleLoad} />
+    );
+  }
+
+  if (status === "url") {
     return (
       <img
         src={src}
         alt={alt}
         className={className}
-        onError={handleError}
         onLoad={handleLoad}
         crossOrigin="anonymous"
-      />
-    );
-  }
-
-  if (dataSrc) {
-    return (
-      <img
-        src={dataSrc}
-        alt={alt}
-        className={className}
-        onLoad={handleLoad}
       />
     );
   }

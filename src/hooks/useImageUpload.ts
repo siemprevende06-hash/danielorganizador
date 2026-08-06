@@ -32,7 +32,23 @@ export const useImageUpload = () => {
         .from('user-images')
         .getPublicUrl(data.path);
 
-      return urlData.publicUrl;
+      const publicUrl = urlData.publicUrl;
+
+      // Persist the upload record in the database (best effort, never blocks the upload)
+      try {
+        await supabase.from('uploaded_images').insert({
+          url: publicUrl,
+          path: data.path,
+          folder,
+          file_name: file.name,
+          file_type: file.type || null,
+          file_size: file.size || null,
+        });
+      } catch (err) {
+        console.warn('uploaded_images insert failed', err);
+      }
+
+      return publicUrl;
     } catch (error) {
       console.error('Error uploading image:', error);
       toast.error('Error al subir la imagen');
@@ -57,6 +73,13 @@ export const useImageUpload = () => {
       if (error) {
         console.error('Error deleting image:', error);
         return false;
+      }
+
+      // Remove the persisted record from the database (best effort)
+      try {
+        await supabase.from('uploaded_images').delete().eq('path', path);
+      } catch (err) {
+        console.warn('uploaded_images delete failed', err);
       }
 
       return true;

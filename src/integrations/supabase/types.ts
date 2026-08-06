@@ -3527,6 +3527,42 @@ export type Database = {
         }
         Relationships: []
       }
+      uploaded_images: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          file_type: string | null
+          folder: string
+          id: string
+          path: string
+          url: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          folder?: string
+          id?: string
+          path: string
+          url: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          folder?: string
+          id?: string
+          path?: string
+          url?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       valuable_skills: {
         Row: {
           created_at: string
