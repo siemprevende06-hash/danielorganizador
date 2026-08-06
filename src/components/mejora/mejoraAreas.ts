@@ -9,16 +9,19 @@ export interface MejoraAreaMeta {
   color: string;
   gradient: string;
   dailyTarget: number;
+  min: number;
+  max: number;
+  ring: string;
   unit: string;
 }
 
 export const MEJORA_AREAS: MejoraAreaMeta[] = [
-  { id: "lectura", label: "Lectura", icon: BookOpen, color: "text-purple-500", gradient: "from-purple-500 to-fuchsia-400", dailyTarget: 20, unit: "min" },
-  { id: "musica", label: "Música", icon: Music2, color: "text-pink-500", gradient: "from-pink-500 to-rose-400", dailyTarget: 30, unit: "min" },
-  { id: "ajedrez", label: "Ajedrez", icon: Gamepad2, color: "text-indigo-500", gradient: "from-indigo-500 to-violet-400", dailyTarget: 15, unit: "min" },
-  { id: "idiomas", label: "Idiomas", icon: Globe, color: "text-emerald-500", gradient: "from-emerald-500 to-teal-400", dailyTarget: 30, unit: "min" },
-  { id: "game", label: "Game", icon: Sparkles, color: "text-amber-500", gradient: "from-amber-500 to-orange-400", dailyTarget: 15, unit: "min" },
-  { id: "gym", label: "Gym", icon: Dumbbell, color: "text-orange-500", gradient: "from-orange-500 to-red-400", dailyTarget: 45, unit: "min" },
+  { id: "lectura", label: "Lectura", icon: BookOpen, color: "text-purple-500", gradient: "from-purple-500 to-fuchsia-400", dailyTarget: 20, min: 15, max: 30, ring: "purple", unit: "min" },
+  { id: "musica", label: "Música", icon: Music2, color: "text-pink-500", gradient: "from-pink-500 to-rose-400", dailyTarget: 30, min: 15, max: 30, ring: "rose", unit: "min" },
+  { id: "ajedrez", label: "Ajedrez", icon: Gamepad2, color: "text-indigo-500", gradient: "from-indigo-500 to-violet-400", dailyTarget: 15, min: 10, max: 20, ring: "indigo", unit: "min" },
+  { id: "idiomas", label: "Idiomas", icon: Globe, color: "text-emerald-500", gradient: "from-emerald-500 to-teal-400", dailyTarget: 30, min: 15, max: 60, ring: "emerald", unit: "min" },
+  { id: "game", label: "Game", icon: Sparkles, color: "text-amber-500", gradient: "from-amber-500 to-orange-400", dailyTarget: 15, min: 10, max: 30, ring: "amber", unit: "min" },
+  { id: "gym", label: "Gym", icon: Dumbbell, color: "text-orange-500", gradient: "from-orange-500 to-red-400", dailyTarget: 45, min: 30, max: 60, ring: "blue", unit: "min" },
 ];
 
 export const areaMetaById = (id: MejoraAreaId): MejoraAreaMeta =>
@@ -29,4 +32,8 @@ export function getAreaMinutes(row: any, area: MejoraAreaId): number {
   const td = row?.time_data || {};
   if (area === "idiomas") return (Number(td.italiano) || 0) + (Number(td.ingles) || 0);
   return Number(td[area]) || 0;
+}
+
+export function getExtraMinutes(value: number, meta: MejoraAreaMeta): number {
+  return Math.max(0, value - meta.max);
 }
