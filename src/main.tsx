@@ -6,6 +6,7 @@ import { toast } from "sonner";
 let swRegistration: ServiceWorkerRegistration | null = null;
 let updateNotified = false;
 let lastUpdateCheck = 0;
+let alreadyHandlingController = false;
 
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
@@ -28,12 +29,18 @@ function showUpdateNotification() {
 }
 
 if (!isPreviewHost && !isInIframe && "serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (alreadyHandlingController) return;
+    alreadyHandlingController = true;
+    window.location.reload();
+  });
+
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js", { scope: "/" }).then((registration) => {
       swRegistration = registration;
 
       if (registration.waiting) {
-        showUpdateNotification();
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
       }
 
       registration.addEventListener("updatefound", () => {
@@ -41,7 +48,7 @@ if (!isPreviewHost && !isInIframe && "serviceWorker" in navigator) {
         if (newWorker) {
           newWorker.addEventListener("statechange", () => {
             if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-              showUpdateNotification();
+              newWorker.postMessage({ type: "SKIP_WAITING" });
             }
           });
         }
@@ -49,7 +56,7 @@ if (!isPreviewHost && !isInIframe && "serviceWorker" in navigator) {
     }).catch(() => {});
 
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && swRegistration && Date.now() - lastUpdateCheck > 600000) {
+      if (document.visibilityState === "visible" && swRegistration && Date.now() - lastUpdateCheck > 60000) {
         lastUpdateCheck = Date.now();
         swRegistration.update().catch(() => {});
       }
