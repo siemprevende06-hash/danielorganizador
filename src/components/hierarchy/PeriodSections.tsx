@@ -458,8 +458,8 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
         [addTargetMonthKey]: { ...(currentPlan.distribution?.[addTargetMonthKey] || {}), books: currentBooks },
       },
     };
-    saveQuarterPlan(quarter, year, updatedPlan);
-    setPlan(updatedPlan);
+    saveQuarterPlan(quarter, year, updatedPlan as any);
+    setPlan(updatedPlan as any);
     const newBook = allBooks.find(b => b.id === bookId);
     if (newBook) setBooks(prev => ({ ...prev, [bookId]: newBook }));
     // Sync with monthly plan
