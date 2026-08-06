@@ -88,7 +88,7 @@ function StatsRow({ stats }: { stats: StatBox[] }) {
 }
 
 export function CentralAreasSection({
-  selectedQuarter, activeCentral, activeSub, onCentralChange, onSubChange,
+  selectedQuarter, activeCentral: activeCentralProp, activeSub: activeSubProp, onCentralChange: onCentralChangeProp, onSubChange: onSubChangeProp,
   year, start, end, getGoal,
 }: {
   selectedQuarter: number; activeCentral?: string; activeSub?: string;
@@ -96,6 +96,12 @@ export function CentralAreasSection({
   year?: number; start?: Date; end?: Date;
   getGoal?: (subAreaId: string) => number;
 }) {
+  const [internalCentral, setInternalCentral] = useState(activeCentralProp ?? CENTRAL_AREAS[0].id);
+  const [internalSub, setInternalSub] = useState(activeSubProp ?? CENTRAL_AREAS[0].subAreas[0]?.id ?? '');
+  const activeCentral = activeCentralProp ?? internalCentral;
+  const activeSub = activeSubProp ?? internalSub;
+  const onCentralChange = onCentralChangeProp ?? setInternalCentral;
+  const onSubChange = onSubChangeProp ?? setInternalSub;
   const periodYear = year ?? new Date().getFullYear();
   const qDates = useMemo(
     () => (start && end ? { start, end } : getQuarterDates(selectedQuarter, periodYear)),
