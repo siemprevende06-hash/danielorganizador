@@ -16,6 +16,7 @@ import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { type MejoraAreaId } from '@/components/mejora/mejoraAreas';
+import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
 import { HealthSection } from '@/components/dashboard/HealthSection';
 import { Input } from '@/components/ui/input';
 import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
@@ -188,6 +189,11 @@ export default function DailyView() {
     idiomas: (data.timeData?.italiano || 0) + (data.timeData?.ingles || 0),
     game: data.timeData?.game || 0,
     gym: data.workoutDuration || 0,
+  };
+  const focusTodayMinutes = {
+    universidad: data.timeData?.universidad || 0,
+    emprendimiento: data.timeData?.emprendimiento || 0,
+    proyectos: data.timeData?.proyectos || 0,
   };
   const SECTIONS = [
     { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: data.workoutDuration || 0 },
@@ -482,7 +488,7 @@ export default function DailyView() {
 
         {/* ===== SECCIÓN: ENFOQUE ===== */}
         {activeSection === 'enfoque' && (
-          <>
+          <FocusProcessPanel todayMinutes={focusTodayMinutes}>
             <EnfoqueSection
               blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
               tasksByBlock={tasksByBlock}
@@ -499,7 +505,7 @@ export default function DailyView() {
               </div>
               <NotionCalendar />
             </div>
-          </>
+          </FocusProcessPanel>
         )}
       </div>
     </div>
