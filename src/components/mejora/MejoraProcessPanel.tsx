@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { format, startOfWeek, startOfMonth, startOfQuarter, subDays } from 'date-fns';
+import { format, startOfWeek, startOfMonth, startOfQuarter, subDays, endOfWeek, endOfMonth, endOfQuarter } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -252,16 +252,68 @@ function AreaDetail({ area, todayMinutes, anchor, history, areaStats, onBack }: 
     return arr;
   }, [history, areaStats, area, todayMinutes, anchorStr, anchor]);
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const weekStartD = startOfWeek(anchor, { weekStartsOn: 1 });
+  const weekEndD = endOfWeek(anchor, { weekStartsOn: 1 });
+  const monthStartD = startOfMonth(anchor);
+  const monthEndD = endOfMonth(anchor);
+  const todayInWeek = todayStr >= format(weekStartD, 'yyyy-MM-dd') && todayStr <= format(weekEndD, 'yyyy-MM-dd');
+  const todayInMonth = todayStr >= format(monthStartD, 'yyyy-MM-dd') && todayStr <= format(monthEndD, 'yyyy-MM-dd');
+  const diaKey = todayInWeek || todayInMonth ? todayStr : anchorStr;
+
   const periodStats = useMemo(() => {
-    if (!series) return null;
+    if (!history) return null;
+    const map = new Map<string, number>();
+    history.forEach((row) => map.set(row.tracking_date, getAreaMinutes(row, area)));
+    if (areaStats) {
+      areaStats.forEach((r) => {
+        if (r.area_id === area) map.set(r.stat_date, Math.max(map.get(r.stat_date) || 0, Number(r.time_spent_minutes) || 0));
+      });
+    }
+    if (isTodayAnchor) map.set(anchorStr, Math.max(map.get(anchorStr) || 0, todayMinutes?.[area] || 0));
+    const sumRange = (from: string, to: string) => {
+      let total = 0;
+      map.forEach((v, d) => { if (d >= from && d <= to) total += v; });
+      return total;
+    };
+    const clampToToday = (from: string, to: string) => (to > todayStr ? todayStr : to);
     return PERIODS.map((p) => {
-      const from = p.id === 'dia' ? anchorStr : format(p.id === 'semana' ? startOfWeek(anchor, { weekStartsOn: 1 }) : p.id === 'mes' ? startOfMonth(anchor) : startOfQuarter(anchor), 'yyyy-MM-dd');
-      const done = series.filter(s => s.date >= from && s.date <= anchorStr).reduce((a, b) => a + b.minutes, 0);
-      const planned = getPlannedMinutes(area, p, anchor);
+      let from: string, to: string, plannedDate: Date;
+      if (p.id === 'dia') {
+        from = to = diaKey;
+        plannedDate = new Date(diaKey);
+      } else if (p.id === 'semana') {
+        from = format(weekStartD, 'yyyy-MM-dd');
+        to = clampToToday(from, format(weekEndD, 'yyyy-MM-dd'));
+        plannedDate = weekStartD;
+      } else if (p.id === 'mes') {
+        from = format(monthStartD, 'yyyy-MM-dd');
+        to = clampToToday(from, format(monthEndD, 'yyyy-MM-dd'));
+        plannedDate = anchor;
+      } else {
+        from = format(startOfQuarter(anchor), 'yyyy-MM-dd');
+        to = clampToToday(from, format(endOfQuarter(anchor), 'yyyy-MM-dd'));
+        plannedDate = anchor;
+      }
+      const done = sumRange(from, to);
+      const planned = getPlannedMinutes(area, p, plannedDate);
       const goal = planned > 0 ? planned : Math.round(meta.dailyTarget * p.days);
       return { ...p, from, done, goal, pct: goal > 0 ? Math.round((done / goal) * 100) : 0, pctUncapped: goal > 0 ? Math.round((done / goal) * 100) : 0 };
     });
-  }, [series, area, meta.dailyTarget, anchor, anchorStr]);
+  }, [history, areaStats, area, meta.dailyTarget, anchor, anchorStr, isTodayAnchor, todayMinutes, todayStr, diaKey, weekStartD, weekEndD, monthStartD, monthEndD]);
+
+  const todayMin = useMemo(() => {
+    if (!history) return 0;
+    const map = new Map<string, number>();
+    history.forEach((row) => map.set(row.tracking_date, getAreaMinutes(row, area)));
+    if (areaStats) {
+      areaStats.forEach((r) => {
+        if (r.area_id === area) map.set(r.stat_date, Math.max(map.get(r.stat_date) || 0, Number(r.time_spent_minutes) || 0));
+      });
+    }
+    if (isTodayAnchor) map.set(anchorStr, Math.max(map.get(anchorStr) || 0, todayMinutes?.[area] || 0));
+    return map.get(diaKey) || 0;
+  }, [history, areaStats, area, diaKey, anchorStr, todayMinutes, isTodayAnchor]);
 
   const controlData = useMemo(() => (series ? series.slice(-30) : null), [series]);
   const spc = useMemo(() => (controlData ? computeSpc(controlData.map((d) => d.minutes)) : null), [controlData]);
@@ -343,7 +395,6 @@ function AreaDetail({ area, todayMinutes, anchor, history, areaStats, onBack }: 
 
   const stateInfo = spc ? STATE_INFO[spc.state] : null;
   const StateIcon = stateInfo?.icon || Activity;
-  const todayMin = todayMinutes?.[area] || series?.find((s) => s.date === anchorStr)?.minutes || 0;
   const todayExtra = getExtraMinutes(todayMin, meta);
   const withinTarget = todayMin >= meta.min && todayMin <= meta.max;
 
@@ -377,7 +428,7 @@ function AreaDetail({ area, todayMinutes, anchor, history, areaStats, onBack }: 
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className={cn("text-[10px] font-mono", todayMin >= meta.max ? "text-amber-600" : "" )}>{format(anchor, 'dd/MM')}: {todayMin} min</Badge>
+            <Badge variant="outline" className={cn("text-[10px] font-mono", todayMin >= meta.max ? "text-amber-600" : "" )}>{format(new Date(diaKey), 'dd/MM')}: {todayMin} min</Badge>
           </div>
 
           {/* Indicadores circulares: objetivos del plan (día · semana · mes · trimestre) */}
