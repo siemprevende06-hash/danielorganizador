@@ -95,7 +95,7 @@ export default function EstadisticasEsfuerzo() {
         const results = await Promise.allSettled([
           supabase.from('daily_systems_tracking').select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas').gte('tracking_date', startDate).lte('tracking_date', endDate).order('tracking_date', { ascending: true }),
           supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', startDate).lte('stat_date', endDate).order('stat_date', { ascending: true }),
-          supabase.from('tasks').select('id, completed, completed_at, source, due_date, area_id').or(`completed_at.gte.${startDate},due_date.gte.${startDate}`),
+          supabase.from('tasks').select('id, completed, source, due_date, area_id').or(`due_date.gte.${startDate}`),
         ]);
 
         setSystemsData(results[0].status === 'fulfilled' ? results[0].value.data || [] : []);
@@ -129,8 +129,8 @@ export default function EstadisticasEsfuerzo() {
     // Task completions per day (general tasks)
     const taskMap: Record<string, number> = {};
     taskCompletions.forEach(t => {
-      if (t.completed && t.completed_at) {
-        const d = t.completed_at.slice(0, 10);
+      if (t.completed && t.due_date) {
+        const d = t.due_date.slice(0, 10);
         if (d.startsWith(monthKey)) {
           if (t.source === 'general' || (!t.source && !t.area_id)) {
             taskMap[d] = (taskMap[d] || 0) + 1;
@@ -180,8 +180,8 @@ export default function EstadisticasEsfuerzo() {
     });
 
     taskCompletions.forEach(t => {
-      if (!t.completed || !t.completed_at) return;
-      const d = t.completed_at.slice(0, 10);
+      if (!t.completed || !t.due_date) return;
+      const d = t.due_date.slice(0, 10);
       if (d < `${year}-01-01` || d > `${year}-12-31`) return;
       if (t.source === 'general' || (!t.source && !t.area_id)) {
         const wid = getWeekId(d);
