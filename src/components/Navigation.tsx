@@ -384,6 +384,7 @@ export const Navigation = () => {
             >
               <RefreshCw className="h-4 w-4" />
             </button>
+            <ThemeToggle collapsed={collapsed} />
             <button
               onClick={sidebarToggle}
               className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0"
