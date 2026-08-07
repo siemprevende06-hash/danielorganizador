@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { MapaNode } from "@/hooks/useMapaDeVida"
+import { PILARES_DIRECCION, PILAR_DESEOS } from "@/hooks/useMapaDeVida"
 import type { AreaScore } from "@/hooks/useAreaScores"
 import type { Necesidad } from "@/lib/definitions"
 import { Clock, ArrowRight, X } from "lucide-react"
@@ -30,6 +31,13 @@ function statusText(p: number): string {
   if (p >= 50) return "🔄 En camino"
   if (p >= 20) return "⚠️ Insuficiente"
   return "❌ Insatisfecha"
+}
+
+function statusTextColor(p: number): string {
+  if (p >= 80) return "#34d399"
+  if (p >= 50) return "#fbbf24"
+  if (p >= 20) return "#fb923c"
+  return "#f87171"
 }
 
 function DualBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -73,7 +81,7 @@ export function MapaDetailPanel({
         </CardTitle>
         <div className="flex items-center gap-2">
           <Badge variant="outline">
-            {node.kind === "hub" ? "Energía" : node.kind === "area" ? "Área de Vida" : "Deseo"}
+            {node.kind === "hub" ? "Energía" : node.kind === "area" ? "Área de Vida" : node.kind === "deseo" ? "Deseo" : "Pilar de Dirección"}
           </Badge>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -160,6 +168,40 @@ export function MapaDetailPanel({
             )}
           </>
         )}
+
+        {node.kind === "pilar" &&
+          (() => {
+            const pilar = PILARES_DIRECCION.find((p) => p.id === node.id)
+            const feeding = needs.filter((n) => (PILAR_DESEOS[node.id] ?? []).includes(n.necesidad_id))
+            const avg = feeding.length
+              ? Math.round(feeding.reduce((s, n) => s + (n.progreso ?? 0), 0) / feeding.length)
+              : 0
+            return (
+              <>
+                {pilar && <p className="text-sm text-muted-foreground">{pilar.desc}</p>}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Deseos que lo alimentan</span>
+                    <span className="font-bold tabular-nums">{avg}%</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${avg}%`, backgroundColor: "#f59e0b" }} />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {feeding.map((n) => (
+                    <Badge key={n.necesidad_id} variant="outline" className="gap-1">
+                      <span>{n.icono}</span>
+                      {n.titulo}
+                      <span className="tabular-nums font-semibold" style={{ color: statusTextColor(n.progreso ?? 0) }}>
+                        {(n.progreso ?? 0)}%
+                      </span>
+                    </Badge>
+                  ))}
+                </div>
+              </>
+            )
+          })()}
       </CardContent>
     </Card>
   )

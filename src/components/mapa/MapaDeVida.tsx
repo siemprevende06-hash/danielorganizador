@@ -9,6 +9,7 @@ const ROSE = "#f87171"
 const AMBER = "#fbbf24"
 const ORANGE = "#fb923c"
 const PURPLE = "#a78bfa"
+const GOLD = "#f59e0b"
 const SLATE = "#64748b"
 const PULSE = "#7dd3fc"
 
@@ -28,6 +29,7 @@ function statusColor(progress: number): string {
 
 function ringColor(kind: MapaNode["kind"], score: number): string {
   if (kind === "hub") return PURPLE
+  if (kind === "pilar") return GOLD
   if (kind === "deseo") return statusColor(score)
   if (score >= 70) return CYAN
   if (score >= 40) return BLUE
@@ -60,6 +62,28 @@ function computeRoute(node: MapaNode | null, edges: MapaEdge[]): Set<string> {
   return ids
 }
 
+function computePilarRoute(node: MapaNode, edges: MapaEdge[]): Set<string> {
+  const ids = new Set<string>()
+  const feeding = new Set<string>()
+  edges.forEach((e) => {
+    if (e.to === node.id) {
+      ids.add(e.id)
+      feeding.add(e.from)
+    }
+  })
+  const baseAreas = new Set<string>()
+  edges.forEach((e) => {
+    if (feeding.has(e.to)) {
+      ids.add(e.id)
+      baseAreas.add(e.from)
+    }
+  })
+  edges.forEach((e) => {
+    if (e.from === "esfuerzo-hub" && baseAreas.has(e.to)) ids.add(e.id)
+  })
+  return ids
+}
+
 export function MapaDeVida({
   nodes,
   edges,
@@ -77,12 +101,16 @@ export function MapaDeVida({
     () => nodes.find((n) => n.id === activeNodeId) ?? null,
     [nodes, activeNodeId]
   )
-  const route = useMemo(() => computeRoute(activeNode, edges), [activeNode, edges])
+  const route = useMemo(() => {
+    if (!activeNode) return new Set<string>()
+    if (activeNode.kind === "pilar") return computePilarRoute(activeNode, edges)
+    return computeRoute(activeNode, edges)
+  }, [activeNode, edges])
 
   return (
     <div className="mapa-canvas border border-border/60 relative overflow-hidden">
       <svg
-        viewBox="0 0 1200 740"
+        viewBox="0 0 1200 840"
         className="w-full h-auto select-none"
         onClick={() => {
           setHover(null)
@@ -215,7 +243,7 @@ export function MapaDeVida({
                 y={node.y}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={node.kind === "deseo" ? 30 : node.kind === "area" ? 27 : 34}
+                fontSize={node.kind === "deseo" ? 30 : node.kind === "pilar" ? 28 : node.kind === "area" ? 27 : 34}
               >
                 {node.icon}
               </text>
@@ -242,7 +270,7 @@ export function MapaDeVida({
                 >
                   {node.score}%
                 </text>
-              ) : (
+              ) : node.kind === "pilar" ? null : (
                 <>
                   <rect x={node.x - 28} y={node.y + node.r + 24} width={56} height={4} rx={2} fill="hsl(var(--border))" />
                   <rect x={node.x - 28} y={node.y + node.r + 24} width={56 * (node.score / 100)} height={4} rx={2} fill={CYAN} />

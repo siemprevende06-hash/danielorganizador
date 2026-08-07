@@ -36,8 +36,8 @@ export default function MapaDeVidaPage() {
           Mapa de Vida
         </h1>
         <p className="text-muted-foreground max-w-lg mx-auto">
-          Tu esfuerzo diario ilumina cada área y cada área alimenta tus deseos.
-          Toca un nodo para ver su ruta de energía.
+          Tu esfuerzo diario ilumina cada área, tus áreas alimentan tus deseos y
+          tus deseos apuntan a tu dirección: los 3 pilares de tu vida.
         </p>
         <div className="flex items-center justify-center gap-3 flex-wrap text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
@@ -55,6 +55,10 @@ export default function MapaDeVidaPage() {
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full border-2 border-green-400" />
             Deseo satisfecho
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#f59e0b" }} />
+            Pilares de dirección
           </span>
         </div>
       </header>
@@ -84,7 +88,7 @@ export default function MapaDeVidaPage() {
           )}
           {!selected && (
             <p className="text-center text-xs text-muted-foreground">
-              Toca cualquier nodo para iluminar su ruta: esfuerzo → área → deseo
+              Toca cualquier nodo para iluminar su ruta: esfuerzo → área → deseo → pilar
             </p>
           )}
         </>

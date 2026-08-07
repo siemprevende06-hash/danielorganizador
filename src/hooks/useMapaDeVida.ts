@@ -3,7 +3,7 @@ import { useAreaScores, type AreaScore } from "./useAreaScores"
 import { useNecesidades } from "./useNecesidades"
 import type { Timeframe } from "@/contexts/TimeframeContext"
 
-export type MapaNodeKind = "hub" | "area" | "deseo"
+export type MapaNodeKind = "hub" | "area" | "deseo" | "pilar"
 
 export interface MapaNode {
   id: string
@@ -18,6 +18,44 @@ export interface MapaNode {
   minutes: number
 }
 
+export interface PilarMeta {
+  id: string
+  label: string
+  short: string
+  icon: string
+  desc: string
+}
+
+export const PILARES_DIRECCION: PilarMeta[] = [
+  {
+    id: "p-mejor-version",
+    label: "Mejor Versión de Mí",
+    short: "Mejor Versión",
+    icon: "👑",
+    desc: "Convertirme en mi mejor versión en todas las áreas posibles.",
+  },
+  {
+    id: "p-amor-familia",
+    label: "Amor y Familia",
+    short: "Amor y Familia",
+    icon: "💍",
+    desc: "Conseguir a una mujer hermosa, el amor de mi vida, y construir una familia con ella.",
+  },
+  {
+    id: "p-libertad",
+    label: "Negocios y Libertad Financiera",
+    short: "Negocios y Libertad",
+    icon: "💰",
+    desc: "Tener mis negocios y libertad financiera.",
+  },
+]
+
+export const PILAR_DESEOS: Record<string, string[]> = {
+  "p-mejor-version": ["exito", "boxeo"],
+  "p-amor-familia": ["novia", "intimidad", "amigos"],
+  "p-libertad": ["dinero", "moto"],
+}
+
 export interface MapaEdge {
   id: string
   from: string
@@ -29,9 +67,10 @@ export interface MapaEdge {
 
 const VIEW_W = 1200
 
-const HUB = { x: VIEW_W / 2, y: 588, r: 68 }
-const AREAS_Y = 310
-const DESEOS_Y = 110
+const HUB = { x: VIEW_W / 2, y: 715, r: 68 }
+const AREAS_Y = 470
+const DESEOS_Y = 270
+const PILARES_Y = 60
 
 const AREA_SHORT: Record<string, string> = {
   salud: "Salud",
@@ -97,9 +136,11 @@ export function useMapaDeVida(timeframe: Timeframe) {
   const { nodes, edges } = useMemo(() => {
     const areaNodes: MapaNode[] = []
     const deseoNodes: MapaNode[] = []
+    const pilarNodes: MapaNode[] = []
 
     const areaPositions = spread(scores.length || 1, 110, VIEW_W - 110)
     const deseoPositions = spread(necesidades.length || 1, 150, VIEW_W - 150)
+    const pilarPositions = spread(PILARES_DIRECCION.length, 110, VIEW_W - 110)
 
     scores.forEach((area, i) => {
       areaNodes.push({
@@ -131,12 +172,28 @@ export function useMapaDeVida(timeframe: Timeframe) {
       })
     })
 
+    PILARES_DIRECCION.forEach((p, i) => {
+      pilarNodes.push({
+        id: p.id,
+        kind: "pilar",
+        label: p.short,
+        icon: p.icon,
+        x: pilarPositions[i] ?? VIEW_W / 2,
+        y: PILARES_Y,
+        r: 52,
+        score: 0,
+        score2: 0,
+        minutes: 0,
+      })
+    })
+
     const areaById: Record<string, MapaNode> = {}
     for (const n of areaNodes) areaById[n.id] = n
 
     const nodes: MapaNode[] = [
       ...areaNodes,
       ...deseoNodes,
+      ...pilarNodes,
       {
         id: "esfuerzo-hub",
         kind: "hub",
@@ -176,6 +233,25 @@ export function useMapaDeVida(timeframe: Timeframe) {
           esfuerzo: area.score,
           resultados: area.score2,
           path: edgePath(area.x, area.y, area.r, deseo.x, deseo.y, deseo.r),
+        })
+      }
+    }
+
+    const deseoById: Record<string, MapaNode> = {}
+    for (const n of deseoNodes) deseoById[n.id] = n
+
+    for (const pilar of pilarNodes) {
+      const deseoIds = PILAR_DESEOS[pilar.id] ?? []
+      for (const deseoId of deseoIds) {
+        const deseo = deseoById[deseoId]
+        if (!deseo) continue
+        edges.push({
+          id: `${deseo.id}-${pilar.id}`,
+          from: deseo.id,
+          to: pilar.id,
+          esfuerzo: deseo.score,
+          resultados: deseo.score,
+          path: edgePath(deseo.x, deseo.y, deseo.r, pilar.x, pilar.y, pilar.r),
         })
       }
     }
