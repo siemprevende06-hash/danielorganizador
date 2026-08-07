@@ -65,6 +65,7 @@ import VidaSocial from "./pages/VidaSocial";
 import MisNecesidades from "./pages/MisNecesidades";
 import Novia from "./pages/Novia";
 import AreasDeVida from "./pages/AreasDeVida";
+import MapaDeVidaPage from "./pages/MapaDeVida";
 import Recompensas from "./pages/Recompensas";
 import Paginas from "./pages/Paginas";
 import Motivos from "./pages/Motivos";
@@ -133,6 +134,7 @@ function AppContent() {
         <Route path="/self-review" element={<DailySelfReview />} />
         <Route path="/life-alignment" element={<LifeAlignment />} />
         <Route path="/areas-de-vida" element={<AreasDeVida />} />
+        <Route path="/mapa-de-vida" element={<MapaDeVidaPage />} />
         <Route path="/recompensas" element={<Recompensas />} />
         <Route path="/confidence-steps" element={<ConfidenceSteps />} />
         <Route path="/reading-library" element={<ReadingLibrary />} />

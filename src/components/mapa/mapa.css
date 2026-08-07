@@ -1,0 +1,80 @@
+.mapa-canvas {
+  background-image: radial-gradient(hsl(var(--border) / 0.55) 1px, transparent 1px);
+  background-size: 26px 26px;
+  border-radius: 1rem;
+}
+
+.mapa-text {
+  fill: hsl(var(--foreground));
+}
+
+.mapa-text-dim {
+  fill: hsl(var(--muted-foreground));
+}
+
+.mapa-node {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.mapa-node-hit {
+  cursor: pointer;
+}
+
+.mapa-edge {
+  transition: opacity 0.25s ease;
+}
+
+.mapa-pulse {
+  stroke-dasharray: 5 15;
+  animation: mapa-flow 1.4s linear infinite;
+}
+
+@keyframes mapa-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.mapa-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mapa-ping 2.4s ease-out infinite;
+}
+
+.mapa-ping-alt {
+  animation-delay: 1.2s;
+}
+
+@keyframes mapa-ping {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+.mapa-selected-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mapa-ring 1.2s ease-in-out infinite;
+}
+
+@keyframes mapa-ring {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.65;
+  }
+}
