@@ -728,7 +728,7 @@ function MejoraOverview({ anchor, history, areaStats }: { anchor: Date; history:
 
         {topArea && (
           <div className="flex items-center gap-2 rounded-xl bg-muted/40 p-2.5 text-xs">
-            <topArea.icon className={cn("h-4 w-4", topArea.meta.color)} />
+            <topArea.meta.icon className={cn("h-4 w-4", topArea.meta.color)} />
             <span className="text-muted-foreground">Top mejora: <b className="text-foreground">{topArea.meta.label}</b> · {Math.round(topArea.total)} min en 30d</span>
           </div>
         )}
