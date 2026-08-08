@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
 import { getCubaDate } from "@/lib/cubaTime";
@@ -13,6 +14,10 @@ const DEFAULT_TIME_GOALS: Record<string, number> = {
 }
 
 const todayKey = () => getCubaDate();
+
+function dateKeyOf(target: Date | undefined): string {
+  return target ? format(target, 'yyyy-MM-dd') : todayKey();
+}
 
 // Umbrales por defecto para computar "min"/"max" en la racha semanal.
 const STREAK_MIN_MINUTES = 1;
@@ -71,35 +76,45 @@ const DEFAULT_DATA: SystemsData = {
   activeFocusAreas: ["universidad", "emprendimiento", "proyectos"],
 };
 
-export function useSystemsTracking() {
+export function useSystemsTracking(targetDate?: Date) {
   const [data, setData] = useState<SystemsData>(DEFAULT_DATA);
   const [loading, setLoading] = useState(true);
-  const [recordId, setRecordId] = useState<string | null>(null);
-  const [currentDate, setCurrentDate] = useState(todayKey());
+  const [currentDate, setCurrentDate] = useState(() => dateKeyOf(targetDate));
   const dataRef = useRef(data);
   dataRef.current = data;
+  const dateRef = useRef(currentDate);
+  dateRef.current = currentDate;
+
+  // Cambiar de día (navegación a días anteriores/posteriores)
+  const targetKey = dateKeyOf(targetDate);
+  useEffect(() => {
+    if (currentDate === targetKey) return;
+    setCurrentDate(targetKey);
+    setData(DEFAULT_DATA);
+    setLoading(true);
+  }, [targetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save on unmount to avoid losing pending changes
   useEffect(() => {
     return () => {
       if (!loading) {
-        save(dataRef.current);
+        save(dataRef.current, dateRef.current);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reset visual + recarga de la fila correcta al pasar la medianoche
+  // Reset visual + recarga de la fila correcta al pasar la medianoche (solo si estamos viendo hoy)
   useMidnightReset(useCallback(() => {
+    if (dateRef.current !== todayKey()) return;
     setData(DEFAULT_DATA);
-    setRecordId(null);
     setCurrentDate(todayKey());
   }, []));
 
   // Load from DB with offline cache fallback
   useEffect(() => {
     const load = async () => {
-      const today = todayKey();
+      const dateKey = currentDate;
 
       const buildData = (row: any) => ({
         completions: (row.completions as Record<string, boolean>) || {},
@@ -122,12 +137,9 @@ export function useSystemsTracking() {
         const { data } = await supabase
           .from("daily_systems_tracking")
           .select("*")
-          .eq("tracking_date", today)
+          .eq("tracking_date", dateKey)
           .maybeSingle();
         row = data;
-        if (row) {
-          setRecordId(row.id);
-        }
       } catch {}  // offline, row stays null
 
       if (row) {
@@ -139,8 +151,7 @@ export function useSystemsTracking() {
   }, [currentDate]);
 
   // Sync time_data + completions to daily_area_stats so the Wheel of Life sees real data
-  const syncToAreaStats = useCallback(async (newData: SystemsData) => {
-    const today = todayKey();
+  const syncToAreaStats = useCallback(async (newData: SystemsData, forDate: string) => {
     const areaUpdates = new Map<string, { time_spent_minutes: number; completed: boolean; completed_at: string | null }>()
 
     for (const [id, minutes] of Object.entries(newData.timeData)) {
@@ -169,7 +180,7 @@ export function useSystemsTracking() {
       try {
         await supabase.from("daily_area_stats").upsert({
           area_id: areaId,
-          stat_date: today,
+          stat_date: forDate,
           time_spent_minutes: vals.time_spent_minutes,
           time_goal_minutes: DEFAULT_TIME_GOALS[areaId] ?? 30,
           completed: vals.completed,
@@ -181,11 +192,10 @@ export function useSystemsTracking() {
     }
   }, [])
 
-  // Save to DB (debounced) with offline queue fallback
-  const save = useCallback(async (newData: SystemsData) => {
-    const today = todayKey();
+  // Save to DB (debounced) — upsert por fecha para poder guardar días anteriores
+  const save = useCallback(async (newData: SystemsData, forDate: string) => {
     const payload = {
-      tracking_date: today,
+      tracking_date: forDate,
       completions: withStreakMirror(newData),
       time_data: newData.timeData,
       count_data: newData.countData,
@@ -201,31 +211,21 @@ export function useSystemsTracking() {
       active_focus_areas: newData.activeFocusAreas,
     };
 
-    if (recordId) {
-      try {
-        await supabase.from("daily_systems_tracking").update(payload).eq("id", recordId);
-      } catch {}  // offline, data will be lost
-    } else {
-      try {
-        const { data: row, error } = await supabase
-          .from("daily_systems_tracking")
-          .upsert(payload, { onConflict: "tracking_date" })
-          .select("id")
-          .single();
-        if (error) throw error;
-        if (row) setRecordId(row.id);
-      } catch {}  // offline
-    }
+    try {
+      await supabase
+        .from("daily_systems_tracking")
+        .upsert(payload, { onConflict: "tracking_date" });
+    } catch {}  // offline
 
-    syncToAreaStats(newData)
-  }, [recordId, syncToAreaStats]);
+    syncToAreaStats(newData, forDate)
+  }, [syncToAreaStats]);
 
   // Debounced save
   useEffect(() => {
     if (loading) return;
-    const t = setTimeout(() => save(data), 100);
+    const t = setTimeout(() => save(data, currentDate), 100);
     return () => clearTimeout(t);
-  }, [data, loading, save]);
+  }, [data, loading, save, currentDate]);
 
   const update = useCallback(<K extends keyof SystemsData>(key: K, value: SystemsData[K]) => {
     setData(prev => ({ ...prev, [key]: value }));

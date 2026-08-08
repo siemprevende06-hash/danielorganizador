@@ -139,12 +139,13 @@ export interface PanelControlSectionProps {
   timeData?: Record<string, number>;
   completions?: Record<string, boolean>;
   workoutDuration?: number;
+  date?: Date;
 }
 
-export function PanelControlSection({ timeData = {}, completions = {}, workoutDuration = 0 }: PanelControlSectionProps) {
-  const today = new Date();
+export function PanelControlSection({ timeData = {}, completions = {}, workoutDuration = 0, date }: PanelControlSectionProps) {
+  const today = date || new Date();
 
-  const summary = useMemo(() => computePanelSummary(timeData, workoutDuration, today), [timeData, workoutDuration]); // eslint-disable-line react-hooks/exhaustive-deps
+  const summary = useMemo(() => computePanelSummary(timeData, workoutDuration, today), [timeData, workoutDuration, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -156,7 +157,7 @@ export function PanelControlSection({ timeData = {}, completions = {}, workoutDu
           </GlowRing>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5 text-indigo-500" /> Panel de control</p>
-            <p className="text-[10px] text-muted-foreground">{summary.minutes} min invertidos hoy · objetivo {summary.goal} min</p>
+            <p className="text-[10px] text-muted-foreground">{summary.minutes} min invertidos · objetivo {summary.goal} min</p>
           </div>
         </CardContent>
       </Card>

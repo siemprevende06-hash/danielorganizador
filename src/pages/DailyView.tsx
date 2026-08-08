@@ -25,7 +25,7 @@ import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
-import { PanelControlSection, computePanelSummary } from '@/components/control/PanelControlSection';
+import { PanelControlSection } from '@/components/control/PanelControlSection';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
@@ -34,7 +34,10 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, Gauge } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { addDays, subDays, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -102,14 +105,14 @@ const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> 
 };
 
 export default function DailyView() {
-  const today = new Date();
-  const formattedDate = format(today, "EEEE, d 'de' MMMM", { locale: es });
-  const dayOfYear = Math.ceil((today.getTime() - new Date(today.getFullYear(), 0, 1).getTime()) / 86400000);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const formattedDate = format(selectedDate, "EEEE, d 'de' MMMM", { locale: es });
+  const dayOfYear = Math.ceil((selectedDate.getTime() - new Date(selectedDate.getFullYear(), 0, 1).getTime()) / 86400000);
   const yearProgress = Math.round((dayOfYear / 365) * 100);
 
-  const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleActiveFocusArea } = useSystemsTracking();
+  const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleActiveFocusArea } = useSystemsTracking(selectedDate);
 
-  const dailyPlanData = useDailyPlanData(today);
+  const dailyPlanData = useDailyPlanData(selectedDate);
   const {
     blocks: rawBlocks, blocksLoaded,
     tasksByBlock, unassignedTasks,
@@ -124,8 +127,8 @@ export default function DailyView() {
 
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   useEffect(() => {
-    supabase.from('calendar_events').select('*').eq('event_date', format(new Date(), 'yyyy-MM-dd')).order('event_date').then(({ data }) => { if (data) setTodayEvents(data); });
-  }, []);
+    supabase.from('calendar_events').select('*').eq('event_date', format(selectedDate, 'yyyy-MM-dd')).order('event_date').then(({ data }) => { if (data) setTodayEvents(data); });
+  }, [selectedDate]);
 
   const plannedTaskIds = useMemo(() => {
     if (!planAssignments) return new Set<string>();
@@ -197,13 +200,11 @@ export default function DailyView() {
     emprendimiento: data.timeData?.emprendimiento || 0,
     proyectos: data.timeData?.proyectos || 0,
   };
-  const panelSummary = useMemo(() => computePanelSummary(data.timeData || {}, data.workoutDuration || 0), [data.timeData, data.workoutDuration]);
   const SECTIONS = [
     { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: data.workoutDuration || 0 },
     { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: 0 },
     { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: mejoraMinutes },
     { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: sostenMinutes },
-    { id: 'control' as const, label: 'Panel de control', icon: <Gauge className="h-4 w-4" />, pct: panelSummary.pct, time: panelSummary.minutes },
   ];
 
   if (loading) {
@@ -228,10 +229,22 @@ export default function DailyView() {
               {formattedDate}
             </p>
           </div>
-          <Badge variant="outline" className="text-xs font-mono">
-            Día {dayOfYear} · {yearProgress}% del año
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs rounded-full" onClick={() => setSelectedDate(new Date())}>Hoy</Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <Badge variant="outline" className="text-xs font-mono">
+              Día {dayOfYear} · {yearProgress}% del año
+            </Badge>
+          </div>
         </div>
+
+        {/* Panel de control del día */}
+        <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} date={selectedDate} />
 
         {/* Section tabs as cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -511,10 +524,6 @@ export default function DailyView() {
               <NotionCalendar />
             </div>
           </FocusProcessPanel>
-        )}
-      {/* ===== SECCIÓN: PANEL DE CONTROL ===== */}
-        {activeSection === 'control' && (
-          <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} />
         )}
       </div>
     </div>
