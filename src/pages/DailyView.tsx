@@ -36,8 +36,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { addDays, subDays, format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { addDays, subDays } from 'date-fns';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
