@@ -38,6 +38,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PeriodControlSection } from "@/components/control/PeriodControlSection";
 import {
   BookOpen, Music, Target, Calendar, Flame,
   Zap, BarChart3, Check, Piano, Guitar, LayoutDashboard,
@@ -600,6 +601,9 @@ export default function TwelveWeekYear() {
             </p>
           </div>
         </div>
+
+        {/* Panel de control del trimestre */}
+        <PeriodControlSection scope="quarter" start={quarterStartDate} end={quarterEndDate} />
 
         {/* Quarter selector */}
         <div className="grid grid-cols-4 gap-2.5">

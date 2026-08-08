@@ -3,14 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Settings, BookOpen, Save, CloudUpload, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Settings, BookOpen, Save, CloudUpload, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { syncAll, type SyncReport } from '@/lib/dataSync';
+import { getTimeUnit, setTimeUnit as persistTimeUnit, type TimeUnit } from '@/lib/timeUnit';
+import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [booksPerMonth, setBooksPerMonth] = useState(2);
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>(() => getTimeUnit());
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncReport, setLastSyncReport] = useState<SyncReport | null>(null);
@@ -69,6 +72,39 @@ export default function SettingsPage() {
         </h1>
         <p className="text-muted-foreground">Ajusta los parámetros de cada área</p>
       </header>
+
+      {/* Unidades de tiempo */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Clock className="h-5 w-5" />
+            Unidades de tiempo
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="time-unit">Indicadores de Semana · Mes · Trimestre · Año</Label>
+            <div className="inline-flex gap-1 p-1 rounded-xl bg-muted/40 border border-border/40">
+              {(['min', 'h'] as const).map(u => (
+                <button
+                  key={u}
+                  onClick={() => { setTimeUnit(u); persistTimeUnit(u); }}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-sm font-semibold transition-all",
+                    timeUnit === u ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {u === 'min' ? 'Minutos' : 'Horas'}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Los anillos del panel de control en las páginas Semana, Mes, Trimestre y Año muestran minutaje
+              en la unidad que elijas. Se aplica al instante, sin recargar.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

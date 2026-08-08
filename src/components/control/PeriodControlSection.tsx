@@ -12,6 +12,7 @@ import {
   DEFAULT_GOALS, PRIORITIES, HOBBY_ITEMS, SOSTEN_ITEMS, ALL_TIMER_ITEMS,
   minutesOfToday, GlowRing,
 } from '@/components/control/PanelControlSection';
+import { useTimeUnit, formatTimeValue, formatTime } from '@/lib/timeUnit';
 
 export type PeriodScope = 'week' | 'month' | 'quarter' | 'year';
 
@@ -56,19 +57,19 @@ function rawAreaGoal(scope: PeriodScope, start: Date, area: string): number {
   }
 }
 
-function PeriodTimerCard({ id, label, color, minutes, goal }: { id: string; label: string; color: string; minutes: number; goal: number }) {
+function PeriodTimerCard({ id, label, color, minutes, goal, unit }: { id: string; label: string; color: string; minutes: number; goal: number; unit: 'min' | 'h' }) {
   const pct = goal > 0 ? Math.round((minutes / goal) * 100) : 0;
   const over = minutes - goal;
   return (
     <div className="rounded-2xl bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm border border-border/40 p-3 flex flex-col items-center gap-1.5">
       <GlowRing pct={pct} color={color}>
-        <span className="text-sm font-bold tabular-nums">{minutes}<span className="text-[9px] text-muted-foreground ml-0.5">min</span></span>
+        <span className="text-sm font-bold tabular-nums">{formatTimeValue(minutes, unit)}<span className="text-[9px] text-muted-foreground ml-0.5">{unit === 'min' ? 'min' : 'h'}</span></span>
       </GlowRing>
       <div className="text-center leading-tight">
         <p className="text-[10px] font-semibold">{label}</p>
         <p className="text-[9px] text-muted-foreground">
-          meta {goal} min
-          {over > 0 && <span className="text-amber-500 font-semibold"> · +{over}</span>}
+          meta {formatTime(goal, unit)}
+          {over > 0 && <span className="text-amber-500 font-semibold"> · +{formatTime(over, unit)}</span>}
         </p>
       </div>
     </div>
@@ -102,6 +103,7 @@ export function PeriodControlSection({ scope, start, end, title }: {
   const endKey = format(end, 'yyyy-MM-dd');
 
   const [rows, setRows] = useState<DailyRow[]>([]);
+  const unit = useTimeUnit();
 
   useEffect(() => {
     let alive = true;
@@ -163,7 +165,7 @@ export function PeriodControlSection({ scope, start, end, title }: {
           </GlowRing>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5 text-indigo-500" /> Panel de control · {label}</p>
-            <p className="text-[10px] text-muted-foreground">{summaryMinutes} minutos acumulados · objetivo {summaryGoal} min</p>
+            <p className="text-[10px] text-muted-foreground">{formatTime(summaryMinutes, unit)} acumulados · objetivo {formatTime(summaryGoal, unit)}</p>
           </div>
         </CardContent>
       </Card>
@@ -173,7 +175,7 @@ export function PeriodControlSection({ scope, start, end, title }: {
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Prioridades</h3>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {PRIORITIES.map(it => (
-            <PeriodTimerCard key={it.id} id={it.id} label={it.label} color={it.color} minutes={totals.minutes[it.id] || 0} goal={goalFor(it.id)} />
+            <PeriodTimerCard key={it.id} id={it.id} label={it.label} color={it.color} minutes={totals.minutes[it.id] || 0} goal={goalFor(it.id)} unit={unit} />
           ))}
         </div>
       </div>
@@ -183,7 +185,7 @@ export function PeriodControlSection({ scope, start, end, title }: {
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Acumulativos</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {HOBBY_ITEMS.map(it => (
-            <PeriodTimerCard key={it.id} id={it.id} label={it.label} color={it.color} minutes={totals.minutes[it.id] || 0} goal={goalFor(it.id)} />
+            <PeriodTimerCard key={it.id} id={it.id} label={it.label} color={it.color} minutes={totals.minutes[it.id] || 0} goal={goalFor(it.id)} unit={unit} />
           ))}
         </div>
       </div>
