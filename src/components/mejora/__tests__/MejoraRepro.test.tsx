@@ -23,7 +23,7 @@ vi.mock('@/integrations/supabase/client', () => {
   const supabase = {
     from: vi.fn((table: string) => {
       if (table === 'daily_systems_tracking') return Promise.resolve({ data: tracking, error: null });
-      if (table === 'daily_area_stats') return Promise.resolve({ data: stats, error: null });
+      if (table === 'daily_area_stats') return Promise.resolve({ data: dailyAreaStats, error: null });
       if (table === 'reading_sessions') return Promise.resolve({ data: [], error: null });
       if (table === 'reading_library') return Promise.resolve({ data: [], error: null });
       if (table === 'chess_sessions') return Promise.resolve({ data: [], error: null });

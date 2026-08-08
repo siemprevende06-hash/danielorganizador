@@ -688,7 +688,7 @@ function MejoraOverview({ anchor, history, areaStats }: { anchor: Date; history:
 
   const daily = useMemo(() => {
     if (!history) return null;
-    const arr: { date: string; min: number; focus: number; pages: number }[] = [];
+    const arr: { date: string; total: number; focus: number; pages: number }[] = [];
     for (let i = 29; i >= 0; i--) {
       const d = subDays(anchor, i);
       const key = format(d, 'yyyy-MM-dd');

@@ -53,11 +53,14 @@ export function pushSyncKey(key: string) {
     return;
   }
   const updated_at = new Date().toISOString();
-  void supabase.from(SYNC_TABLE).upsert({ key, value, updated_at }, { onConflict: 'key' }).then(() => {
-    const meta = loadMeta();
-    meta[key] = updated_at;
-    saveMeta(meta);
-  }).catch(() => {});
+  void (async () => {
+    try {
+      await (supabase.from(SYNC_TABLE) as any).upsert({ key, value, updated_at }, { onConflict: 'key' });
+      const meta = loadMeta();
+      meta[key] = updated_at;
+      saveMeta(meta);
+    } catch {}
+  })();
 }
 
 /**
@@ -74,7 +77,7 @@ export function pullPlansIntoLocal(): Promise<void> {
 
 async function doPull(): Promise<void> {
   try {
-    const { data } = await supabase.from(SYNC_TABLE).select('key, value, updated_at');
+    const { data } = await (supabase.from(SYNC_TABLE) as any).select('key, value, updated_at') as { data: { key: string; value: unknown; updated_at: string | null }[] | null };
     const rows = data || [];
     const meta = loadMeta();
 

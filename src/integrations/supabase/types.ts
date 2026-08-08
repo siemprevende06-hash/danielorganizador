@@ -2528,50 +2528,39 @@ export type Database = {
           book_id: string | null
           created_at: string
           id: string
-          minutes: number | null
+          minutes: number
           notes: string | null
           page_end: number | null
           page_start: number | null
-          pages_read: number | null
+          pages_read: number
           session_date: string
-          updated_at: string
           user_id: string | null
         }
         Insert: {
           book_id?: string | null
           created_at?: string
           id?: string
-          minutes?: number | null
+          minutes?: number
           notes?: string | null
           page_end?: number | null
           page_start?: number | null
-          pages_read?: number | null
-          session_date: string
-          updated_at?: string
+          pages_read?: number
+          session_date?: string
           user_id?: string | null
         }
         Update: {
           book_id?: string | null
           created_at?: string
           id?: string
-          minutes?: number | null
+          minutes?: number
           notes?: string | null
           page_end?: number | null
           page_start?: number | null
-          pages_read?: number | null
+          pages_read?: number
           session_date?: string
-          updated_at?: string
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "reading_sessions_book_id_fkey"
-            columns: ["book_id"]
-            isOneToOne: false
-            referencedRelation: "reading_library"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       recipe_ingredients: {
         Row: {
@@ -3141,6 +3130,24 @@ export type Database = {
           },
         ]
       }
+      sync_state: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json | null
+        }
+        Relationships: []
+      }
       system_card_covers: {
         Row: {
           card_id: string
@@ -3488,6 +3495,42 @@ export type Database = {
         }
         Relationships: []
       }
+      uploaded_images: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          file_type: string | null
+          folder: string | null
+          id: string
+          path: string
+          url: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          folder?: string | null
+          id?: string
+          path: string
+          url: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          folder?: string | null
+          id?: string
+          path?: string
+          url?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           auto_adjust_enabled: boolean | null
@@ -3524,42 +3567,6 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wake_time?: string | null
-        }
-        Relationships: []
-      }
-      uploaded_images: {
-        Row: {
-          created_at: string
-          file_name: string | null
-          file_size: number | null
-          file_type: string | null
-          folder: string
-          id: string
-          path: string
-          url: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          file_name?: string | null
-          file_size?: number | null
-          file_type?: string | null
-          folder?: string
-          id?: string
-          path: string
-          url: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          file_name?: string | null
-          file_size?: number | null
-          file_type?: string | null
-          folder?: string
-          id?: string
-          path?: string
-          url?: string
-          user_id?: string | null
         }
         Relationships: []
       }
