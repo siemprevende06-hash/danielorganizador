@@ -3,6 +3,12 @@ import { supabase } from "@/integrations/supabase/client"
 import { format, subDays } from "date-fns"
 import type { Timeframe } from "@/contexts/TimeframeContext"
 
+function dayCount(start: string, end: string): number {
+  const s = new Date(`${start}T00:00:00`).getTime()
+  const e = new Date(`${end}T00:00:00`).getTime()
+  return Math.max(1, Math.round((e - s) / 86400000) + 1)
+}
+
 function getDateRange(timeframe: Timeframe): { start: string; end: string } {
   const today = new Date()
   const end = format(today, "yyyy-MM-dd")
@@ -122,7 +128,9 @@ export function useConsistencyScores(
         setDaysWithData(0)
       } else {
         const avg = Math.round(dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length)
-        setScore(avg)
+        const days = dayCount(start, end)
+        const consistency = Math.min(100, Math.round(avg * (dailyRates.length / days)))
+        setScore(consistency)
         setDaysWithData(dailyRates.length)
       }
     } catch (err) {
@@ -227,7 +235,7 @@ export function useMultiConsistencyScores(
 
         result[groupName] =
           rates.length > 0
-            ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
+            ? Math.min(100, Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * (rates.length / dayCount(start, end))))
             : 0
       }
 

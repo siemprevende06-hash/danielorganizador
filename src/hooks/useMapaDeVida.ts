@@ -190,6 +190,22 @@ export function useMapaDeVida(timeframe: Timeframe) {
     const areaById: Record<string, MapaNode> = {}
     for (const n of areaNodes) areaById[n.id] = n
 
+    const deseoScores: Record<string, number> = {}
+    for (const n of deseoNodes) {
+      const manual = Math.max(0, Math.min(100, n.score))
+      if (manual > 0) {
+        deseoScores[n.id] = manual
+        continue
+      }
+      const feeders = DESEO_AREAS[n.id] ?? []
+      const values = feeders
+        .map((id) => areaById[id])
+        .filter(Boolean)
+        .map((a) => Math.round((a.score + a.score2) / 2))
+      deseoScores[n.id] = values.length > 0 ? Math.round(values.reduce((s, v) => s + v, 0) / values.length) : 0
+    }
+    for (const n of deseoNodes) n.score = deseoScores[n.id] ?? 0
+
     const nodes: MapaNode[] = [
       ...areaNodes,
       ...deseoNodes,

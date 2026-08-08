@@ -20,6 +20,10 @@ function glowOpacity(score: number): number {
   return 0.07
 }
 
+function clampBar(score: number): number {
+  return Math.max(0, Math.min(1, (Number.isFinite(score) ? score : 0) / 100))
+}
+
 function statusColor(progress: number): string {
   if (progress >= 80) return EMERALD
   if (progress >= 50) return AMBER
@@ -273,9 +277,9 @@ export function MapaDeVida({
               ) : node.kind === "pilar" ? null : (
                 <>
                   <rect x={node.x - 28} y={node.y + node.r + 24} width={56} height={4} rx={2} fill="hsl(var(--border))" />
-                  <rect x={node.x - 28} y={node.y + node.r + 24} width={56 * (node.score / 100)} height={4} rx={2} fill={CYAN} />
+                  <rect x={node.x - 28} y={node.y + node.r + 24} width={56 * clampBar(node.score)} height={4} rx={2} fill={CYAN} />
                   <rect x={node.x - 28} y={node.y + node.r + 32} width={56} height={4} rx={2} fill="hsl(var(--border))" />
-                  <rect x={node.x - 28} y={node.y + node.r + 32} width={56 * (node.score2 / 100)} height={4} rx={2} fill={EMERALD} />
+                  <rect x={node.x - 28} y={node.y + node.r + 32} width={56 * clampBar(node.score2)} height={4} rx={2} fill={EMERALD} />
                 </>
               )}
             </g>

@@ -5,6 +5,7 @@ import type { Timeframe, ScoreView } from "@/contexts/TimeframeContext"
 import { POINT_B_AREAS } from "@/data/pointB2027"
 import type { PointBArea, PointBSubAxis } from "@/lib/definitions"
 import { useMultiConsistencyScores } from "./useConsistencyScores"
+import { usePuntoPartida } from "./usePuntoPartida"
 
 export interface SubAreaScore {
   id: string
@@ -53,15 +54,15 @@ function buildEffortGroups(areas: PointBArea[]): Record<string, string[]> {
   return groups
 }
 
-function calcResultadosForArea(area: PointBArea): number {
+function calcResultadosForArea(area: PointBArea, subScores: Record<string, number>): number {
   const subs = flattenSub(area.sub)
   if (subs.length === 0) return 0
   let total = 0
   let count = 0
   for (const sub of subs) {
-    const current = sub.start
     const range = sub.target - sub.start
     if (range === 0) continue
+    const current = typeof subScores?.[sub.id] === "number" ? subScores[sub.id] : sub.start
     const progress = Math.max(0, Math.min(100, ((current - sub.start) / range) * 100))
     total += progress
     count++
@@ -69,8 +70,8 @@ function calcResultadosForArea(area: PointBArea): number {
   return count > 0 ? Math.round(total / count) : 0
 }
 
-function calcSubResultados(sub: PointBSubAxis): number {
-  const current = sub.start
+function calcSubResultados(sub: PointBSubAxis, subScores: Record<string, number>): number {
+  const current = typeof subScores?.[sub.id] === "number" ? subScores[sub.id] : sub.start
   const range = sub.target - sub.start
   if (range === 0) return 100
   return Math.max(0, Math.min(100, ((current - sub.start) / range) * 100))
@@ -118,6 +119,8 @@ export function useAreaScores(
 
   const [subStats, setSubStats] = useState<Record<string, { consistency: number; minutes: number }>>({})
   const [subStatsLoading, setSubStatsLoading] = useState(true)
+
+  const { entries: ppEntries, loading: ppLoading } = usePuntoPartida()
 
   useEffect(() => {
     const allLeafIds: string[] = []
@@ -184,10 +187,11 @@ export function useAreaScores(
       })
   }, [timeframe, sprintDateRange?.start, sprintDateRange?.end])
 
-  function buildSubScores(sub: PointBSubAxis[]): SubAreaScore[] {
+  function buildSubScores(sub: PointBSubAxis[], areaId: string): SubAreaScore[] {
+    const subScores = ppEntries[areaId]?.sub_scores ?? {}
     return sub.map(s => {
       if (s.children && s.children.length > 0) {
-        const childScores = buildSubScores(s.children)
+        const childScores = buildSubScores(s.children, areaId)
         const avgConsistency = childScores.length > 0
           ? Math.round(childScores.reduce((sum, c) => sum + c.esfuerzo, 0) / childScores.length)
           : 0
@@ -222,7 +226,7 @@ export function useAreaScores(
         id: s.id,
         label: s.label,
         esfuerzo: stats.consistency,
-        resultados: calcSubResultados(s),
+        resultados: calcSubResultados(s, subScores),
         unit: s.unit,
         minutes: stats.minutes,
       }
@@ -230,13 +234,13 @@ export function useAreaScores(
   }
 
   useEffect(() => {
-    if (subStatsLoading || effortLoading) return
+    if (subStatsLoading || effortLoading || ppLoading) return
 
     const computed: AreaScore[] = POINT_B_AREAS.map(area => {
       const realScore = effortScores[area.id] ?? 0
       const areaEsfuerzo = area.effortTrackingIds.length > 0 ? realScore : 0
-      const areaResultados = calcResultadosForArea(area)
-      const subScores = buildSubScores(area.sub)
+      const areaResultados = calcResultadosForArea(area, ppEntries[area.id]?.sub_scores ?? {})
+      const subScores = buildSubScores(area.sub, area.id)
 
       return {
         id: area.id,
@@ -251,15 +255,16 @@ export function useAreaScores(
 
     setScores(computed)
 
-    const totalEsfuerzo = computed.reduce((s, a) => s + a.esfuerzo, 0)
-    const totalResultados = computed.reduce((s, a) => s + a.resultados, 0)
+    const active = computed.filter(a => a.esfuerzo > 0 || a.resultados > 0)
+    const totalEsfuerzo = active.reduce((s, a) => s + a.esfuerzo, 0)
+    const totalResultados = active.reduce((s, a) => s + a.resultados, 0)
     setAverages({
-      esfuerzo: computed.length > 0 ? Math.round(totalEsfuerzo / computed.length) : 0,
-      resultados: computed.length > 0 ? Math.round(totalResultados / computed.length) : 0,
+      esfuerzo: active.length > 0 ? Math.round(totalEsfuerzo / active.length) : 0,
+      resultados: active.length > 0 ? Math.round(totalResultados / active.length) : 0,
     })
 
     setLoading(false)
-  }, [effortScores, effortLoading, subStats, subStatsLoading])
+  }, [effortScores, effortLoading, subStats, subStatsLoading, ppEntries, ppLoading])
 
   return { scores, averages, loading, subStats }
 }

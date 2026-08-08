@@ -142,30 +142,42 @@ export function MapaDetailPanel({
 
         {node.kind === "deseo" && need && (
           <>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="muted-foreground">Progreso de este deseo</span>
-                <span className="font-bold tabular-nums">{need.progreso}%</span>
-              </div>
-              <Progress value={need.progreso} className="h-3" />
-            </div>
-            <p className="text-sm text-muted-foreground">{need.descripcion}</p>
-            <Badge variant="secondary">{statusText(need.progreso)}</Badge>
-            <div className="flex flex-wrap gap-1.5">
-              {areas
-                .filter((a) => isFeeder(node.id, a.id))
-                .map((a) => (
-                  <Badge key={a.id} variant="outline" className="gap-1">
-                    <span>{a.icon}</span>
-                    {a.label}
-                  </Badge>
-                ))}
-            </div>
-            {NEED_PAGE[node.id] && (
-              <Button size="sm" onClick={() => navigate(NEED_PAGE[node.id])}>
-                Trabajar en esto <ArrowRight className="h-3 w-3 ml-1" />
-              </Button>
-            )}
+            {(() => {
+              const manual = Math.max(0, Math.min(100, need.progreso ?? 0))
+              const feeders = areas.filter((a) => isFeeder(node.id, a.id))
+              const shown =
+                manual > 0
+                  ? manual
+                  : feeders.length > 0
+                    ? Math.round(feeders.reduce((s, a) => s + Math.round((a.esfuerzo + a.resultados) / 2), 0) / feeders.length)
+                    : 0
+              return (
+                <>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="muted-foreground">Progreso de este deseo</span>
+                      <span className="font-bold tabular-nums">{shown}%</span>
+                    </div>
+                    <Progress value={shown} className="h-3" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{need.descripcion}</p>
+                  <Badge variant="secondary">{statusText(shown)}</Badge>
+                  <div className="flex flex-wrap gap-1.5">
+                    {feeders.map((a) => (
+                      <Badge key={a.id} variant="outline" className="gap-1">
+                        <span>{a.icon}</span>
+                        {a.label}
+                      </Badge>
+                    ))}
+                  </div>
+                  {NEED_PAGE[node.id] && (
+                    <Button size="sm" onClick={() => navigate(NEED_PAGE[node.id])}>
+                      Trabajar en esto <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  )}
+                </>
+              )
+            })()}
           </>
         )}
 
