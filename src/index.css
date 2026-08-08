@@ -122,6 +122,14 @@
   .gradient-primary { background: var(--gradient-primary); }
   .gradient-success { background: var(--gradient-success); }
 
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   .ios-systems {
     --ios-blue: 211 100% 50%;
     --ios-blue-2: 244 71% 64%;

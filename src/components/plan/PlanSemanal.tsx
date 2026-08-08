@@ -129,7 +129,7 @@ export function PlanSemanal({ weekDays, tasks, queryKeyPrefix }: {
         {moving && <Badge variant="secondary" className="text-xs">Moviendo...</Badge>}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr gap-3">
         {weekDays.map(day => {
           const ds = dayStr(day);
           const dayTasks = tasks.filter(t => t.due_date && format(new Date(t.due_date), 'yyyy-MM-dd') === ds);
@@ -159,7 +159,7 @@ export function PlanSemanal({ weekDays, tasks, queryKeyPrefix }: {
               </div>
 
               {/* Secciones por área */}
-              <div className="flex-1 divide-y divide-muted/40 overflow-y-auto max-h-[520px]">
+              <div className="flex-1 divide-y divide-muted/40 overflow-y-auto overscroll-contain no-scrollbar max-h-[520px]">
                 {SECTIONS.map(section => {
                   const sectionTasks = dayTasks.filter(t => areaOf(t) === section.key);
                   const overThis = dragOver?.day === ds && dragOver.area === section.key;
