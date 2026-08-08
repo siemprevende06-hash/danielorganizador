@@ -260,7 +260,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
 
       const systemsDone = systems.reduce((acc: number, s: any) => acc + Object.values(s.completions || {}).filter(v => v === true).length, 0);
       const systemsTotal = systems.length > 0 ? Math.max(...systems.map((s: any) => Object.keys(s.completions || {}).length)) : 0;
-      const systemsMin = systems.reduce((a: number, s: any) => a + Object.values(s.time_data || {}).reduce((x: number, v: any) => x + (Number(v) || 0), 0), 0);
+      const systemsMin = systems.reduce((a: number, s: any) => a + Object.values(s.time_data || {}).reduce((x: number, v: any) => x + (Number(v) || 0), 0 as number), 0);
       const workoutMin = systems.reduce((a: number, s: any) => a + (s.workout_duration || 0), 0);
       const focusMin = focus.reduce((a: number, f: any) => a + (f.duration_minutes || 0), 0);
 
