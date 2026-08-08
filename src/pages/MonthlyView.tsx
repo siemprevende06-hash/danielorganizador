@@ -61,7 +61,15 @@ export default function MonthlyView() {
           </div>
         </div>
 
-        {viewMode === 'esfuerzo' ? (
+        {viewMode === 'plan' ? (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Plan del mes</h2>
+              <p className="text-xs text-muted-foreground">Calendario de eventos</p>
+            </div>
+            <NotionCalendar />
+          </section>
+        ) : viewMode === 'esfuerzo' ? (
           <>
             <PeriodControlSection scope="month" start={monthStart} end={monthEnd} />
 

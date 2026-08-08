@@ -17,6 +17,7 @@ import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { PlanSemanal } from '@/components/plan/PlanSemanal';
 
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -116,7 +117,9 @@ export default function WeeklyView() {
           </div>
         </div>
 
-        {viewMode === 'esfuerzo' ? (
+        {viewMode === 'plan' ? (
+          <PlanSemanal weekDays={weekDays} tasks={weekData?.tasks || []} queryKeyPrefix="weeklyData" />
+        ) : viewMode === 'esfuerzo' ? (
           <>
         {/* Panel de control de la semana */}
         <PeriodControlSection scope="week" start={weekStart} end={weekEnd} />

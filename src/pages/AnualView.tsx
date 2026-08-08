@@ -40,7 +40,7 @@ export default function AnualView() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withPlan={false} />
         </div>
 
         {/* Header */}

@@ -1,20 +1,23 @@
 import { cn } from '@/lib/utils';
 
-export type PeriodViewMode = 'esfuerzo' | 'resultados';
+export type PeriodViewMode = 'esfuerzo' | 'plan' | 'resultados';
 
 const OPTIONS: { id: PeriodViewMode; label: string }[] = [
   { id: 'esfuerzo', label: 'Esfuerzo' },
+  { id: 'plan', label: 'Plan' },
   { id: 'resultados', label: 'Resultados' },
 ];
 
-export function EsfuerzoResultadosToggle({ value, onChange, className }: {
+export function EsfuerzoResultadosToggle({ value, onChange, className, withPlan = true }: {
   value: PeriodViewMode;
   onChange: (v: PeriodViewMode) => void;
   className?: string;
+  withPlan?: boolean;
 }) {
+  const options = withPlan ? OPTIONS : OPTIONS.filter(o => o.id !== 'plan');
   return (
     <div className={cn("inline-flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border/50", className)}>
-      {OPTIONS.map(o => (
+      {options.map(o => (
         <button
           key={o.id}
           type="button"

@@ -249,7 +249,37 @@ export default function DailyView() {
           </div>
         </div>
 
-        {viewMode === 'esfuerzo' ? (
+        {viewMode === 'plan' ? (
+          <>
+            {/* Routine Selector */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {ROUTINES.map((r) => {
+                const style = ROUTINE_STYLES[r.type];
+                const isActive = routineType === r.type;
+                return (
+                  <button key={r.type} onClick={() => setRoutineType(r.type)}
+                    className={cn("flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]", isActive ? style.active : `${style.inactive} bg-transparent`, isActive && "scale-[1.02]")}
+                  >
+                    <span className="text-xl leading-none transition-transform duration-300">{r.icon}</span>
+                    <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", isActive ? "opacity-100" : "opacity-70")}>{r.shortLabel}</span>
+                    <span className={cn("text-[10px] font-mono tracking-tight", isActive ? "opacity-80" : "opacity-40")}>{r.wakeTime}—{r.sleepTime}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
+
+            <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} />
+              <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
+                <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} />
+              </div>
+            </div>
+          </>
+        ) : viewMode === 'esfuerzo' ? (
           <>
         {/* Panel de control del día */}
         <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} date={selectedDate} />

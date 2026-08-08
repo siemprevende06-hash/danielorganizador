@@ -173,7 +173,7 @@ export default function TrimestralPlanningPage() {
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
       <div className="flex justify-center mb-6">
-        <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+        <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withPlan={false} />
       </div>
 
       <header className="flex items-center justify-between mb-6">
