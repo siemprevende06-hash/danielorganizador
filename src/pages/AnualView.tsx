@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { loadQuarterPlan, QUARTER_MONTH_KEYS } from '@/lib/hierarchy';
+import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 
 const QUARTERS = [
   { id: 1, name: 'Q1', dates: 'Ene – Mar' },
@@ -52,6 +53,9 @@ export default function AnualView() {
             </Button>
           </div>
         </div>
+
+        {/* Panel de control del año */}
+        <PeriodControlSection scope="year" start={new Date(year, 0, 1)} end={new Date(year, 11, 31)} />
 
         {/* Trimestres del año */}
         <div className="grid grid-cols-4 gap-2.5">

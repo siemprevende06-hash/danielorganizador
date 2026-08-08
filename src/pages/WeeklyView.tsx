@@ -15,6 +15,7 @@ import { getQuarterFromDate } from '@/lib/hierarchy';
 import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
+import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -108,6 +109,9 @@ export default function WeeklyView() {
             </Button>
           </div>
         </div>
+
+        {/* Panel de control de la semana */}
+        <PeriodControlSection scope="week" start={weekStart} end={weekEnd} />
 
         {/* Resumen section — al tope de la página */}
         <section className="space-y-4">

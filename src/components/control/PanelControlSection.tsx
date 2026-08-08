@@ -4,7 +4,7 @@ import { Gauge } from 'lucide-react';
 import { getDayGoalEffective } from '@/lib/hierarchy';
 import { cn } from '@/lib/utils';
 
-const DEFAULT_GOALS: Record<string, number> = {
+export const DEFAULT_GOALS: Record<string, number> = {
   universidad: 120,
   emprendimiento: 60,
   proyectos: 90,
@@ -18,7 +18,7 @@ const DEFAULT_GOALS: Record<string, number> = {
 
 interface TimerItem { id: string; label: string; color: string; }
 
-const PRIORITIES: TimerItem[] = [
+export const PRIORITIES: TimerItem[] = [
   { id: 'universidad', label: 'Universidad', color: '#3b82f6' },
   { id: 'emprendimiento', label: 'Emprendimiento', color: '#a855f7' },
   { id: 'proyectos', label: 'Proyectos', color: '#f59e0b' },
@@ -26,21 +26,21 @@ const PRIORITIES: TimerItem[] = [
   { id: 'gym', label: 'Gym', color: '#f97316' },
 ];
 
-const HOBBY_ITEMS: TimerItem[] = [
+export const HOBBY_ITEMS: TimerItem[] = [
   { id: 'lectura', label: 'Lectura', color: '#8b5cf6' },
   { id: 'ajedrez', label: 'Ajedrez', color: '#14b8a6' },
   { id: 'game', label: 'Game', color: '#eab308' },
   { id: 'musica', label: 'Música', color: '#ec4899' },
 ];
 
-const SOSTEN_ITEMS: TimerItem[] = [
+export const SOSTEN_ITEMS: TimerItem[] = [
   { id: 'rutina-activacion', label: 'Rutina de Activación', color: '#3b82f6' },
   { id: 'alistamiento-desayuno', label: 'Alistamiento y Desayuno', color: '#10b981' },
   { id: 'rutina-desactivacion', label: 'Rutina de Desactivación', color: '#8b5cf6' },
   { id: 'horario-regular', label: 'Horario de Sueño', color: '#06b6d4' },
 ];
 
-const ALL_TIMER_ITEMS = [...PRIORITIES, ...HOBBY_ITEMS];
+export const ALL_TIMER_ITEMS = [...PRIORITIES, ...HOBBY_ITEMS];
 
 function hexToRgb(hex: string): string {
   const h = hex.replace('#', '');
@@ -70,7 +70,7 @@ export function computePanelSummary(timeData: Record<string, number>, workoutDur
   return { minutes, goal, pct: goal > 0 ? Math.min(100, Math.round((minutes / goal) * 100)) : 0 };
 }
 
-function GlowRing({ pct, color, size = 68, children }: { pct: number; color: string; size?: number; children?: React.ReactNode }) {
+export function GlowRing({ pct, color, size = 68, children }: { pct: number; color: string; size?: number; children?: React.ReactNode }) {
   const capped = Math.min(100, Math.max(0, pct));
   const r = 26;
   const c = 2 * Math.PI * r;

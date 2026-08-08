@@ -19,6 +19,7 @@ import { getQuarterFromDate } from '@/lib/hierarchy';
 import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
+import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 
 interface DayData {
   date: Date;
@@ -201,6 +202,8 @@ export default function MonthlyView() {
             </Button>
           </div>
         </div>
+
+        <PeriodControlSection scope="month" start={monthStart} end={monthEnd} />
 
         <MonthlyReviewStats monthDate={currentMonth} />
 

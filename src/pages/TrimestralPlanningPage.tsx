@@ -10,6 +10,7 @@ import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan
 import { ItemSelector } from '@/components/monthly-planning/ItemSelector';
 import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
 import { setQuarterGoal } from '@/lib/hierarchy';
+import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -196,9 +197,16 @@ export default function TrimestralPlanningPage() {
             {saving ? 'Guardando...' : 'Guardar'}
           </Button>
         </div>
-      </header>
+</header>
 
-      {loading ? (
+        {/* Panel de control del trimestre */}
+        <PeriodControlSection
+          scope="quarter"
+          start={new Date(year, (quarter - 1) * 3, 1)}
+          end={new Date(year, quarter * 3, 0)}
+        />
+
+        {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-32 bg-muted/50 rounded-xl animate-pulse" />
