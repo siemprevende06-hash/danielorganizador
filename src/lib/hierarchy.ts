@@ -1,4 +1,5 @@
 import { startOfMonth, startOfWeek, format } from 'date-fns';
+import { pushSyncKey } from '@/lib/planSync';
 
 // ---------------------------------------------------------------------------
 // Jerarquía de metas: Trimestre → Mes → Semana → Día
@@ -83,6 +84,7 @@ export function saveQuarterPlan(quarter: number, year: number, plan: QuarterPlan
   try {
     localStorage.setItem(getQuarterPlanKey(quarter, year), JSON.stringify(plan));
   } catch {}
+  pushSyncKey(getQuarterPlanKey(quarter, year));
 }
 
 export function loadMonthlyPlan(month: Date): QuarterPlanLike | null {
@@ -98,6 +100,7 @@ export function saveMonthlyPlan(month: Date, plan: QuarterPlanLike) {
   try {
     localStorage.setItem(getMonthlyPlanKey(month), JSON.stringify(plan));
   } catch {}
+  pushSyncKey(getMonthlyPlanKey(month));
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +149,7 @@ function saveWeekOverrides(data: Record<string, Record<string, number>>) {
   try {
     localStorage.setItem(WEEK_OVERRIDES_KEY, JSON.stringify(data));
   } catch {}
+  pushSyncKey(WEEK_OVERRIDES_KEY);
 }
 
 function loadDayOverrides(): Record<string, Record<string, number>> {
@@ -161,6 +165,7 @@ function saveDayOverrides(data: Record<string, Record<string, number>>) {
   try {
     localStorage.setItem(DAY_OVERRIDES_KEY, JSON.stringify(data));
   } catch {}
+  pushSyncKey(DAY_OVERRIDES_KEY);
 }
 
 function isFocusArea(area: string): boolean {

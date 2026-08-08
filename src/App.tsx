@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { pullPlansIntoLocal } from "@/lib/planSync";
+import { useEffect } from "react";
 import { Navigation } from "./components/Navigation";
 import { OfflineProvider } from "./providers/OfflineProvider";
 import { useAutoTheme } from "./hooks/useAutoTheme";
@@ -87,6 +89,11 @@ const queryClient = new QueryClient();
 function AppContent() {
   useAutoTheme();
   const { collapsed } = useSidebar();
+
+  // Sincronizar planes (trimestral/mensual, overrides y progreso) desde Supabase al abrir la app
+  useEffect(() => {
+    pullPlansIntoLocal();
+  }, []);
 
   return (
     <div className={cn("pt-12 lg:pt-0 min-h-screen transition-all duration-200", collapsed ? "lg:ml-14" : "lg:ml-56")}>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format, startOfWeek, getISOWeek } from 'date-fns';
+import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 
 export interface WeeklyAction {
   id: string;
@@ -40,6 +41,7 @@ function loadFromLocal(key: string): Partial<WeeklyPlanData> | null {
 
 function saveToLocal(key: string, data: WeeklyPlanData) {
   try { localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data)); } catch {}
+  pushSyncKey(STORAGE_PREFIX + key);
 }
 
 interface Book { id: string; title: string; author: string | null; }
@@ -66,8 +68,9 @@ export function useWeeklyPlan(weekStart: Date) {
   const [books, setBooks] = useState<Book[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
 
-  const fetchPlan = useCallback(() => {
+  const fetchPlan = useCallback(async () => {
     setLoading(true);
+    await pullPlansIntoLocal();
     const local = loadFromLocal(weekId);
     const base = makeDefault(weekNumber);
     setPlanData(local ? { ...base, ...local, actions: local.actions ?? [], weekNumber } : base);

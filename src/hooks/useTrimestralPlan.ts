@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { startOfQuarter, format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 
 export interface TrimestralPlanData {
   books: { goal: number; selected: string[] };
@@ -72,6 +73,7 @@ const STORAGE_PREFIX = 'trimestral_plan_';
 
 function saveToLocal(key: string, data: TrimestralPlanData) {
   try { localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data)); } catch {}
+  pushSyncKey(STORAGE_PREFIX + key);
 }
 
 export function loadTrimestralPlanFromLocal(key: string): TrimestralPlanData | null {
@@ -163,8 +165,9 @@ export function useTrimestralPlan(quarter: number, year: number) {
     return { start, end };
   }, [year, qStart]);
 
-  const fetchPlan = useCallback(() => {
+  const fetchPlan = useCallback(async () => {
     setLoading(true);
+    await pullPlansIntoLocal();
     const local = loadTrimestralPlanFromLocal(storageKey);
     setPlanData(local || defaultTrimestralData);
     setLoading(false);

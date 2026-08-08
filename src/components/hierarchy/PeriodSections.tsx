@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import { CentralAreasSection } from "@/components/twelveweekyear/CentralAreasSection";
+import { pushSyncKey, pullPlansIntoLocal } from "@/lib/planSync";
 import {
   loadQuarterPlan, saveQuarterPlan, loadMonthlyPlan, saveMonthlyPlan,
   getQuarterGoal, getMonthGoal, getWeekGoalEffective,
@@ -123,6 +124,7 @@ function loadProgress(key: string): ProgressData {
 
 function saveProgress(key: string, p: ProgressData) {
   try { localStorage.setItem(key, JSON.stringify(p)); } catch {}
+  pushSyncKey(key);
 }
 
 function formatMinutes(m: number): string {
@@ -195,6 +197,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
 
   const load = async () => {
     setLoading(true);
+    await pullPlansIntoLocal();
     const qp = scope === 'year' ? null : loadQuarterPlan(quarter, year);
     setPlan(qp);
 

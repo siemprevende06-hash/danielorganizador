@@ -11,6 +11,7 @@ import { AreaEffortResultsPanel } from "@/components/areas/AreaEffortResultsPane
 import { LifeAreaScoresPanel } from "@/components/areas/LifeAreaScoresPanel";
 import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import { useTrimestralPlan, getMonthNamesForQuarter, loadTrimestralPlanFromLocal } from "@/hooks/useTrimestralPlan";
+import { pushSyncKey, pullPlansIntoLocal } from "@/lib/planSync";
 import { CentralAreasSection, CENTRAL_AREAS } from "@/components/twelveweekyear/CentralAreasSection";
 
 class SafeSection extends Component<{ children: ReactNode; title: string }, { hasError: boolean }> {
@@ -200,6 +201,7 @@ export default function TwelveWeekYear() {
     const load = async () => {
       setLoading(true);
       try {
+        await pullPlansIntoLocal();
         const parsed = loadTrimestralPlanFromLocal(`Q${selectedQuarter}_${YEAR}`);
         setPlan(parsed as TrimestralPlan | null);
 
@@ -376,6 +378,7 @@ export default function TwelveWeekYear() {
   const saveProgress = (p: ProgressData) => {
     setProgress(p);
     localStorage.setItem(storageKey, JSON.stringify(p));
+    pushSyncKey(storageKey);
   };
 
   const toggleBook = (id: string) => {
@@ -426,6 +429,7 @@ export default function TwelveWeekYear() {
     };
 
     localStorage.setItem(storageKey, JSON.stringify(updatedPlan));
+    pushSyncKey(storageKey);
     setPlan(updatedPlan);
     const newBook = allBooks.find(b => b.id === bookId);
     if (newBook && !books.find(b => b.id === bookId)) {
