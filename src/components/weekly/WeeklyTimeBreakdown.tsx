@@ -1,28 +1,13 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { format, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, Brain, Target, Dumbbell, BookOpen, Music, TrendingUp, BarChart3, Zap, Gamepad2 } from 'lucide-react';
+import { Clock, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TOTAL_WEEK_HOURS = 168;
-
-// Mismas áreas que agrega la página Estadísticas de Esfuerzo
-const AREA_ICONS: Record<string, React.ReactNode> = {
-  universidad: <Brain className="w-3.5 h-3.5" />,
-  emprendimiento: <TrendingUp className="w-3.5 h-3.5" />,
-  proyectos: <Target className="w-3.5 h-3.5" />,
-  gym: <Dumbbell className="w-3.5 h-3.5" />,
-  idiomas: <BookOpen className="w-3.5 h-3.5" />,
-  lectura: <BookOpen className="w-3.5 h-3.5" />,
-  musica: <Music className="w-3.5 h-3.5" />,
-  ajedrez: <Gamepad2 className="w-3.5 h-3.5" />,
-  game: <Gamepad2 className="w-3.5 h-3.5" />,
-};
 
 const AREA_COLORS: Record<string, string> = {
   universidad: 'bg-blue-500',
@@ -61,18 +46,6 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
 
   const startStr = format(weekStart, 'yyyy-MM-dd');
   const endStr = format(weekEnd, 'yyyy-MM-dd');
-
-  const { data: focusData } = useQuery({
-    queryKey: ['weeklyFocusBreakdown', startStr],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('focus_sessions')
-        .select('*')
-        .gte('start_time', `${startStr}T00:00:00`)
-        .lte('start_time', `${endStr}T23:59:59`);
-      return data || [];
-    },
-  });
 
   const { data: systemsData } = useQuery({
     queryKey: ['weeklySystemsTime', startStr],
@@ -257,72 +230,6 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
                   {AREA_LABELS[at.area] || at.area}
                 </span>
               ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Area breakdown — mismos totales que la página Esfuerzo */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-purple-500 to-pink-400" />
-        <CardContent className="p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <Target className="w-3.5 h-3.5" />
-            Tiempo por área
-          </h3>
-          {areaTotals.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Sin tiempo registrado esta semana</p>
-          ) : (
-            <div className="space-y-2">
-              {areaTotals.map(at => {
-                const maxMin = areaTotals[0]?.minutes || 1;
-                const pct = Math.round((at.minutes / maxMin) * 100);
-                return (
-                  <div key={at.area} className="flex items-center gap-2">
-                    <div className={cn("w-1.5 h-8 rounded-full shrink-0", AREA_COLORS[at.area] || 'bg-muted-foreground')} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          {AREA_ICONS[at.area] || <Zap className="w-3.5 h-3.5" />}
-                          <span className="text-xs font-medium capitalize truncate">{AREA_LABELS[at.area] || at.area}</span>
-                        </div>
-                        <span className="text-xs font-mono font-bold">{at.hours}h</span>
-                      </div>
-                      <Progress value={pct} className="h-1 mt-1" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Session list */}
-      <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
-        <CardContent className="p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <Zap className="w-3.5 h-3.5" />
-            Sesiones de foco
-          </h3>
-          {!focusData || focusData.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Sin sesiones de foco esta semana</p>
-          ) : (
-            <div className="space-y-1.5 max-h-60 overflow-y-auto">
-              {focusData.slice().reverse().map((session: any) => {
-                const sessionDate = format(new Date(session.start_time), 'EEE d', { locale: es });
-                return (
-                  <div key={session.id} className="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className={cn("w-2 h-2 rounded-full shrink-0", session.completed ? "bg-green-500" : "bg-amber-500")} />
-                    <span className="text-[10px] text-muted-foreground w-14 shrink-0">{sessionDate}</span>
-                    <span className="flex-1 truncate">{session.task_title}</span>
-                    <Badge variant="outline" className="text-[9px] font-mono shrink-0 rounded-full px-1.5">
-                      {session.duration_minutes || 0}m
-                    </Badge>
-                  </div>
-                );
-              })}
             </div>
           )}
         </CardContent>

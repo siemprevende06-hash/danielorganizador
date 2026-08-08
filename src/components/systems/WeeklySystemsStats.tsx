@@ -10,6 +10,7 @@ import { CheckCircle2, XCircle, Flame, Trophy } from "lucide-react";
 const SYSTEM_NAMES: Record<string, string> = {
   "rutina-activacion": "Activación",
   "alistamiento-desayuno": "Alistamiento",
+  "horario-regular": "Horario",
   "rutina-desactivacion": "Desactivación",
   "entrenamiento-fisico": "Gym",
   "lectura": "Lectura",
@@ -19,6 +20,13 @@ const SYSTEM_NAMES: Record<string, string> = {
   "skincare-noche": "Skincare PM",
   "banarme-vestirme": "Baño/Vestirme",
 };
+
+const STRUCTURAL_IDS = new Set([
+  "rutina-activacion",
+  "alistamiento-desayuno",
+  "horario-regular",
+  "rutina-desactivacion",
+]);
 
 interface Props {
   weekStart: Date;
@@ -55,11 +63,11 @@ export function WeeklySystemsStats({ weekStart }: Props) {
     load();
   }, [weekStart.toISOString()]);
 
-  const habitIds = Object.keys(SYSTEM_NAMES);
+  const habitIds = Object.keys(SYSTEM_NAMES).filter(hid => STRUCTURAL_IDS.has(hid));
 
   return (
     <Card className="p-4">
-      <h3 className="font-bold text-sm mb-3">📊 Sistemas de Vida — Semana</h3>
+      <h3 className="font-bold text-sm mb-3">📊 Sistemas de Vida — Semana <span className="ml-1 text-[10px] font-medium text-muted-foreground">(Estructurales)</span></h3>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>

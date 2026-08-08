@@ -54,6 +54,7 @@ export interface PeriodSectionsProps {
   quarter: number;
   monthIndex?: number;
   weekStart?: Date;
+  hideStats?: boolean;
 }
 
 interface BookDetail { id: string; title: string; author: string | null; cover_image_url: string | null; pages_read?: number | null; pages_total?: number | null; }
@@ -130,7 +131,7 @@ function formatMinutes(m: number): string {
   return h > 0 ? `${h}h ${min}m` : `${min}m`;
 }
 
-export default function PeriodSections({ scope, year, quarter, monthIndex, weekStart }: PeriodSectionsProps) {
+export default function PeriodSections({ scope, year, quarter, monthIndex, weekStart, hideStats }: PeriodSectionsProps) {
   const { streak: overallStreak } = useOverallSystemStreak();
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<any>(null);
@@ -575,6 +576,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
   return (
     <div className="space-y-5">
       {/* Stats */}
+      {!hideStats && (
       <div className="grid grid-cols-5 gap-2.5">
         {[
           { icon: <Zap className="h-4 w-4 text-blue-500" />, label: scope === 'week' ? 'Día' : 'Semana', value: scope === 'week' ? `${Math.min(7, (now.getDay() + 6) % 7 + 1)}/7` : scope === 'month' ? `Sem ${weekOfMonth}` : scope === 'year' ? `S${getISOWeek(now)}` : timeLabel.replace('Semana ', ''), gradient: "from-blue-500 to-cyan-400" },
@@ -593,6 +595,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
           </Card>
         ))}
       </div>
+      )}
 
       {/* Time progress */}
       <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">

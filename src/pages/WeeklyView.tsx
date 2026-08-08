@@ -1,35 +1,20 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { startOfWeek, endOfWeek, eachDayOfInterval, format, isToday, addWeeks, subWeeks, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { WeeklyObjectives } from '@/components/weekly/WeeklyObjectives';
-import { WeeklySystemsStats } from '@/components/systems/WeeklySystemsStats';
-import { WeeklyGoals } from '@/components/weekly/WeeklyGoals';
 import { WeeklyTimeBreakdown } from '@/components/weekly/WeeklyTimeBreakdown';
-import { WeeklyTasks } from '@/components/weekly/WeeklyTasks';
-import { useWeeklyObjectives } from '@/hooks/useWeeklyObjectives';
-import { AreaEffortResultsPanel } from '@/components/areas/AreaEffortResultsPanel';
+import { WeeklySystemsStats } from '@/components/systems/WeeklySystemsStats';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { MonthlyPlanSummary } from '@/components/monthly-planning/MonthlyPlanSummary';
-import { WeeklyReviewStats } from '@/components/self-review/WeeklyReviewStats';
 import { getQuarterFromDate } from '@/lib/hierarchy';
 import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
-
-const AREAS = [
-  { id: 'universidad', label: 'Universidad', icon: '🎓', color: 'bg-blue-500' },
-  { id: 'emprendimiento', label: 'Emprendimiento', icon: '💼', color: 'bg-purple-500' },
-  { id: 'gym', label: 'Gym', icon: '💪', color: 'bg-red-500' },
-  { id: 'idiomas', label: 'Idiomas', icon: '🌍', color: 'bg-emerald-500' },
-  { id: 'proyectos', label: 'Proyectos', icon: '🚀', color: 'bg-amber-500' },
-];
 
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -37,8 +22,6 @@ export default function WeeklyView() {
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart.toISOString()]);
-
-  const { objectives } = useWeeklyObjectives();
 
   const { data: weekData } = useQuery({
     queryKey: ['weeklyData', format(weekStart, 'yyyy-MM-dd')],
@@ -101,19 +84,6 @@ export default function WeeklyView() {
     return { tasks: dayTasks, completed, total, score, focusMin, activities, review, isFuture };
   };
 
-  const areaBreakdown = useMemo(() => {
-    if (!weekData) return [];
-    return AREAS.map(area => {
-      const areaTasks = weekData.tasks.filter(t => t.area_id === area.id);
-      const completed = areaTasks.filter(t => t.completed).length;
-      const obj = objectives.filter(o => o.area === area.id);
-      const objProgress = obj.length > 0
-        ? Math.round(obj.reduce((s, o) => s + (o.target_value ? Math.min((o.current_value / o.target_value) * 100, 100) : o.completed ? 100 : 0), 0) / obj.length)
-        : null;
-      return { ...area, tasksDone: completed, tasksTotal: areaTasks.length, objProgress, objCount: obj.length };
-    }).filter(a => a.tasksTotal > 0 || a.objCount > 0);
-  }, [weekData, objectives]);
-
   const monthForPlan = weekStart;
   const { quarter, year } = getQuarterFromDate(weekStart);
 
@@ -139,15 +109,7 @@ export default function WeeklyView() {
           </div>
         </div>
 
-        <WeeklyReviewStats weekStart={weekStart} />
-
-        {/* Secciones de la Semana (mismo diseño que 3 Meses) */}
-        <PeriodSections scope="week" year={year} quarter={quarter} weekStart={weekStart} />
-
-        {/* Plan Mensual */}
-        <MonthlyPlanSummary currentMonth={monthForPlan} />
-
-        {/* Overview section */}
+        {/* Resumen section — al tope de la página */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Resumen</h2>
           {/* Day cards — redesigned */}
@@ -223,59 +185,16 @@ export default function WeeklyView() {
           </Card>
         </section>
 
-        {/* Goals section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Metas</h2>
-          <WeeklyGoals weekStart={weekStart} weekEnd={weekEnd} />
-        </section>
+        {/* Secciones de la Semana (mismo diseño que 3 Meses) */}
+        <PeriodSections scope="week" year={year} quarter={quarter} weekStart={weekStart} hideStats />
+
+        {/* Plan Mensual */}
+        <MonthlyPlanSummary currentMonth={monthForPlan} />
 
         {/* Time section */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Tiempo</h2>
           <WeeklyTimeBreakdown weekStart={weekStart} weekEnd={weekEnd} />
-        </section>
-
-        {/* Tasks section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Tareas</h2>
-          <WeeklyTasks weekStart={weekStart} weekEnd={weekEnd} />
-        </section>
-
-        {/* Objectives section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Objetivos</h2>
-          <WeeklyObjectives />
-        </section>
-
-        {/* Areas section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Áreas</h2>
-          <div className="space-y-2.5">
-            {areaBreakdown.length === 0 && (
-              <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
-                <CardContent className="p-8 text-center text-muted-foreground text-sm">Sin actividad por áreas esta semana.</CardContent>
-              </Card>
-            )}
-            {areaBreakdown.map(area => (
-              <Card key={area.id} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("w-1 h-10 rounded-full", area.color)} />
-                      <div>
-                        <p className="font-medium text-sm">{area.icon} {area.label}</p>
-                        <p className="text-xs text-muted-foreground">{area.tasksDone}/{area.tasksTotal} tareas · {area.objCount} objetivo{area.objCount !== 1 ? 's' : ''}</p>
-                      </div>
-                    </div>
-                    {area.objProgress !== null && (
-                      <Badge variant="outline" className="font-mono text-[10px] rounded-full">{area.objProgress}%</Badge>
-                    )}
-                  </div>
-                  <Progress value={area.tasksTotal > 0 ? (area.tasksDone / area.tasksTotal) * 100 : 0} className="h-1" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         </section>
 
         {/* Systems section */}
@@ -302,16 +221,6 @@ export default function WeeklyView() {
           <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
             <CardContent className="p-4">
               <FocusProcessPanel anchorDate={weekStart} />
-            </CardContent>
-          </Card>
-        </section>
-
-        {/* Effort section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Esfuerzo</h2>
-          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-            <CardContent className="p-4">
-              <AreaEffortResultsPanel periodType="week" periodStart={weekStart} />
             </CardContent>
           </Card>
         </section>
