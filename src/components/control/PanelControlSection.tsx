@@ -42,6 +42,14 @@ export const SOSTEN_ITEMS: TimerItem[] = [
 
 export const ALL_TIMER_ITEMS = [...PRIORITIES, ...HOBBY_ITEMS];
 
+/** Máximos/mínimos diarios fijos de los hábitos acumulativos (no derivados de la jerarquía de metas) */
+export const HOBBY_RANGES: Record<string, { min: number; max: number }> = {
+  lectura: { min: 15, max: 30 },
+  musica: { min: 15, max: 30 },
+  ajedrez: { min: 10, max: 20 },
+  game: { min: 10, max: 20 },
+};
+
 function hexToRgb(hex: string): string {
   const h = hex.replace('#', '');
   const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
@@ -95,18 +103,19 @@ export function GlowRing({ pct, color, size = 68, children }: { pct: number; col
   );
 }
 
-function TimerRingCard({ item, minutes, goal }: { item: TimerItem; minutes: number; goal: number }) {
-  const pct = goal > 0 ? Math.round((minutes / goal) * 100) : 0;
-  const over = minutes - goal;
+function TimerRingCard({ item, minutes, min, max }: { item: TimerItem; minutes: number; min: number; max: number }) {
+  const pct = max > 0 ? Math.round((minutes / max) * 100) : 0;
+  const over = minutes - max;
+  const color = minutes <= 0 ? '#ef4444' : minutes >= max ? '#10b981' : '#3b82f6';
   return (
     <div className="rounded-2xl bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm border border-border/40 p-3 flex flex-col items-center gap-1.5">
-      <GlowRing pct={pct} color={item.color}>
+      <GlowRing pct={pct} color={color}>
         <span className="text-sm font-bold tabular-nums">{minutes}<span className="text-[9px] text-muted-foreground ml-0.5">min</span></span>
       </GlowRing>
       <div className="text-center leading-tight">
         <p className="text-[10px] font-semibold">{item.label}</p>
         <p className="text-[9px] text-muted-foreground">
-          máx {goal} min
+          máx {max} min
           {over > 0 && <span className="text-amber-500 font-semibold"> · +{over}</span>}
         </p>
       </div>
@@ -166,9 +175,12 @@ export function PanelControlSection({ timeData = {}, completions = {}, workoutDu
       <div className="space-y-2.5">
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Prioridades</h3>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-          {PRIORITIES.map(it => (
-            <TimerRingCard key={it.id} item={it} minutes={minutesOfToday(timeData, workoutDuration, it.id)} goal={goalOfToday(today, it.id)} />
-          ))}
+          {PRIORITIES.map(it => {
+            const g = goalOfToday(today, it.id);
+            return (
+              <TimerRingCard key={it.id} item={it} minutes={minutesOfToday(timeData, workoutDuration, it.id)} min={Math.round(g / 2)} max={g} />
+            );
+          })}
         </div>
       </div>
 
@@ -176,9 +188,12 @@ export function PanelControlSection({ timeData = {}, completions = {}, workoutDu
       <div className="space-y-2.5">
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Acumulativos</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {HOBBY_ITEMS.map(it => (
-            <TimerRingCard key={it.id} item={it} minutes={minutesOfToday(timeData, workoutDuration, it.id)} goal={goalOfToday(today, it.id)} />
-          ))}
+          {HOBBY_ITEMS.map(it => {
+            const range = HOBBY_RANGES[it.id] || { min: 10, max: 30 };
+            return (
+              <TimerRingCard key={it.id} item={it} minutes={minutesOfToday(timeData, workoutDuration, it.id)} min={range.min} max={range.max} />
+            );
+          })}
         </div>
       </div>
 

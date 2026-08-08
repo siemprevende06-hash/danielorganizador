@@ -289,7 +289,7 @@ export default function DailyView() {
         <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} date={selectedDate} />
 
         {/* Section tabs as cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {SECTIONS.map(s => {
             const isActive = activeSection === s.id;
             return (
