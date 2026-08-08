@@ -43,6 +43,13 @@ function areaOf(t: WeekTask): AreaKey {
   return AREA_ALIAS[raw.toLowerCase()] || 'general';
 }
 
+const SOURCE_VALUE: Record<AreaKey, string> = {
+  universidad: 'university',
+  emprendimiento: 'entrepreneurship',
+  proyectos: 'project',
+  general: 'general',
+};
+
 const PRIORITY: Record<string, { label: string; badge: string; bar: string }> = {
   high: { label: 'Alta', badge: 'bg-red-500/15 text-red-600', bar: 'border-l-red-500' },
   medium: { label: 'Media', badge: 'bg-amber-500/15 text-amber-600', bar: 'border-l-amber-400' },
@@ -83,12 +90,14 @@ export function PlanSemanal({ weekDays, tasks, queryKeyPrefix }: {
     setMoving(true);
     const patch: Record<string, unknown> = { due_date: `${targetDay}T12:00:00` };
     if (targetArea) {
-      patch.area_id = targetArea;
-      patch.source = targetArea;
+      patch.area_id = SOURCE_VALUE[targetArea];
+      patch.source = SOURCE_VALUE[targetArea];
     }
     const { error } = await supabase.from('tasks').update(patch).eq('id', taskId);
     setMoving(false);
-    if (!error) {
+    if (error) {
+      console.error('Error al mover tarea:', error.message);
+    } else {
       queryClient.invalidateQueries({ queryKey: [queryKeyPrefix] });
     }
     setDragOver({ day: null, area: null });
