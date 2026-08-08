@@ -2523,56 +2523,6 @@ export type Database = {
         }
         Relationships: []
       }
-      reading_sessions: {
-        Row: {
-          book_id: string | null
-          created_at: string
-          id: string
-          minutes: number | null
-          notes: string | null
-          page_end: number | null
-          page_start: number | null
-          pages_read: number | null
-          session_date: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          book_id?: string | null
-          created_at?: string
-          id?: string
-          minutes?: number | null
-          notes?: string | null
-          page_end?: number | null
-          page_start?: number | null
-          pages_read?: number | null
-          session_date: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          book_id?: string | null
-          created_at?: string
-          id?: string
-          minutes?: number | null
-          notes?: string | null
-          page_end?: number | null
-          page_start?: number | null
-          pages_read?: number | null
-          session_date?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "reading_sessions_book_id_fkey"
-            columns: ["book_id"]
-            isOneToOne: false
-            referencedRelation: "reading_library"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       recipe_ingredients: {
         Row: {
           created_at: string
@@ -3524,42 +3474,6 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wake_time?: string | null
-        }
-        Relationships: []
-      }
-      uploaded_images: {
-        Row: {
-          created_at: string
-          file_name: string | null
-          file_size: number | null
-          file_type: string | null
-          folder: string
-          id: string
-          path: string
-          url: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          file_name?: string | null
-          file_size?: number | null
-          file_type?: string | null
-          folder?: string
-          id?: string
-          path: string
-          url: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          file_name?: string | null
-          file_size?: number | null
-          file_type?: string | null
-          folder?: string
-          id?: string
-          path?: string
-          url?: string
-          user_id?: string | null
         }
         Relationships: []
       }
