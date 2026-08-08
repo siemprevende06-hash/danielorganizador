@@ -2,7 +2,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { CheckCircle2, Circle, BookOpen, Music } from 'lucide-react';
+import type { PlanBook, PlanSong } from '@/hooks/useResultadosPeriodo';
 
 export const AREA_COLORS: Record<string, string> = {
   universidad: 'from-blue-600 to-indigo-500',
@@ -144,9 +145,98 @@ export function TaskPlanList({ area }: { area: { tasks: any[] } }) {
   return (
     <ul className="space-y-1.5">
       {area.tasks.map((t: any) => (
-        <CheckItem key={t.id} done={t.completed}>{t.title}</CheckItem>
+        <li key={t.id}>
+          <div className="flex items-start gap-2 text-xs">
+            {t.completed
+              ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+              : <Circle className="h-3.5 w-3.5 text-muted-foreground/40 mt-0.5 shrink-0" />}
+            <div className="min-w-0 flex-1">
+              <p className={cn('break-words leading-snug', t.completed && 'line-through opacity-60')}>{t.title}</p>
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {t.entityName && (
+                  <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">{t.entityName}</Badge>
+                )}
+                {t.dueShort && (
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5">{t.dueShort}</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </li>
       ))}
     </ul>
+  );
+}
+
+export function BookCloud({ books }: { books: PlanBook[] }) {
+  if (!books || books.length === 0) {
+    return <p className="text-[10px] text-muted-foreground italic">Sin libros del plan para este período</p>;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {books.map(b => (
+        <div key={b.id} className={cn('flex items-center gap-2 rounded-xl border p-1.5 pr-2.5 max-w-[220px]', b.done ? 'border-emerald-300/60 bg-emerald-50/40 dark:bg-emerald-950/20' : 'border-border/50 bg-muted/20')}>
+          {b.cover ? (
+            <img src={b.cover} alt={b.title} className="w-8 h-11 rounded-md object-cover shrink-0 border border-border/40" />
+          ) : (
+            <div className="w-8 h-11 rounded-md bg-gradient-to-br from-cyan-500/30 to-sky-500/30 flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4 text-cyan-600" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold leading-tight break-words">{b.title}</p>
+            <p className="text-[8px] text-muted-foreground truncate">
+              {b.done ? 'Terminado' : b.pagesTotal > 0 ? `${b.pagesRead}/${b.pagesTotal} pág` : 'Pendiente'}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SongCloud({ songs }: { songs: PlanSong[] }) {
+  if (!songs || songs.length === 0) {
+    return <p className="text-[10px] text-muted-foreground italic">Sin canciones del plan para este período</p>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {songs.map(s => (
+        <Badge key={s.id} variant="outline" className="text-[10px] gap-1 py-1 max-w-full">
+          <Music className="w-3 h-3 text-pink-500 shrink-0" />
+          <span className="truncate max-w-[130px]">{s.title}</span>
+          <span className="text-[8px] text-muted-foreground">· {s.practiceMinutes}m</span>
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+export function PlanDelMes({ books, songs, title = 'Plan trimestral del mes' }: { books: PlanBook[]; songs: PlanSong[]; title?: string }) {
+  const hasBooks = books && books.length > 0;
+  const hasSongs = songs && songs.length > 0;
+  if (!hasBooks && !hasSongs) return null;
+  return (
+    <div className="rounded-2xl bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm p-4">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{title}</p>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {hasBooks && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1"><BookOpen className="w-3 h-3 text-cyan-600" /> Libros a leer</p>
+              <Badge variant="outline" className="text-[8px]">{books.filter(b => b.done).length}/{books.length} terminados</Badge>
+            </div>
+            <BookCloud books={books} />
+          </div>
+        )}
+        {hasSongs && (
+          <div>
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mb-1.5"><Music className="w-3 h-3 text-pink-500" /> Canciones a dominar</p>
+            <SongCloud songs={songs} />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

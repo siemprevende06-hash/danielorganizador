@@ -6,7 +6,7 @@ import {
   useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER,
 } from '@/hooks/useResultadosPeriodo';
 import {
-  AreaRow, ResumenGeneral, CheckItem, ResultRow, StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS,
+  AreaRow, ResumenGeneral, CheckItem, ResultRow, StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, PlanDelMes, AREA_COLORS,
 } from './shared';
 
 const AREA_BAR: Record<string, string> = {
@@ -62,6 +62,9 @@ export function ResultadosTrimestre({ quarter, year }: { quarter: number; year: 
           ['Elo', r.ajedrez.elo != null ? String(r.ajedrez.elo) : '—'],
         ]}
       />
+
+      {/* Plan trimestral */}
+      <PlanDelMes books={r.books} songs={r.songs} title={`Plan trimestral Q${quarter} ${year}`} />
 
       {/* Tiempo por área */}
       {hoursByArea.length > 0 && (

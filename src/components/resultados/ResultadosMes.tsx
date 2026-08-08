@@ -7,7 +7,7 @@ import {
 } from '@/hooks/useResultadosPeriodo';
 import { Badge } from '@/components/ui/badge';
 import {
-  AreaRow, ResumenGeneral, CheckItem, ResultRow, StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS,
+  AreaRow, ResumenGeneral, CheckItem, ResultRow, StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, PlanDelMes, AREA_COLORS,
 } from './shared';
 
 const AREA_BAR: Record<string, string> = {
@@ -85,6 +85,9 @@ export function ResultadosMes({ month }: { month: Date }) {
           </div>
         </div>
       )}
+
+      {/* Plan trimestral del mes */}
+      <PlanDelMes books={r.books} songs={r.songs} />
 
       {/* Universidad */}
       <AreaRow

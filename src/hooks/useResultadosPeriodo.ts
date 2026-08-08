@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { getQuarterFromDate, loadTrimestralPlanFromLocal } from '@/hooks/useTrimestralPlan';
 
 export const AREA_ORDER = ['universidad', 'emprendimiento', 'proyectos', 'lectura', 'musica', 'ajedrez', 'game', 'idiomas', 'gym', 'general'] as const;
 export type AreaKey = (typeof AREA_ORDER)[number];
@@ -40,11 +41,33 @@ export interface AreaResult {
   tasks: any[];
 }
 
+export interface PlanBook {
+  id: string;
+  title: string;
+  author: string | null;
+  cover: string | null;
+  pagesRead: number;
+  pagesTotal: number;
+  status: string | null;
+  done: boolean;
+}
+
+export interface PlanSong {
+  id: string;
+  title: string;
+  artist: string | null;
+  instrument: string;
+  practiceMinutes: number;
+  status: string | null;
+}
+
 export interface ResultadoPeriodo {
   loading: boolean;
   error: string | null;
   tasks: any[];
   byArea: Record<AreaKey, AreaResult>;
+  books: PlanBook[];
+  songs: PlanSong[];
   globalDone: number;
   globalTotal: number;
   systems: { done: number; total: number; minutes: number };
@@ -74,6 +97,8 @@ export const EMPTY_RESULTADO: ResultadoPeriodo = {
   error: null,
   tasks: [],
   byArea: emptyAreaResult(),
+  books: [],
+  songs: [],
   globalDone: 0,
   globalTotal: 0,
   systems: { done: 0, total: 0, minutes: 0 },
@@ -103,6 +128,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         tasksRes, entTasksRes, areaStatsRes, systemsRes, reviewsRes,
         readRes, musicRes, chessRes, logsRes, focusRes,
         citasRes, intimidadRes, eventosRes, ingresoRes,
+        libraryRes, repertoireRes, projectsRes, subjectsRes, entregasRes,
       ] = await Promise.all([
         supabase.from('tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
         supabase.from('entrepreneurship_tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
@@ -118,6 +144,11 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('intimidad_tracking').select('*').gte('fecha', startStr).lte('fecha', endStr),
         supabase.from('eventos_sociales').select('*').gte('fecha', startStr).lte('fecha', endStr),
         supabase.from('entrepreneurship_income').select('*').gte('income_date', startStr).lte('income_date', endStr),
+        supabase.from('reading_library').select('id, title, author, cover_image_url, status, pages_total, pages_read'),
+        supabase.from('music_repertoire').select('id, title, artist, instrument, status, practice_minutes'),
+        supabase.from('projects').select('id, title'),
+        supabase.from('university_subjects').select('id, name'),
+        supabase.from('entrepreneurships').select('id, name'),
       ]);
 
       const tasks = [
@@ -136,6 +167,77 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const intimidad = intimidadRes.data || [];
       const eventos = eventosRes.data || [];
       const ingreso = ingresoRes.data || [];
+      const library = libraryRes.data || [];
+      const repertoire = repertoireRes.data || [];
+
+      const projMap = new Map((projectsRes.data || []).map((p: any) => [p.id, p.title]));
+      const subjMap = new Map((subjectsRes.data || []).map((s: any) => [s.id, s.name]));
+      const entMap = new Map((entregasRes.data || []).map((e: any) => [e.id, e.name]));
+
+      const entityFor = (t: any): string | null => {
+        if (t.source === 'project' || t.area_id === 'proyectos' || t.source === 'proyectos') {
+          return projMap.get(t.source_id) || null;
+        }
+        if (t.source === 'university' || t.area_id === 'universidad' || t.source === 'universidad') {
+          return subjMap.get(t.source_id) || null;
+        }
+        if (t.source === 'entrepreneurship' || t.area_id === 'emprendimiento' || t.source === 'emprendimiento') {
+          return entMap.get(t.source_id) || null;
+        }
+        return null;
+      };
+
+      const tasks = [
+        ...(tasksRes.data || []),
+        ...(entTasksRes.data || []).map((t: any) => ({ ...t, source: 'emprendimiento', area_id: 'emprendimiento', _ent: true })),
+      ].map((t: any) => ({
+        ...t,
+        entityName: entityFor(t),
+        dueShort: t.due_date ? format(new Date(t.due_date), 'd MMM') : null,
+      }));
+
+      const { quarter: planQ, year: planY } = getQuarterFromDate(start);
+      const plan = loadTrimestralPlanFromLocal(`Q${planQ}_${planY}`);
+      const monthKey = `month${start.getMonth() - (planQ - 1) * 3 + 1}` as 'month1' | 'month2' | 'month3';
+      const planBookIds = new Set<string>();
+      const planSongIds = new Set<string>();
+      if (plan) {
+        if (end.getMonth() === start.getMonth()) {
+          const dist = plan.distribution?.[monthKey];
+          (dist?.books || plan.books?.selected || []).forEach((id: string) => planBookIds.add(id));
+          (dist?.songs || plan.songs?.selected || []).forEach((id: string) => planSongIds.add(id));
+        } else {
+          (['month1', 'month2', 'month3'] as const).forEach(mk => {
+            const dist = plan.distribution?.[mk];
+            (dist?.books || []).forEach((id: string) => planBookIds.add(id));
+            (dist?.songs || []).forEach((id: string) => planSongIds.add(id));
+          });
+        }
+      }
+      const books = [...planBookIds]
+        .map(id => library.find((b: any) => b.id === id))
+        .filter(Boolean)
+        .map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          author: b.author,
+          cover: b.cover_image_url,
+          pagesRead: b.pages_read || 0,
+          pagesTotal: b.pages_total || 0,
+          status: b.status,
+          done: (b.pages_read || 0) >= (b.pages_total || 0) || b.status === 'leído' || b.status === 'terminado',
+        })) as PlanBook[];
+      const songsPlan = [...planSongIds]
+        .map(id => repertoire.find((s: any) => s.id === id))
+        .filter(Boolean)
+        .map((s: any) => ({
+          id: s.id,
+          title: s.title,
+          artist: s.artist,
+          instrument: s.instrument,
+          practiceMinutes: s.practice_minutes || 0,
+          status: s.status,
+        })) as PlanSong[];
 
       const byArea = emptyAreaResult();
 
@@ -249,6 +351,8 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         error: null,
         tasks,
         byArea,
+        books,
+        songs: songsPlan,
         globalDone: tasks.filter((t: any) => t.completed).length,
         globalTotal: tasks.length,
         systems: { done: systemsDone, total: systemsMax, minutes: systemsMin },
