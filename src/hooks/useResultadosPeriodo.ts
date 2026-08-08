@@ -151,10 +151,6 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('entrepreneurships').select('id, name'),
       ]);
 
-      const tasks = [
-        ...(tasksRes.data || []),
-        ...(entTasksRes.data || []).map((t: any) => ({ ...t, source: 'emprendimiento', _ent: true })),
-      ];
       const areaStats = areaStatsRes.data || [];
       const systems = systemsRes.data || [];
       const reviews = reviewsRes.data || [];
@@ -264,7 +260,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
 
       const systemsDone = systems.reduce((acc: number, s: any) => acc + Object.values(s.completions || {}).filter(v => v === true).length, 0);
       const systemsTotal = systems.length > 0 ? Math.max(...systems.map((s: any) => Object.keys(s.completions || {}).length)) : 0;
-      const systemsMin = systems.reduce((a: number, s: any) => a + Object.values(s.time_data || {}).reduce((x: number, v: any) => x + (Number(v) || 0), 0), 0);
+      const systemsMin = systems.reduce((a: number, s: any) => a + (Object.values(s.time_data || {}) as any[]).reduce((x: number, v: any) => x + (Number(v) || 0), 0), 0);
       const workoutMin = systems.reduce((a: number, s: any) => a + (s.workout_duration || 0), 0);
       const focusMin = focus.reduce((a: number, f: any) => a + (f.duration_minutes || 0), 0);
 
@@ -355,7 +351,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         songs: songsPlan,
         globalDone: tasks.filter((t: any) => t.completed).length,
         globalTotal: tasks.length,
-        systems: { done: systemsDone, total: systemsMax, minutes: systemsMin },
+        systems: { done: systemsDone, total: systemsTotal, minutes: systemsMin },
         workoutMin,
         focusMin,
         reviews: {
