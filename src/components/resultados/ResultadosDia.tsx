@@ -79,6 +79,7 @@ const taskDonut = [
 const strengthLine = [
   { s: 'S1', kg: 60 }, { s: 'S2', kg: 62 }, { s: 'S3', kg: 62 }, { s: 'S4', kg: 65 }, { s: 'S5', kg: 68 },
 ];
+const stages = ['Conocí', 'Salí', 'Besé', 'Intimidad'];
 
 export function ResultadosDia() {
   return (
