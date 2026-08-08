@@ -26,7 +26,8 @@ import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
-import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { ResultadosDia } from '@/components/resultados/ResultadosDia';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
@@ -534,7 +535,7 @@ export default function DailyView() {
         )}
           </>
         ) : (
-          <ResultadosPlaceholder />
+          <ResultadosDia />
         )}
       </div>
     </div>
