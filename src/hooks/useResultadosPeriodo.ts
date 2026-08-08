@@ -351,7 +351,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         songs: songsPlan,
         globalDone: tasks.filter((t: any) => t.completed).length,
         globalTotal: tasks.length,
-        systems: { done: systemsDone, total: systemsMax, minutes: systemsMin },
+        systems: { done: systemsDone, total: systemsTotal, minutes: systemsMin },
         workoutMin,
         focusMin,
         reviews: {
