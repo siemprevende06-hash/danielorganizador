@@ -145,10 +145,7 @@ export default function TrimestralPlanningPage() {
   };
 
   const TimeGoalField = ({ label, value, onChange }: { label: string; value: number; onChange: (v: string) => void }) => (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[9px] text-muted-foreground">{label}:</span>
-      <Input type="number" min="0" step="5" value={value || ''} onChange={e => onChange(e.target.value)} className="h-6 w-20 text-[10px]" placeholder="min" />
-    </div>
+    <MinutesGoalInput label={label} value={value} onApply={onChange} />
   );
 
   const quarterGoalValue = (bucket: 'timeGoals' | 'areaTimeGoals', area: string) =>
@@ -253,19 +250,18 @@ export default function TrimestralPlanningPage() {
                 <Book className="h-3.5 w-3.5 text-emerald-500" />
                 <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Lectura</span>
                 <div className="flex items-center gap-1.5 ml-auto">
-                  <span className="text-[10px] text-muted-foreground">Meta:</span>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={planData.books.goal || ''}
-                    onChange={e => updatePlanData(p => ({
-                      ...p,
-                      books: { ...p.books, goal: Math.max(1, parseInt(e.target.value) || 0) }
-                    }))}
-                    className="h-7 w-16 text-xs"
-                  />
-                </div>
-                <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.lectura || 0} onChange={v => setTimeGoal('lectura', v)} />
+                  <MinutesGoalInput
+                  label="Meta"
+                  value={planData.books.goal || 0}
+                  onApply={v => updatePlanData(p => ({
+                    ...p,
+                    books: { ...p.books, goal: Math.max(1, parseInt(v) || 0) },
+                  }))}
+                  className="h-7 w-16 text-xs"
+                  placeholder="libro"
+                />
+              </div>
+              <TimeGoalField label="Min/mes" value={planData.timeGoals[activeMonthKey]?.lectura || 0} onChange={v => setTimeGoal('lectura', v)} />
                 <QuarterGoalField bucket="timeGoals" area="lectura" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -303,23 +299,27 @@ export default function TrimestralPlanningPage() {
                     <div className="flex gap-3">
                       <div className="flex-1 space-y-1">
                         <span className="text-[9px] text-muted-foreground">Partidas/mes</span>
-                        <Input type="number" min="0" step="5"
-                          value={planData.chessGoals?.[activeMonthKey]?.partidas || ''}
-                          onChange={e => updatePlanData(p => ({
+                        <MinutesGoalInput
+                          value={planData.chessGoals?.[activeMonthKey]?.partidas || 0}
+                          onApply={v => updatePlanData(p => ({
                             ...p,
-                            chessGoals: { ...p.chessGoals, [activeMonthKey]: { ...p.chessGoals[activeMonthKey], partidas: Math.max(0, parseInt(e.target.value) || 0) } },
+                            chessGoals: { ...p.chessGoals, [activeMonthKey]: { ...p.chessGoals[activeMonthKey], partidas: Math.max(0, parseInt(v) || 0) } },
                           }))}
-                          className="h-7 text-xs" placeholder="0" />
+                          className="h-7 text-xs w-full"
+                          placeholder="0"
+                        />
                       </div>
                       <div className="flex-1 space-y-1">
                         <span className="text-[9px] text-muted-foreground">Minutos/mes</span>
-                        <Input type="number" min="0" step="5"
-                          value={planData.chessGoals?.[activeMonthKey]?.minutos || ''}
-                          onChange={e => updatePlanData(p => ({
+                        <MinutesGoalInput
+                          value={planData.chessGoals?.[activeMonthKey]?.minutos || 0}
+                          onApply={v => updatePlanData(p => ({
                             ...p,
-                            chessGoals: { ...p.chessGoals, [activeMonthKey]: { ...p.chessGoals[activeMonthKey], minutos: Math.max(0, parseInt(e.target.value) || 0) } },
+                            chessGoals: { ...p.chessGoals, [activeMonthKey]: { ...p.chessGoals[activeMonthKey], minutos: Math.max(0, parseInt(v) || 0) } },
                           }))}
-                          className="h-7 text-xs" placeholder="0" />
+                          className="h-7 text-xs w-full"
+                          placeholder="0"
+                        />
                       </div>
                     </div>
                   </CardContent>
