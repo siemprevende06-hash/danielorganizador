@@ -10,7 +10,8 @@ import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { getQuarterFromDate } from '@/lib/hierarchy';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
-import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { ResultadosMes } from '@/components/resultados/ResultadosMes';
 
 export default function MonthlyView() {
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -102,7 +103,7 @@ export default function MonthlyView() {
             </section>
           </>
         ) : (
-          <ResultadosPlaceholder />
+          <ResultadosMes />
         )}
       </div>
     </div>

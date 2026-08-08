@@ -16,8 +16,9 @@ import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
-import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { PlanSemanal } from '@/components/plan/PlanSemanal';
+import { ResultadosSemana } from '@/components/resultados/ResultadosSemana';
 
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -241,7 +242,7 @@ export default function WeeklyView() {
         </section>
           </>
         ) : (
-          <ResultadosPlaceholder />
+          <ResultadosSemana />
         )}
       </div>
     </div>

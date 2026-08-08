@@ -11,7 +11,8 @@ import { ItemSelector } from '@/components/monthly-planning/ItemSelector';
 import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
 import { setQuarterGoal } from '@/lib/hierarchy';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
-import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { ResultadosTrimestre } from '@/components/resultados/ResultadosTrimestre';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -597,7 +598,7 @@ export default function TrimestralPlanningPage() {
       )}
           </>
         ) : (
-          <ResultadosPlaceholder />
+          <ResultadosTrimestre />
         )}
     </div>
   );
