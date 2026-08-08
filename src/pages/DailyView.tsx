@@ -26,6 +26,7 @@ import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
+import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
@@ -105,6 +106,7 @@ const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> 
 
 export default function DailyView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<PeriodViewMode>('esfuerzo');
   const formattedDate = format(selectedDate, "EEEE, d 'de' MMMM", { locale: es });
   const dayOfYear = Math.ceil((selectedDate.getTime() - new Date(selectedDate.getFullYear(), 0, 1).getTime()) / 86400000);
   const yearProgress = Math.round((dayOfYear / 365) * 100);
@@ -217,6 +219,10 @@ export default function DailyView() {
   return (
     <div className="min-h-screen bg-background p-3 md:p-6 pt-20 pb-24">
       <div className="max-w-4xl mx-auto space-y-4">
+        <div className="flex justify-center">
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+        </div>
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight flex items-center gap-2">
@@ -242,6 +248,8 @@ export default function DailyView() {
           </div>
         </div>
 
+        {viewMode === 'esfuerzo' ? (
+          <>
         {/* Panel de control del día */}
         <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} date={selectedDate} />
 
@@ -523,6 +531,10 @@ export default function DailyView() {
               <NotionCalendar />
             </div>
           </FocusProcessPanel>
+        )}
+          </>
+        ) : (
+          <ResultadosPlaceholder />
         )}
       </div>
     </div>

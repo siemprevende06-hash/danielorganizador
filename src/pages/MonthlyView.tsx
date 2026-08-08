@@ -10,12 +10,14 @@ import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { getQuarterFromDate } from '@/lib/hierarchy';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
+import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 
 export default function MonthlyView() {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [viewMode, setViewMode] = useState<PeriodViewMode>('esfuerzo');
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -34,6 +36,10 @@ export default function MonthlyView() {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
+        <div className="flex justify-center">
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -55,35 +61,41 @@ export default function MonthlyView() {
           </div>
         </div>
 
-        <PeriodControlSection scope="month" start={monthStart} end={monthEnd} />
+        {viewMode === 'esfuerzo' ? (
+          <>
+            <PeriodControlSection scope="month" start={monthStart} end={monthEnd} />
 
-        {/* Eventos section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Eventos</h2>
-          <NotionCalendar />
-        </section>
+            {/* Eventos section */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight">Eventos</h2>
+              <NotionCalendar />
+            </section>
 
-        {/* Tareas section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Tareas</h2>
-          <MonthlyTasks currentMonth={currentMonth} />
-        </section>
+            {/* Tareas section */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight">Tareas</h2>
+              <MonthlyTasks currentMonth={currentMonth} />
+            </section>
 
-        {/* Sistemas section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
-          <MonthlySystemsStats monthDate={currentMonth} />
-        </section>
+            {/* Sistemas section */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
+              <MonthlySystemsStats monthDate={currentMonth} />
+            </section>
 
-        {/* Mejora section */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Mejora</h2>
-          <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-            <CardContent className="p-4">
-              <MejoraProcessPanel anchorDate={monthStart} />
-            </CardContent>
-          </Card>
-        </section>
+            {/* Mejora section */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight">Mejora</h2>
+              <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+                <CardContent className="p-4">
+                  <MejoraProcessPanel anchorDate={monthStart} />
+                </CardContent>
+              </Card>
+            </section>
+          </>
+        ) : (
+          <ResultadosPlaceholder />
+        )}
       </div>
     </div>
   );

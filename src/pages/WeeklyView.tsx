@@ -16,9 +16,11 @@ import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
+import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [viewMode, setViewMode] = useState<PeriodViewMode>('esfuerzo');
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -91,6 +93,10 @@ export default function WeeklyView() {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
+        <div className="flex justify-center">
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -110,6 +116,8 @@ export default function WeeklyView() {
           </div>
         </div>
 
+        {viewMode === 'esfuerzo' ? (
+          <>
         {/* Panel de control de la semana */}
         <PeriodControlSection scope="week" start={weekStart} end={weekEnd} />
 
@@ -228,6 +236,10 @@ export default function WeeklyView() {
             </CardContent>
           </Card>
         </section>
+          </>
+        ) : (
+          <ResultadosPlaceholder />
+        )}
       </div>
     </div>
   );

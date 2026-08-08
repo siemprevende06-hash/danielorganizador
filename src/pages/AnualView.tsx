@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { loadQuarterPlan, QUARTER_MONTH_KEYS } from '@/lib/hierarchy';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
+import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 
 const QUARTERS = [
   { id: 1, name: 'Q1', dates: 'Ene – Mar' },
@@ -16,6 +17,7 @@ const QUARTERS = [
 
 export default function AnualView() {
   const [year, setYear] = useState(() => new Date().getFullYear());
+  const [viewMode, setViewMode] = useState<PeriodViewMode>('esfuerzo');
   const currentQuarter = useMemo(() => Math.ceil((new Date().getMonth() + 1) / 3), []);
 
   const quarterStats = useMemo(() => QUARTERS.map(q => {
@@ -37,6 +39,10 @@ export default function AnualView() {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
+        <div className="flex justify-center">
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -54,6 +60,8 @@ export default function AnualView() {
           </div>
         </div>
 
+        {viewMode === 'esfuerzo' ? (
+          <>
         {/* Panel de control del año */}
         <PeriodControlSection scope="year" start={new Date(year, 0, 1)} end={new Date(year, 11, 31)} />
 
@@ -86,6 +94,10 @@ export default function AnualView() {
 
         {/* Secciones del Año (mismo diseño que 3 Meses) */}
         <PeriodSections scope="year" year={year} quarter={currentQuarter} />
+          </>
+        ) : (
+          <ResultadosPlaceholder />
+        )}
       </div>
     </div>
   );

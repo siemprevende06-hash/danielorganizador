@@ -11,6 +11,7 @@ import { ItemSelector } from '@/components/monthly-planning/ItemSelector';
 import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
 import { setQuarterGoal } from '@/lib/hierarchy';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
+import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,7 @@ export default function TrimestralPlanningPage() {
   const [quarter, setQuarter] = useState(currentQ);
   const [year, setYear] = useState(currentY);
   const [activeMonth, setActiveMonth] = useState(0);
+  const [viewMode, setViewMode] = useState<PeriodViewMode>('esfuerzo');
 
   const {
     planData, loading, saving,
@@ -170,6 +172,10 @@ export default function TrimestralPlanningPage() {
 
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
+      <div className="flex justify-center mb-6">
+        <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+      </div>
+
       <header className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-500">
@@ -199,6 +205,8 @@ export default function TrimestralPlanningPage() {
         </div>
 </header>
 
+        {viewMode === 'esfuerzo' ? (
+          <>
         {/* Panel de control del trimestre */}
         <PeriodControlSection
           scope="quarter"
@@ -587,6 +595,10 @@ export default function TrimestralPlanningPage() {
           </div>
         </div>
       )}
+          </>
+        ) : (
+          <ResultadosPlaceholder />
+        )}
     </div>
   );
 }
