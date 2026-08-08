@@ -151,10 +151,6 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('entrepreneurships').select('id, name'),
       ]);
 
-      const tasks = [
-        ...(tasksRes.data || []),
-        ...(entTasksRes.data || []).map((t: any) => ({ ...t, source: 'emprendimiento', _ent: true })),
-      ];
       const areaStats = areaStatsRes.data || [];
       const systems = systemsRes.data || [];
       const reviews = reviewsRes.data || [];
