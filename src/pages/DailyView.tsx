@@ -24,6 +24,7 @@ import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
 import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
+import { TaskChecklist } from '@/components/today/TaskChecklist';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
@@ -119,6 +120,7 @@ export default function DailyView() {
     blocks: rawBlocks, blocksLoaded,
     tasksByBlock, unassignedTasks,
     assignTaskToBlock, removeTaskFromBlock, refreshTasks,
+    toggleTaskDone,
     toggleBlockComplete, isBlockCompleted,
     completedBlocks, completedTasks, dayScore,
     tasks,
@@ -278,6 +280,8 @@ export default function DailyView() {
                 <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} />
               </div>
             </div>
+
+            <TaskChecklist tasks={tasks} onToggle={toggleTaskDone} />
           </>
         ) : viewMode === 'esfuerzo' ? (
           <>
@@ -565,7 +569,7 @@ export default function DailyView() {
         )}
           </>
         ) : (
-          <ResultadosDia />
+          <ResultadosDia date={selectedDate} />
         )}
       </div>
     </div>

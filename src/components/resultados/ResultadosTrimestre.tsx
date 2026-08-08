@@ -1,98 +1,102 @@
 import {
-  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid,
+  ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid,
 } from 'recharts';
+import { Badge } from '@/components/ui/badge';
 import {
-  AreaRow, ResumenGeneral, CheckItem, ResultRow, StagesBar, AREA_COLORS,
+  useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER,
+} from '@/hooks/useResultadosPeriodo';
+import {
+  AreaRow, ResumenGeneral, CheckItem, ResultRow, StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS,
 } from './shared';
 
-const hoursByArea = [
-  { area: 'Universidad', hrs: 142, fill: '#3b82f6' },
-  { area: 'Lectura', hrs: 58, fill: '#06b6d4' },
-  { area: 'Música', hrs: 55, fill: '#ec4899' },
-  { area: 'Emprendimiento', hrs: 62, fill: '#a855f7' },
-  { area: 'Proyectos', hrs: 48, fill: '#f59e0b' },
-  { area: 'Gym', hrs: 34, fill: '#ef4444' },
-  { area: 'Ajedrez', hrs: 26, fill: '#334155' },
-  { area: 'Game', hrs: 20, fill: '#f43f5e' },
-];
-const booksQuarter = [
-  { name: 'Leídos', value: 4 },
-  { name: 'En curso', value: 2 },
-  { name: 'Pendientes', value: 2 },
-];
-const songsQuarter = [
-  { name: 'Aprendidas', value: 8 },
-  { name: 'En progreso', value: 3 },
-];
-const eloQuarter = [
-  { w: 'S1', elo: 1050 }, { w: 'S2', elo: 1058 }, { w: 'S3', elo: 1064 }, { w: 'S4', elo: 1071 },
-  { w: 'S5', elo: 1077 }, { w: 'S6', elo: 1082 }, { w: 'S7', elo: 1085 }, { w: 'S8', elo: 1088 },
-  { w: 'S9', elo: 1090 }, { w: 'S10', elo: 1090 }, { w: 'S11', elo: 1093 }, { w: 'S12', elo: 1096 },
-];
-const strengthQuarter = [
-  { m: 'M1', kg: 60 }, { m: 'M2', kg: 65 }, { m: 'M3', kg: 68 },
-];
+const AREA_BAR: Record<string, string> = {
+  universidad: '#3b82f6', emprendimiento: '#a855f7', proyectos: '#f59e0b',
+  lectura: '#06b6d4', musica: '#ec4899', ajedrez: '#334155',
+  game: '#f43f5e', idiomas: '#10b981', gym: '#ef4444', general: '#94a3b8',
+};
 
-export function ResultadosTrimestre() {
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="h-28 bg-muted/40 rounded-2xl animate-pulse" />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="grid gap-4 lg:grid-cols-2">
+          <div className="h-32 bg-muted/40 rounded-2xl animate-pulse" />
+          <div className="h-32 bg-muted/40 rounded-2xl animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ResultadosTrimestre({ quarter, year }: { quarter: number; year: number }) {
+  const start = new Date(year, (quarter - 1) * 3, 1);
+  const end = new Date(year, quarter * 3, 0);
+  const { data } = useResultadosPeriodo(start, end);
+  const r = data ?? EMPTY_RESULTADO;
+
+  const pct = r.globalTotal > 0 ? Math.round((r.globalDone / r.globalTotal) * 100) : 0;
+  const totalMin = r.systems.minutes + r.workoutMin + r.focusMin + Object.values(r.byArea).reduce((a, v) => a + v.minutes, 0);
+  const badges = [
+    r.globalTotal > 0 && `${r.globalDone}/${r.globalTotal} tareas`,
+    r.lectura.pages > 0 && `${r.lectura.pages} pág leídas`,
+    r.musica.songs > 0 && `${r.musica.songs} piezas`,
+    r.ajedrez.games > 0 && `${r.ajedrez.games} partidas`,
+    r.ingreso.amount > 0 && `$${r.ingreso.amount} ingresos`,
+  ].filter(Boolean) as string[];
+
+  const hoursByArea = AREA_ORDER
+    .map(k => ({ area: k, hrs: Math.round(r.byArea[k].minutes / 60), fill: AREA_BAR[k] || '#94a3b8' }))
+    .filter(x => x.hrs > 0);
+
   return (
     <div className="space-y-5">
       <ResumenGeneral
-        score={92}
-        subtitle="Trimestre completado · 92%"
-        badges={['4 libros terminados', '8 canciones', '5 exámenes aprobados', 'Racha 12 semanas']}
-        stats={[['Horas', '428h'], ['Libros', '4/8'], ['Elo', '+46'], ['Press', '+8kg']]}
+        score={r.score}
+        subtitle={`Trimestre Q${quarter} ${year} · ${r.score}%`}
+        badges={badges}
+        stats={[
+          ['Tareas', r.globalTotal > 0 ? `${pct}%` : '—'],
+          ['Páginas', String(r.lectura.pages)],
+          ['Horas', String(Math.round(totalMin / 60))],
+          ['Elo', r.ajedrez.elo != null ? String(r.ajedrez.elo) : '—'],
+        ]}
       />
 
-      {/* Tiempo del trimestre */}
-      <AreaRow
-        title="Tiempo del trimestre"
-        color="from-indigo-500 to-violet-500"
-        plan={
-          <ul className="space-y-1.5">
-            <CheckItem done>Universidad: min 360h</CheckItem>
-            <CheckItem done>Lectura: 150h en plan</CheckItem>
-            <CheckItem>Música: 165h al piano</CheckItem>
-            <CheckItem done>Emprendimiento: 180h</CheckItem>
-          </ul>
-        }
-        result={
-          <>
-            <div className="h-44">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hoursByArea} layout="vertical" margin={{ top: 0, right: 6, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.06)" />
-                  <XAxis type="number" tick={{ fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="area" width={86} tick={{ fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
-                    formatter={(v: any, n: any) => [`${v} h`, n]} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
-                  <Bar dataKey="hrs" radius={[0, 4, 4, 0]}>
-                    {hoursByArea.map(entry => <Cell key={entry.area} fill={entry.fill} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-[10px] text-muted-foreground">428 horas invertidas · plan meta 840h</p>
-          </>
-        }
-      />
+      {/* Tiempo por área */}
+      {hoursByArea.length > 0 && (
+        <div className="rounded-2xl bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Horas del trimestre</p>
+            <Badge variant="outline" className="text-[10px]">{Math.round(totalMin / 60)}h invertidas</Badge>
+          </div>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={hoursByArea} layout="vertical" margin={{ top: 0, right: 6, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.06)" />
+                <XAxis type="number" tick={{ fontSize: 8 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="area" width={86} tick={{ fontSize: 8 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
+                  formatter={(v: any) => [`${v} h`, 'Invertidas']} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+                <Bar dataKey="hrs" radius={[0, 4, 4, 0]}>
+                  {hoursByArea.map(e => <Cell key={e.area} fill={e.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Universidad */}
       <AreaRow
         title="Universidad"
         color={AREA_COLORS.universidad}
-        plan={
-          <ul className="space-y-1.5">
-            <CheckItem done>Terminar Cálculo III</CheckItem>
-            <CheckItem done>Aprobar Física II</CheckItem>
-            <CheckItem>Inglés B1</CheckItem>
-          </ul>
-        }
+        plan={<TaskPlanList area={r.byArea.universidad} />}
         result={
           <div className="space-y-1">
-            <ResultRow label="Cálculo III" value="Aprobado 4.5" ok />
-            <ResultRow label="Física II" value="Aprobado 4.1" ok />
-            <ResultRow label="Inglés B1" value="En curso 60%" pending />
-            <ResultRow label="Materias regulares" value="5/5" ok />
+            <MinutesRow area={r.byArea.universidad} />
+            <ResultRow label="Tareas completadas" value={`${r.byArea.universidad.done}/${r.byArea.universidad.total}`} ok={r.byArea.universidad.total > 0 && r.byArea.universidad.done === r.byArea.universidad.total} />
+            {r.byArea.universidad.minutes === 0 && r.byArea.universidad.total === 0 && <AreaEmpty />}
           </div>
         }
       />
@@ -103,36 +107,65 @@ export function ResultadosTrimestre() {
         color={AREA_COLORS.lectura}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem done>4 libros del plan trimestre</CheckItem>
-            <CheckItem>2 extra opcionales</CheckItem>
+            <CheckItem>Meta trimestral de páginas</CheckItem>
+            <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer {r.lectura.pagesGoal || 1500} páginas</CheckItem>
           </ul>
         }
         result={
           <>
-            <div className="flex items-center gap-4">
-              <div className="w-28 h-28 shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={booksQuarter} dataKey="value" innerRadius={32} outerRadius={46} paddingAngle={3} stroke="none">
-                      <Cell fill="#10b981" />
-                      <Cell fill="#06b6d4" />
-                      <Cell fill="#e2e8f0" />
-                    </Pie>
-                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500" /> 4 leídos (50%)</div>
-                <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-cyan-500" /> 2 en curso</div>
-                <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-200" /> 2 pendientes</div>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <ResultRow label="Páginas acumuladas" value="2.410" ok />
-              <ResultRow label="Promedio semanal" value="201 pág" />
-            </div>
+            <BigNumber
+              value={String(r.lectura.pages)}
+              fraction={`/ ${r.lectura.pagesGoal || 0} pág`}
+              label="páginas en el trimestre"
+              badge={r.lectura.pagesGoal > 0 && r.lectura.pages >= r.lectura.pagesGoal ? 'Meta ✓' : undefined}
+              accent="text-cyan-600"
+              progress={r.lectura.pagesGoal > 0 ? (r.lectura.pages / r.lectura.pagesGoal) * 100 : 0}
+            />
+            <MinutesRow area={{ minutes: r.lectura.minutes, goalMinutes: 0 }} label="Minutos de lectura" />
+            {r.lectura.sessions === 0 && <AreaEmpty />}
           </>
+        }
+      />
+
+      {/* Tareas generales */}
+      <AreaRow
+        title="Tareas generales"
+        color={AREA_COLORS.tareas}
+        plan={<TaskPlanList area={r.byArea.general} />}
+        result={
+          <div className="space-y-1">
+            <ResultRow label="Completadas" value={`${r.byArea.general.done}/${r.byArea.general.total}`} ok={r.byArea.general.total > 0 && r.byArea.general.done === r.byArea.general.total} />
+            {r.byArea.general.total === 0 && <AreaEmpty />}
+          </div>
+        }
+      />
+
+      {/* Emprendimiento */}
+      <AreaRow
+        title="Emprendimiento"
+        color={AREA_COLORS.emprendimiento}
+        plan={<TaskPlanList area={r.byArea.emprendimiento} />}
+        result={
+          <div className="space-y-1">
+            <MinutesRow area={r.byArea.emprendimiento} />
+            <ResultRow label="Tareas completadas" value={`${r.byArea.emprendimiento.done}/${r.byArea.emprendimiento.total}`} ok={r.byArea.emprendimiento.total > 0 && r.byArea.emprendimiento.done === r.byArea.emprendimiento.total} />
+            {r.ingreso.amount > 0 && <ResultRow label="Ingresos del trimestre" value={`$${r.ingreso.amount}`} ok />}
+            {r.byArea.emprendimiento.total === 0 && r.ingreso.count === 0 && <AreaEmpty />}
+          </div>
+        }
+      />
+
+      {/* Proyectos */}
+      <AreaRow
+        title="Proyectos"
+        color={AREA_COLORS.proyectos}
+        plan={<TaskPlanList area={r.byArea.proyectos} />}
+        result={
+          <div className="space-y-1">
+            <MinutesRow area={r.byArea.proyectos} />
+            <ResultRow label="Tareas completadas" value={`${r.byArea.proyectos.done}/${r.byArea.proyectos.total}`} ok={r.byArea.proyectos.total > 0 && r.byArea.proyectos.done === r.byArea.proyectos.total} />
+            {r.byArea.proyectos.total === 0 && r.byArea.proyectos.minutes === 0 && <AreaEmpty />}
+          </div>
         }
       />
 
@@ -142,72 +175,22 @@ export function ResultadosTrimestre() {
         color={AREA_COLORS.musica}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem done>10 canciones del plan</CheckItem>
-            <CheckItem done>"Vals No. 2" completo</CheckItem>
+            <CheckItem done={r.musica.minutes > 0}>Práctica trimestral</CheckItem>
+            <CheckItem>Escalas diarias</CheckItem>
           </ul>
         }
         result={
           <>
-            <div className="flex items-center gap-4">
-              <div className="w-24 h-24 shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={songsQuarter} dataKey="value" innerRadius={27} outerRadius={40} paddingAngle={3} stroke="none">
-                      <Cell fill="#ec4899" />
-                      <Cell fill="#f9a8d4" />
-                    </Pie>
-                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-pink-500" /> 8 aprendidas</div>
-                <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-pink-200" /> 3 en progreso</div>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <ResultRow label="Mejor logro" value='"Vals No. 2" al 100%' ok />
-              <ResultRow label="Mirada" value='3 canciones al 60-80%' pending />
-            </div>
+            <BigNumber
+              value={`${r.musica.minutes}`}
+              fraction="min"
+              label="práctica en el trimestre"
+              badge={r.musica.songs > 0 ? `${r.musica.songs} piezas` : undefined}
+              accent="text-pink-600"
+              progress={r.musica.minutes > 0 ? Math.min(r.musica.minutes, 600) * (100 / 600) : 0}
+            />
+            {r.musica.sessions === 0 && <AreaEmpty />}
           </>
-        }
-      />
-
-      {/* Emprendimiento */}
-      <AreaRow
-        title="Emprendimiento"
-        color={AREA_COLORS.emprendimiento}
-        plan={
-          <ul className="space-y-1.5">
-            <CheckItem>120 leads en trimestre</CheckItem>
-            <CheckItem>10 clientes cerrados</CheckItem>
-          </ul>
-        }
-        result={
-          <div className="space-y-1">
-            <ResultRow label="Leads generados" value="96/120" />
-            <ResultRow label="Clientes cerrados" value="7/10" />
-            <ResultRow label="Ingresos trimestre" value="$1.2k" ok />
-          </div>
-        }
-      />
-
-      {/* Proyectos */}
-      <AreaRow
-        title="Proyectos"
-        color={AREA_COLORS.proyectos}
-        plan={
-          <ul className="space-y-1.5">
-            <CheckItem done>App organizador — MVP</CheckItem>
-            <CheckItem>Landing cliente A</CheckItem>
-          </ul>
-        }
-        result={
-          <div className="space-y-1">
-            <ResultRow label="MVP app" value="Desplegado" ok />
-            <ResultRow label="Landing cliente A" value="80%" />
-            <ResultRow label="Tareas entregadas" value="34/40" />
-          </div>
         }
       />
 
@@ -217,32 +200,30 @@ export function ResultadosTrimestre() {
         color={AREA_COLORS.ajedrez}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem>90 partidas en trimestre</CheckItem>
-            <CheckItem>Llegar a 1100 Elo</CheckItem>
+            <CheckItem done={r.ajedrez.games > 0}>Partidas del trimestre</CheckItem>
+            <CheckItem>Tácticas 15 min/día</CheckItem>
           </ul>
         }
         result={
           <>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Elo inicio → fin</span>
-              <span className="font-semibold text-sm">1050 → 1096 <span className="text-emerald-500 text-xs">▲ +46</span></span>
-            </div>
-            <div className="h-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={eloQuarter} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
-                  <XAxis dataKey="w" tick={{ fontSize: 8 }} axisLine={false} tickLine={false} interval={1} />
-                  <YAxis domain={[1040, 1110]} tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={32} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
-                    formatter={(v: any) => [`${v}`, 'Elo']} />
-                  <Line type="monotone" dataKey="elo" stroke="#0f172a" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-1">
-              <ResultRow label="Partidas jugadas" value="78/90" />
-              <ResultRow label="Winrate" value="62%" ok />
-            </div>
+            <ResultRow label="Partidas jugadas" value={String(r.ajedrez.games)} ok={r.ajedrez.games > 0} />
+            <ResultRow label="Victorias" value={String(r.ajedrez.wins)} ok={r.ajedrez.wins > 0} />
+            <ResultRow label="Elo actual" value={r.ajedrez.elo != null ? String(r.ajedrez.elo) : '—'} pending={r.ajedrez.elo == null} />
+            {r.ajedrez.history.length > 1 && (
+              <div className="h-20">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={r.ajedrez.history} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
+                    <XAxis dataKey="d" tick={{ fontSize: 8 }} axisLine={false} tickLine={false} interval={2} />
+                    <YAxis domain={['dataMin - 20', 'dataMax + 20']} tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={32} />
+                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
+                      formatter={(v: any) => [`${v}`, 'Elo']} />
+                    <Line type="monotone" dataKey="elo" stroke="#0f172a" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {r.ajedrez.games === 0 && r.byArea.ajedrez.minutes === 0 && <AreaEmpty />}
           </>
         }
       />
@@ -253,30 +234,18 @@ export function ResultadosTrimestre() {
         color={AREA_COLORS.gym}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem>36 entrenamientos</CheckItem>
-            <CheckItem>Press banca → 70kg</CheckItem>
+            <CheckItem done={r.workoutMin > 0}>Entrenamientos del trimestre</CheckItem>
+            <CheckItem>Registrar pesos</CheckItem>
           </ul>
         }
         result={
-          <>
-            <div className="h-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={strengthQuarter} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
-                  <XAxis dataKey="m" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[55, 75]} tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={28} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
-                    formatter={(v: any) => [`${v} kg`, 'Peso']} />
-                  <Line type="monotone" dataKey="kg" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-1">
-              <ResultRow label="Entrenamientos" value="31/36" />
-              <ResultRow label="Press banca" value="68 kg (meta 70)" pending />
-              <ResultRow label="Consistencia" value="86%" ok />
-            </div>
-          </>
+          <div className="space-y-1">
+            <ResultRow label="Minutos de entrenamiento" value={`${r.workoutMin} min`} ok={r.workoutMin > 0} />
+            <ResultRow label="Ejercicios registrados" value={String(r.gym.logs)} ok={r.gym.logs > 0} />
+            <ResultRow label="Series registradas" value={String(r.gym.sets)} ok={r.gym.sets > 0} />
+            {r.gym.maxWeight != null && <ResultRow label="Máximo peso" value={`${r.gym.maxWeight} kg`} ok />}
+            {r.workoutMin === 0 && r.gym.logs === 0 && <AreaEmpty />}
+          </div>
         }
       />
 
@@ -286,19 +255,17 @@ export function ResultadosTrimestre() {
         color={AREA_COLORS.game}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem>10 citas en trimestre</CheckItem>
-            <CheckItem>Relación estable</CheckItem>
+            <CheckItem>Interacciones del trimestre</CheckItem>
+            <CheckItem done={r.game.citas > 0}>Citas</CheckItem>
           </ul>
         }
         result={
-          <>
-            <div className="space-y-1">
-              <ResultRow label="Citas" value="12" ok />
-              <ResultRow label="Número cerrados" value="4" />
-              <ResultRow label="Relación" value="Estable desde S9" ok />
-            </div>
-            <StagesBar stages={['Conocí', 'Salí', 'Besé', 'Intimidad']} current={3} />
-          </>
+          <div className="space-y-1">
+            <ResultRow label="Citas" value={String(r.game.citas)} ok={r.game.citas > 0} />
+            <ResultRow label="Eventos sociales" value={String(r.game.eventos)} ok={r.game.eventos > 0} />
+            <ResultRow label="Registros de intimidad" value={String(r.game.intimidad)} ok={r.game.intimidad > 0} />
+            <StagesBar stages={['Conocí', 'Salí', 'Besé', 'Intimidad']} current={r.game.intimidad > 0 ? 3 : r.game.citas > 0 ? 1 : 0} />
+          </div>
         }
       />
     </div>

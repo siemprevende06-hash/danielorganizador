@@ -115,12 +115,13 @@ export function ResumenGeneral({ score, subtitle, badges, stats }: {
   );
 }
 
-export function BigNumber({ value, fraction, label, badge, accent }: {
+export function BigNumber({ value, fraction, label, badge, accent, progress = 71 }: {
   value: string;
   fraction?: string;
   label: string;
   badge?: string;
   accent?: string;
+  progress?: number;
 }) {
   return (
     <>
@@ -131,9 +132,39 @@ export function BigNumber({ value, fraction, label, badge, accent }: {
         </div>
         {badge && <Badge variant="outline" className={cn('text-[10px]', accent)}>{badge}</Badge>}
       </div>
-      <Progress value={71} className="h-1.5" />
+      <Progress value={Math.min(progress, 100)} className="h-1.5" />
     </>
   );
+}
+
+export function TaskPlanList({ area }: { area: { tasks: any[] } }) {
+  if (!area.tasks || area.tasks.length === 0) {
+    return <p className="text-[10px] text-muted-foreground italic">Sin tareas planificadas</p>;
+  }
+  return (
+    <ul className="space-y-1.5">
+      {area.tasks.map((t: any) => (
+        <CheckItem key={t.id} done={t.completed}>{t.title}</CheckItem>
+      ))}
+    </ul>
+  );
+}
+
+export function MinutesRow({ area, label = 'Minutos invertidos' }: { area: { minutes: number; goalMinutes: number }; label?: string }) {
+  const goal = area.goalMinutes || 0;
+  const ok = area.minutes > 0 && area.minutes >= goal;
+  return (
+    <ResultRow
+      label={label}
+      value={goal > 0 ? `${Math.round(area.minutes / 60 * 10) / 10}h / ${Math.round(goal / 60 * 10) / 10}h` : `${Math.round(area.minutes / 60 * 10) / 10}h`}
+      ok={ok}
+      pending={area.minutes > 0 && !ok}
+    />
+  );
+}
+
+export function AreaEmpty({ children = 'Sin registro en el período' }: { children?: React.ReactNode }) {
+  return <p className="text-[10px] text-muted-foreground italic">{children}</p>;
 }
 
 export function MiniStat({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {

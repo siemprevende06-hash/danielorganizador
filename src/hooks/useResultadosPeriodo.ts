@@ -1,0 +1,283 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+export const AREA_ORDER = ['universidad', 'emprendimiento', 'proyectos', 'lectura', 'musica', 'ajedrez', 'game', 'idiomas', 'gym', 'general'] as const;
+export type AreaKey = (typeof AREA_ORDER)[number];
+
+const AREA_DISPLAY: Record<string, string> = {
+  universidad: 'universidad',
+  university: 'universidad',
+  emprendimiento: 'emprendimiento',
+  entrepreneurship: 'emprendimiento',
+  entrepreneur: 'emprendimiento',
+  proyectos: 'proyectos',
+  project: 'proyectos',
+  lectura: 'lectura',
+  musica: 'musica',
+  music: 'musica',
+  ajedrez: 'ajedrez',
+  game: 'game',
+  idiomas: 'idiomas',
+  italiano: 'idiomas',
+  ingles: 'idiomas',
+  gym: 'gym',
+  fitness: 'gym',
+};
+
+export function normalizeArea(area?: string | null): AreaKey {
+  if (!area) return 'general';
+  const mapped = AREA_DISPLAY[area.toLowerCase()];
+  return (mapped as AreaKey) || 'general';
+}
+
+export interface AreaResult {
+  total: number;
+  done: number;
+  minutes: number;
+  goalMinutes: number;
+  tasks: any[];
+}
+
+export interface ResultadoPeriodo {
+  loading: boolean;
+  error: string | null;
+  tasks: any[];
+  byArea: Record<AreaKey, AreaResult>;
+  globalDone: number;
+  globalTotal: number;
+  systems: { done: number; total: number; minutes: number };
+  workoutMin: number;
+  focusMin: number;
+  reviews: { count: number; avgRating: number };
+  lectura: { pages: number; pagesGoal: number; minutes: number; sessions: number; perDay: { d: string; pag: number }[] };
+  musica: { minutes: number; sessions: number; songs: number; perDay: { d: string; min: number }[] };
+  ajedrez: { minutes: number; games: number; wins: number; elo: number | null; history: { d: string; elo: number }[] };
+  gym: { logs: number; sets: number; maxWeight: number | null; perDay: { d: string; kg: number }[] };
+  game: { citas: number; intimidad: number; eventos: number };
+  ingreso: { count: number; amount: number };
+  perDay: { date: string; score: number; label: string }[];
+  score: number;
+}
+
+export function emptyAreaResult(): Record<AreaKey, AreaResult> {
+  const byArea = {} as Record<AreaKey, AreaResult>;
+  AREA_ORDER.forEach(k => {
+    byArea[k] = { total: 0, done: 0, minutes: 0, goalMinutes: 0, tasks: [] };
+  });
+  return byArea;
+}
+
+export const EMPTY_RESULTADO: ResultadoPeriodo = {
+  loading: false,
+  error: null,
+  tasks: [],
+  byArea: emptyAreaResult(),
+  globalDone: 0,
+  globalTotal: 0,
+  systems: { done: 0, total: 0, minutes: 0 },
+  workoutMin: 0,
+  focusMin: 0,
+  reviews: { count: 0, avgRating: 0 },
+  lectura: { pages: 0, pagesGoal: 0, minutes: 0, sessions: 0, perDay: [] },
+  musica: { minutes: 0, sessions: 0, songs: 0, perDay: [] },
+  ajedrez: { minutes: 0, games: 0, wins: 0, elo: null, history: [] },
+  gym: { logs: 0, sets: 0, maxWeight: null, perDay: [] },
+  game: { citas: 0, intimidad: 0, eventos: 0 },
+  ingreso: { count: 0, amount: 0 },
+  perDay: [],
+  score: 0,
+};
+
+const dayLabel = (d: string) => format(new Date(`${d}T12:00:00`), 'EEE d', { locale: es });
+
+export function useResultadosPeriodo(start: Date, end: Date) {
+  const startStr = format(start, 'yyyy-MM-dd');
+  const endStr = format(end, 'yyyy-MM-dd');
+
+  return useQuery<ResultadoPeriodo>({
+    queryKey: ['resultados', startStr, endStr],
+    queryFn: async () => {
+      const [
+        tasksRes, entTasksRes, areaStatsRes, systemsRes, reviewsRes,
+        readRes, musicRes, chessRes, logsRes, focusRes,
+        citasRes, intimidadRes, eventosRes, ingresoRes,
+      ] = await Promise.all([
+        supabase.from('tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
+        supabase.from('entrepreneurship_tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
+        supabase.from('daily_area_stats').select('*').gte('stat_date', startStr).lte('stat_date', endStr),
+        supabase.from('daily_systems_tracking').select('*').gte('tracking_date', startStr).lte('tracking_date', endStr),
+        supabase.from('daily_reviews').select('*').gte('review_date', startStr).lte('review_date', endStr),
+        supabase.from('reading_sessions').select('*').gte('session_date', startStr).lte('session_date', endStr),
+        supabase.from('music_practice_sessions').select('*').gte('practice_date', startStr).lte('practice_date', endStr),
+        supabase.from('chess_sessions').select('*').gte('session_date', startStr).lte('session_date', endStr),
+        supabase.from('exercise_logs').select('*').gte('log_date', startStr).lte('log_date', endStr),
+        supabase.from('focus_sessions').select('*').gte('session_date', startStr).lte('session_date', endStr),
+        supabase.from('citas').select('*').gte('fecha', startStr).lte('fecha', endStr),
+        supabase.from('intimidad_tracking').select('*').gte('fecha', startStr).lte('fecha', endStr),
+        supabase.from('eventos_sociales').select('*').gte('fecha', startStr).lte('fecha', endStr),
+        supabase.from('entrepreneurship_income').select('*').gte('income_date', startStr).lte('income_date', endStr),
+      ]);
+
+      const tasks = [
+        ...(tasksRes.data || []),
+        ...(entTasksRes.data || []).map((t: any) => ({ ...t, source: 'emprendimiento', _ent: true })),
+      ];
+      const areaStats = areaStatsRes.data || [];
+      const systems = systemsRes.data || [];
+      const reviews = reviewsRes.data || [];
+      const readings = readRes.data || [];
+      const music = musicRes.data || [];
+      const chess = chessRes.data || [];
+      const logs = logsRes.data || [];
+      const focus = focusRes.data || [];
+      const citas = citasRes.data || [];
+      const intimidad = intimidadRes.data || [];
+      const eventos = eventosRes.data || [];
+      const ingreso = ingresoRes.data || [];
+
+      const byArea = emptyAreaResult();
+
+      tasks.forEach((t: any) => {
+        const a = normalizeArea(t.area_id || t.source || t.area);
+        byArea[a].total++;
+        if (t.completed) byArea[a].done++;
+        byArea[a].tasks.push(t);
+      });
+
+      areaStats.forEach((s: any) => {
+        const a = normalizeArea(s.area_id);
+        byArea[a].minutes += s.time_spent_minutes || 0;
+        byArea[a].goalMinutes += s.time_goal_minutes || 0;
+      });
+
+      systems.forEach((s: any) => {
+        const td = s.time_data || {};
+        for (const [k, v] of Object.entries(td)) {
+          const a = normalizeArea(k);
+          byArea[a].minutes += Number(v) || 0;
+        }
+      });
+
+      const systemsDone = systems.reduce((acc: number, s: any) => acc + Object.values(s.completions || {}).filter(v => v === true).length, 0);
+      const systemsTotal = systems.length > 0 ? Math.max(...systems.map((s: any) => Object.keys(s.completions || {}).length)) : 0;
+      const systemsMin = systems.reduce((a: number, s: any) => a + Object.values(s.time_data || {}).reduce((x: number, v: any) => x + (Number(v) || 0), 0), 0);
+      const workoutMin = systems.reduce((a: number, s: any) => a + (s.workout_duration || 0), 0);
+      const focusMin = focus.reduce((a: number, f: any) => a + (f.duration_minutes || 0), 0);
+
+      let pages = 0;
+      let pagesGoal = 0;
+      let readMin = 0;
+      const readPerDay: Record<string, number> = {};
+      readings.forEach((r: any) => {
+        pages += r.pages_read || 0;
+        readMin += r.minutes || 0;
+        const d = r.session_date;
+        readPerDay[d] = (readPerDay[d] || 0) + (r.pages_read || 0);
+      });
+      areaStats.forEach((s: any) => {
+        if (normalizeArea(s.area_id) === 'lectura') pagesGoal += s.pages_goal || 0;
+      });
+
+      let musicMin = 0;
+      const musicPerDay: Record<string, number> = {};
+      const songs = new Set<string>();
+      music.forEach((m: any) => {
+        musicMin += m.duration_minutes || 0;
+        const d = m.practice_date;
+        musicPerDay[d] = (musicPerDay[d] || 0) + (m.duration_minutes || 0);
+        if (m.song_id) songs.add(m.song_id);
+      });
+
+      let chessGames = 0;
+      let chessWins = 0;
+      let chessElo: number | null = null;
+      const chessHistory: { d: string; elo: number }[] = [];
+      [...chess]
+        .sort((a: any, b: any) => String(a.session_date).localeCompare(String(b.session_date)))
+        .forEach((c: any) => {
+          chessGames += c.games_played || 0;
+          chessWins += c.games_won || 0;
+          if (c.current_elo) {
+            chessElo = c.current_elo;
+            chessHistory.push({ d: c.session_date, elo: c.current_elo });
+          }
+        });
+
+      let gymLogs = 0;
+      let gymSets = 0;
+      let gymMax: number | null = null;
+      const gymPerDay: Record<string, number> = {};
+      logs.forEach((l: any) => {
+        gymLogs++;
+        gymSets += l.sets_completed || 0;
+        const kg = Number(l.weight_kg) || 0;
+        if (kg > 0 && (gymMax === null || kg > gymMax)) gymMax = kg;
+        const d = l.log_date;
+        gymPerDay[d] = Math.max(gymPerDay[d] || 0, kg);
+      });
+
+      const ingAmount = ingreso.reduce((a: number, i: any) => a + (Number(i.amount) || 0), 0);
+
+      const allDates = new Set<string>();
+      tasks.forEach((t: any) => t.due_date && allDates.add(format(new Date(t.due_date), 'yyyy-MM-dd')));
+      systems.forEach((s: any) => allDates.add(s.tracking_date));
+      areaStats.forEach((s: any) => allDates.add(s.stat_date));
+      reviews.forEach((r: any) => allDates.add(r.review_date));
+      readings.forEach((r: any) => allDates.add(r.session_date));
+      music.forEach((m: any) => allDates.add(m.practice_date));
+      chess.forEach((c: any) => allDates.add(c.session_date));
+      logs.forEach((l: any) => allDates.add(l.log_date));
+
+      const perDay = [...allDates].sort().map(dt => {
+        const dayTasks = tasks.filter((t: any) => t.due_date && format(new Date(t.due_date), 'yyyy-MM-dd') === dt);
+        const review = reviews.find(r => r.review_date === dt);
+        const spentMin = areaStats.filter(s => s.stat_date === dt).reduce((a, s) => a + (s.time_spent_minutes || 0), 0);
+        let score = 0;
+        if (review?.overall_rating) score = review.overall_rating * 20;
+        else if (dayTasks.length > 0) score = Math.round((dayTasks.filter((t: any) => t.completed).length / dayTasks.length) * 100);
+        else if (spentMin > 0) score = 50;
+        return { date: dt, score, label: dayLabel(dt) };
+      });
+
+      const scores = perDay.filter(d => d.score > 0).map(d => d.score);
+      const score = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
+      return {
+        loading: false,
+        error: null,
+        tasks,
+        byArea,
+        globalDone: tasks.filter((t: any) => t.completed).length,
+        globalTotal: tasks.length,
+        systems: { done: systemsDone, total: systemsMax, minutes: systemsMin },
+        workoutMin,
+        focusMin,
+        reviews: {
+          count: reviews.length,
+          avgRating: reviews.length ? reviews.reduce((a: number, r: any) => a + (r.overall_rating || 0), 0) / reviews.length : 0,
+        },
+        lectura: {
+          pages,
+          pagesGoal,
+          minutes: readMin + byArea.lectura.minutes,
+          sessions: readings.length,
+          perDay: Object.entries(readPerDay).sort().map(([d, pag]) => ({ d, pag })),
+        },
+        musica: {
+          minutes: musicMin + byArea.musica.minutes,
+          sessions: music.length,
+          songs: songs.size,
+          perDay: Object.entries(musicPerDay).sort().map(([d, min]) => ({ d, min })),
+        },
+        ajedrez: { minutes: byArea.ajedrez.minutes, games: chessGames, wins: chessWins, elo: chessElo, history: chessHistory },
+        gym: { logs: gymLogs, sets: gymSets, maxWeight: gymMax, perDay: Object.entries(gymPerDay).sort().map(([d, kg]) => ({ d, kg })) },
+        game: { citas: citas.length, intimidad: intimidad.length, eventos: eventos.length },
+        ingreso: { count: ingreso.length, amount: ingAmount },
+        perDay,
+        score,
+      } as ResultadoPeriodo;
+    },
+  });
+}

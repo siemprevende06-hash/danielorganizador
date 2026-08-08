@@ -598,7 +598,7 @@ export default function TrimestralPlanningPage() {
       )}
           </>
         ) : (
-          <ResultadosTrimestre />
+          <ResultadosTrimestre quarter={quarter} year={year} />
         )}
     </div>
   );

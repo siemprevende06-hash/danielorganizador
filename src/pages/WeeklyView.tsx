@@ -242,7 +242,7 @@ export default function WeeklyView() {
         </section>
           </>
         ) : (
-          <ResultadosSemana />
+          <ResultadosSemana weekStart={weekStart} />
         )}
       </div>
     </div>

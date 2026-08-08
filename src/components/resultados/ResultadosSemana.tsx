@@ -1,57 +1,68 @@
 import {
-  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid,
 } from 'recharts';
+import { endOfWeek } from 'date-fns';
 import {
-  GraduationCap, BookOpen, ListTodo, Briefcase, FolderKanban, Mic2, Dumbbell, Trophy, CheckCircle2, Flame, Swords, Heart, TrendingUp, Clock, BedDouble, Droplets, Salad,
-} from 'lucide-react';
+  useResultadosPeriodo, EMPTY_RESULTADO,
+} from '@/hooks/useResultadosPeriodo';
 import {
-  AreaRow, ResumenGeneral, CheckItem, ResultRow, StagesBar, MiniStat, BigNumber, AREA_COLORS,
+  AreaRow, ResumenGeneral, CheckItem, ResultRow, StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS,
 } from './shared';
 
-const pagesWeek = [
-  { d: 'L', pag: 22 }, { d: 'M', pag: 30 }, { d: 'X', pag: 18 }, { d: 'J', pag: 35 }, { d: 'V', pag: 26 }, { d: 'S', pag: 40 }, { d: 'D', pag: 46 },
-];
-const chessDonut = [
-  { name: 'Victorias', value: 5 },
-  { name: 'Derrotas', value: 2 },
-];
-const taskDonut = [
-  { name: 'Completadas', value: 12 },
-  { name: 'Pendientes', value: 3 },
-];
-const strengthLine = [
-  { d: 'L', kg: 60 }, { d: 'M', kg: 62 }, { d: 'X', kg: 61 }, { d: 'J', kg: 64 }, { d: 'V', kg: 65 },
-];
-const songProgress = [
-  { d: 'L', min: 0.5 }, { d: 'M', min: 1.1 }, { d: 'X', min: 1.8 }, { d: 'J', min: 2.5 }, { d: 'V', min: 3.2 }, { d: 'S', min: 3.7 },
-];
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="h-28 bg-muted/40 rounded-2xl animate-pulse" />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="grid gap-4 lg:grid-cols-2">
+          <div className="h-32 bg-muted/40 rounded-2xl animate-pulse" />
+          <div className="h-32 bg-muted/40 rounded-2xl animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
-export function ResultadosSemana() {
+export function ResultadosSemana({ weekStart }: { weekStart: Date }) {
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const { data } = useResultadosPeriodo(weekStart, weekEnd);
+  const r = data ?? EMPTY_RESULTADO;
+
+  const pct = r.globalTotal > 0 ? Math.round((r.globalDone / r.globalTotal) * 100) : 0;
+  const totalMin = r.systems.minutes + r.workoutMin + r.focusMin + Object.values(r.byArea).reduce((a, v) => a + v.minutes, 0);
+  const badges = [
+    r.globalTotal > 0 && `${r.globalDone}/${r.globalTotal} tareas`,
+    r.systems.total > 0 && `${r.systems.done} hábitos/día`,
+    r.lectura.pages > 0 && `${r.lectura.pages} pág`,
+    r.ajedrez.games > 0 && `${r.ajedrez.games} partidas`,
+  ].filter(Boolean) as string[];
+
+  const dayName = (d: string) => d.slice(8, 10);
+
   return (
     <div className="space-y-5">
       <ResumenGeneral
-        score={78}
-        subtitle="Semana completada · 78%"
-        badges={['2 exámenes aprobados', '+30 Elo', '2 libros en curso']}
-        stats={[['Tareas', '80%'], ['Páginas', '217'], ['Fuerza', '+8%'], ['Partidas', '7']]}
+        score={r.score}
+        subtitle={`Semana · ${r.score}%`}
+        badges={badges}
+        stats={[
+          ['Tareas', r.globalTotal > 0 ? `${pct}%` : '—'],
+          ['Páginas', String(r.lectura.pages)],
+          ['Horas', String(Math.round(totalMin / 60))],
+          ['Partidas', String(r.ajedrez.games)],
+        ]}
       />
 
       {/* Universidad */}
       <AreaRow
         title="Universidad"
         color={AREA_COLORS.universidad}
-        plan={
-          <ul className="space-y-1.5">
-            <CheckItem>Cálculo: tema 7 completo</CheckItem>
-            <CheckItem>Física: problemas 4.1–4.5</CheckItem>
-            <CheckItem done>Álgebra: quiz de matrices</CheckItem>
-          </ul>
-        }
+        plan={<TaskPlanList area={r.byArea.universidad} />}
         result={
           <div className="space-y-1">
-            <ResultRow label="Quiz Álgebra" value="Aprobado" ok />
-            <ResultRow label="Tema Cálculo 7" value="Leído + ejercicios" ok />
-            <ResultRow label="Problemas Física" value="3/5 resueltos" pending />
+            <MinutesRow area={r.byArea.universidad} />
+            <ResultRow label="Tareas completadas" value={`${r.byArea.universidad.done}/${r.byArea.universidad.total}`} ok={r.byArea.universidad.total > 0 && r.byArea.universidad.done === r.byArea.universidad.total} />
+            {r.byArea.universidad.minutes === 0 && r.byArea.universidad.total === 0 && <AreaEmpty />}
           </div>
         }
       />
@@ -62,58 +73,48 @@ export function ResultadosSemana() {
         color={AREA_COLORS.lectura}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem>"Hábitos Atómicos" — 200–240</CheckItem>
-            <CheckItem>Meta semanal: 180 páginas</CheckItem>
+            <CheckItem>Meta semanal de páginas</CheckItem>
+            <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer {r.lectura.pagesGoal || 150} páginas en la semana</CheckItem>
           </ul>
         }
         result={
           <>
-            <BigNumber value="217" fraction="/ 180 pág" label="páginas leídas en la semana" badge="Meta 120% ✓" accent="text-cyan-600" />
-            <div className="h-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={pagesWeek} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
-                  <XAxis dataKey="d" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={28} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
-                    formatter={(v: any) => [`${v} pág`, 'Leídas']} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
-                  <Bar dataKey="pag" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <BigNumber
+              value={String(r.lectura.pages)}
+              fraction={`/ ${r.lectura.pagesGoal || 0} pág`}
+              label="páginas leídas en la semana"
+              badge={r.lectura.pagesGoal > 0 && r.lectura.pages >= r.lectura.pagesGoal ? 'Meta ✓' : undefined}
+              accent="text-cyan-600"
+              progress={r.lectura.pagesGoal > 0 ? (r.lectura.pages / r.lectura.pagesGoal) * 100 : 0}
+            />
+            {r.lectura.perDay.length > 0 && (
+              <div className="h-20">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={r.lectura.perDay.map(p => ({ ...p, d: dayName(p.d) }))} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
+                    <XAxis dataKey="d" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
+                      formatter={(v: any) => [`${v} pág`, 'Leídas']} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+                    <Bar dataKey="pag" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {r.lectura.sessions === 0 && <AreaEmpty>Sin sesiones de lectura en la semana</AreaEmpty>}
           </>
         }
       />
 
-      {/* Tareas */}
+      {/* Tareas generales */}
       <AreaRow
-        title="Tareas"
+        title="Tareas generales"
         color={AREA_COLORS.tareas}
-        plan={
-          <ul className="space-y-1.5">
-            <CheckItem done>Formulario U</CheckItem>
-            <CheckItem done>Enviar correo profe</CheckItem>
-            <CheckItem>Landing cliente A</CheckItem>
-          </ul>
-        }
+        plan={<TaskPlanList area={r.byArea.general} />}
         result={
-          <div className="flex items-center gap-4">
-            <div className="w-28 h-28 shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={taskDonut} dataKey="value" innerRadius={32} outerRadius={46} paddingAngle={3} stroke="none">
-                    <Cell fill="#10b981" />
-                    <Cell fill="#e2e8f0" />
-                  </Pie>
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-xs"><span className="w-2 h-2 rounded-full bg-emerald-500" /> 12 completadas</div>
-              <div className="flex items-center gap-2 text-xs"><span className="w-2 h-2 rounded-full bg-slate-200" /> 3 pendientes</div>
-              <p className="text-[10px] text-muted-foreground pt-1">80% de la semana resuelto</p>
-            </div>
+          <div className="space-y-1">
+            <ResultRow label="Completadas" value={`${r.byArea.general.done}/${r.byArea.general.total}`} ok={r.byArea.general.total > 0 && r.byArea.general.done === r.byArea.general.total} />
+            {r.byArea.general.total === 0 && <AreaEmpty />}
           </div>
         }
       />
@@ -122,17 +123,13 @@ export function ResultadosSemana() {
       <AreaRow
         title="Emprendimiento"
         color={AREA_COLORS.emprendimiento}
-        plan={
-          <ul className="space-y-1.5">
-            <CheckItem done>3 posts</CheckItem>
-            <CheckItem>Contactar 10 leads</CheckItem>
-          </ul>
-        }
+        plan={<TaskPlanList area={r.byArea.emprendimiento} />}
         result={
           <div className="space-y-1">
-            <ResultRow label="Leads contactados" value="8/10" />
-            <ResultRow label="Publicados" value="3/3" ok />
-            <ResultRow label="Reuniones concretadas" value="2" />
+            <MinutesRow area={r.byArea.emprendimiento} />
+            <ResultRow label="Tareas completadas" value={`${r.byArea.emprendimiento.done}/${r.byArea.emprendimiento.total}`} ok={r.byArea.emprendimiento.total > 0 && r.byArea.emprendimiento.done === r.byArea.emprendimiento.total} />
+            {r.ingreso.amount > 0 && <ResultRow label="Ingresos" value={`$${r.ingreso.amount}`} ok />}
+            {r.byArea.emprendimiento.total === 0 && r.ingreso.count === 0 && <AreaEmpty />}
           </div>
         }
       />
@@ -141,16 +138,12 @@ export function ResultadosSemana() {
       <AreaRow
         title="Proyectos"
         color={AREA_COLORS.proyectos}
-        plan={
-          <ul className="space-y-1.5">
-            <CheckItem done>App organizador: login</CheckItem>
-            <CheckItem>Landing cliente A</CheckItem>
-          </ul>
-        }
+        plan={<TaskPlanList area={r.byArea.proyectos} />}
         result={
           <div className="space-y-1">
-            <ResultRow label="Login implementado" value="✓" ok />
-            <ResultRow label="Avance landing" value="60%" />
+            <MinutesRow area={r.byArea.proyectos} />
+            <ResultRow label="Tareas completadas" value={`${r.byArea.proyectos.done}/${r.byArea.proyectos.total}`} ok={r.byArea.proyectos.total > 0 && r.byArea.proyectos.done === r.byArea.proyectos.total} />
+            {r.byArea.proyectos.total === 0 && r.byArea.proyectos.minutes === 0 && <AreaEmpty />}
           </div>
         }
       />
@@ -161,25 +154,35 @@ export function ResultadosSemana() {
         color={AREA_COLORS.musica}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem>"Vals No. 2" — hasta 3:00</CheckItem>
+            <CheckItem done={r.musica.minutes > 0}>Practicar instrumento</CheckItem>
             <CheckItem>Escalas diarias</CheckItem>
           </ul>
         }
         result={
           <>
-            <BigNumber value="3:42" fraction="/ 5:10" label='"Vals No. 2"' badge="71% dominado" accent="text-pink-600" />
-            <div className="h-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={songProgress} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
-                  <XAxis dataKey="d" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={28} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
-                    formatter={(v: any) => [`${v} min`, 'Dominados']} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
-                  <Bar dataKey="min" fill="#ec4899" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <BigNumber
+              value={`${r.musica.minutes}`}
+              fraction="min"
+              label="práctica en la semana"
+              badge={r.musica.songs > 0 ? `${r.musica.songs} piezas` : undefined}
+              accent="text-pink-600"
+              progress={r.musica.minutes > 0 ? Math.min(r.musica.minutes / 5, 100) : 0}
+            />
+            {r.musica.perDay.length > 0 && (
+              <div className="h-20">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={r.musica.perDay.map(p => ({ ...p, d: dayName(p.d) }))} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
+                    <XAxis dataKey="d" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
+                      formatter={(v: any) => [`${v} min`, 'Práctica']} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+                    <Bar dataKey="min" fill="#ec4899" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {r.musica.sessions === 0 && <AreaEmpty />}
           </>
         }
       />
@@ -190,29 +193,31 @@ export function ResultadosSemana() {
         color={AREA_COLORS.ajedrez}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem>7 partidas planificadas</CheckItem>
-            <CheckItem done>Tácticas 30 min</CheckItem>
+            <CheckItem done={r.ajedrez.games > 0}>Partidas de la semana</CheckItem>
+            <CheckItem>Tácticas 15 min/día</CheckItem>
           </ul>
         }
         result={
-          <div className="flex items-center gap-4">
-            <div className="w-28 h-28 shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={chessDonut} dataKey="value" innerRadius={32} outerRadius={46} paddingAngle={3} stroke="none">
-                    <Cell fill="#0f172a" />
-                    <Cell fill="#f43f5e" />
-                  </Pie>
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-900" /> 5 victorias</div>
-              <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-rose-500" /> 2 derrotas</div>
-              <p className="font-semibold text-sm pt-1">Elo 1065 <span className="text-emerald-500 text-xs">▲ +30</span></p>
-            </div>
-          </div>
+          <>
+            <ResultRow label="Partidas jugadas" value={String(r.ajedrez.games)} ok={r.ajedrez.games > 0} />
+            <ResultRow label="Victorias" value={String(r.ajedrez.wins)} ok={r.ajedrez.wins > 0} />
+            <ResultRow label="Elo actual" value={r.ajedrez.elo != null ? String(r.ajedrez.elo) : '—'} pending={r.ajedrez.elo == null} />
+            {r.ajedrez.history.length > 1 && (
+              <div className="h-20">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={r.ajedrez.history} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
+                    <XAxis dataKey="d" tick={{ fontSize: 8 }} axisLine={false} tickLine={false} />
+                    <YAxis domain={['dataMin - 20', 'dataMax + 20']} tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={32} />
+                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
+                      formatter={(v: any) => [`${v}`, 'Elo']} />
+                    <Line type="monotone" dataKey="elo" stroke="#0f172a" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {r.ajedrez.games === 0 && r.byArea.ajedrez.minutes === 0 && <AreaEmpty />}
+          </>
         }
       />
 
@@ -222,44 +227,18 @@ export function ResultadosSemana() {
         color={AREA_COLORS.gym}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem done>Press 4×8</CheckItem>
-            <CheckItem>Sentadilla 3×12</CheckItem>
-            <CheckItem done>Cardio 20 min ×3</CheckItem>
+            <CheckItem done={r.workoutMin > 0}>Entrenamientos de la semana</CheckItem>
+            <CheckItem>Registrar pesos</CheckItem>
           </ul>
         }
         result={
-          <>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-muted/40 p-2.5">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Press banca</p>
-                <p className="text-sm font-bold">60 kg <span className="text-emerald-500 text-[10px]">▲ 2kg</span></p>
-                <ProgressLite value={75} />
-              </div>
-              <div className="rounded-xl bg-muted/40 p-2.5">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Sentadilla</p>
-                <p className="text-sm font-bold">85 kg <span className="text-emerald-500 text-[10px]">▲ 5kg</span></p>
-                <ProgressLite value={60} />
-              </div>
-            </div>
-            <div className="h-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={strengthLine} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
-                  <XAxis dataKey="d" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[55, 70]} tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={28} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
-                    formatter={(v: any) => [`${v} kg`, 'Peso']} />
-                  <Line type="monotone" dataKey="kg" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <MiniStat label="Sueño" value="7h 10m" icon={<BedDouble className="w-3.5 h-3.5" />} />
-              <MiniStat label="Agua" value="14L" icon={<Droplets className="w-3.5 h-3.5" />} />
-              <MiniStat label="Comidas" value="21/28" icon={<Salad className="w-3.5 h-3.5" />} />
-              <MiniStat label="Ejercicio" value="3.5h" icon={<Clock className="w-3.5 h-3.5" />} />
-            </div>
-          </>
+          <div className="space-y-1">
+            <ResultRow label="Minutos de entrenamiento" value={`${r.workoutMin} min`} ok={r.workoutMin > 0} />
+            <ResultRow label="Ejercicios registrados" value={String(r.gym.logs)} ok={r.gym.logs > 0} />
+            <ResultRow label="Series registradas" value={String(r.gym.sets)} ok={r.gym.sets > 0} />
+            {r.gym.maxWeight != null && <ResultRow label="Máximo peso" value={`${r.gym.maxWeight} kg`} ok />}
+            {r.workoutMin === 0 && r.gym.logs === 0 && <AreaEmpty />}
+          </div>
         }
       />
 
@@ -269,29 +248,19 @@ export function ResultadosSemana() {
         color={AREA_COLORS.game}
         plan={
           <ul className="space-y-1.5">
-            <CheckItem>Cita con Laura</CheckItem>
-            <CheckItem>3 interacciones</CheckItem>
+            <CheckItem>Interacciones de la semana</CheckItem>
+            <CheckItem done={r.game.citas > 0}>Citas</CheckItem>
           </ul>
         }
         result={
-          <>
-            <div className="space-y-1">
-              <ResultRow label="Citas concretadas" value="1 ✓" ok />
-              <ResultRow label="Interacciones" value="3" />
-              <ResultRow label="Número cerrado" value="1" ok />
-            </div>
-            <StagesBar stages={['Conocí', 'Salí', 'Besé', 'Intimidad']} current={1} />
-          </>
+          <div className="space-y-1">
+            <ResultRow label="Citas" value={String(r.game.citas)} ok={r.game.citas > 0} />
+            <ResultRow label="Eventos sociales" value={String(r.game.eventos)} ok={r.game.eventos > 0} />
+            <ResultRow label="Registros de intimidad" value={String(r.game.intimidad)} ok={r.game.intimidad > 0} />
+            <StagesBar stages={['Conocí', 'Salí', 'Besé', 'Intimidad']} current={r.game.intimidad > 0 ? 3 : r.game.citas > 0 ? 1 : 0} />
+          </div>
         }
       />
-    </div>
-  );
-}
-
-function ProgressLite({ value }: { value: number }) {
-  return (
-    <div className="h-1 bg-muted rounded-full mt-1 overflow-hidden">
-      <div className="h-full bg-red-500 rounded-full" style={{ width: `${value}%` }} />
     </div>
   );
 }

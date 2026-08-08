@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRoutineBlocksDB, type RoutineBlock } from '@/hooks/useRoutineBlocksDB';
 import { useBlockCompletions } from '@/hooks/useBlockCompletions';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 
 export interface TaskItem {
@@ -18,6 +19,7 @@ export interface TaskItem {
 }
 
 export function useDailyPlanData(date?: Date) {
+  const queryClient = useQueryClient();
   const { blocks, isLoaded: blocksLoaded } = useRoutineBlocksDB();
   const { completions: blockCompletions, isLoading: completionsLoading, toggleBlockComplete, isBlockCompleted } = useBlockCompletions();
 
@@ -224,6 +226,22 @@ export function useDailyPlanData(date?: Date) {
     }
   }, [tasks, planAssignments, dateStr, todayStr]);
 
+  const toggleTaskDone = useCallback(async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const table = task.source === 'entrepreneurship' ? 'entrepreneurship_tasks' : 'tasks';
+    const next = !task.completed;
+    try {
+      await supabase.from(table as any).update({ completed: next }).eq('id', taskId);
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: next } : t));
+      queryClient.invalidateQueries({ queryKey: ['weeklyData'] });
+      queryClient.invalidateQueries({ queryKey: ['resultados'] });
+      queryClient.invalidateQueries({ queryKey: ['monthlyData'] });
+    } catch (error) {
+      console.error('Error toggling task:', error);
+    }
+  }, [tasks, queryClient]);
+
   const completedBlocks = useMemo(() => {
     return blocks.filter(b => isBlockCompleted(b.id));
   }, [blocks, isBlockCompleted]);
@@ -249,6 +267,7 @@ export function useDailyPlanData(date?: Date) {
     assignTaskToBlock,
     removeTaskFromBlock,
     refreshTasks: loadTasks,
+    toggleTaskDone,
     blockCompletions,
     completionsLoading,
     toggleBlockComplete,
