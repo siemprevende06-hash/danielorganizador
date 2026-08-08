@@ -25,6 +25,7 @@ import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
+import { PanelControlSection, computePanelSummary } from '@/components/control/PanelControlSection';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
@@ -33,7 +34,7 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2 } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, Gauge } from 'lucide-react';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -178,7 +179,7 @@ export default function DailyView() {
     }
   }, [planRoutineType, setRoutineType]);
 
-  const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten'>('tasks');
+  const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten' | 'control'>('tasks');
   const completedHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.filter(h => data.completions?.[h.id]).length, 0);
   const totalHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.length, 0);
   const mejoraMinutes = (data.timeData?.lectura || 0) + (data.timeData?.musica || 0) + (data.timeData?.ajedrez || 0) + (data.workoutDuration || 0);
@@ -196,11 +197,13 @@ export default function DailyView() {
     emprendimiento: data.timeData?.emprendimiento || 0,
     proyectos: data.timeData?.proyectos || 0,
   };
+  const panelSummary = useMemo(() => computePanelSummary(data.timeData || {}, data.workoutDuration || 0), [data.timeData, data.workoutDuration]);
   const SECTIONS = [
     { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: data.workoutDuration || 0 },
     { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: 0 },
     { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: mejoraMinutes },
     { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: sostenMinutes },
+    { id: 'control' as const, label: 'Panel de control', icon: <Gauge className="h-4 w-4" />, pct: panelSummary.pct, time: panelSummary.minutes },
   ];
 
   if (loading) {
@@ -231,7 +234,7 @@ export default function DailyView() {
         </div>
 
         {/* Section tabs as cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {SECTIONS.map(s => {
             const isActive = activeSection === s.id;
             return (
@@ -508,6 +511,10 @@ export default function DailyView() {
               <NotionCalendar />
             </div>
           </FocusProcessPanel>
+        )}
+      {/* ===== SECCIÓN: PANEL DE CONTROL ===== */}
+        {activeSection === 'control' && (
+          <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} />
         )}
       </div>
     </div>
