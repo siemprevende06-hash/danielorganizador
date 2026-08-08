@@ -139,7 +139,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('music_practice_sessions').select('*').gte('practice_date', startStr).lte('practice_date', endStr),
         supabase.from('chess_sessions').select('*').gte('session_date', startStr).lte('session_date', endStr),
         supabase.from('exercise_logs').select('*').gte('log_date', startStr).lte('log_date', endStr),
-        supabase.from('focus_sessions').select('*').gte('session_date', startStr).lte('session_date', endStr),
+        supabase.from('focus_sessions').select('*').gte('start_time', `${startStr}T00:00:00`).lte('start_time', `${endStr}T23:59:59`),
         supabase.from('citas').select('*').gte('fecha', startStr).lte('fecha', endStr),
         supabase.from('intimidad_tracking').select('*').gte('fecha', startStr).lte('fecha', endStr),
         supabase.from('eventos_sociales').select('*').gte('fecha', startStr).lte('fecha', endStr),
