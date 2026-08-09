@@ -11,7 +11,7 @@ import { Plus, Trash2, Pencil, FolderKanban, Target, ListTodo, ChevronDown, Chev
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useImageUpload } from '@/hooks/useImageUpload';
-import { useActiveSelection } from '@/hooks/useActiveSelection';
+import { useActiveSelections } from '@/hooks/useActiveSelections';
 import { useProjects, type Project, type ProjectTask } from '@/hooks/useProjects';
 
 export default function ProjectsPage() {
@@ -27,7 +27,7 @@ export default function ProjectsPage() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
   const [subTaskTitle, setSubTaskTitle] = useState('');
-  const { value: selectedProjectId, set: setSelectedProjectId, toggle: toggleSelectedProject } = useActiveSelection('selectedProjectId');
+  const { values: activeProjectIds, toggle: toggleSelectedProject } = useActiveSelections('activeProjects');
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { uploadImage, uploading } = useImageUpload();
@@ -46,7 +46,7 @@ export default function ProjectsPage() {
   };
 
   const handleSelectProject = (projectId: string) => {
-    const wasSelected = selectedProjectId === projectId;
+    const wasSelected = activeProjectIds.includes(projectId);
     toggleSelectedProject(projectId);
     toast({ title: wasSelected ? 'Proyecto deseleccionado' : 'Proyecto activo seleccionado' });
   };
@@ -193,7 +193,7 @@ export default function ProjectsPage() {
           <div className="grid gap-3 md:grid-cols-2">
             {projects.map((project) => {
               const progress = getProjectProgress(project);
-              const isSelected = selectedProjectId === project.id;
+              const isSelected = activeProjectIds.includes(project.id);
               const isExpanded = expandedProjects.has(project.id);
               const pendingTasks = project.tasks.filter(t => !t.completed).length;
               return (

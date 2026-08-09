@@ -2,8 +2,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Circle, BookOpen, Music } from 'lucide-react';
-import type { PlanBook, PlanSong } from '@/hooks/useResultadosPeriodo';
+import { CheckCircle2, Circle, BookOpen, Music, Target, ClipboardList } from 'lucide-react';
+import type { PlanBook, PlanSong, UniversitySubjectResult, BusinessResult, ProjectResult } from '@/hooks/useResultadosPeriodo';
 
 export const AREA_COLORS: Record<string, string> = {
   universidad: 'from-blue-600 to-indigo-500',
@@ -15,6 +15,7 @@ export const AREA_COLORS: Record<string, string> = {
   ajedrez: 'from-slate-600 to-zinc-600',
   gym: 'from-red-500 to-orange-500',
   game: 'from-rose-500 to-red-500',
+  idiomas: 'from-teal-500 to-emerald-500',
 };
 
 export function AreaCard({ title, icon, color, children }: {
@@ -47,6 +48,204 @@ export function AreaRow({ title, color, plan, result }: {
     <div className="grid gap-4 lg:grid-cols-2">
       <AreaCard title={`${title} — lo planificado`} color={color}>{plan}</AreaCard>
       <AreaCard title={`${title} — resultado`} color={color}>{result}</AreaCard>
+    </div>
+  );
+}
+
+/** Contenedor global de la sección de resultados: cabeceras de columna únicas arriba */
+export function ResultadoColumnas({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm p-4 space-y-5">
+      <div className="grid grid-cols-2 gap-4 pb-2 border-b border-muted/40">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <ClipboardList className="h-3.5 w-3.5 text-primary/70" /> Planificación
+        </p>
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <Target className="h-3.5 w-3.5 text-primary/70" /> Objetivos
+        </p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function GrupoResultados({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2.5">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">{label}</h3>
+      <div className="space-y-4">{children}</div>
+    </div>
+  );
+}
+
+/** Fila de área: título arriba y su contenido repartido en las 2 columnas (planificado | objetivos) */
+export function AreaRowCols({ title, color, plan, objetivo }: {
+  title: string;
+  color?: string;
+  plan: React.ReactNode;
+  objetivo: React.ReactNode;
+}) {
+  return (
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      {color && <div className={cn('h-1 bg-gradient-to-r', color)} />}
+      <CardContent className="p-4">
+        <h3 className="text-sm font-bold tracking-tight mb-3">{title}</h3>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2 min-w-0">{plan}</div>
+          <div className="space-y-2 min-w-0">{objetivo}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function OtherTasksList({ tasks, label = 'Tareas de la página Tareas' }: { tasks: any[]; label?: string }) {
+  if (!tasks || tasks.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+      <TaskPlanList area={{ tasks }} />
+    </div>
+  );
+}
+
+/** Planificado de Universidad: asignaturas activas con sus temas y tareas */
+export function UniversityPlan({ data }: { data: UniversitySubjectResult[] }) {
+  if (data.length === 0) return <AreaEmpty>Activa asignaturas desde la página de Universidad</AreaEmpty>;
+  return (
+    <div className="space-y-3">
+      {data.map(subj => (
+        <div key={subj.id} className="rounded-xl border border-muted/50 p-2.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold truncate">{subj.name}</p>
+            <Badge variant="outline" className="text-[8px] shrink-0">{subj.topics.length} temas</Badge>
+          </div>
+          {subj.topics.length > 0 && (
+            <ul className="space-y-1">
+              {subj.topics.map(tp => (
+                <li key={tp.id} className="flex items-start gap-2 text-[11px] text-muted-foreground">
+                  <BookOpen className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" />
+                  <span>{tp.title}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {subj.tasks.length > 0 && <TaskPlanList area={{ tasks: subj.tasks }} />}
+          {subj.topics.length === 0 && subj.tasks.length === 0 && (
+            <p className="text-[10px] italic text-muted-foreground">Sin temas ni tareas</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Objetivos de Universidad: exámenes, parciales y entregas de las asignaturas activas */
+export function UniversityObjetivos({ data }: { data: UniversitySubjectResult[] }) {
+  const blocks = data.flatMap(subj => [
+    ...subj.exams.map(e => ({ key: `e-${e.id}`, subject: subj.name, title: e.title, done: e.done, kind: 'Examen', date: e.date })),
+    ...subj.partials.map(p => ({ key: `p-${p.id}`, subject: subj.name, title: p.title, done: p.done, kind: 'Parcial', date: p.date })),
+    ...subj.deliveries.map(d => ({ key: `d-${d.id}`, subject: subj.name, title: d.title, done: d.completed, kind: 'Entrega', date: d.dueShort })),
+  ]);
+  if (blocks.length === 0) return <AreaEmpty>Sin exámenes ni entregas en el período</AreaEmpty>;
+  return (
+    <ul className="space-y-1.5">
+      {blocks.map(b => (
+        <li key={b.key} className="flex items-start gap-2 text-xs">
+          {b.done
+            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+            : <Circle className="h-3.5 w-3.5 text-muted-foreground/40 mt-0.5 shrink-0" />}
+          <div className="min-w-0 flex-1">
+            <p className={cn('break-words leading-snug', b.done && 'line-through opacity-60')}>{b.title}</p>
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">{b.subject}</Badge>
+              <Badge variant="outline" className={cn('text-[8px] px-1 py-0 h-3.5', b.kind === 'Entrega' && 'text-amber-600')}>{b.kind}</Badge>
+              {b.date && <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5">{String(b.date).slice(0, 10)}</Badge>}
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Planificado de Emprendimiento: negocios activos con sus tareas */
+export function EntPlan({ data }: { data: BusinessResult[] }) {
+  if (data.length === 0) return <AreaEmpty>Activa emprendimientos desde su página</AreaEmpty>;
+  return (
+    <div className="space-y-3">
+      {data.map(biz => (
+        <div key={biz.id} className="rounded-xl border border-muted/50 p-2.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold truncate">{biz.name}</p>
+            <Badge variant="outline" className="text-[8px] shrink-0">{biz.tasksDone}/{biz.tasksTotal} tareas</Badge>
+          </div>
+          {biz.tasks.length > 0 ? <TaskPlanList area={{ tasks: biz.tasks }} /> : (
+            <p className="text-[10px] italic text-muted-foreground">Sin tareas en el período</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Objetivos de Emprendimiento: objetivos marcados de los negocios activos */
+export function EntObjetivos({ data }: { data: BusinessResult[] }) {
+  const blocks = data.flatMap(biz => biz.goals.map(g => ({ key: g.id, subject: biz.name, ...g })));
+  if (blocks.length === 0) return <AreaEmpty>Define objetivos en cada emprendimiento</AreaEmpty>;
+  return (
+    <ul className="space-y-1.5">
+      {blocks.map(g => (
+        <li key={g.key} className="flex items-start gap-2 text-xs">
+          {g.completed
+            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+            : <Target className="h-3.5 w-3.5 text-purple-500 mt-0.5 shrink-0" />}
+          <span className={cn('break-words leading-snug', g.completed && 'line-through opacity-60')}>{g.title}</span>
+          <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5 ml-auto shrink-0">{g.subject}</Badge>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Planificado de Proyectos: proyectos activos con sus tareas */
+export function ProyectosPlan({ data }: { data: ProjectResult[] }) {
+  if (data.length === 0) return <AreaEmpty>Activa proyectos desde su página</AreaEmpty>;
+  return (
+    <div className="space-y-3">
+      {data.map(p => (
+        <div key={p.id} className="rounded-xl border border-muted/50 p-2.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold truncate">{p.name}</p>
+            <Badge variant="outline" className="text-[8px] shrink-0">{p.done}/{p.total}</Badge>
+          </div>
+          {p.tasks.length > 0 ? <TaskPlanList area={{ tasks: p.tasks }} /> : (
+            <p className="text-[10px] italic text-muted-foreground">Sin tareas aún</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Objetivos de Proyectos: conseguir el proyecto (progreso) */
+export function ProyectosObjetivos({ data }: { data: ProjectResult[] }) {
+  if (data.length === 0) return <AreaEmpty>Sin proyectos activos</AreaEmpty>;
+  return (
+    <div className="space-y-3">
+      {data.map(p => {
+        const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
+        return (
+          <div key={p.id} className="rounded-xl border border-muted/50 p-2.5 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold truncate">{p.name}</p>
+              <Badge variant={pct >= 100 ? 'secondary' : 'outline'} className="text-[8px] shrink-0">{pct}%</Badge>
+            </div>
+            <Progress value={pct} className={cn('h-1.5', pct >= 100 && 'bg-emerald-500/20')} />
+            <p className="text-[10px] text-muted-foreground">{p.done} de {p.total} tareas completadas</p>
+          </div>
+        );
+      })}
     </div>
   );
 }

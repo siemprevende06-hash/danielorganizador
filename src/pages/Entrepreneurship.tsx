@@ -13,7 +13,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useImageUpload } from '@/hooks/useImageUpload';
-import { useActiveSelection } from '@/hooks/useActiveSelection';
+import { useActiveSelections } from '@/hooks/useActiveSelections';
 import { cn } from '@/lib/utils';
 
 interface Entrepreneurship {
@@ -38,7 +38,7 @@ export default function EntrepreneurshipPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, uploading } = useImageUpload();
   const navigate = useNavigate();
-  const { value: activeEntId, toggle: toggleActiveEnt } = useActiveSelection('activeEntrepreneurshipId');
+  const { values: activeEntIds, toggle: toggleActiveEnt } = useActiveSelections('activeEntrepreneurships');
 
   useEffect(() => { load(); }, []);
 
@@ -186,7 +186,7 @@ export default function EntrepreneurshipPage() {
               key={ent.id} 
               className={cn(
                 "cursor-pointer border-border hover:border-primary/50 transition-all active:scale-[0.99]",
-                activeEntId === ent.id && "ring-2 ring-primary"
+                activeEntIds.includes(ent.id) && "ring-2 ring-primary"
               )}
               onClick={() => navigate(`/entrepreneurship/${ent.id}`)}
             >
@@ -203,8 +203,8 @@ export default function EntrepreneurshipPage() {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-foreground truncate">{ent.name}</h3>
                       <div className="flex gap-1 flex-shrink-0 ml-2">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); toggleActiveEnt(ent.id); }} title={activeEntId === ent.id ? "Quitar activo" : "Marcar activo"}>
-                          <Star className={cn("h-3.5 w-3.5", activeEntId === ent.id ? "fill-primary text-primary" : "text-muted-foreground")} />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); toggleActiveEnt(ent.id); }} title={activeEntIds.includes(ent.id) ? "Quitar activo" : "Marcar activo"}>
+                          <Star className={cn("h-3.5 w-3.5", activeEntIds.includes(ent.id) ? "fill-primary text-primary" : "text-muted-foreground")} />
                         </Button>
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => openEdit(ent, e)}>
                           <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />

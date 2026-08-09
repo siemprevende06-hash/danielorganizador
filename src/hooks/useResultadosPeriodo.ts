@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getQuarterFromDate, loadTrimestralPlanFromLocal } from '@/hooks/useTrimestralPlan';
+import { readActiveSelections } from '@/hooks/useActiveSelections';
 
 export const AREA_ORDER = ['universidad', 'emprendimiento', 'proyectos', 'lectura', 'musica', 'ajedrez', 'game', 'idiomas', 'gym', 'general'] as const;
 export type AreaKey = (typeof AREA_ORDER)[number];
@@ -61,6 +62,41 @@ export interface PlanSong {
   status: string | null;
 }
 
+export interface PlanTaskItem {
+  id: string;
+  title: string;
+  completed: boolean;
+  task_type?: string;
+  dueShort?: string | null;
+}
+
+export interface UniversitySubjectResult {
+  id: string;
+  name: string;
+  topics: { id: string; title: string }[];
+  tasks: PlanTaskItem[];
+  deliveries: PlanTaskItem[];
+  exams: { id: string; title: string; date: string | null; done: boolean }[];
+  partials: { id: string; title: string; date: string | null; done: boolean }[];
+}
+
+export interface BusinessResult {
+  id: string;
+  name: string;
+  goals: { id: string; title: string; completed: boolean }[];
+  tasks: PlanTaskItem[];
+  tasksDone: number;
+  tasksTotal: number;
+}
+
+export interface ProjectResult {
+  id: string;
+  name: string;
+  tasks: PlanTaskItem[];
+  done: number;
+  total: number;
+}
+
 export interface ResultadoPeriodo {
   loading: boolean;
   error: string | null;
@@ -68,6 +104,9 @@ export interface ResultadoPeriodo {
   byArea: Record<AreaKey, AreaResult>;
   books: PlanBook[];
   songs: PlanSong[];
+  university: { subjects: UniversitySubjectResult[]; otherTasks: any[] };
+  entrepreneurships: { businesses: BusinessResult[]; otherTasks: any[] };
+  projects: { list: ProjectResult[]; otherTasks: any[] };
   globalDone: number;
   globalTotal: number;
   systems: { done: number; total: number; minutes: number };
@@ -99,6 +138,9 @@ export const EMPTY_RESULTADO: ResultadoPeriodo = {
   byArea: emptyAreaResult(),
   books: [],
   songs: [],
+  university: { subjects: [], otherTasks: [] },
+  entrepreneurships: { businesses: [], otherTasks: [] },
+  projects: { list: [], otherTasks: [] },
   globalDone: 0,
   globalTotal: 0,
   systems: { done: 0, total: 0, minutes: 0 },
@@ -129,6 +171,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         readRes, musicRes, chessRes, logsRes, focusRes,
         citasRes, intimidadRes, eventosRes, ingresoRes,
         libraryRes, repertoireRes, projectsRes, subjectsRes, entregasRes,
+        examsRes, partialsRes, topicRes, goalsRes, entPendingRes, subjPendingRes,
       ] = await Promise.all([
         supabase.from('tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
         supabase.from('entrepreneurship_tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
@@ -146,9 +189,15 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('entrepreneurship_income').select('*').gte('income_date', startStr).lte('income_date', endStr),
         supabase.from('reading_library').select('id, title, author, cover_image_url, status, pages_total, pages_read'),
         supabase.from('music_repertoire').select('id, title, artist, instrument, status, practice_minutes'),
-        supabase.from('projects').select('id, title'),
+        supabase.from('projects').select('*'),
         supabase.from('university_subjects').select('id, name'),
         supabase.from('entrepreneurships').select('id, name'),
+        supabase.from('exams').select('*'),
+        supabase.from('partial_exams').select('*'),
+        supabase.from('subject_topics').select('id, subject_id, title'),
+        supabase.from('entrepreneurship_goals').select('*'),
+        supabase.from('entrepreneurship_tasks').select('*').eq('completed', false),
+        supabase.from('tasks').select('*').eq('source', 'university').eq('completed', false),
       ]);
 
       const areaStats = areaStatsRes.data || [];
@@ -170,6 +219,12 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const subjMap = new Map((subjectsRes.data || []).map((s: any) => [s.id, s.name]));
       const entMap = new Map((entregasRes.data || []).map((e: any) => [e.id, e.name]));
 
+      const [activeSubjects, activeBusinesses, activeProjects] = await Promise.all([
+        readActiveSelections('activeSubjects'),
+        readActiveSelections('activeEntrepreneurships'),
+        readActiveSelections('activeProjects'),
+      ]);
+
       const entityFor = (t: any): string | null => {
         if (t.source === 'project' || t.area_id === 'proyectos' || t.source === 'proyectos') {
           return projMap.get(t.source_id) || null;
@@ -185,12 +240,102 @@ export function useResultadosPeriodo(start: Date, end: Date) {
 
       const tasks = [
         ...(tasksRes.data || []),
-        ...(entTasksRes.data || []).map((t: any) => ({ ...t, source: 'emprendimiento', area_id: 'emprendimiento', _ent: true })),
+        ...(entTasksRes.data || []).map((t: any) => ({ ...t, source: 'emprendimiento', area_id: 'emprendimiento', source_id: t.entrepreneurship_id, _ent: true })),
       ].map((t: any) => ({
         ...t,
         entityName: entityFor(t),
         dueShort: t.due_date ? format(new Date(t.due_date), 'd MMM') : null,
       }));
+
+      const toPlanItem = (t: any): PlanTaskItem => ({
+        id: t.id,
+        title: t.title,
+        completed: !!t.completed,
+        task_type: t.task_type || (t._ent ? 'normal' : undefined),
+        dueShort: t.due_date ? format(new Date(t.due_date), 'd MMM') : null,
+      });
+
+      // --- Universidad: asignaturas activas ---
+      const subjectTaskMap: Record<string, any[]> = {};
+      const mergeSubjectTask = (subjId: string, t: any) => {
+        if (!activeSubjects.includes(subjId)) return;
+        const list = (subjectTaskMap[subjId] = subjectTaskMap[subjId] || []);
+        if (!list.some(x => x.id === t.id)) list.push(t);
+      };
+      (tasksRes.data || []).forEach((t: any) => {
+        if (t.source === 'university' && t.source_id) mergeSubjectTask(t.source_id, t);
+      });
+      (subjPendingRes.data || []).forEach((t: any) => {
+        if (t.source === 'university' && t.source_id) mergeSubjectTask(t.source_id, t);
+      });
+      const examsRows = (examsRes.data || []).filter((e: any) => activeSubjects.includes(e.subject_id));
+      const partialsRows = (partialsRes.data || []).filter((p: any) => activeSubjects.includes(p.subject_id));
+      const topicRows = (topicRes.data || []).filter((t: any) => activeSubjects.includes(t.subject_id));
+      const universitySubjects: UniversitySubjectResult[] = activeSubjects.map(id => {
+        const ts = subjectTaskMap[id] || [];
+        const subjTasks = ts.map(toPlanItem);
+        const items: UniversitySubjectResult = {
+          id,
+          name: subjMap.get(id) || 'Asignatura',
+          topics: topicRows.filter(t => t.subject_id === id).map(t => ({ id: t.id, title: t.title })),
+          tasks: subjTasks,
+          deliveries: subjTasks.filter(t => t.task_type !== 'study'),
+          exams: examsRows.filter(e => e.subject_id === id).map(e => ({
+            id: e.id,
+            title: e.title,
+            date: e.exam_date,
+            done: e.status === 'completed' || e.grade != null,
+          })),
+          partials: partialsRows.filter(p => p.subject_id === id).map(p => ({
+            id: p.id,
+            title: p.title,
+            date: p.exam_date,
+            done: p.grade != null || p.status === 'completed',
+          })),
+        };
+        return items;
+      });
+      const uniOther = tasks.filter((t: any) =>
+        normalizeArea(t.area_id || t.source || t.area) === 'universidad' && t.source !== 'university'
+      );
+
+      // --- Emprendimiento: negocios activos ---
+      const businessTaskMap: Record<string, any[]> = {};
+      const mergeBusinessTask = (bizId: string, t: any) => {
+        if (!activeBusinesses.includes(bizId)) return;
+        const list = (businessTaskMap[bizId] = businessTaskMap[bizId] || []);
+        if (!list.some(x => x.id === t.id)) list.push(t);
+      };
+      (entTasksRes.data || []).forEach((t: any) => mergeBusinessTask(t.entrepreneurship_id, t));
+      (entPendingRes.data || []).forEach((t: any) => mergeBusinessTask(t.entrepreneurship_id, t));
+      const goalRows = (goalsRes.data || []).filter((g: any) => activeBusinesses.includes(g.entrepreneurship_id));
+      const businessList: BusinessResult[] = activeBusinesses.map(id => {
+        const ts = businessTaskMap[id] || [];
+        return {
+          id,
+          name: entMap.get(id) || 'Emprendimiento',
+          goals: goalRows.filter(g => g.entrepreneurship_id === id).map(g => ({ id: g.id, title: g.title, completed: !!g.completed })),
+          tasks: ts.map(toPlanItem),
+          tasksDone: ts.filter(t => t.completed).length,
+          tasksTotal: ts.length,
+        };
+      });
+      const entOther = tasks.filter((t: any) => !t._ent && normalizeArea(t.area_id || t.source || t.area) === 'emprendimiento');
+
+      // --- Proyectos: proyectos activos ---
+      const projectList: ProjectResult[] = (projectsRes.data || []).filter((p: any) => activeProjects.includes(p.id)).map((p: any) => {
+        const pts = (p.tasks || []) as { id: string; title: string; completed: boolean; subTasks?: { completed: boolean }[] }[];
+        const done = pts.reduce((acc, t) => acc + (t.completed ? 1 : 0) + (t.subTasks || []).filter(s => s.completed).length, 0);
+        const total = pts.reduce((acc, t) => acc + 1 + (t.subTasks || []).length, 0);
+        return {
+          id: p.id,
+          name: p.title,
+          tasks: pts.map(t => ({ id: t.id, title: t.title, completed: !!t.completed, task_type: 'project' })),
+          done,
+          total,
+        };
+      });
+      const projOther = tasks.filter((t: any) => normalizeArea(t.area_id || t.source || t.area) === 'proyectos');
 
       const { quarter: planQ, year: planY } = getQuarterFromDate(start);
       const plan = loadTrimestralPlanFromLocal(`Q${planQ}_${planY}`);
@@ -349,6 +494,9 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         byArea,
         books,
         songs: songsPlan,
+        university: { subjects: universitySubjects, otherTasks: uniOther },
+        entrepreneurships: { businesses: businessList, otherTasks: entOther },
+        projects: { list: projectList, otherTasks: projOther },
         globalDone: tasks.filter((t: any) => t.completed).length,
         globalTotal: tasks.length,
         systems: { done: systemsDone, total: systemsTotal, minutes: systemsMin },

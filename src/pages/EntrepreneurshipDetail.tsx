@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { 
   ArrowLeft, Plus, Trash2, ChevronDown, ChevronRight, Edit3,
-  DollarSign, ListTodo, CheckCircle2, TrendingUp, Calendar, Briefcase
+  DollarSign, ListTodo, CheckCircle2, TrendingUp, Calendar, Briefcase, Target
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -25,12 +25,14 @@ interface Income {
   id: string; amount: number; description: string | null; income_date: string; income_type: string;
 }
 interface Entrepreneurship { id: string; name: string; description: string | null; cover_image: string | null; }
+interface EntrepreneurshipGoal { id: string; title: string; completed: boolean; }
 
 export default function EntrepreneurshipDetail() {
   const { id } = useParams<{ id: string }>();
   const [ent, setEnt] = useState<Entrepreneurship | null>(null);
   const [tasks, setTasks] = useState<EntrepreneurshipTask[]>([]);
   const [income, setIncome] = useState<Income[]>([]);
+  const [goals, setGoals] = useState<EntrepreneurshipGoal[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   
   // Task dialog
@@ -44,6 +46,9 @@ export default function EntrepreneurshipDetail() {
   // Subtask
   const [subtaskInput, setSubtaskInput] = useState('');
   const [addingSubtaskTo, setAddingSubtaskTo] = useState<string | null>(null);
+
+  // Goals
+  const [goalInput, setGoalInput] = useState('');
   
   // Income dialog
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
@@ -59,7 +64,7 @@ export default function EntrepreneurshipDetail() {
 
   useEffect(() => { if (id) { loadAll(); } }, [id]);
 
-  const loadAll = () => { loadEnt(); loadTasks(); loadIncome(); };
+  const loadAll = () => { loadEnt(); loadTasks(); loadIncome(); loadGoals(); };
 
   const loadEnt = async () => {
     const { data } = await supabase.from('entrepreneurships').select('*').eq('id', id).single();
@@ -80,6 +85,34 @@ export default function EntrepreneurshipDetail() {
     const { data } = await supabase.from('entrepreneurship_income')
       .select('*').eq('entrepreneurship_id', id).order('income_date', { ascending: false });
     setIncome(data || []);
+  };
+
+  // Goals
+  const loadGoals = async () => {
+    const { data } = await supabase.from('entrepreneurship_goals')
+      .select('*').eq('entrepreneurship_id', id).order('created_at', { ascending: true });
+    setGoals(data || []);
+  };
+
+  const addGoal = async () => {
+    if (!goalInput.trim()) return;
+    await supabase.from('entrepreneurship_goals').insert({ entrepreneurship_id: id, title: goalInput.trim(), completed: false });
+    setGoalInput('');
+    loadGoals();
+    toast.success('Objetivo creado');
+  };
+
+  const toggleGoal = async (goalId: string) => {
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+    await supabase.from('entrepreneurship_goals').update({ completed: !goal.completed }).eq('id', goalId);
+    loadGoals();
+  };
+
+  const deleteGoal = async (goalId: string) => {
+    await supabase.from('entrepreneurship_goals').delete().eq('id', goalId);
+    setGoals(prev => prev.filter(g => g.id !== goalId));
+    toast.success('Objetivo eliminado');
   };
 
   // Entrepreneurship edit
@@ -313,9 +346,10 @@ export default function EntrepreneurshipDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="normal">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="normal" className="text-xs">Tareas ({normalTasks.length})</TabsTrigger>
           <TabsTrigger value="improvement" className="text-xs">Mejoras ({improvementTasks.length})</TabsTrigger>
+          <TabsTrigger value="goals" className="text-xs">Objetivos ({goals.length})</TabsTrigger>
           <TabsTrigger value="income" className="text-xs">Ingresos ({income.length})</TabsTrigger>
         </TabsList>
 
@@ -333,6 +367,33 @@ export default function EntrepreneurshipDetail() {
           </Button>
           {improvementTasks.map(t => <TaskCard key={t.id} task={t} />)}
           {improvementTasks.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Sin mejoras aún</p>}
+        </TabsContent>
+
+                <TabsContent value="goals" className="space-y-3 mt-3">
+          <div className="flex gap-2">
+            <Input placeholder="Nuevo objetivo..." value={goalInput} onChange={e => setGoalInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addGoal()} />
+            <Button size="sm" className="gap-1.5 shrink-0" onClick={addGoal}>
+              <Plus className="h-4 w-4" /> Añadir
+            </Button>
+          </div>
+          {goals.map(goal => (
+            <Card key={goal.id} className={`border-border ${goal.completed ? 'opacity-60' : ''}`}>
+              <CardContent className="p-3 flex items-center gap-3">
+                <Checkbox checked={goal.completed} onCheckedChange={() => toggleGoal(goal.id)} />
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary shrink-0" />
+                  <span className={`text-sm font-medium ${goal.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                    {goal.title}
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0" onClick={() => deleteGoal(goal.id)}>
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+          {goals.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Sin objetivos aún. Define lo que quieres conseguir.</p>}
         </TabsContent>
 
         <TabsContent value="income" className="space-y-3 mt-3">
