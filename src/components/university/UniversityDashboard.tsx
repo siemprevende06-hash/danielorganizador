@@ -6,7 +6,8 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { Award, BookOpen, CheckCircle2, GraduationCap, Target, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Award, BookOpen, CheckCircle2, ClipboardList, GraduationCap, Target, TrendingUp } from 'lucide-react';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import type { Subject, GPAData } from '@/hooks/useUniversity';
 
 interface UniversityDashboardProps {
@@ -17,6 +18,18 @@ interface UniversityDashboardProps {
 }
 
 const PIE_COLORS = ['#22c55e', '#f59e0b', '#ef4444'];
+
+interface AlertItem {
+  id: string;
+  type: 'delivery' | 'exam';
+  title: string;
+  subject: string;
+  days: number;
+  urgency: 'danger' | 'warning';
+}
+
+const getUrgency = (days: number): 'danger' | 'warning' =>
+  days <= 1 ? 'danger' : 'warning';
 
 export function UniversityDashboard({ subjects, gpaData, overallGPA, studyByDay }: UniversityDashboardProps) {
   const stats = useMemo(() => {
@@ -35,6 +48,50 @@ export function UniversityDashboard({ subjects, gpaData, overallGPA, studyByDay 
       avg,
     };
   }, [subjects, overallGPA]);
+
+  const alerts = useMemo((): AlertItem[] => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const list: AlertItem[] = [];
+
+    subjects.forEach(s => {
+      if (s.approved) return;
+
+      s.tasks.forEach(t => {
+        if (t.completed || t.task_type !== 'delivery' || !t.due_date) return;
+        const days = differenceInCalendarDays(parseISO(t.due_date), today);
+        if (days < 0 || days <= 3) {
+          list.push({
+            id: t.id,
+            type: 'delivery',
+            title: t.title,
+            subject: s.name,
+            days,
+            urgency: getUrgency(days),
+          });
+        }
+      });
+
+      s.partialExams.forEach(p => {
+        if (p.grade !== null && p.grade !== undefined) return;
+        if (!p.exam_date) return;
+        const days = differenceInCalendarDays(parseISO(p.exam_date), today);
+        if (days < 0 || days <= 7) {
+          list.push({
+            id: p.id,
+            type: 'exam',
+            title: p.title,
+            subject: s.name,
+            days,
+            urgency: getUrgency(days),
+          });
+        }
+      });
+    });
+
+    return list.sort((a, b) => a.days - b.days).slice(0, 8);
+  }, [subjects]);
 
   const gradeData = useMemo(() => {
     return gpaData
@@ -70,6 +127,51 @@ export function UniversityDashboard({ subjects, gpaData, overallGPA, studyByDay 
 
   return (
     <div className="space-y-4">
+      {/* Alerts */}
+      {alerts.length > 0 && (
+        <Card className="border-yellow-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              Alertas próximas
+              <Badge variant="outline" className="text-[10px]">{alerts.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {alerts.map(a => (
+              <div
+                key={a.id}
+                className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
+                  a.urgency === 'danger'
+                    ? 'bg-destructive/10 border border-destructive/30'
+                    : 'bg-yellow-500/10 border border-yellow-500/30'
+                }`}
+              >
+                {a.type === 'delivery'
+                  ? <ClipboardList className={`h-3.5 w-3.5 shrink-0 ${a.urgency === 'danger' ? 'text-destructive' : 'text-yellow-600'}`} />
+                  : <GraduationCap className={`h-3.5 w-3.5 shrink-0 ${a.urgency === 'danger' ? 'text-destructive' : 'text-yellow-600'}`} />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">{a.title}</p>
+                  <p className="text-[10px] text-muted-foreground">{a.type === 'delivery' ? 'Entrega' : 'Examen'} · {a.subject}</p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`shrink-0 text-[10px] ${
+                    a.days < 0
+                      ? 'border-destructive/50 text-destructive'
+                      : a.urgency === 'danger'
+                        ? 'border-destructive/40 text-destructive'
+                        : 'border-yellow-500/40 text-yellow-600'
+                  }`}
+                >
+                  {a.days < 0 ? `${Math.abs(a.days)}d atrasado` : a.days === 0 ? 'Hoy' : `${a.days}d`}
+                </Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
