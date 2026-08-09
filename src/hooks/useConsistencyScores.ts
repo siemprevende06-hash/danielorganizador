@@ -39,6 +39,29 @@ function getDateRange(timeframe: Timeframe): { start: string; end: string } {
   return { start: format(start, "yyyy-MM-dd"), end }
 }
 
+async function fetchCompletionsMap(start: string, end: string): Promise<Map<string, Set<string>>> {
+  const map = new Map<string, Set<string>>()
+  try {
+    const { data } = await supabase
+      .from("daily_systems_tracking")
+      .select("tracking_date, completions")
+      .gte("tracking_date", start)
+      .lte("tracking_date", end)
+    for (const row of data ?? []) {
+      const done = new Set<string>()
+      const comp: Record<string, boolean> = row.completions ?? {}
+      for (const [k, v] of Object.entries(comp)) {
+        if (k.startsWith("streak:")) continue
+        if (v) done.add(k)
+      }
+      map.set(row.tracking_date, done)
+    }
+  } catch (err) {
+    console.warn("[useConsistencyScores] completions fetch:", err)
+  }
+  return map
+}
+
 export function useConsistencyScores(
   areaIds: string[],
   timeframe: Timeframe,
@@ -94,6 +117,8 @@ export function useConsistencyScores(
         .gte("stat_date", start)
         .lte("stat_date", end)
 
+      const completionsMap = await fetchCompletionsMap(start, end)
+
       if (error) {
         console.warn("[useConsistencyScores] error:", error.message)
         setScore(0)
@@ -116,6 +141,13 @@ export function useConsistencyScores(
         const key = `${row.area_id}|${row.stat_date}`
         if (seen.has(key)) continue
         seen.add(key)
+
+        const doneSet = completionsMap.get(row.stat_date)
+        const completed = doneSet?.has(row.area_id) ?? false
+        if (completed) {
+          dailyRates.push(100)
+          continue
+        }
 
         const goal = row.time_goal_minutes || 30
         const spent = row.time_spent_minutes || 0
@@ -204,6 +236,8 @@ export function useMultiConsistencyScores(
         .gte("stat_date", start)
         .lte("stat_date", end)
 
+      const completionsMap = await fetchCompletionsMap(start, end)
+
       if (error || !data) {
         setScores({})
         setLoading(false)
@@ -226,6 +260,13 @@ export function useMultiConsistencyScores(
           const key = `${row.area_id}|${row.stat_date}`
           if (seen.has(key)) continue
           seen.add(key)
+
+          const doneSet = completionsMap.get(row.stat_date)
+          const completed = doneSet?.has(row.area_id) ?? false
+          if (completed) {
+            rates.push(100)
+            continue
+          }
 
           const goal = row.time_goal_minutes || 30
           const spent = row.time_spent_minutes || 0

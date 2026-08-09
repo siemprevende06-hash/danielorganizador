@@ -89,6 +89,8 @@ async function loadCanjes(): Promise<Canje[]> {
       icono: r.icono,
       costo: r.costo,
       fecha: r.fecha,
+      disfrute: r.disfrute,
+      tiempo: r.tiempo,
     })) ?? [])
     await setCache(CACHE_PREFIX, "canjes", list, 300_000)
     return list
@@ -153,10 +155,10 @@ export function useRecompensas() {
   }, [dailyScore.loading, puntosPosibles])
 
   const canjearRecompensa = useCallback(
-    (recompensaId: string): boolean => {
+    (recompensaId: string): Canje | null => {
       const recompensa = catalogo.find((r) => r.id === recompensaId)
-      if (!recompensa) return false
-      if (balance < recompensa.costo) return false
+      if (!recompensa) return null
+      if (balance < recompensa.costo) return null
 
       const nuevoCanje: Canje = {
         id: `${recompensaId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -182,9 +184,30 @@ export function useRecompensas() {
         fecha: nuevoCanje.fecha,
       } as any)
 
-      return true
+      return nuevoCanje
     },
     [balance, canjes, catalogo]
+  )
+
+  const guardarFeedback = useCallback(
+    (canjeId: string, disfrute: number, tiempo: number) => {
+      const actualizado = canjes.map(c =>
+        c.id === canjeId ? { ...c, disfrute, tiempo } : c
+      )
+      setCanjes(actualizado)
+
+      const canje = actualizado.find(c => c.id === canjeId)
+      if (canje) {
+        cachedMutation("rewards_redemptions", "update", {
+          disfrute,
+          tiempo,
+        } as any, {
+          recompensa_id: canje.recompensaId,
+          fecha: canje.fecha,
+        })
+      }
+    },
+    [canjes]
   )
 
   const persistCatalogo = (nuevo: Recompensa[]) => {
@@ -239,6 +262,7 @@ export function useRecompensas() {
     puntosGanadosHoy,
     puntosGastadosHoy,
     canjearRecompensa,
+    guardarFeedback,
     agregarRecompensa,
     editarRecompensa,
     eliminarRecompensa,

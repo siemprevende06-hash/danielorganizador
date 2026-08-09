@@ -144,18 +144,46 @@ export function useAreaScores(
 
     setSubStatsLoading(true)
 
-    supabase
-      .from("daily_area_stats")
-      .select("area_id, stat_date, time_spent_minutes, time_goal_minutes")
-      .in("area_id", uniqueIds)
-      .gte("stat_date", range.start)
-      .lte("stat_date", range.end)
-      .then(({ data, error }) => {
+    Promise.all([
+      supabase
+        .from("daily_area_stats")
+        .select("area_id, stat_date, time_spent_minutes, time_goal_minutes")
+        .in("area_id", uniqueIds)
+        .gte("stat_date", range.start)
+        .lte("stat_date", range.end),
+      supabase
+        .from("daily_systems_tracking")
+        .select("tracking_date, completions")
+        .gte("tracking_date", range.start)
+        .lte("tracking_date", range.end),
+      supabase
+        .from("rewards_redemptions")
+        .select("fecha"),
+    ]).then(([{ data, error }, sysRes, rewardsRes]) => {
         if (error || !data) {
           setSubStats({})
           setSubStatsLoading(false)
           return
         }
+
+        const completionsMap = new Map<string, Set<string>>()
+        for (const row of sysRes?.data ?? []) {
+          const done = new Set<string>()
+          const comp: Record<string, boolean> = row.completions ?? {}
+          for (const [k, v] of Object.entries(comp)) {
+            if (k.startsWith("streak:")) continue
+            if (v) done.add(k)
+          }
+          completionsMap.set(row.tracking_date, done)
+        }
+
+        const canjesEnRango = (rewardsRes?.data ?? [])
+          .filter((r: any) => {
+            const fecha = String(r.fecha ?? "").slice(0, 10)
+            return fecha >= range.start && fecha <= range.end
+          })
+          .length
+        const canjeMark = canjesEnRango > 0 ? 100 : 0
 
         const grouped: Record<string, { spent: number; rates: number[] }> = {}
         const seen = new Set<string>()
@@ -169,6 +197,13 @@ export function useAreaScores(
             grouped[row.area_id] = { spent: 0, rates: [] }
           }
           grouped[row.area_id].spent += row.time_spent_minutes || 0
+
+          const doneSet = completionsMap.get(row.stat_date)
+          if (doneSet?.has(row.area_id)) {
+            grouped[row.area_id].rates.push(100)
+            continue
+          }
+
           const goal = row.time_goal_minutes || 30
           const rate = Math.min(100, Math.round(((row.time_spent_minutes || 0) / goal) * 100))
           grouped[row.area_id].rates.push(rate)
@@ -181,6 +216,9 @@ export function useAreaScores(
             : 0
           result[id] = { consistency, minutes: Math.round(stats.spent) }
         }
+
+        result["control-estres"] = { consistency: canjeMark, minutes: canjesEnRango }
+        result["recompensas"] = { consistency: canjeMark, minutes: canjesEnRango }
 
         setSubStats(result)
         setSubStatsLoading(false)

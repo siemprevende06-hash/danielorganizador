@@ -38,13 +38,16 @@ export default function Recompensas() {
   const {
     balance, canjes, scores, scoresLoading, dailyScore, catalogo,
     puntosGanadosHoy, puntosGastadosHoy,
-    canjearRecompensa, agregarRecompensa, editarRecompensa, eliminarRecompensa,
+    canjearRecompensa, guardarFeedback, agregarRecompensa, editarRecompensa, eliminarRecompensa,
   } = useRecompensas()
   const [filtro, setFiltro] = useState<string | null>(null)
   const [mostrarCanjes, setMostrarCanjes] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData>(emptyForm)
+  const [feedbackCanje, setFeedbackCanje] = useState<{ id: string; nombre: string; icono: string } | null>(null)
+  const [disfrute, setDisfrute] = useState<number>(0)
+  const [tiempo, setTiempo] = useState<number>(0)
 
   const recompensasFiltradas = filtro
     ? catalogo.filter((r) => r.categoria === filtro)
@@ -92,12 +95,21 @@ export default function Recompensas() {
   }
 
   const handleCanjear = (id: string) => {
-    const exito = canjearRecompensa(id)
-    if (exito) {
-      toast({ title: "Recompensa canjeada", description: "¡Disfrútala! Te lo has ganado." })
+    const canje = canjearRecompensa(id)
+    if (canje) {
+      setDisfrute(0)
+      setTiempo(0)
+      setFeedbackCanje({ id: canje.id, nombre: canje.nombre, icono: canje.icono })
     } else {
       toast({ title: "Puntos insuficientes", description: "Sigue esforzándote para ganar más puntos.", variant: "destructive" })
     }
+  }
+
+  const guardarPreguntas = () => {
+    if (!feedbackCanje) return
+    guardarFeedback(feedbackCanje.id, disfrute, tiempo)
+    setFeedbackCanje(null)
+    toast({ title: "Recompensa canjeada", description: "¡Disfrútala! Te lo has ganado." })
   }
 
   if (scoresLoading) {
@@ -320,6 +332,12 @@ export default function Recompensas() {
                             hour: "2-digit", minute: "2-digit",
                           })}
                         </p>
+                        {canje.disfrute ? (
+                          <p className="text-xs mt-0.5">
+                            <span className="text-amber-500">{"⭐".repeat(canje.disfrute)}</span>
+                            {canje.tiempo ? <span className="text-muted-foreground"> · {canje.tiempo} min</span> : null}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     <Badge variant="secondary" className="text-red-500 font-bold">
@@ -419,6 +437,60 @@ export default function Recompensas() {
           <Sparkles className="h-3 w-3" />
         </div>
       </div>
+
+      {/* Feedback dialog tras canjear */}
+      <Dialog open={!!feedbackCanje} onOpenChange={(o) => !o && setFeedbackCanje(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-2xl">{feedbackCanje?.icono}</span>
+              {feedbackCanje?.nombre}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>¿Cuánto lo disfrutaste?</Label>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Button
+                    key={n}
+                    type="button"
+                    variant={disfrute === n ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setDisfrute(n)}
+                  >
+                    {n}⭐
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="feedback-tiempo">¿Cuántos minutos le dedicaste?</Label>
+              <Input
+                id="feedback-tiempo"
+                type="number"
+                min={0}
+                placeholder="Ej: 30"
+                value={tiempo || ""}
+                onChange={(e) => setTiempo(parseInt(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              guardarFeedback(feedbackCanje!.id, 0, 0)
+              setFeedbackCanje(null)
+              toast({ title: "Recompensa canjeada", description: "¡Disfrútala! Te lo has ganado." })
+            }}>
+              Omitir
+            </Button>
+            <Button onClick={guardarPreguntas} disabled={disfrute === 0}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

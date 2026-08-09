@@ -14,6 +14,8 @@ export interface Canje {
   icono: string
   costo: number
   fecha: string
+  disfrute?: number
+  tiempo?: number
 }
 
 export const RECOMPENSAS_DEFAULT: Recompensa[] = [
