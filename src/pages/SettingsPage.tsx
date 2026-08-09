@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Settings, BookOpen, Save, CloudUpload, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { syncAll, type SyncReport } from '@/lib/dataSync';
 import { getTimeUnit, setTimeUnit as persistTimeUnit, type TimeUnit } from '@/lib/timeUnit';
+import { getSetting, setSetting } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
@@ -24,15 +24,9 @@ export default function SettingsPage() {
 
   const loadSettings = async () => {
     try {
-      const { data, error } = await (supabase as any)
-        .from('app_settings')
-        .select('*')
-        .eq('setting_key', 'reading_goals')
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') throw error;
-      if (data?.setting_value) {
-        setBooksPerMonth(data.setting_value.books_per_month || 2);
+      const data = await getSetting<{ books_per_month?: number }>('reading_goals');
+      if (data) {
+        setBooksPerMonth(data.books_per_month || 2);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -43,15 +37,8 @@ export default function SettingsPage() {
 
   const saveReadingGoals = async () => {
     try {
-      const { error } = await (supabase as any)
-        .from('app_settings')
-        .upsert({
-          setting_key: 'reading_goals',
-          setting_value: { books_per_month: booksPerMonth },
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,setting_key' });
-
-      if (error) throw error;
+      const ok = await setSetting('reading_goals', { books_per_month: booksPerMonth });
+      if (!ok) throw new Error('No se pudo guardar');
       toast({ title: 'Configuración guardada' });
     } catch (error) {
       console.error('Error saving settings:', error);

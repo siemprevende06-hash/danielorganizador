@@ -6,6 +6,7 @@ import { useTimeframe } from "@/contexts/TimeframeContext"
 import { RECOMPENSAS_DEFAULT, type Recompensa, type Canje } from "@/data/recompensas"
 import { getCached, setCache } from "@/lib/offlineCache"
 import { cachedMutation } from "@/lib/supabaseCache"
+import { getSetting as getAppSetting, setSetting as upsertSetting } from "@/lib/settings"
 
 interface DailyEarning {
   date: string
@@ -37,11 +38,8 @@ async function getSetting<T>(key: string): Promise<T | null> {
 }
 
 async function setSetting(key: string, value: any) {
-  const result = await cachedMutation("app_settings", "upsert",
-    { setting_key: key, setting_value: { value } as any },
-    undefined, "user_id,setting_key"
-  )
-  if (result.queued) {
+  const ok = await upsertSetting(key, value)
+  if (!ok) {
     await setCache(CACHE_PREFIX, key, value, 300_000)
   }
 }

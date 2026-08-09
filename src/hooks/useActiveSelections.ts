@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getSetting, setSetting } from "@/lib/settings";
 
 const EVT = "active-selections-changed";
 
@@ -21,39 +22,19 @@ const cache: Partial<Record<ActiveSelectionsKey, string[]>> = {};
 
 export async function readActiveSelections(key: ActiveSelectionsKey): Promise<string[]> {
   const k = settingKey(key);
-  const { data } = await supabase
-    .from("app_settings")
-    .select("setting_value")
-    .eq("setting_key", k)
-    .maybeSingle();
-  let v: string[] = (data?.setting_value as any)?.value ?? null;
+  let v = await getSetting<string[]>(k);
   if (!Array.isArray(v)) {
-    const { data: legacy } = await supabase
-      .from("app_settings")
-      .select("setting_value")
-      .eq("setting_key", LEGACY_KEYS[key])
-      .maybeSingle();
-    const lv = (legacy?.setting_value as any)?.value ?? null;
+    const lv = await getSetting<string>(LEGACY_KEYS[key]);
     v = lv ? [lv] : [];
     if (lv) {
-      await supabase
-        .from("app_settings")
-        .upsert(
-          { setting_key: k, setting_value: { value: v } as any },
-          { onConflict: "user_id,setting_key" }
-        );
+      await setSetting(k, v);
     }
   }
   return v.filter(Boolean);
 }
 
-export function writeActiveSelections(key: ActiveSelectionsKey, values: string[]) {
-  return supabase
-    .from("app_settings")
-    .upsert(
-      { setting_key: settingKey(key), setting_value: { value: values } as any },
-      { onConflict: "user_id,setting_key" }
-    );
+export async function writeActiveSelections(key: ActiveSelectionsKey, values: string[]) {
+  await setSetting(settingKey(key), values);
 }
 
 export function useActiveSelections(key: ActiveSelectionsKey) {
@@ -96,15 +77,12 @@ export function useActiveSelections(key: ActiveSelectionsKey) {
 
   const toggle = useCallback(
     (id: string) => {
-      setValues((prev) => {
-        const next = prev.includes(id)
-          ? prev.filter((x) => x !== id)
-          : [...prev, id];
-        set(next);
-        return next;
-      });
+      const next = values.includes(id)
+        ? values.filter((x) => x !== id)
+        : [...values, id];
+      set(next);
     },
-    [set]
+    [values, set]
   );
 
   return { values, set, toggle };

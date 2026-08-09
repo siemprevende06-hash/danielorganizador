@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { getCached } from "@/lib/offlineCache";
 import { cachedMutation } from "@/lib/supabaseCache";
+import { getSetting, setSetting } from "@/lib/settings";
 import { Dumbbell, Moon, Zap, Droplet, Target, Shirt, GraduationCap, Code, Briefcase, Book, Music, Globe, Crown, Plus, Trash2, Sparkles, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -58,13 +59,7 @@ const todayKey = () => new Date().toISOString().split("T")[0];
 
 async function loadMiniDefs(): Promise<MiniHabit[]> {
   try {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("setting_value")
-      .eq("setting_key", MINI_HABITS_SETTING)
-      .maybeSingle();
-    const v: any = data?.setting_value;
-    const arr = (v?.value ?? v) as MiniHabit[] | undefined;
+    const arr = await getSetting<MiniHabit[]>(MINI_HABITS_SETTING);
     if (Array.isArray(arr) && arr.length > 0) return arr;
   } catch {}
   await saveMiniDefs(DEFAULT_MINI_HABITS);
@@ -72,16 +67,7 @@ async function loadMiniDefs(): Promise<MiniHabit[]> {
 }
 
 async function saveMiniDefs(defs: MiniHabit[]) {
-  try {
-    await supabase
-      .from("app_settings")
-      .upsert(
-        { setting_key: MINI_HABITS_SETTING, setting_value: { value: defs } as any },
-        { onConflict: "user_id,setting_key" }
-      );
-  } catch (e) {
-    console.warn("saveMiniDefs failed", e);
-  }
+  await setSetting(MINI_HABITS_SETTING, defs);
 }
 
 export default function HabitsPage() {

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { getCached, setCache } from "@/lib/offlineCache";
 import { cachedMutation } from "@/lib/supabaseCache";
+import { getSetting, setSetting } from "@/lib/settings";
 import { Zap, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,23 +26,13 @@ const todayKey = () => new Date().toISOString().split("T")[0];
 
 async function loadDefsFromBackend(): Promise<MiniHabitDef[]> {
   try {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("setting_value")
-      .eq("setting_key", MINI_HABITS_SETTING)
-      .maybeSingle();
-    const v: any = data?.setting_value;
-    const arr = (v?.value ?? v) as MiniHabitDef[] | undefined;
+    const v = await getSetting<MiniHabitDef[]>(MINI_HABITS_SETTING);
+    const arr = v as MiniHabitDef[] | undefined;
     if (Array.isArray(arr) && arr.length > 0) return arr;
   } catch {}
   // seed defaults
   try {
-    await supabase
-      .from("app_settings")
-      .upsert(
-        { setting_key: MINI_HABITS_SETTING, setting_value: { value: DEFAULT_MINI_HABITS } as any },
-        { onConflict: "user_id,setting_key" }
-      );
+    await setSetting(MINI_HABITS_SETTING, DEFAULT_MINI_HABITS);
   } catch {}
   return DEFAULT_MINI_HABITS;
 }
