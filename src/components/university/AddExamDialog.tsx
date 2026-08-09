@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,6 +23,7 @@ interface AddExamDialogProps {
   onOpenChange: (open: boolean) => void;
   subjectId: string;
   subjectName: string;
+  subjects?: { id: string; name: string }[];
   onSubmit: (data: {
     subject_id: string;
     title: string;
@@ -34,7 +36,7 @@ interface AddExamDialogProps {
   }) => Promise<boolean>;
 }
 
-export function AddExamDialog({ open, onOpenChange, subjectId, subjectName, onSubmit }: AddExamDialogProps) {
+export function AddExamDialog({ open, onOpenChange, subjectId, subjectName, subjects, onSubmit }: AddExamDialogProps) {
   const [title, setTitle] = useState('');
   const [examDate, setExamDate] = useState('');
   const [preparationDays, setPreparationDays] = useState('14');
@@ -42,6 +44,8 @@ export function AddExamDialog({ open, onOpenChange, subjectId, subjectName, onSu
   const [targetExercises, setTargetExercises] = useState('50');
   const [topics, setTopics] = useState('');
   const [notes, setNotes] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState(subjectId);
+  const [selectedSubjectName, setSelectedSubjectName] = useState(subjectName);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -57,9 +61,15 @@ export function AddExamDialog({ open, onOpenChange, subjectId, subjectName, onSu
         notes: notes || undefined
       });
 
+      const finalSubjectId = selectedSubjectId || subjectId;
+      if (!finalSubjectId) {
+        toast({ variant: "destructive", title: "Error", description: "Selecciona una asignatura" });
+        return;
+      }
+
       setIsSubmitting(true);
       const success = await onSubmit({
-        subject_id: subjectId,
+        subject_id: finalSubjectId,
         title: validated.title,
         exam_date: validated.exam_date,
         preparation_days: validated.preparation_days,
@@ -94,6 +104,8 @@ export function AddExamDialog({ open, onOpenChange, subjectId, subjectName, onSu
     setTargetExercises('50');
     setTopics('');
     setNotes('');
+    setSelectedSubjectId(subjectId);
+    setSelectedSubjectName(subjectName);
   };
 
   return (
@@ -101,10 +113,29 @@ export function AddExamDialog({ open, onOpenChange, subjectId, subjectName, onSu
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Agregar Examen</DialogTitle>
-          <DialogDescription>Crea un examen para {subjectName}</DialogDescription>
+          <DialogDescription>Crea un examen {subjectName ? `para ${subjectName}` : 'para una asignatura'}</DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
+          {!subjectId && subjects && subjects.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="subjectSelect">Asignatura</Label>
+              <Select value={selectedSubjectId} onValueChange={(v) => {
+                setSelectedSubjectId(v);
+                setSelectedSubjectName(subjects.find(s => s.id === v)?.name || '');
+              }}>
+                <SelectTrigger id="subjectSelect">
+                  <SelectValue placeholder="Seleccionar asignatura..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="title">Título del Examen</Label>
             <Input

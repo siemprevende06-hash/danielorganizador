@@ -16,6 +16,7 @@ import { useUniversity } from '@/hooks/useUniversity';
 import { useExams, Exam } from '@/hooks/useExams';
 import { ExamCard } from '@/components/university/ExamCard';
 import { AddExamDialog } from '@/components/university/AddExamDialog';
+import { AddSubjectTaskDialog } from '@/components/university/AddSubjectTaskDialog';
 import { UpdateExamProgressDialog } from '@/components/university/UpdateExamProgressDialog';
 import { SubjectDetailCard } from '@/components/university/SubjectDetailCard';
 import { UniversitySettings } from '@/components/university/UniversitySettings';
@@ -23,6 +24,7 @@ import { SubjectProgressCard } from '@/components/university/SubjectProgressCard
 import { GPATracker } from '@/components/university/GPATracker';
 import { ExamCalendar } from '@/components/university/ExamCalendar';
 import { AcademicAnalytics } from '@/components/university/AcademicAnalytics';
+import { UniversityDashboard } from '@/components/university/UniversityDashboard';
 import { RoutineBlockSchedule } from '@/components/university/RoutineBlockSchedule';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -34,19 +36,18 @@ const subjectSchema = z.object({
   name: z.string().trim().min(1, "El nombre es requerido").max(200, "El nombre es muy largo"),
   code: z.string().max(50).optional(),
   professor: z.string().max(100).optional(),
-  schedule: z.string().max(200).optional(),
-  credits: z.number().min(1).max(20).optional()
+  schedule: z.string().max(200).optional()
 });
 
 export default function UniversityPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const {
-    subjects, settings, loading, gpaData, overallGPA, totalCredits,
-    updateSettings, createSubject, deleteSubject,
+    subjects, settings, loading, gpaData, overallGPA,
+    updateSettings, createSubject, deleteSubject, toggleApproved,
     addTopic, deleteTopic, addPartialExam, updatePartialExamGrade,
     deletePartialExam, addTask, toggleTask, deleteTask,
-    getSubjectsByCurrentSemester, getTodayStudyTime
+    getSubjectsByCurrentSemester, getTodayStudyTime, getStudyMinutesByDay
   } = useUniversity();
 
   const { exams, createExam, updateExamProgress, deleteExam } = useExams();
@@ -56,20 +57,22 @@ export default function UniversityPage() {
   const [subjectCode, setSubjectCode] = useState('');
   const [professor, setProfessor] = useState('');
   const [schedule, setSchedule] = useState('');
-  const [credits, setCredits] = useState('3');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
 
   const [isExamDialogOpen, setIsExamDialogOpen] = useState(false);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isUpdateExamProgressOpen, setIsUpdateExamProgressOpen] = useState(false);
   const [currentExam, setCurrentExam] = useState<Exam | null>(null);
   const [examSubjectId, setExamSubjectId] = useState('');
   const [examSubjectName, setExamSubjectName] = useState('');
 
   const [todayStudyMinutes, setTodayStudyMinutes] = useState(0);
+  const [studyByDay, setStudyByDay] = useState<{ day: string; minutes: number }[]>([]);
   const { values: activeSubjectIds, toggle: toggleActiveSubject } = useActiveSelections('activeSubjects');
 
   useEffect(() => {
     getTodayStudyTime().then(setTodayStudyMinutes);
+    getStudyMinutesByDay(14).then(setStudyByDay);
   }, []);
 
   const currentSemesterSubjects = getSubjectsByCurrentSemester();
@@ -89,22 +92,19 @@ export default function UniversityPage() {
         name: subjectName,
         code: subjectCode || undefined,
         professor: professor || undefined,
-        schedule: schedule || undefined,
-        credits: credits ? parseInt(credits) : 3
+        schedule: schedule || undefined
       });
       const success = await createSubject({
         name: validated.name,
         code: validated.code,
         professor: validated.professor,
-        schedule: validated.schedule,
-        credits: validated.credits
+        schedule: validated.schedule
       });
       if (success) {
         setSubjectName('');
         setSubjectCode('');
         setProfessor('');
         setSchedule('');
-        setCredits('3');
         setIsSubjectDialogOpen(false);
       }
     } catch (error: any) {
@@ -175,13 +175,9 @@ export default function UniversityPage() {
                     <Input value={subjectCode} onChange={(e) => setSubjectCode(e.target.value)} placeholder="MAT-101" />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Créditos</label>
-                    <Input type="number" value={credits} onChange={(e) => setCredits(e.target.value)} min="1" max="20" />
+                    <label className="text-sm font-medium">Profesor</label>
+                    <Input value={professor} onChange={(e) => setProfessor(e.target.value)} placeholder="Nombre del profesor" />
                   </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Profesor</label>
-                  <Input value={professor} onChange={(e) => setProfessor(e.target.value)} placeholder="Nombre del profesor" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Horario</label>
@@ -269,7 +265,14 @@ export default function UniversityPage() {
 
         {/* === OVERVIEW TAB === */}
         <TabsContent value="overview" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <UniversityDashboard
+            subjects={currentSemesterSubjects}
+            gpaData={gpaData}
+            overallGPA={overallGPA}
+            studyByDay={studyByDay}
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
             {/* Left: Subject cards + Exam calendar */}
             <div className="lg:col-span-2 space-y-6">
               {/* Subject grid */}
@@ -289,6 +292,7 @@ export default function UniversityPage() {
                           onClick={() => setSelectedSubjectId(subject.id)}
                           isActive={activeSubjectIds.includes(subject.id)}
                           onToggleActive={() => toggleActiveSubject(subject.id)}
+                          onToggleApproved={() => toggleApproved(subject.id)}
                         />
                       );
                     })}
@@ -368,7 +372,7 @@ export default function UniversityPage() {
 
             {/* Right: GPA Tracker */}
             <div>
-              <GPATracker gpaData={gpaData} overallGPA={overallGPA} totalCredits={totalCredits} />
+              <GPATracker gpaData={gpaData} overallGPA={overallGPA} />
             </div>
           </div>
 
@@ -388,6 +392,7 @@ export default function UniversityPage() {
               <SubjectDetailCard
                 subject={selectedSubject}
                 onDeleteSubject={(id) => { deleteSubject(id); setSelectedSubjectId(null); }}
+                onToggleApproved={() => toggleApproved(selectedSubject.id)}
                 onAddTopic={addTopic}
                 onDeleteTopic={deleteTopic}
                 onAddPartialExam={addPartialExam}
@@ -406,6 +411,7 @@ export default function UniversityPage() {
                     key={subject.id}
                     subject={subject}
                     onDeleteSubject={deleteSubject}
+                    onToggleApproved={() => toggleApproved(subject.id)}
                     onAddTopic={addTopic}
                     onDeleteTopic={deleteTopic}
                     onAddPartialExam={addPartialExam}
@@ -434,6 +440,15 @@ export default function UniversityPage() {
 
         {/* === TASKS TAB === */}
         <TabsContent value="tasks" className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Tareas y Estudio
+            </h2>
+            <Button size="sm" onClick={() => setIsTaskDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nueva Tarea
+            </Button>
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Delivery Tasks */}
             <Card>
@@ -570,6 +585,15 @@ export default function UniversityPage() {
 
         {/* === EXAMS TAB === */}
         <TabsContent value="exams" className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Exámenes
+            </h2>
+            <Button size="sm" onClick={() => setIsExamDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nuevo Examen
+            </Button>
+          </div>
           <ExamCalendar subjects={currentSemesterSubjects} />
 
           {/* Completed exams with grades */}
@@ -622,7 +646,14 @@ export default function UniversityPage() {
         onOpenChange={setIsExamDialogOpen}
         subjectId={examSubjectId}
         subjectName={examSubjectName}
+        subjects={currentSemesterSubjects.map(s => ({ id: s.id, name: s.name }))}
         onSubmit={createExam}
+      />
+      <AddSubjectTaskDialog
+        open={isTaskDialogOpen}
+        onOpenChange={setIsTaskDialogOpen}
+        subjects={currentSemesterSubjects.map(s => ({ id: s.id, name: s.name }))}
+        onSubmit={(data) => addTask(data.subject_id, data)}
       />
       {currentExam && (
         <UpdateExamProgressDialog

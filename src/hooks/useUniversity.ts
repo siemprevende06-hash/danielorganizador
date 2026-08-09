@@ -39,7 +39,7 @@ export interface Subject {
   code?: string;
   professor?: string;
   schedule?: string;
-  credits?: number;
+  approved?: boolean;
   year: number;
   semester: number;
   color?: string;
@@ -57,7 +57,6 @@ export interface UniversitySettings {
 export interface GPAData {
   subjectId: string;
   subjectName: string;
-  credits: number;
   weightedAverage: number | null;
   partialGrades: { title: string; grade: number | null; weight: number }[];
 }
@@ -114,7 +113,7 @@ export function useUniversity() {
         code: subject.color || '',
         professor: subject.professor || '',
         schedule: subject.schedule || '',
-        credits: subject.credits || 3,
+        approved: subject.approved || false,
         year: subject.year || 1,
         semester: subject.semester || 1,
         color: subject.color || undefined,
@@ -198,7 +197,6 @@ export function useUniversity() {
     code?: string;
     professor?: string;
     schedule?: string;
-    credits?: number;
   }) => {
     try {
       const { error } = await supabase
@@ -208,7 +206,6 @@ export function useUniversity() {
           color: data.code,
           professor: data.professor,
           schedule: data.schedule,
-          credits: data.credits || 3,
           year: settings.current_year,
           semester: settings.current_semester,
         });
@@ -237,6 +234,27 @@ export function useUniversity() {
       return true;
     } catch (error: any) {
       console.error('Error deleting subject:', error);
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      return false;
+    }
+  };
+
+  const toggleApproved = async (subjectId: string) => {
+    try {
+      const subject = subjects.find(s => s.id === subjectId);
+      if (!subject) return false;
+
+      const { error } = await supabase
+        .from('university_subjects')
+        .update({ approved: !subject.approved })
+        .eq('id', subjectId);
+
+      if (error) throw error;
+      await loadSubjects();
+      toast({ title: subject.approved ? 'Asignatura marcada como en curso' : `¡${subject.name} aprobada! 🎉` });
+      return true;
+    } catch (error: any) {
+      console.error('Error toggling approved:', error);
       toast({ variant: 'destructive', title: 'Error', description: error.message });
       return false;
     }
@@ -457,6 +475,35 @@ export function useUniversity() {
     return (data || []).reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
   };
 
+  const getStudyMinutesByDay = async (days: number = 14) => {
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    const { data } = await supabase
+      .from('focus_sessions')
+      .select('duration_minutes, start_time')
+      .eq('task_area', 'universidad')
+      .gte('start_time', start.toISOString());
+
+    const byDay = new Map<string, number>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      byDay.set(d.toISOString().split('T')[0], 0);
+    }
+
+    (data || []).forEach(s => {
+      const day = String(s.start_time).split('T')[0];
+      if (byDay.has(day)) {
+        byDay.set(day, byDay.get(day)! + (s.duration_minutes || 0));
+      }
+    });
+
+    return Array.from(byDay.entries()).map(([day, minutes]) => ({
+      day: day.slice(5),
+      minutes
+    }));
+  };
+
   // GPA calculation
   const gpaData = useMemo((): GPAData[] => {
     const currentSubjects = subjects.filter(
@@ -482,7 +529,6 @@ export function useUniversity() {
       return {
         subjectId: subject.id,
         subjectName: subject.name,
-        credits: subject.credits || 3,
         weightedAverage,
         partialGrades
       };
@@ -493,16 +539,9 @@ export function useUniversity() {
     const gradedSubjects = gpaData.filter(g => g.weightedAverage !== null);
     if (gradedSubjects.length === 0) return null;
 
-    const totalCredits = gradedSubjects.reduce((sum, g) => sum + g.credits, 0);
-    const weightedSum = gradedSubjects.reduce((sum, g) => sum + (g.weightedAverage! * g.credits), 0);
-    return totalCredits > 0 ? weightedSum / totalCredits : null;
+    const sum = gradedSubjects.reduce((acc, g) => acc + g.weightedAverage!, 0);
+    return sum / gradedSubjects.length;
   }, [gpaData]);
-
-  const totalCredits = useMemo(() => {
-    return subjects
-      .filter(s => s.year === settings.current_year && s.semester === settings.current_semester)
-      .reduce((sum, s) => sum + (s.credits || 3), 0);
-  }, [subjects, settings]);
 
   return {
     subjects,
@@ -510,10 +549,10 @@ export function useUniversity() {
     loading,
     gpaData,
     overallGPA,
-    totalCredits,
     updateSettings,
     createSubject,
     deleteSubject,
+    toggleApproved,
     addTopic,
     deleteTopic,
     addPartialExam,
@@ -524,6 +563,7 @@ export function useUniversity() {
     deleteTask,
     getSubjectsByCurrentSemester,
     getTodayStudyTime,
+    getStudyMinutesByDay,
     refetch: loadSubjects,
   };
 }

@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-  BookOpen, ChevronDown, ChevronRight, PlusCircle, Trash2, 
+  BadgeCheck, BookOpen, ChevronDown, ChevronRight, PlusCircle, Trash2, 
   Clock, FileText, Play, Calendar, Target, GraduationCap,
   Pencil, CheckCircle2
 } from 'lucide-react';
@@ -22,6 +22,7 @@ import { AssignTaskToBlockDialog } from './AssignTaskToBlockDialog';
 interface SubjectDetailCardProps {
   subject: Subject;
   onDeleteSubject: (id: string) => void;
+  onToggleApproved?: () => void;
   onAddTopic: (subjectId: string, title: string, description?: string, isForFinal?: boolean) => Promise<boolean>;
   onDeleteTopic: (topicId: string) => Promise<boolean>;
   onAddPartialExam: (subjectId: string, data: {
@@ -47,6 +48,7 @@ interface SubjectDetailCardProps {
 export function SubjectDetailCard({
   subject,
   onDeleteSubject,
+  onToggleApproved,
   onAddTopic,
   onDeleteTopic,
   onAddPartialExam,
@@ -177,10 +179,15 @@ export function SubjectDetailCard({
             <CardTitle className="flex items-center gap-2 text-lg">
               <BookOpen className="h-5 w-5 text-primary" />
               {subject.name}
+              {subject.approved && (
+                <Badge className="bg-green-600">
+                  <BadgeCheck className="h-3 w-3 mr-0.5 inline" />
+                  Aprobada
+                </Badge>
+              )}
             </CardTitle>
             <CardDescription className="flex gap-2 mt-1">
               {subject.code && <Badge variant="outline">{subject.code}</Badge>}
-              {subject.credits && <Badge variant="secondary">{subject.credits} créditos</Badge>}
             </CardDescription>
             {subject.professor && (
               <p className="text-xs text-muted-foreground mt-1">Prof. {subject.professor}</p>
@@ -189,9 +196,21 @@ export function SubjectDetailCard({
               <p className="text-xs text-muted-foreground">{subject.schedule}</p>
             )}
           </div>
-          <Button variant="ghost" size="icon" onClick={() => onDeleteSubject(subject.id)}>
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            {onToggleApproved && (
+              <Button
+                variant={subject.approved ? "default" : "outline"}
+                size="sm"
+                onClick={() => onToggleApproved()}
+              >
+                <BadgeCheck className="h-3.5 w-3.5 mr-1" />
+                {subject.approved ? 'Aprobada ✓' : 'Aprobar'}
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={() => onDeleteSubject(subject.id)}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
 

@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, FileText, GraduationCap, Star } from 'lucide-react';
+import { BadgeCheck, CheckCircle2, FileText, GraduationCap, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Subject } from '@/hooks/useUniversity';
 
@@ -12,9 +12,10 @@ interface SubjectProgressCardProps {
   onClick?: () => void;
   isActive?: boolean;
   onToggleActive?: () => void;
+  onToggleApproved?: () => void;
 }
 
-export function SubjectProgressCard({ subject, weightedAverage, onClick, isActive, onToggleActive }: SubjectProgressCardProps) {
+export function SubjectProgressCard({ subject, weightedAverage, onClick, isActive, onToggleActive, onToggleApproved }: SubjectProgressCardProps) {
   const totalTasks = subject.tasks.length;
   const completedTasks = subject.tasks.filter(t => t.completed).length;
   const taskProgress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
@@ -25,7 +26,8 @@ export function SubjectProgressCard({ subject, weightedAverage, onClick, isActiv
   return (
     <Card
       className={cn(
-        "group cursor-pointer transition-all hover:shadow-md hover:border-primary/40 border-l-4 border-l-primary/60",
+        "group cursor-pointer transition-all hover:shadow-md hover:border-primary/40 border-l-4",
+        subject.approved ? "border-l-green-500 bg-green-50/50 dark:bg-green-950/20" : "border-l-primary/60",
         isActive && "ring-2 ring-primary border-l-primary"
       )}
       onClick={onClick}
@@ -37,10 +39,13 @@ export function SubjectProgressCard({ subject, weightedAverage, onClick, isActiv
               {subject.name}
             </h3>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {subject.credits && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {subject.credits} cr
+              {subject.approved ? (
+                <Badge className="text-[10px] px-1.5 py-0 bg-green-600">
+                  <BadgeCheck className="h-3 w-3 mr-0.5 inline" />
+                  Aprobada
                 </Badge>
+              ) : (
+                <span className="text-[10px] text-muted-foreground">En curso</span>
               )}
               {subject.professor && (
                 <span className="text-[10px] text-muted-foreground truncate">
@@ -50,6 +55,17 @@ export function SubjectProgressCard({ subject, weightedAverage, onClick, isActiv
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {onToggleApproved && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn("h-7 w-7", subject.approved ? "text-green-600" : "text-muted-foreground")}
+                onClick={(e) => { e.stopPropagation(); onToggleApproved(); }}
+                title={subject.approved ? "Quitar aprobación" : "Marcar como aprobada 🎉"}
+              >
+                <BadgeCheck className={cn("h-4 w-4", subject.approved && "fill-green-600 text-white")} />
+              </Button>
+            )}
             {onToggleActive && (
               <Button
                 variant="ghost"

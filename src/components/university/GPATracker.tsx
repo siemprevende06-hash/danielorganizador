@@ -7,10 +7,9 @@ import type { GPAData } from '@/hooks/useUniversity';
 interface GPATrackerProps {
   gpaData: GPAData[];
   overallGPA: number | null;
-  totalCredits: number;
 }
 
-export function GPATracker({ gpaData, overallGPA, totalCredits }: GPATrackerProps) {
+export function GPATracker({ gpaData, overallGPA }: GPATrackerProps) {
   const getGradeColor = (grade: number | null) => {
     if (grade === null) return 'text-muted-foreground';
     if (grade >= 80) return 'text-green-600';
@@ -41,7 +40,7 @@ export function GPATracker({ gpaData, overallGPA, totalCredits }: GPATrackerProp
             {overallGPA !== null ? overallGPA.toFixed(1) : '—'}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {totalCredits} créditos inscritos
+            {gpaData.length} asignaturas inscritas
           </p>
         </div>
 
