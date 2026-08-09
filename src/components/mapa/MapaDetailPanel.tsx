@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { MapaNode } from "@/hooks/useMapaDeVida"
-import { PILARES_DIRECCION, PILAR_DESEOS } from "@/hooks/useMapaDeVida"
+import { PILARES_DIRECCION, PILAR_DESEOS, DESEO_DESEOS } from "@/hooks/useMapaDeVida"
 import type { AreaScore } from "@/hooks/useAreaScores"
 import type { Necesidad } from "@/lib/definitions"
 import { Clock, ArrowRight, X } from "lucide-react"
@@ -144,12 +144,23 @@ export function MapaDetailPanel({
           <>
             {(() => {
               const manual = Math.max(0, Math.min(100, need.progreso ?? 0))
-              const feeders = areas.filter((a) => isFeeder(node.id, a.id))
+              const areaFeeders = areas.filter((a) => isFeeder(node.id, a.id))
+              const deseoFeeders = needs.filter((n) =>
+                (Object.entries(DESEO_DESEOS) as [string, string[]][])
+                  .some(([fromId, tos]) => tos.includes(node.id) && fromId === n.necesidad_id)
+              )
+              const valores: number[] = []
+              areaFeeders.forEach((a) => valores.push(Math.round((a.esfuerzo + a.resultados) / 2)))
+              for (const [fromId, tos] of Object.entries(DESEO_DESEOS) as [string, string[]][]) {
+                if (!tos.includes(node.id)) continue
+                const feed = needs.find((n) => n.necesidad_id === fromId)
+                if (feed && (feed.progreso ?? 0) > 0) valores.push(Math.round((feed.progreso ?? 0) * 0.5))
+              }
               const shown =
                 manual > 0
                   ? manual
-                  : feeders.length > 0
-                    ? Math.round(feeders.reduce((s, a) => s + Math.round((a.esfuerzo + a.resultados) / 2), 0) / feeders.length)
+                  : valores.length > 0
+                    ? Math.round(valores.reduce((s, v) => s + v, 0) / valores.length)
                     : 0
               return (
                 <>
@@ -162,14 +173,29 @@ export function MapaDetailPanel({
                   </div>
                   <p className="text-sm text-muted-foreground">{need.descripcion}</p>
                   <Badge variant="secondary">{statusText(shown)}</Badge>
-                  <div className="flex flex-wrap gap-1.5">
-                    {feeders.map((a) => (
-                      <Badge key={a.id} variant="outline" className="gap-1">
-                        <span>{a.icon}</span>
-                        {a.label}
-                      </Badge>
-                    ))}
-                  </div>
+                  {areaFeeders.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {areaFeeders.map((a) => (
+                        <Badge key={a.id} variant="outline" className="gap-1">
+                          <span>{a.icon}</span>
+                          {a.label}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {deseoFeeders.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {deseoFeeders.map((d) => (
+                        <Badge key={d.necesidad_id} variant="outline" className="gap-1">
+                          <span>{d.icono}</span>
+                          {d.titulo}
+                          <span className="tabular-nums font-semibold" style={{ color: statusTextColor(d.progreso ?? 0) }}>
+                            {(d.progreso ?? 0)}%
+                          </span>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   {NEED_PAGE[node.id] && (
                     <Button size="sm" onClick={() => navigate(NEED_PAGE[node.id])}>
                       Trabajar en esto <ArrowRight className="h-3 w-3 ml-1" />

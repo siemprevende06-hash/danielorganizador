@@ -95,6 +95,24 @@ const DESEO_AREAS: Record<string, string[]> = {
   exito: ["proposito", "desarrollo"],
 }
 
+export const DESEO_DESEOS: Record<string, string[]> = {
+  novia: ["intimidad"],
+  amigos: ["novia"],
+  dinero: ["novia", "amigos", "moto"],
+  moto: ["amigos"],
+  boxeo: ["exito"],
+}
+
+const DESEO_DESEOS_INVERSA: Record<string, string[]> = (() => {
+  const inv: Record<string, string[]> = {}
+  for (const [from, tos] of Object.entries(DESEO_DESEOS)) {
+    for (const to of tos) {
+      ;(inv[to] ??= []).push(from)
+    }
+  }
+  return inv
+})()
+
 function spread(count: number, start: number, end: number): number[] {
   if (count <= 0) return []
   if (count === 1) return [(start + end) / 2]
@@ -115,6 +133,22 @@ function edgePath(ax: number, ay: number, r1: number, bx: number, by: number, r2
   const my = (sy + ey) / 2
   const lift = Math.min(70, dist * 0.16)
   return `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${mx.toFixed(1)} ${(my - lift).toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`
+}
+
+function deseoEdgePath(ax: number, ay: number, r1: number, bx: number, by: number, r2: number): string {
+  const dx = bx - ax
+  const dy = by - ay
+  const dist = Math.hypot(dx, dy) || 1
+  const ux = dx / dist
+  const uy = dy / dist
+  const sx = ax + ux * r1
+  const sy = ay + uy * r1
+  const ex = bx - ux * r2
+  const ey = by - uy * r2
+  const mx = (sx + ex) / 2
+  const my = (sy + ey) / 2
+  const lift = Math.min(52, dist * 0.12)
+  return `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${mx.toFixed(1)} ${(my + lift).toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`
 }
 
 function nodeMinutes(area: AreaScore): number {
@@ -191,19 +225,37 @@ export function useMapaDeVida(timeframe: Timeframe) {
     for (const n of areaNodes) areaById[n.id] = n
 
     const deseoScores: Record<string, number> = {}
+    const manualScores: Record<string, number> = {}
     for (const n of deseoNodes) {
       const manual = Math.max(0, Math.min(100, n.score))
-      if (manual > 0) {
-        deseoScores[n.id] = manual
-        continue
-      }
-      const feeders = DESEO_AREAS[n.id] ?? []
-      const values = feeders
-        .map((id) => areaById[id])
-        .filter(Boolean)
-        .map((a) => Math.round((a.score + a.score2) / 2))
-      deseoScores[n.id] = values.length > 0 ? Math.round(values.reduce((s, v) => s + v, 0) / values.length) : 0
+      manualScores[n.id] = manual
+      deseoScores[n.id] = manual
     }
+
+    for (let pass = 0; pass < 12; pass++) {
+      let changed = false
+      for (const n of deseoNodes) {
+        if (manualScores[n.id] > 0) continue
+        const values: number[] = []
+        for (const id of DESEO_AREAS[n.id] ?? []) {
+          const a = areaById[id]
+          if (a) values.push(Math.round((a.score + a.score2) / 2))
+        }
+        for (const feedId of DESEO_DESEOS_INVERSA[n.id] ?? []) {
+          const v = deseoScores[feedId] ?? 0
+          if (v > 0) values.push(Math.round(v * 0.5))
+        }
+        const next = values.length > 0
+          ? Math.round(values.reduce((s, v) => s + v, 0) / values.length)
+          : 0
+        if (next !== deseoScores[n.id]) {
+          deseoScores[n.id] = next
+          changed = true
+        }
+      }
+      if (!changed) break
+    }
+
     for (const n of deseoNodes) n.score = deseoScores[n.id] ?? 0
 
     const nodes: MapaNode[] = [
@@ -255,6 +307,23 @@ export function useMapaDeVida(timeframe: Timeframe) {
 
     const deseoById: Record<string, MapaNode> = {}
     for (const n of deseoNodes) deseoById[n.id] = n
+
+    for (const [fromId, toIds] of Object.entries(DESEO_DESEOS)) {
+      const from = deseoById[fromId]
+      if (!from) continue
+      for (const toId of toIds) {
+        const to = deseoById[toId]
+        if (!to) continue
+        edges.push({
+          id: `${fromId}-${toId}`,
+          from: fromId,
+          to: toId,
+          esfuerzo: from.score,
+          resultados: from.score,
+          path: deseoEdgePath(from.x, from.y, from.r, to.x, to.y, to.r),
+        })
+      }
+    }
 
     for (const pilar of pilarNodes) {
       const deseoIds = PILAR_DESEOS[pilar.id] ?? []

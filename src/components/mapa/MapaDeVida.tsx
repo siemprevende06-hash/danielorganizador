@@ -61,6 +61,9 @@ function computeRoute(node: MapaNode | null, edges: MapaEdge[]): Set<string> {
     }
   })
   edges.forEach((e) => {
+    if (e.from === node.id) ids.add(e.id)
+  })
+  edges.forEach((e) => {
     if (e.from === "esfuerzo-hub" && feeding.has(e.to)) ids.add(e.id)
   })
   return ids
