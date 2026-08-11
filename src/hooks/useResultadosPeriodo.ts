@@ -218,6 +218,10 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const projMap = new Map((projectsRes.data || []).map((p: any) => [p.id, p.title]));
       const subjMap = new Map((subjectsRes.data || []).map((s: any) => [s.id, s.name]));
       const entMap = new Map((entregasRes.data || []).map((e: any) => [e.id, e.name]));
+      const entTaskIds = new Set<string>([
+        ...(entTasksRes.data || []).map((t: any) => t.id),
+        ...(entPendingRes.data || []).map((t: any) => t.id),
+      ]);
 
       const [activeSubjects, activeBusinesses, activeProjects] = await Promise.all([
         readActiveSelections('activeSubjects'),
@@ -239,7 +243,9 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       };
 
       const tasks = [
-        ...(tasksRes.data || []),
+        ...(tasksRes.data || []).filter((t: any) =>
+          !(t.source === 'entrepreneurship' && entTaskIds.has(t.source_id))
+        ),
         ...(entTasksRes.data || []).map((t: any) => ({ ...t, source: 'emprendimiento', area_id: 'emprendimiento', source_id: t.entrepreneurship_id, _ent: true })),
       ].map((t: any) => ({
         ...t,
