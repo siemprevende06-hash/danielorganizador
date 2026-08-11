@@ -144,7 +144,7 @@ function CurrencyDisplay({ usd, exchangeRate, large = false }: { usd: number; ex
   const cup = usd * exchangeRate;
   return (
     <div className="flex flex-col">
-      <span className={cn("font-semibold tracking-tight text-zinc-900 dark:text-zinc-100", large ? "text-2xl" : "text-sm")}>
+      <span className={cn("font-semibold tracking-tight text-zinc-900 dark:text-zinc-100", large ? "text-lg sm:text-xl" : "text-sm")}>
         {cup.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CUP
       </span>
       <span className="text-[10px] text-zinc-400 dark:text-zinc-500">${usd.toFixed(2)} USD</span>
@@ -799,13 +799,23 @@ export default function Finance() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <header className="space-y-0.5">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Finanzas</h1>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Control financiero personal</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <header className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Finanzas</h1>
+            <p className="text-[10px] sm:text-xs text-zinc-500 dark:text-zinc-400 hidden xl:block">Control financiero personal</p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-zinc-400 whitespace-nowrap">$1 USD =</span>
+              <Input
+                type="number"
+                value={exchangeRate}
+                onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)}
+                className="w-14 sm:w-16 h-6 text-[10px] font-semibold text-right rounded-lg border-zinc-200 dark:border-zinc-700"
+              />
+              <span className="text-[10px] font-medium text-zinc-600 dark:text-zinc-300">CUP</span>
+            </div>
           </header>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <Button
@@ -942,7 +952,7 @@ export default function Finance() {
         <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
           <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
             <div className="h-0.5 bg-blue-500" />
-            <CardContent className="p-3 sm:p-4">
+            <CardContent className="p-2.5 sm:p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Balance Total</span>
                 <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600">
@@ -954,7 +964,7 @@ export default function Finance() {
           </Card>
           <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
             <div className="h-0.5 bg-green-500" />
-            <CardContent className="p-3 sm:p-4">
+            <CardContent className="p-2.5 sm:p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Ingresos del Mes</span>
                 <div className="p-1.5 rounded-lg bg-green-50 dark:bg-green-500/10 text-green-600">
@@ -975,7 +985,7 @@ export default function Finance() {
           </Card>
           <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
             <div className="h-0.5 bg-red-400" />
-            <CardContent className="p-3 sm:p-4">
+            <CardContent className="p-2.5 sm:p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Gastos del Mes</span>
                 <div className="p-1.5 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-500">
@@ -996,7 +1006,7 @@ export default function Finance() {
           </Card>
           <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
             <div className={cn("h-0.5", monthlyBalance >= 0 ? "bg-green-500" : "bg-red-400")} />
-            <CardContent className="p-3 sm:p-4">
+            <CardContent className="p-2.5 sm:p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Balance Mensual</span>
                 <div className={cn("p-1.5 rounded-lg", monthlyBalance >= 0 ? "bg-green-50 dark:bg-green-500/10 text-green-600" : "bg-red-50 dark:bg-red-500/10 text-red-500")}>
@@ -1014,20 +1024,22 @@ export default function Finance() {
           </Card>
         </div>
 
-        {/* Exchange Rate */}
-        <div className="flex items-center justify-end gap-2">
-          <span className="text-xs text-zinc-400">$1 USD =</span>
-          <Input
-            type="number"
-            value={exchangeRate}
-            onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)}
-            className="w-20 h-7 text-xs font-semibold text-right rounded-lg border-zinc-200 dark:border-zinc-700"
-          />
-          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">CUP</span>
-        </div>
+        {/* Main Sections Tabs */}
+        <Tabs defaultValue="resumen" className="space-y-3">
+          <TabsList className="inline-flex h-8 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-950 gap-0.5 flex-wrap">
+            <TabsTrigger value="resumen" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Resumen</TabsTrigger>
+            <TabsTrigger value="presupuesto" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Presupuesto</TabsTrigger>
+            <TabsTrigger value="billeteras" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Billeteras</TabsTrigger>
+            <TabsTrigger value="distribucion" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Distribución</TabsTrigger>
+            <TabsTrigger value="metas" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Metas</TabsTrigger>
+            <TabsTrigger value="movimientos" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Movimientos</TabsTrigger>
+            <TabsTrigger value="prestamos" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Préstamos</TabsTrigger>
+            <TabsTrigger value="deudas" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Deudas</TabsTrigger>
+          </TabsList>
 
-        {/* Charts Section */}
-        <div className="grid gap-4 md:grid-cols-2">
+          <TabsContent value="resumen" className="space-y-3">
+            {/* Charts Section */}
+            <div className="grid gap-3 md:grid-cols-2">
           <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
             <CardHeader className="pb-1 px-4 pt-4">
               <CardTitle className="text-sm text-zinc-900 dark:text-zinc-100">Resumen 6 Meses</CardTitle>
@@ -1065,9 +1077,10 @@ export default function Finance() {
             </CardContent>
           </Card>
         </div>
+          </TabsContent>
 
-        {/* Budget Section */}
-        <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
+          <TabsContent value="presupuesto" className="space-y-3">
+            <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
           <CardHeader className="pb-2 px-4 pt-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1081,27 +1094,24 @@ export default function Finance() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="px-4 space-y-3">
+          <CardContent className="px-4 pb-4">
             {budgetData.length === 0 ? (
               <p className="text-xs text-zinc-400 text-center py-4">Establece límites de presupuesto para tus categorías de gasto.</p>
             ) : (
-              budgetData.map(({ category, spent, limit, percentage }) => (
-                <div key={category.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <div className="flex items-center gap-1.5">
-                      {isEditMode && (
-                        <Button variant="ghost" size="icon" className="h-4 w-4 rounded-full text-red-400 hover:text-red-600" onClick={() => handleRemoveBudgetCategory(category.id)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                      <span className="font-medium text-zinc-700 dark:text-zinc-300 truncate">{category.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-zinc-400">{formatCurrency(spent)}</span>
-                      <span className="text-zinc-300 dark:text-zinc-600">/</span>
-                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatCurrency(limit)}</span>
+              <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {budgetData.map(({ category, spent, limit, percentage }) => (
+                  <div key={category.id} className="p-2.5 bg-zinc-50 dark:bg-zinc-900/40 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        {isEditMode && (
+                          <Button variant="ghost" size="icon" className="h-4 w-4 shrink-0 rounded-full text-red-400 hover:text-red-600" onClick={() => handleRemoveBudgetCategory(category.id)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                        <span className="font-medium text-xs text-zinc-700 dark:text-zinc-300 truncate">{category.name}</span>
+                      </div>
                       <span className={cn(
-                        "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                        "text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0",
                         percentage > 100 ? "bg-red-50 text-red-500 dark:bg-red-500/10" :
                         percentage > 80 ? "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400" :
                         "bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
@@ -1109,30 +1119,28 @@ export default function Finance() {
                         {Math.round(percentage)}%
                       </span>
                     </div>
+                    <div className="relative h-1.5 bg-zinc-100 dark:bg-zinc-950 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all duration-500",
+                          percentage > 100 ? "bg-red-400" : percentage > 80 ? "bg-amber-400" : "bg-blue-500"
+                        )}
+                        style={{ width: `${Math.min(percentage, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] text-zinc-400 truncate">{formatCurrency(spent)} <span className="text-zinc-300 dark:text-zinc-600">/</span> {formatCurrency(limit)}</span>
+                      <Input
+                        type="number"
+                        value={limit}
+                        onChange={(e) => setBudgetLimits(prev => ({ ...prev, [category.id]: parseFloat(e.target.value) || 0 }))}
+                        className="h-6 text-[10px] w-20 text-right rounded-lg border-zinc-200 dark:border-zinc-700"
+                        placeholder="Límite"
+                      />
+                    </div>
                   </div>
-                  <div className="relative h-1.5 bg-zinc-100 dark:bg-zinc-950 rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-500",
-                        percentage > 100 ? "bg-red-400" : percentage > 80 ? "bg-amber-400" : "bg-blue-500"
-                      )}
-                      style={{ width: `${Math.min(percentage, 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      value={limit}
-                      onChange={(e) => setBudgetLimits(prev => ({ ...prev, [category.id]: parseFloat(e.target.value) || 0 }))}
-                      className="h-6 text-[10px] w-24 text-right rounded-lg border-zinc-200 dark:border-zinc-700"
-                      placeholder="Límite"
-                    />
-                    {isEditMode && (
-                      <span className="text-[10px] text-zinc-400">CUP</span>
-                    )}
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
             {isEditMode && budgetData.length > 0 && (
               <div className="pt-2 text-center">
@@ -1143,12 +1151,13 @@ export default function Finance() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
 
-        {/* Wallets Section */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Billeteras</h2>
+          <TabsContent value="billeteras" className="space-y-3">
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Billeteras</h2>
               <p className="text-[10px] sm:text-xs text-zinc-400">{wallets.length} billeteras · Total: {(totalBalance * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
             </div>
             {isEditMode && (
@@ -1193,12 +1202,13 @@ export default function Finance() {
             })}
           </div>
         </section>
+          </TabsContent>
 
-        {/* Distribution Section */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Distribución</h2>
+          <TabsContent value="distribucion" className="space-y-3">
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Distribución</h2>
               <p className="text-[10px] sm:text-xs text-zinc-400">Método JARS · 6 bolsas</p>
             </div>
             <div className="flex items-center gap-1.5">
@@ -1229,7 +1239,7 @@ export default function Finance() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
-                <CardContent className="p-3 sm:p-4">
+                <CardContent className="p-2.5 sm:p-3">
                   <DistributionBagChart data={distributionBags.map(b => ({ name: b.name, percentage: b.percentage, color: b.color }))} />
                 </CardContent>
               </Card>
@@ -1294,12 +1304,13 @@ export default function Finance() {
             </div>
           )}
         </section>
+          </TabsContent>
 
-        {/* Financial Goals Section */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Metas Financieras</h2>
+          <TabsContent value="metas" className="space-y-3">
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Metas Financieras</h2>
               <p className="text-[10px] sm:text-xs text-zinc-400">Alcanza tus objetivos de ahorro</p>
             </div>
             {isEditMode && (
@@ -1380,18 +1391,15 @@ export default function Finance() {
             </div>
           )}
         </section>
+          </TabsContent>
 
-        <div className="h-px bg-zinc-200/50 dark:bg-zinc-950/50" />
-
-        {/* Tabs Section */}
-        <Tabs defaultValue="expenses" className="space-y-4">
-          <TabsList className="inline-flex h-9 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-950 gap-0.5">
-            <TabsTrigger value="expenses" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Gastos</TabsTrigger>
-            <TabsTrigger value="incomes" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Ingresos</TabsTrigger>
-            <TabsTrigger value="transfers" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Traspasos</TabsTrigger>
-            <TabsTrigger value="loans" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Préstamos</TabsTrigger>
-            <TabsTrigger value="debts" className="rounded-md text-[10px] sm:text-xs px-3 py-1.5 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Deudas</TabsTrigger>
-          </TabsList>
+          <TabsContent value="movimientos" className="space-y-3">
+            <Tabs defaultValue="expenses" className="space-y-2">
+              <TabsList className="inline-flex h-8 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-950 gap-0.5">
+                <TabsTrigger value="expenses" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Gastos</TabsTrigger>
+                <TabsTrigger value="incomes" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Ingresos</TabsTrigger>
+                <TabsTrigger value="transfers" className="rounded-md text-[10px] sm:text-xs px-3 py-1 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700 data-[state=active]:shadow-sm text-zinc-500 dark:text-zinc-400 data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100">Traspasos</TabsTrigger>
+              </TabsList>
 
           <TabsContent value="expenses">
             <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
@@ -1480,8 +1488,10 @@ export default function Finance() {
               </CardContent>
             </Card>
           </TabsContent>
+            </Tabs>
+          </TabsContent>
 
-          <TabsContent value="loans" className="space-y-3">
+          <TabsContent value="prestamos" className="space-y-3">
             {(() => {
               const outstandingLoans = loans.filter(l => l.status === "outstanding");
               const paidLoans = loans.filter(l => l.status === "paid");
@@ -1588,7 +1598,7 @@ export default function Finance() {
             })()}
           </TabsContent>
 
-          <TabsContent value="debts" className="space-y-3">
+          <TabsContent value="deudas" className="space-y-3">
             {(() => {
               const outstandingDebts = debts.filter(d => d.status === "outstanding");
               const paidDebts = debts.filter(d => d.status === "paid");
