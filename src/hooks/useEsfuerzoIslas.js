@@ -1,4 +1,4 @@
-﻿import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+﻿import { useMemo } from "react";
 import { useRoutineBlocks, parseTime } from "./useRoutineBlocks";
 const MIRROR_AREAS = [
   { id: "salud", label: "Salud y Bienestar", icon: "\u{1FA7A}" },
