@@ -10,6 +10,7 @@ import { MusicQuickStats } from '@/components/music/MusicQuickStats';
 import { MusicRepertoireTab } from '@/components/music/MusicRepertoireTab';
 import { MusicPracticeTab } from '@/components/music/MusicPracticeTab';
 import { MusicStatsTab } from '@/components/music/MusicStatsTab';
+import { MusicDailyIndicator } from '@/components/music/MusicDailyIndicator';
 
 export default function MusicDashboard() {
   const { songs, loading, addSong, markAsMastered, deleteSong, getSongsByInstrument, getStats } = useMusicRepertoire();
@@ -217,6 +218,8 @@ export default function MusicDashboard() {
             }}
           />
         </header>
+
+        <MusicDailyIndicator dailyMinutesGoal={dailyGoal} />
 
         <MusicQuickStats
           todayPractice={todayPractice}
