@@ -23,6 +23,12 @@ interface DailyRow {
   workout_duration?: number;
 }
 
+interface AreaRow {
+  stat_date: string;
+  area_id: string;
+  time_spent_minutes: number;
+}
+
 function periodLabel(scope: PeriodScope, start: Date): string {
   switch (scope) {
     case 'week':
@@ -103,6 +109,7 @@ export function PeriodControlSection({ scope, start, end, title }: {
   const endKey = format(end, 'yyyy-MM-dd');
 
   const [rows, setRows] = useState<DailyRow[]>([]);
+  const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
   const unit = useTimeUnit();
 
   useEffect(() => {
@@ -122,6 +129,25 @@ export function PeriodControlSection({ scope, start, end, title }: {
     return () => { alive = false; };
   }, [startKey, endKey]);
 
+  // daily_area_stats recibe también minutos de lectura/ajedrez/idiomas/gym que
+  // no pasan por daily_systems_tracking; se combinan sin duplicar (max).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('daily_area_stats')
+          .select('area_id, stat_date, time_spent_minutes')
+          .gte('stat_date', startKey)
+          .lte('stat_date', endKey);
+        if (alive && data) setAreaRows(data as AreaRow[]);
+      } catch {
+        if (alive) setAreaRows([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, [startKey, endKey]);
+
   const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
   const elapsedDays = useMemo(() => {
     const today = startOfDay(new Date());
@@ -135,12 +161,33 @@ export function PeriodControlSection({ scope, start, end, title }: {
     const completions: Record<string, number> = {};
     ALL_TIMER_ITEMS.forEach(it => minutes[it.id] = 0);
     SOSTEN_ITEMS.forEach(it => completions[it.id] = 0);
-    rows.forEach(row => {
-      ALL_TIMER_ITEMS.forEach(it => minutes[it.id] += minutesOfToday(row.time_data || {}, row.workout_duration || 0, it.id));
-      SOSTEN_ITEMS.forEach(it => { if (row.completions?.[it.id]) completions[it.id] = (completions[it.id] || 0) + 1; });
+
+    const rowByDate: Record<string, DailyRow> = {};
+    rows.forEach(r => { rowByDate[r.tracking_date] = r; });
+    const dasByDate: Record<string, Record<string, number>> = {};
+    areaRows.forEach(r => {
+      if (!dasByDate[r.stat_date]) dasByDate[r.stat_date] = {};
+      dasByDate[r.stat_date][r.area_id] = r.time_spent_minutes || 0;
+    });
+
+    // Unión de fechas: un día puede tener datos solo en daily_area_stats
+    const dates = new Set([...Object.keys(rowByDate), ...Object.keys(dasByDate)]);
+    dates.forEach(d => {
+      const row = rowByDate[d];
+      const das = dasByDate[d] || {};
+      ALL_TIMER_ITEMS.forEach(it => {
+        let m = row ? minutesOfToday(row.time_data || {}, row.workout_duration || 0, it.id) : 0;
+        if (it.id === 'gym') m = Math.max(m, das['gym'] || 0);
+        else if (it.id === 'idiomas') m = Math.max(m, (das['italiano'] || 0) + (das['ingles'] || 0));
+        else m = Math.max(m, das[it.id] || 0);
+        minutes[it.id] += m;
+      });
+      if (row) {
+        SOSTEN_ITEMS.forEach(it => { if (row.completions?.[it.id]) completions[it.id] = (completions[it.id] || 0) + 1; });
+      }
     });
     return { minutes, completions };
-  }, [rows]);
+  }, [rows, areaRows]);
 
   const goalFor = (id: string): number => {
     const area = id === 'idiomas' ? 'italiano' : id;

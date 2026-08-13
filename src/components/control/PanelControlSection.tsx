@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Gauge } from 'lucide-react';
 import { getDayGoalEffective } from '@/lib/hierarchy';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 export const DEFAULT_GOALS: Record<string, number> = {
   universidad: 120,
@@ -153,8 +155,39 @@ export interface PanelControlSectionProps {
 
 export function PanelControlSection({ timeData = {}, completions = {}, workoutDuration = 0, date }: PanelControlSectionProps) {
   const today = date || new Date();
+  const dateKey = format(today, 'yyyy-MM-dd');
 
-  const summary = useMemo(() => computePanelSummary(timeData, workoutDuration, today), [timeData, workoutDuration, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  // daily_area_stats recibe también minutos de lectura/ajedrez/idiomas/gym que
+  // no pasan por daily_systems_tracking; se combinan sin duplicar (max).
+  const [areaMinutes, setAreaMinutes] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('daily_area_stats')
+          .select('area_id, time_spent_minutes')
+          .eq('stat_date', dateKey);
+        const m: Record<string, number> = {};
+        (data || []).forEach((r: any) => { m[r.area_id] = r.time_spent_minutes || 0; });
+        if (alive) setAreaMinutes(m);
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, [dateKey]);
+
+  const mergedMinutes = (id: string): number => {
+    const base = minutesOfToday(timeData, workoutDuration, id);
+    if (id === 'gym') return Math.max(base, areaMinutes['gym'] || 0);
+    if (id === 'idiomas') return Math.max(base, (areaMinutes['italiano'] || 0) + (areaMinutes['ingles'] || 0));
+    return Math.max(base, areaMinutes[id] || 0);
+  };
+
+  const summary = useMemo(() => {
+    const minutes = ALL_TIMER_ITEMS.reduce((s, it) => s + mergedMinutes(it.id), 0);
+    const goal = ALL_TIMER_ITEMS.reduce((s, it) => s + goalOfToday(today, it.id), 0);
+    return { minutes, goal, pct: goal > 0 ? Math.min(100, Math.round((minutes / goal) * 100)) : 0 };
+  }, [timeData, workoutDuration, areaMinutes, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -178,7 +211,7 @@ export function PanelControlSection({ timeData = {}, completions = {}, workoutDu
           {PRIORITIES.map(it => {
             const g = goalOfToday(today, it.id);
             return (
-              <TimerRingCard key={it.id} item={it} minutes={minutesOfToday(timeData, workoutDuration, it.id)} min={Math.round(g / 2)} max={g} />
+              <TimerRingCard key={it.id} item={it} minutes={mergedMinutes(it.id)} min={Math.round(g / 2)} max={g} />
             );
           })}
         </div>
@@ -191,7 +224,7 @@ export function PanelControlSection({ timeData = {}, completions = {}, workoutDu
           {HOBBY_ITEMS.map(it => {
             const range = HOBBY_RANGES[it.id] || { min: 10, max: 30 };
             return (
-              <TimerRingCard key={it.id} item={it} minutes={minutesOfToday(timeData, workoutDuration, it.id)} min={range.min} max={range.max} />
+              <TimerRingCard key={it.id} item={it} minutes={mergedMinutes(it.id)} min={range.min} max={range.max} />
             );
           })}
         </div>
