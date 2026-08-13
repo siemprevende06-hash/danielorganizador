@@ -8,6 +8,7 @@ import { PILARES_DIRECCION, PILAR_DESEOS, DESEO_DESEOS } from "@/hooks/useMapaDe
 import type { AreaScore } from "@/hooks/useAreaScores"
 import type { Necesidad } from "@/lib/definitions"
 import { Clock, ArrowRight, X } from "lucide-react"
+import { NecesidadGaleria } from "./NecesidadGaleria"
 
 const NEED_PAGE: Record<string, string> = {
   moto: "/finanzas",
@@ -201,6 +202,7 @@ export function MapaDetailPanel({
                       Trabajar en esto <ArrowRight className="h-3 w-3 ml-1" />
                     </Button>
                   )}
+                  <NecesidadGaleria key={node.id} necesidadId={node.id} />
                 </>
               )
             })()}

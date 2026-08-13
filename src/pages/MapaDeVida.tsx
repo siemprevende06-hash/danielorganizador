@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTimeframe } from "@/contexts/TimeframeContext"
 import { useMapaDeVida, type MapaNode } from "@/hooks/useMapaDeVida"
+import { useEsfuerzoIslas } from "@/hooks/useEsfuerzoIslas"
 import { MapaDeVida } from "@/components/mapa/MapaDeVida"
 import { MapaDetailPanel } from "@/components/mapa/MapaDetailPanel"
+import { EsfuerzoIslas } from "@/components/mapa/EsfuerzoIslas"
 import { TimeframeSelector } from "@/components/TimeframeSelector"
 import { Network } from "lucide-react"
 import type { Timeframe } from "@/contexts/TimeframeContext"
@@ -19,11 +21,21 @@ const TIMEFRAME_LABEL: Record<Timeframe, string> = {
 export default function MapaDeVidaPage() {
   const { timeframe } = useTimeframe()
   const { nodes, edges, loading, areas, necesidades } = useMapaDeVida(timeframe)
+  const { islands, totalMinutes } = useEsfuerzoIslas()
   const [selected, setSelected] = useState<MapaNode | null>(null)
+  const mapRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setSelected(null)
   }, [timeframe])
+
+  const areaNodes = nodes.filter((n) => n.kind === "area")
+
+  const handleSelectArea = (areaId: string) => {
+    const node = nodes.find((n) => n.id === areaId && n.kind === "area") ?? null
+    setSelected(node)
+    mapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
 
   return (
     <div className="container mx-auto px-4 py-12 space-y-6">
@@ -77,7 +89,9 @@ export default function MapaDeVidaPage() {
         </div>
       ) : (
         <>
-          <MapaDeVida nodes={nodes} edges={edges} selected={selected} onSelect={setSelected} />
+          <div ref={mapRef} className="scroll-mt-20">
+            <MapaDeVida nodes={nodes} edges={edges} selected={selected} onSelect={setSelected} />
+          </div>
           {selected && (
             <MapaDetailPanel
               node={selected}
@@ -91,6 +105,16 @@ export default function MapaDeVidaPage() {
               Toca cualquier nodo para iluminar su ruta: esfuerzo → área → deseo → pilar
             </p>
           )}
+
+          <div className="border-t border-border/40 pt-6">
+            <EsfuerzoIslas
+              islands={islands}
+              totalMinutes={totalMinutes}
+              areaNodes={areaNodes}
+              selectedAreaId={selected?.kind === "area" ? selected.id : null}
+              onSelectArea={handleSelectArea}
+            />
+          </div>
         </>
       )}
     </div>
