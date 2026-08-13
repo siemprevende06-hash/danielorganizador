@@ -672,7 +672,18 @@ export default function ReadingLibrary() {
                         <div className="aspect-[2/3] bg-muted flex items-center justify-center">
                           {book.cover_image_url ? <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" /> : <BookOpen className="w-10 h-10 text-muted-foreground/50" />}
                         </div>
-                        <CardContent className="p-2"><h3 className="text-xs font-medium line-clamp-2">{book.title}</h3>{renderStars(book.rating)}</CardContent>
+                        <CardContent className="p-2 space-y-1">
+                          <h3 className="text-xs font-medium line-clamp-2">{book.title}</h3>
+                          <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            <Calendar className="w-2.5 h-2.5" />
+                            <span>
+                              {book.start_date ? `Inicio ${format(new Date(book.start_date), "d MMM yy", { locale: es })}` : "Inicio —"}
+                              <span className="mx-1">→</span>
+                              {book.finish_date ? `Fin ${format(new Date(book.finish_date), "d MMM yy", { locale: es })}` : "Fin —"}
+                            </span>
+                          </div>
+                          {renderStars(book.rating)}
+                        </CardContent>
                       </Card>
                     ))}
                   </div>

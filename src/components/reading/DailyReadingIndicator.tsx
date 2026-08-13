@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, BookOpen, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { WeekStreakBar } from "@/components/systems/WeekStreakBar";
+import { ReadingTrendChart } from "@/components/reading/ReadingTrendChart";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -16,16 +17,35 @@ interface Props {
 
 const todayKey = () => new Date().toISOString().split("T")[0];
 
+function pageStatsToday(rows: any[]): { today: number; week: number; month: number } {
+  const today = new Date();
+  const iso = (d: Date) => d.toISOString().split("T")[0];
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const wk = iso(weekStart), ms = iso(monthStart), td = iso(today);
+  const totals = { today: 0, week: 0, month: 0 };
+  (rows || []).forEach((r: any) => {
+    const pages = r.pages_done || 0;
+    if (r.stat_date === td) totals.today += pages;
+    if (r.stat_date >= wk && r.stat_date <= td) totals.week += pages;
+    if (r.stat_date >= ms && r.stat_date <= td) totals.month += pages;
+  });
+  return totals;
+}
+
 export function DailyReadingIndicator({ dailyPagesGoal = 0, dailyMinutesGoal = 30 }: Props) {
   const [minutesToday, setMinutesToday] = useState(0);
+  const [pages, setPages] = useState({ today: 0, week: 0, month: 0 });
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     const today = todayKey();
-    const [langR, systemsR, focusR] = await Promise.all([
+    const [langR, systemsR, focusR, pagesR] = await Promise.all([
       supabase.from("language_sessions").select("reading_duration").eq("session_date", today),
       supabase.from("daily_systems_tracking").select("time_data,completions").eq("tracking_date", today).maybeSingle(),
       supabase.from("focus_sessions").select("duration_seconds,activity_type").gte("started_at", `${today}T00:00:00`),
+      supabase.from("daily_area_stats").select("stat_date, pages_done").eq("area_id", "lectura").gte("stat_date", today.slice(0, 7) + "-01"),
     ]);
     const fromLang = (langR.data || []).reduce((a, s) => a + (s.reading_duration || 0), 0);
     const td: any = (systemsR.data?.time_data as any) || {};
@@ -34,6 +54,7 @@ export function DailyReadingIndicator({ dailyPagesGoal = 0, dailyMinutesGoal = 3
       .filter((s: any) => (s.activity_type || "").toLowerCase().includes("lectura") || (s.activity_type || "").toLowerCase().includes("reading"))
       .reduce((a, s: any) => a + Math.round((s.duration_seconds || 0) / 60), 0);
     setMinutesToday(fromLang + fromSystems + fromFocus);
+    setPages(pageStatsToday(pagesR.data as any[]));
     setLoading(false);
   };
 
@@ -66,6 +87,21 @@ export function DailyReadingIndicator({ dailyPagesGoal = 0, dailyMinutesGoal = 3
 
         <Progress value={pct} className="h-2" />
 
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-muted/50 p-2 text-center">
+            <p className="text-lg font-bold leading-none">{pages.today}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">pág hoy</p>
+          </div>
+          <div className="rounded-xl bg-muted/50 p-2 text-center">
+            <p className="text-lg font-bold leading-none">{pages.week}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">pág semana</p>
+          </div>
+          <div className="rounded-xl bg-muted/50 p-2 text-center">
+            <p className="text-lg font-bold leading-none">{pages.month}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">pág mes</p>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           {dailyPagesGoal > 0 ? (
             <span className="flex items-center gap-1">
@@ -77,6 +113,10 @@ export function DailyReadingIndicator({ dailyPagesGoal = 0, dailyMinutesGoal = 3
 
         <div className="pt-1">
           <WeekStreakBar habitId="lectura" todayValue={minutesToday} maxThreshold={dailyMinutesGoal} compact />
+        </div>
+
+        <div className="pt-1 border-t border-border/40">
+          <ReadingTrendChart />
         </div>
       </CardContent>
     </Card>
