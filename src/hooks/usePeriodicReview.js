@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, format } from 'date-fns';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, format } from 'date-fns';
 const createEmptyReview = (type, start, end) => ({
     id: '',
     review_type: type,
@@ -26,6 +26,8 @@ export function getPeriodRange(type, referenceDate) {
             return { start: startOfMonth(referenceDate), end: endOfMonth(referenceDate) };
         case 'quarterly':
             return { start: startOfQuarter(referenceDate), end: endOfQuarter(referenceDate) };
+        case 'yearly':
+            return { start: startOfYear(referenceDate), end: endOfYear(referenceDate) };
     }
 }
 export function usePeriodicReview(type, referenceDate) {
