@@ -3455,9 +3455,9 @@ export type Database = {
       }
       university_subjects: {
         Row: {
-          approved: boolean
           color: string | null
           created_at: string
+          credits: number | null
           id: string
           name: string
           professor: string | null
@@ -3468,9 +3468,9 @@ export type Database = {
           year: number | null
         }
         Insert: {
-          approved?: boolean
           color?: string | null
           created_at?: string
+          credits?: number | null
           id?: string
           name: string
           professor?: string | null
@@ -3481,9 +3481,9 @@ export type Database = {
           year?: number | null
         }
         Update: {
-          approved?: boolean
           color?: string | null
           created_at?: string
+          credits?: number | null
           id?: string
           name?: string
           professor?: string | null
