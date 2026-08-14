@@ -33,6 +33,7 @@ export function ProductCard({ product, onUpdate, onDelete, onAdjustStock }: Prop
   const [price, setPrice] = useState(product.price.toString());
   const [packageQty, setPackageQty] = useState(product.package_quantity.toString());
   const [notes, setNotes] = useState(product.notes || "");
+  const [photoUrl, setPhotoUrl] = useState(product.photo_url || null);
 
   const StorageIcon = storageIcons[product.storage_type] || Archive;
   const unitCost = (product.price || 0) / Math.max(1, product.package_quantity || 1);
@@ -53,9 +54,13 @@ export function ProductCard({ product, onUpdate, onDelete, onAdjustStock }: Prop
   return (
     <>
       <Card className="p-3 flex items-center gap-3 hover:shadow-md transition-shadow">
-        <div className="p-2 rounded-lg bg-muted">
-          <StorageIcon className="h-5 w-5 text-muted-foreground" />
-        </div>
+        {product.photo_url ? (
+          <img src={product.photo_url} alt={product.name} className="h-10 w-10 rounded-lg object-cover shrink-0" />
+        ) : (
+          <div className="p-2 rounded-lg bg-muted">
+            <StorageIcon className="h-5 w-5 text-muted-foreground" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold truncate">{product.name}</p>
           <p className="text-[10px] text-muted-foreground">

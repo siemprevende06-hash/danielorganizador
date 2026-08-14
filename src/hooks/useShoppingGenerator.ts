@@ -40,6 +40,7 @@ export function useShoppingGenerator(
       ings.forEach((ing: any) => {
         const pid = ing.product_id;
         const product = pid ? products.find(pr => pr.id === pid) : null;
+        if (product?.is_basic) return;
         const key = pid || `__raw__${ing.name.toLowerCase()}`;
         const qty = Number(ing.quantity_for_recipe ?? ing.quantity ?? 0);
 

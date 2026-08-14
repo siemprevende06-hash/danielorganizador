@@ -5,19 +5,66 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit2, ChefHat, Sun, Cookie, UtensilsCrossed, MoonStar, DollarSign } from "lucide-react";
+import { Plus, Trash2, Edit2, ChefHat, Sun, Cookie, UtensilsCrossed, MoonStar, Dumbbell, DollarSign } from "lucide-react";
 import { useRecipes, type Recipe, type RecipeIngredient } from "@/hooks/useRecipes";
+import { useGroceryProducts, type GroceryProduct } from "@/hooks/useGroceryProducts";
 import { useImageUpload } from "@/hooks/useImageUpload";
-import { useGroceryProducts } from "@/hooks/useGroceryProducts";
 import { toast } from "@/hooks/use-toast";
 
 const CATEGORIES = [
-  { value: "desayuno", label: "Desayuno", icon: Sun },
+  { value: "pre-entreno", label: "Pre-entrenos", icon: Dumbbell },
+  { value: "desayuno", label: "Desayunos", icon: Sun },
   { value: "merienda", label: "Meriendas", icon: Cookie },
-  { value: "almuerzo", label: "Almuerzo", icon: UtensilsCrossed },
-  { value: "comida", label: "Comida", icon: ChefHat },
+  { value: "almuerzo", label: "Almuerzos", icon: UtensilsCrossed },
+  { value: "comida", label: "Comidas", icon: ChefHat },
   { value: "antes-dormir", label: "Antes de Dormir", icon: MoonStar },
 ];
+
+type SortMode = "default" | "cheapest" | "expensive";
+
+export function recipeCost(recipe: Recipe, products: GroceryProduct[]) {
+  return (recipe.ingredients || []).reduce((sum, ing) => {
+    if (!ing.product_id) return sum;
+    const p = products.find(pr => pr.id === ing.product_id);
+    if (!p || !p.price) return sum;
+    const unitCost = (p.price || 0) / Math.max(1, p.package_quantity || 1);
+    const qty = Number(ing.quantity_for_recipe ?? ing.quantity ?? 0);
+    return sum + qty * unitCost;
+  }, 0);
+}
+
+function RecipeCard({ r, products, onEdit, onDelete }: {
+  r: Recipe;
+  products: GroceryProduct[];
+  onEdit: (r: Recipe) => void;
+  onDelete: (id: string) => void;
+}) {
+  const cost = recipeCost(r, products);
+  const hasPrices = (r.ingredients || []).some(ing => ing.product_id && products.find(p => p.id === ing.product_id)?.price);
+  return (
+    <Card className="p-4 group relative">
+      {r.photo_url && <img src={r.photo_url} alt={r.name} className="h-40 w-full rounded object-cover mb-3" />}
+      <p className="text-sm font-semibold truncate">{r.name}</p>
+      <p className="text-xs text-muted-foreground">{r.ingredients?.length || 0} ingredientes</p>
+      {r.servings && <p className="text-xs text-muted-foreground">{r.servings} porciones</p>}
+      {hasPrices && (
+        <div className="mt-1.5 pt-1.5 border-t text-xs flex items-center gap-1">
+          <DollarSign className="h-3 w-3 text-green-600" />
+          <span className="font-bold text-green-700">${cost.toFixed(2)}</span>
+          {r.servings > 0 && <span className="text-muted-foreground">· ${(cost / r.servings).toFixed(2)}/porción</span>}
+        </div>
+      )}
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+        <Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => onEdit(r)}>
+          <Edit2 className="h-4 w-4" />
+        </Button>
+        <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => onDelete(r.id)}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 export function RecipeManager() {
   const { recipes, loading, createRecipe, updateRecipe, deleteRecipe } = useRecipes();
@@ -31,6 +78,7 @@ export function RecipeManager() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [category, setCategory] = useState("");
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
+  const [sortMode, setSortMode] = useState<SortMode>("default");
 
   const reset = () => {
     setEditing(null); setName(""); setServings(1); setInstructions("");
@@ -66,18 +114,37 @@ export function RecipeManager() {
     input.click();
   };
 
+  const sortItems = (items: Recipe[]) => {
+    if (sortMode === "default") return items;
+    const sorted = [...items].sort((a, b) => recipeCost(a, products) - recipeCost(b, products));
+    return sortMode === "cheapest" ? sorted : sorted.reverse();
+  };
+
   const grouped = CATEGORIES.map(cat => ({
     ...cat,
-    items: recipes.filter(r => r.category === cat.value)
+    items: sortItems(recipes.filter(r => r.category === cat.value))
   }));
 
-  const uncategorized = recipes.filter(r => !r.category);
+  const uncategorized = sortItems(recipes.filter(r => !r.category));
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="text-lg font-bold flex items-center gap-2"><ChefHat className="h-5 w-5" /> Recetario</h3>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />Nueva receta</Button>
+        <div className="flex items-center gap-2">
+          <Select value={sortMode} onValueChange={v => setSortMode(v as SortMode)}>
+            <SelectTrigger className="h-9 w-44 text-xs">
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Filtrar por precio" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Sin filtro</SelectItem>
+              <SelectItem value="cheapest">Más baratas primero</SelectItem>
+              <SelectItem value="expensive">Más caras primero</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" />Nueva receta</Button>
+        </div>
       </div>
 
       {loading ? (
@@ -98,20 +165,7 @@ export function RecipeManager() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {cat.items.map(r => (
-                    <Card key={r.id} className="p-4 group relative">
-                      {r.photo_url && <img src={r.photo_url} alt={r.name} className="h-40 w-full rounded object-cover mb-3" />}
-                      <p className="text-sm font-semibold truncate">{r.name}</p>
-                      <p className="text-xs text-muted-foreground">{r.ingredients?.length || 0} ingredientes</p>
-                      {r.servings && <p className="text-xs text-muted-foreground">{r.servings} porciones</p>}
-                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                        <Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => openEdit(r)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => deleteRecipe(r.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </Card>
+                    <RecipeCard key={r.id} r={r} products={products} onEdit={openEdit} onDelete={deleteRecipe} />
                   ))}
                 </div>
               </section>
@@ -126,20 +180,7 @@ export function RecipeManager() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {uncategorized.map(r => (
-                  <Card key={r.id} className="p-4 group relative">
-                    {r.photo_url && <img src={r.photo_url} alt={r.name} className="h-40 w-full rounded object-cover mb-3" />}
-                    <p className="text-sm font-semibold truncate">{r.name}</p>
-                    <p className="text-xs text-muted-foreground">{r.ingredients?.length || 0} ingredientes</p>
-                    {r.servings && <p className="text-xs text-muted-foreground">{r.servings} porciones</p>}
-                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                      <Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => openEdit(r)}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => deleteRecipe(r.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </Card>
+                  <RecipeCard key={r.id} r={r} products={products} onEdit={openEdit} onDelete={deleteRecipe} />
                 ))}
               </div>
             </section>
@@ -230,14 +271,7 @@ export function RecipeManager() {
                 ))}
               </div>
               {(() => {
-                const totalCost = ingredients.reduce((sum, ing) => {
-                  if (!ing.product_id) return sum;
-                  const p = products.find(pr => pr.id === ing.product_id);
-                  if (!p || !p.price) return sum;
-                  const uc = (p.price || 0) / Math.max(1, p.package_quantity || 1);
-                  const qty = Number(ing.quantity_for_recipe ?? ing.quantity ?? 0);
-                  return sum + qty * uc;
-                }, 0);
+                const totalCost = recipeCost({ ingredients } as Recipe, products);
                 if (totalCost <= 0) return null;
                 return (
                   <div className="text-xs text-muted-foreground text-right mt-2 flex items-center justify-end gap-1">

@@ -11,6 +11,8 @@ export interface GroceryProduct {
   package_quantity: number;
   current_stock: number;
   notes: string | null;
+  photo_url: string | null;
+  is_basic: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +26,8 @@ export interface GroceryProductInput {
   package_quantity?: number;
   current_stock?: number;
   notes?: string;
+  photo_url?: string | null;
+  is_basic?: boolean;
 }
 
 export function useGroceryProducts() {
