@@ -20,7 +20,7 @@ export interface GroceryProduct {
 export interface GroceryProductInput {
   name: string;
   category?: string;
-  storage_type: "shelf" | "refrigerator" | "freezer";
+  storage_type?: "shelf" | "refrigerator" | "freezer";
   unit: string;
   price?: number;
   package_quantity?: number;
