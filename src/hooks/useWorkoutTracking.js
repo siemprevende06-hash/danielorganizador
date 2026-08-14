@@ -9,11 +9,46 @@ const DAY_NAMES = {
     saturday: 'Sábado',
     sunday: 'Domingo'
 };
+export const computeSessionSummary = (session, exercises) => {
+    const exerciseNameById = new Map(exercises.map(e => [e.id, e.name]));
+    const byExercise = new Map();
+    let totalReps = 0;
+    let setCount = 0;
+    let totalVolumeKg = 0;
+    for (const log of session.exercise_logs || []) {
+        const reps = Array.isArray(log.reps_per_set) ? log.reps_per_set.filter(r => typeof r === 'number' && !isNaN(r)) : [];
+        const weights = Array.isArray(log.weights_per_set) && log.weights_per_set.length === reps.length && reps.length > 0
+            ? log.weights_per_set
+            : reps.map(() => Number(log.weight_kg) || 0);
+        const volume = reps.reduce((sum, r, i) => sum + r * (weights[i] || 0), 0);
+        totalVolumeKg += volume;
+        setCount += reps.length;
+        totalReps += reps.reduce((a, b) => a + b, 0);
+        const name = exerciseNameById.get(log.exercise_id) || 'Ejercicio';
+        const entry = byExercise.get(log.exercise_id) || { name, sets: 0, reps: [], volumeKg: 0 };
+        entry.sets += reps.length;
+        entry.reps = [...entry.reps, ...reps];
+        entry.volumeKg += volume;
+        byExercise.set(log.exercise_id, entry);
+    }
+    return {
+        id: session.id,
+        started_at: session.started_at,
+        duration_minutes: session.duration_minutes,
+        tipo: session.tipo,
+        exerciseCount: byExercise.size,
+        setCount,
+        totalReps,
+        totalVolumeKg,
+        exercises: Array.from(byExercise.values())
+    };
+};
 export const useWorkoutTracking = () => {
     const [routine, setRoutine] = useState(null);
     const [allRoutines, setAllRoutines] = useState([]);
     const [exercises, setExercises] = useState([]);
     const [logs, setLogs] = useState([]);
+    const [sessions, setSessions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const loadRoutine = useCallback(async (tipo) => {
         let query = supabase
@@ -74,7 +109,26 @@ export const useWorkoutTracking = () => {
         if (data) {
             setLogs(data.map(log => ({
                 ...log,
-                reps_per_set: log.reps_per_set || []
+                reps_per_set: log.reps_per_set || [],
+                weights_per_set: log.weights_per_set || []
+            })));
+        }
+        return data;
+    }, []);
+    const loadSessions = useCallback(async () => {
+        const { data } = await supabase
+            .from('workout_sessions')
+            .select('*, exercise_logs(*)')
+            .order('started_at', { ascending: false })
+            .limit(60);
+        if (data) {
+            setSessions(data.map(s => ({
+                ...s,
+                exercise_logs: (s.exercise_logs || []).map(l => ({
+                    ...l,
+                    reps_per_set: l.reps_per_set || [],
+                    weights_per_set: l.weights_per_set || []
+                }))
             })));
         }
         return data;
@@ -86,9 +140,10 @@ export const useWorkoutTracking = () => {
             await loadExercises(routineData.id);
         }
         await loadLogs();
+        await loadSessions();
         await loadAllRoutines(tipo);
         setIsLoading(false);
-    }, [loadRoutine, loadExercises, loadLogs, loadAllRoutines]);
+    }, [loadRoutine, loadExercises, loadLogs, loadSessions, loadAllRoutines]);
     useEffect(() => {
         loadAll();
     }, [loadAll]);
@@ -180,7 +235,7 @@ export const useWorkoutTracking = () => {
         }
         return { error };
     };
-    const logWorkout = async (exerciseId, weightKg, setsCompleted, repsPerSet, notes) => {
+    const logWorkout = async (exerciseId, weightKg, setsCompleted, repsPerSet, notes, sessionId, weightsPerSet) => {
         const { data, error } = await supabase
             .from('exercise_logs')
             .insert({
@@ -188,7 +243,9 @@ export const useWorkoutTracking = () => {
             weight_kg: weightKg,
             sets_completed: setsCompleted,
             reps_per_set: repsPerSet,
+            weights_per_set: weightsPerSet || [],
             notes,
+            session_id: sessionId || null,
             log_date: new Date().toISOString().split('T')[0]
         })
             .select()
@@ -196,10 +253,71 @@ export const useWorkoutTracking = () => {
         if (!error && data) {
             setLogs(prev => [{
                     ...data,
-                    reps_per_set: data.reps_per_set || []
+                    reps_per_set: data.reps_per_set || [],
+                    weights_per_set: data.weights_per_set || []
                 }, ...prev]);
         }
         return { data, error };
+    };
+    const startSession = async (routineId, tipo = 'gimnasio') => {
+        const { data, error } = await supabase
+            .from('workout_sessions')
+            .insert({
+            routine_id: routineId,
+            tipo,
+            started_at: new Date().toISOString()
+        })
+            .select()
+            .single();
+        if (!error && data) {
+            setSessions(prev => [{
+                    ...data,
+                    exercise_logs: []
+                }, ...prev]);
+        }
+        return { data, error };
+    };
+    const finishSession = async (sessionId, durationMinutes) => {
+        const { error } = await supabase
+            .from('workout_sessions')
+            .update({
+            ended_at: new Date().toISOString(),
+            duration_minutes: Math.max(1, Math.round(durationMinutes))
+        })
+            .eq('id', sessionId);
+        if (!error) {
+            setSessions(prev => prev.map(s => s.id === sessionId
+                ? { ...s, ended_at: new Date().toISOString(), duration_minutes: Math.max(1, Math.round(durationMinutes)) }
+                : s));
+        }
+        return { error };
+    };
+    const syncWorkoutDuration = async (minutes) => {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: existing } = await supabase
+            .from('daily_systems_tracking')
+            .select('*')
+            .eq('tracking_date', today)
+            .maybeSingle();
+        const base = existing || {
+            tracking_date: today,
+            completions: {},
+            time_data: {},
+            count_data: {},
+            water_data: {},
+            block_completions: {},
+            skipped: {},
+            active_focus_areas: ['universidad', 'emprendimiento', 'proyectos']
+        };
+        await supabase
+            .from('daily_systems_tracking')
+            .upsert({
+            ...base,
+            workout_duration: minutes,
+            workout_intensity: base.workout_intensity || 'moderate',
+            completions: { ...(base.completions || {}), 'entrenamiento-fisico': true },
+            time_data: { ...(base.time_data || {}), 'entrenamiento-fisico': minutes }
+        }, { onConflict: 'tracking_date' });
     };
     const getExerciseProgress = useCallback((exerciseId) => {
         const exercise = exercises.find(e => e.id === exerciseId);
@@ -263,6 +381,7 @@ export const useWorkoutTracking = () => {
         allRoutines,
         exercises,
         logs,
+        sessions,
         isLoading,
         createRoutine,
         updateRoutine,
@@ -270,6 +389,10 @@ export const useWorkoutTracking = () => {
         addExercise,
         removeExercise,
         logWorkout,
+        startSession,
+        finishSession,
+        syncWorkoutDuration,
+        loadSessions,
         getExerciseProgress,
         getAllProgress,
         getTodayWorkout,
