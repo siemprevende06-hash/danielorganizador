@@ -49,6 +49,29 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     ]
   },
   {
+    label: 'LÍNEA DE TIEMPO',
+    items: [
+      { path: '/daily', label: 'Hoy', icon: CalendarDays },
+      { path: '/plan-manana', label: 'Mañana', icon: CalendarDays },
+      { path: '/weekly', label: 'Semana', icon: CalendarRange },
+      { path: '/monthly', label: 'Mes', icon: Calendar },
+      { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
+      { path: '/anual', label: 'Año', icon: CalendarDays },
+      { path: '/weeks', label: 'Semanas', icon: CalendarDays },
+      { path: '/goals', label: 'Metas', icon: Goal },
+      { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
+    ]
+  },
+  {
+    label: 'ÁREAS',
+    items: [
+      { path: '/entrepreneurship', label: 'Emprendimiento', icon: Briefcase },
+      { path: '/university', label: 'Universidad', icon: GraduationCap },
+      { path: '/projects', label: 'Proyectos', icon: Target },
+      { path: '/finance', label: 'Finanzas', icon: DollarSign },
+    ]
+  },
+  {
     label: 'SEGUIMIENTO',
     items: [
       { path: '/habits', label: 'Hábitos', icon: CheckSquare },
@@ -75,20 +98,6 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     ]
   },
   {
-    label: 'LÍNEA DE TIEMPO',
-    items: [
-      { path: '/daily', label: 'Hoy', icon: CalendarDays },
-      { path: '/plan-manana', label: 'Mañana', icon: CalendarDays },
-      { path: '/weekly', label: 'Semana', icon: CalendarRange },
-      { path: '/monthly', label: 'Mes', icon: Calendar },
-      { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
-      { path: '/anual', label: 'Año', icon: CalendarDays },
-      { path: '/weeks', label: 'Semanas', icon: CalendarDays },
-      { path: '/goals', label: 'Metas', icon: Goal },
-      { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
-    ]
-  },
-  {
     label: 'PLANES',
     items: [
       { path: '/trimestral-planning', label: 'Plan Trimestral', icon: CalendarRange },
@@ -97,20 +106,12 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     ]
   },
   {
-    label: 'ÁREAS',
-    items: [
-      { path: '/entrepreneurship', label: 'Emprendimiento', icon: Briefcase },
-      { path: '/university', label: 'Universidad', icon: GraduationCap },
-      { path: '/projects', label: 'Proyectos', icon: Target },
-      { path: '/finance', label: 'Finanzas', icon: DollarSign },
-    ]
-  },
-  {
     label: 'HOBBIES',
     items: [
       { path: '/languages-dashboard', label: 'Idiomas', icon: BookOpen },
       { path: '/reading-library', label: 'Biblioteca', icon: BookOpen },
       { path: '/music-dashboard', label: 'Música', icon: BookOpen },
+      { path: '/chess', label: 'Ajedrez', icon: Crown },
     ]
   },
   {
@@ -118,7 +119,6 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     items: [
       { path: '/alimentacion', label: 'Alimentación', icon: Utensils },
       { path: '/gym', label: 'Gimnasio', icon: Dumbbell },
-      { path: '/chess', label: 'Ajedrez', icon: Crown },
       { path: '/grocery', label: 'Despensa', icon: Package },
       { path: '/shopping-list', label: 'Lista Compra', icon: ShoppingCart },
     ]
