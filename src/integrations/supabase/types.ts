@@ -1151,6 +1151,13 @@ export type Database = {
             referencedRelation: "workout_exercises"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "exercise_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       focus_sessions: {
