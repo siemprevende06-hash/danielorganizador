@@ -169,7 +169,7 @@ export function useAreaScores(
         const completionsMap = new Map<string, Set<string>>()
         for (const row of sysRes?.data ?? []) {
           const done = new Set<string>()
-          const comp: Record<string, boolean> = row.completions ?? {}
+          const comp = (row.completions ?? {}) as Record<string, boolean>
           for (const [k, v] of Object.entries(comp)) {
             if (k.startsWith("streak:")) continue
             if (v) done.add(k)

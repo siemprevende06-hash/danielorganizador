@@ -846,6 +846,44 @@ export type Database = {
         }
         Relationships: []
       }
+      entrepreneurship_goals: {
+        Row: {
+          completed: boolean
+          created_at: string
+          entrepreneurship_id: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          entrepreneurship_id: string
+          id?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          entrepreneurship_id?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrepreneurship_goals_entrepreneurship_id_fkey"
+            columns: ["entrepreneurship_id"]
+            isOneToOne: false
+            referencedRelation: "entrepreneurships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entrepreneurship_income: {
         Row: {
           amount: number
@@ -3455,6 +3493,7 @@ export type Database = {
       }
       university_subjects: {
         Row: {
+          approved: boolean
           color: string | null
           created_at: string
           credits: number | null
@@ -3468,6 +3507,7 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          approved?: boolean
           color?: string | null
           created_at?: string
           credits?: number | null
@@ -3481,6 +3521,7 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          approved?: boolean
           color?: string | null
           created_at?: string
           credits?: number | null
