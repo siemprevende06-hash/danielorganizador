@@ -228,7 +228,7 @@ export const useWorkoutTracking = () => {
       .limit(60);
 
     if (data) {
-      setSessions(data.map(s => ({
+      setSessions((data as any[]).map((s: any) => ({
         ...s,
         exercise_logs: (s.exercise_logs || []).map((l: any) => ({
           ...l,
@@ -450,7 +450,7 @@ export const useWorkoutTracking = () => {
       .eq('tracking_date', today)
       .maybeSingle();
 
-    const base = existing || {
+    const base: any = existing || {
       tracking_date: today,
       completions: {},
       time_data: {},
