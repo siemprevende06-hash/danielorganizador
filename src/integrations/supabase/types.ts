@@ -1105,34 +1105,43 @@ export type Database = {
           created_at: string | null
           exercise_id: string | null
           id: string
+          is_pr: boolean
           log_date: string
           notes: string | null
           reps_per_set: Json | null
+          session_id: string | null
           sets_completed: number | null
           user_id: string | null
           weight_kg: number | null
+          weights_per_set: Json
         }
         Insert: {
           created_at?: string | null
           exercise_id?: string | null
           id?: string
+          is_pr?: boolean
           log_date?: string
           notes?: string | null
           reps_per_set?: Json | null
+          session_id?: string | null
           sets_completed?: number | null
           user_id?: string | null
           weight_kg?: number | null
+          weights_per_set?: Json
         }
         Update: {
           created_at?: string | null
           exercise_id?: string | null
           id?: string
+          is_pr?: boolean
           log_date?: string
           notes?: string | null
           reps_per_set?: Json | null
+          session_id?: string | null
           sets_completed?: number | null
           user_id?: string | null
           weight_kg?: number | null
+          weights_per_set?: Json
         }
         Relationships: [
           {
@@ -1319,9 +1328,11 @@ export type Database = {
           created_at: string
           current_stock: number
           id: string
+          is_basic: boolean
           name: string
           notes: string | null
           package_quantity: number
+          photo_url: string | null
           price: number
           storage_type: string
           unit: string
@@ -1333,9 +1344,11 @@ export type Database = {
           created_at?: string
           current_stock?: number
           id?: string
+          is_basic?: boolean
           name: string
           notes?: string | null
           package_quantity?: number
+          photo_url?: string | null
           price?: number
           storage_type?: string
           unit?: string
@@ -1347,9 +1360,11 @@ export type Database = {
           created_at?: string
           current_stock?: number
           id?: string
+          is_basic?: boolean
           name?: string
           notes?: string | null
           package_quantity?: number
+          photo_url?: string | null
           price?: number
           storage_type?: string
           unit?: string
@@ -1858,6 +1873,7 @@ export type Database = {
           meal_date: string
           meal_type: string
           notes: string | null
+          photo_url: string | null
           scheduled_time: string
           user_id: string | null
         }
@@ -1869,6 +1885,7 @@ export type Database = {
           meal_date?: string
           meal_type: string
           notes?: string | null
+          photo_url?: string | null
           scheduled_time: string
           user_id?: string | null
         }
@@ -1880,6 +1897,7 @@ export type Database = {
           meal_date?: string
           meal_type?: string
           notes?: string | null
+          photo_url?: string | null
           scheduled_time?: string
           user_id?: string | null
         }
@@ -3933,6 +3951,45 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           workout_days?: Json
+        }
+        Relationships: []
+      }
+      workout_sessions: {
+        Row: {
+          created_at: string
+          duration_minutes: number | null
+          ended_at: string | null
+          id: string
+          notes: string | null
+          routine_id: string | null
+          started_at: string
+          tipo: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          routine_id?: string | null
+          started_at?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          routine_id?: string | null
+          started_at?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
