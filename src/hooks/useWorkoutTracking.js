@@ -110,7 +110,8 @@ export const useWorkoutTracking = () => {
             setLogs(data.map(log => ({
                 ...log,
                 reps_per_set: log.reps_per_set || [],
-                weights_per_set: log.weights_per_set || []
+                weights_per_set: log.weights_per_set || [],
+                is_pr: log.is_pr || false
             })));
         }
         return data;
@@ -127,7 +128,8 @@ export const useWorkoutTracking = () => {
                 exercise_logs: (s.exercise_logs || []).map(l => ({
                     ...l,
                     reps_per_set: l.reps_per_set || [],
-                    weights_per_set: l.weights_per_set || []
+                    weights_per_set: l.weights_per_set || [],
+                    is_pr: l.is_pr || false
                 }))
             })));
         }
@@ -236,6 +238,10 @@ export const useWorkoutTracking = () => {
         return { error };
     };
     const logWorkout = async (exerciseId, weightKg, setsCompleted, repsPerSet, notes, sessionId, weightsPerSet) => {
+        const prevMax = logs
+            .filter(l => l.exercise_id === exerciseId && l.weight_kg)
+            .reduce((max, l) => Math.max(max, Number(l.weight_kg) || 0), 0);
+        const isPr = weightKg > 0 && weightKg > prevMax;
         const { data, error } = await supabase
             .from('exercise_logs')
             .insert({
@@ -246,6 +252,7 @@ export const useWorkoutTracking = () => {
             weights_per_set: weightsPerSet || [],
             notes,
             session_id: sessionId || null,
+            is_pr: isPr,
             log_date: new Date().toISOString().split('T')[0]
         })
             .select()
@@ -254,7 +261,8 @@ export const useWorkoutTracking = () => {
             setLogs(prev => [{
                     ...data,
                     reps_per_set: data.reps_per_set || [],
-                    weights_per_set: data.weights_per_set || []
+                    weights_per_set: data.weights_per_set || [],
+                    is_pr: data.is_pr || false
                 }, ...prev]);
         }
         return { data, error };
@@ -376,6 +384,38 @@ export const useWorkoutTracking = () => {
     const getExercisesByDay = useCallback((day) => {
         return exercises.filter(e => e.day_of_week === day);
     }, [exercises]);
+    const epley = (weightKg, reps) => {
+        if (weightKg <= 0 || reps <= 0)
+            return 0;
+        return Math.round(weightKg * (1 + reps / 30));
+    };
+    const getExerciseHistory = useCallback((exerciseId) => {
+        return logs
+            .filter(l => l.exercise_id === exerciseId)
+            .sort((a, b) => a.log_date.localeCompare(b.log_date) || a.created_at.localeCompare(b.created_at))
+            .map(l => {
+            const reps = (l.reps_per_set || []).filter(r => typeof r === 'number' && !isNaN(r)).reduce((a, b) => a + b, 0);
+            const weight = Number(l.weight_kg) || 0;
+            return {
+                date: l.log_date,
+                weight,
+                reps,
+                e1rm: epley(weight, reps),
+                isPr: !!l.is_pr
+            };
+        });
+    }, [logs]);
+    const getLastLog = useCallback((exerciseId) => {
+        return logs
+            .filter(l => l.exercise_id === exerciseId && l.weight_kg)
+            .sort((a, b) => b.log_date.localeCompare(a.log_date) || b.created_at.localeCompare(a.created_at))[0];
+    }, [logs]);
+    const getSessionPrNames = useCallback((sessionId) => {
+        const nameById = new Map(exercises.map(e => [e.id, e.name]));
+        return logs
+            .filter(l => l.session_id === sessionId && l.is_pr)
+            .map(l => nameById.get(l.exercise_id) || 'Ejercicio');
+    }, [logs, exercises]);
     return {
         routine,
         allRoutines,
@@ -397,6 +437,9 @@ export const useWorkoutTracking = () => {
         getAllProgress,
         getTodayWorkout,
         getExercisesByDay,
+        getExerciseHistory,
+        getLastLog,
+        getSessionPrNames,
         loadAllRoutines,
         reload: loadAll,
         DAY_NAMES
