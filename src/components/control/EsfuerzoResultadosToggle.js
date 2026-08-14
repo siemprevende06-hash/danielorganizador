@@ -1,0 +1,16 @@
+import { jsx as _jsx } from "react/jsx-runtime";
+import { cn } from '@/lib/utils';
+const OPTIONS = [
+    { id: 'esfuerzo', label: 'Esfuerzo' },
+    { id: 'plan', label: 'Plan' },
+    { id: 'resultados', label: 'Resultados' },
+];
+export function EsfuerzoResultadosToggle({ value, onChange, className, withPlan = true }) {
+    const options = withPlan ? OPTIONS : OPTIONS.filter(o => o.id !== 'plan');
+    return (_jsx("div", { className: cn("inline-flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border/50", className), children: options.map(o => (_jsx("button", { type: "button", onClick: () => onChange(o.id), className: cn("px-4 py-1.5 rounded-full text-xs font-semibold transition-all", value === o.id
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"), children: o.label }, o.id))) }));
+}
+export function ResultadosPlaceholder() {
+    return (_jsx("div", { className: "min-h-[50vh] rounded-2xl border border-dashed border-border/60 flex items-center justify-center text-sm text-muted-foreground", children: "Resultados \u2014 pr\u00F3ximamente" }));
+}

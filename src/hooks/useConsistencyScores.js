@@ -1,0 +1,264 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { format, subDays } from "date-fns";
+function dayCount(start, end) {
+    const s = new Date(`${start}T00:00:00`).getTime();
+    const e = new Date(`${end}T00:00:00`).getTime();
+    return Math.max(1, Math.round((e - s) / 86400000) + 1);
+}
+function getDateRange(timeframe) {
+    const today = new Date();
+    const end = format(today, "yyyy-MM-dd");
+    let start;
+    switch (timeframe) {
+        case "today":
+            start = today;
+            break;
+        case "week":
+            start = subDays(today, 6);
+            break;
+        case "month":
+            start = subDays(today, 29);
+            break;
+        case "quarter":
+            start = subDays(today, 89);
+            break;
+        case "year":
+            start = subDays(today, 364);
+            break;
+        case "sprint":
+            return { start: "", end: "" };
+        default:
+            start = subDays(today, 6);
+    }
+    return { start: format(start, "yyyy-MM-dd"), end };
+}
+async function fetchCompletionsMap(start, end) {
+    const map = new Map();
+    try {
+        const { data } = await supabase
+            .from("daily_systems_tracking")
+            .select("tracking_date, completions")
+            .gte("tracking_date", start)
+            .lte("tracking_date", end);
+        for (const row of data ?? []) {
+            const done = new Set();
+            const comp = row.completions ?? {};
+            for (const [k, v] of Object.entries(comp)) {
+                if (k.startsWith("streak:"))
+                    continue;
+                if (v)
+                    done.add(k);
+            }
+            map.set(row.tracking_date, done);
+        }
+    }
+    catch (err) {
+        console.warn("[useConsistencyScores] completions fetch:", err);
+    }
+    return map;
+}
+export function useConsistencyScores(areaIds, timeframe, sprintDateRange) {
+    const [score, setScore] = useState(0);
+    const [daysWithData, setDaysWithData] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const load = useCallback(async () => {
+        if (areaIds.length === 0) {
+            setScore(0);
+            setDaysWithData(0);
+            setLoading(false);
+            return;
+        }
+        let start, end;
+        if (timeframe === "sprint" && sprintDateRange) {
+            start = sprintDateRange.start;
+            end = sprintDateRange.end;
+        }
+        else if (timeframe === "sprint") {
+            const { data: active } = await supabase
+                .from("sprints")
+                .select("start_date, end_date")
+                .eq("status", "active")
+                .order("start_date", { ascending: false })
+                .limit(1)
+                .single();
+            if (active) {
+                start = active.start_date;
+                end = active.end_date;
+            }
+            else {
+                setScore(0);
+                setDaysWithData(0);
+                setLoading(false);
+                return;
+            }
+        }
+        else {
+            const range = getDateRange(timeframe);
+            start = range.start;
+            end = range.end;
+        }
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from("daily_area_stats")
+                .select("area_id, stat_date, time_spent_minutes, time_goal_minutes")
+                .in("area_id", areaIds)
+                .gte("stat_date", start)
+                .lte("stat_date", end);
+            const completionsMap = await fetchCompletionsMap(start, end);
+            if (error) {
+                console.warn("[useConsistencyScores] error:", error.message);
+                setScore(0);
+                setDaysWithData(0);
+                setLoading(false);
+                return;
+            }
+            if (!data || data.length === 0) {
+                setScore(0);
+                setDaysWithData(0);
+                setLoading(false);
+                return;
+            }
+            const dailyRates = [];
+            const seen = new Set();
+            for (const row of data) {
+                const key = `${row.area_id}|${row.stat_date}`;
+                if (seen.has(key))
+                    continue;
+                seen.add(key);
+                const doneSet = completionsMap.get(row.stat_date);
+                const completed = doneSet?.has(row.area_id) ?? false;
+                if (completed) {
+                    dailyRates.push(100);
+                    continue;
+                }
+                const goal = row.time_goal_minutes || 30;
+                const spent = row.time_spent_minutes || 0;
+                const rate = Math.min(100, Math.round((spent / goal) * 100));
+                dailyRates.push(rate);
+            }
+            if (dailyRates.length === 0) {
+                setScore(0);
+                setDaysWithData(0);
+            }
+            else {
+                const avg = Math.round(dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length);
+                const days = dayCount(start, end);
+                const consistency = Math.min(100, Math.round(avg * (dailyRates.length / days)));
+                setScore(consistency);
+                setDaysWithData(dailyRates.length);
+            }
+        }
+        catch (err) {
+            console.warn("[useConsistencyScores] exception:", err);
+            setScore(0);
+            setDaysWithData(0);
+        }
+        finally {
+            setLoading(false);
+        }
+    }, [areaIds.join(","), timeframe, sprintDateRange?.start, sprintDateRange?.end]);
+    useEffect(() => {
+        load();
+    }, [load]);
+    return { score, daysWithData, loading, refresh: load };
+}
+export function useMultiConsistencyScores(groups, timeframe, sprintDateRange) {
+    const [scores, setScores] = useState({});
+    const [loading, setLoading] = useState(true);
+    const allAreaIds = Object.values(groups).flat();
+    const groupKeys = Object.keys(groups);
+    const loadAll = useCallback(async () => {
+        if (groupKeys.length === 0) {
+            setScores({});
+            setLoading(false);
+            return;
+        }
+        let start, end;
+        if (timeframe === "sprint" && sprintDateRange) {
+            start = sprintDateRange.start;
+            end = sprintDateRange.end;
+        }
+        else if (timeframe === "sprint") {
+            const { data: active } = await supabase
+                .from("sprints")
+                .select("start_date, end_date")
+                .eq("status", "active")
+                .order("start_date", { ascending: false })
+                .limit(1)
+                .single();
+            if (active) {
+                start = active.start_date;
+                end = active.end_date;
+            }
+            else {
+                setScores({});
+                setLoading(false);
+                return;
+            }
+        }
+        else {
+            const range = getDateRange(timeframe);
+            start = range.start;
+            end = range.end;
+        }
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from("daily_area_stats")
+                .select("area_id, stat_date, time_spent_minutes, time_goal_minutes")
+                .in("area_id", allAreaIds)
+                .gte("stat_date", start)
+                .lte("stat_date", end);
+            const completionsMap = await fetchCompletionsMap(start, end);
+            if (error || !data) {
+                setScores({});
+                setLoading(false);
+                return;
+            }
+            const result = {};
+            for (const [groupName, ids] of Object.entries(groups)) {
+                const groupData = data.filter((r) => ids.includes(r.area_id));
+                if (groupData.length === 0) {
+                    result[groupName] = 0;
+                    continue;
+                }
+                const seen = new Set();
+                const rates = [];
+                for (const row of groupData) {
+                    const key = `${row.area_id}|${row.stat_date}`;
+                    if (seen.has(key))
+                        continue;
+                    seen.add(key);
+                    const doneSet = completionsMap.get(row.stat_date);
+                    const completed = doneSet?.has(row.area_id) ?? false;
+                    if (completed) {
+                        rates.push(100);
+                        continue;
+                    }
+                    const goal = row.time_goal_minutes || 30;
+                    const spent = row.time_spent_minutes || 0;
+                    const rate = Math.min(100, Math.round((spent / goal) * 100));
+                    rates.push(rate);
+                }
+                result[groupName] =
+                    rates.length > 0
+                        ? Math.min(100, Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * (rates.length / dayCount(start, end))))
+                        : 0;
+            }
+            setScores(result);
+        }
+        catch (err) {
+            console.warn("[useMultiConsistencyScores] exception:", err);
+            setScores({});
+        }
+        finally {
+            setLoading(false);
+        }
+    }, [allAreaIds.join(","), timeframe, sprintDateRange?.start, sprintDateRange?.end]);
+    useEffect(() => {
+        loadAll();
+    }, [loadAll]);
+    return { scores, loading, refresh: loadAll };
+}

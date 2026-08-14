@@ -1,0 +1,29 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import { Plus, Search, Star, Trash2, MoreHorizontal } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from '@/components/ui/alert-dialog';
+import { useState } from 'react';
+export function PageSidebar({ pages, selectedId, onSelect, onCreate, onDelete, onToggleFavorite, }) {
+    const [search, setSearch] = useState('');
+    const [deleteId, setDeleteId] = useState(null);
+    const filtered = pages.filter(p => p.title.toLowerCase().includes(search.toLowerCase()));
+    const favorites = filtered.filter(p => p.is_favorite);
+    const others = filtered.filter(p => !p.is_favorite);
+    return (_jsxs("div", { className: "flex flex-col h-full bg-muted/30 border-r", children: [_jsxs("div", { className: "p-3 space-y-2 border-b", children: [_jsxs("div", { className: "flex items-center justify-between", children: [_jsx("h2", { className: "text-sm font-semibold", children: "P\u00E1ginas" }), _jsx(Button, { variant: "ghost", size: "icon", className: "h-7 w-7", onClick: onCreate, children: _jsx(Plus, { className: "h-4 w-4" }) })] }), _jsxs("div", { className: "relative", children: [_jsx(Search, { className: "absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" }), _jsx(Input, { placeholder: "Buscar p\u00E1ginas...", value: search, onChange: (e) => setSearch(e.target.value), className: "pl-7 h-8 text-sm" })] })] }), _jsx(ScrollArea, { className: "flex-1", children: _jsxs("div", { className: "p-2 space-y-3", children: [favorites.length > 0 && (_jsxs("div", { children: [_jsx("p", { className: "text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-2 pb-1", children: "Favoritas" }), _jsx("div", { className: "space-y-0.5", children: favorites.map(p => (_jsx(PageItem, { page: p, isSelected: p.id === selectedId, onSelect: () => onSelect(p.id), onDelete: () => setDeleteId(p.id), onToggleFavorite: () => onToggleFavorite(p.id) }, p.id))) })] })), _jsxs("div", { children: [_jsx("p", { className: "text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-2 pb-1", children: "Todas" }), _jsxs("div", { className: "space-y-0.5", children: [others.length === 0 && favorites.length === 0 && (_jsx("p", { className: "text-xs text-muted-foreground px-2 py-4 text-center", children: "No hay p\u00E1ginas a\u00FAn. Crea una nueva." })), others.map(p => (_jsx(PageItem, { page: p, isSelected: p.id === selectedId, onSelect: () => onSelect(p.id), onDelete: () => setDeleteId(p.id), onToggleFavorite: () => onToggleFavorite(p.id) }, p.id)))] })] })] }) }), _jsx(AlertDialog, { open: !!deleteId, onOpenChange: (open) => !open && setDeleteId(null), children: _jsxs(AlertDialogContent, { children: [_jsxs(AlertDialogHeader, { children: [_jsx(AlertDialogTitle, { children: "Eliminar p\u00E1gina" }), _jsx(AlertDialogDescription, { children: "\u00BFEst\u00E1s seguro? Esta acci\u00F3n no se puede deshacer." })] }), _jsxs(AlertDialogFooter, { children: [_jsx(AlertDialogCancel, { children: "Cancelar" }), _jsx(AlertDialogAction, { onClick: () => {
+                                        if (deleteId) {
+                                            onDelete(deleteId);
+                                            setDeleteId(null);
+                                        }
+                                    }, className: "bg-destructive text-destructive-foreground hover:bg-destructive/90", children: "Eliminar" })] })] }) })] }));
+}
+function PageItem({ page, isSelected, onSelect, onDelete, onToggleFavorite, }) {
+    return (_jsxs("div", { className: cn('flex items-center gap-2 px-2 py-1.5 rounded-md text-sm cursor-pointer group transition-colors', isSelected
+            ? 'bg-accent text-accent-foreground'
+            : 'text-foreground/80 hover:bg-accent/50'), onClick: onSelect, children: [_jsx("span", { className: "text-base shrink-0", children: page.icon || '📄' }), _jsx("span", { className: "truncate flex-1 text-sm", children: page.title || 'Sin título' }), _jsx("button", { onClick: (e) => { e.stopPropagation(); onToggleFavorite(); }, "aria-label": page.is_favorite ? 'Quitar favorito' : 'Marcar favorito', className: cn('shrink-0 transition-opacity', page.is_favorite
+                    ? 'opacity-100 pointer-events-auto'
+                    : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto pointer-coarse:opacity-70 pointer-coarse:pointer-events-auto'), children: _jsx(Star, { className: cn('h-3.5 w-3.5', page.is_favorite ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground') }) }), _jsxs(DropdownMenu, { children: [_jsx(DropdownMenuTrigger, { asChild: true, onClick: (e) => e.stopPropagation(), children: _jsx("button", { "aria-label": "Opciones de p\u00E1gina", className: cn('shrink-0 transition-opacity', 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto pointer-coarse:opacity-70 pointer-coarse:pointer-events-auto'), children: _jsx(MoreHorizontal, { className: "h-3.5 w-3.5 text-muted-foreground" }) }) }), _jsx(DropdownMenuContent, { align: "end", className: "w-40", children: _jsxs(DropdownMenuItem, { onClick: (e) => { e.stopPropagation(); onDelete(); }, children: [_jsx(Trash2, { className: "h-4 w-4 mr-2 text-destructive" }), _jsx("span", { className: "text-destructive", children: "Eliminar" })] }) })] })] }));
+}
