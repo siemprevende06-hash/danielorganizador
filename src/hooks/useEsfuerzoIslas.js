@@ -25,7 +25,11 @@ const BLOCK_AREA_RULES = [
   [/focus/i, "profesional"],
   [/trabajo/i, "profesional"],
   [/bloque/i, "profesional"],
-  [/ajedrez/i, "ocio"],
+  [/skincare/i, "apariencia"],
+  [/banarme/i, "apariencia"],
+  [/vestirme/i, "apariencia"],
+  [/game/i, "desarrollo"],
+  [/ajedrez/i, "desarrollo"],
   [/almuerzo/i, "ocio"],
   [/ocio/i, "ocio"],
   [/comida/i, "ocio"]

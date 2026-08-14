@@ -37,9 +37,10 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { addDays, subDays } from 'date-fns';
+import { TimePeriodSections } from '@/components/today/TimePeriodSections';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -99,11 +100,11 @@ const MEJORA_GROUPS: SystemGroup[] = [
 
 const ALL_GROUPS = [...SOSTEN_GROUPS, ...MEJORA_GROUPS];
 
-const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> = {
-  disciplina: { active: "bg-orange-500/20 border-orange-500/60 text-orange-500", inactive: "border-orange-500/20 text-orange-400/60 hover:border-orange-500/40" },
-  normal: { active: "bg-blue-500/20 border-blue-500/60 text-blue-500", inactive: "border-blue-500/20 text-blue-400/60 hover:border-blue-500/40" },
-  super: { active: "bg-purple-500/20 border-purple-500/60 text-purple-500", inactive: "border-purple-500/20 text-purple-400/60 hover:border-purple-500/40" },
-  descanso: { active: "bg-green-500/20 border-green-500/60 text-green-500", inactive: "border-green-500/20 text-green-400/60 hover:border-green-500/40" },
+const ROUTINE_ICONS: Record<RoutineType, React.ReactNode> = {
+  disciplina: <Flame className="h-4 w-4" />,
+  normal: <Scale className="h-4 w-4" />,
+  super: <Zap className="h-4 w-4" />,
+  descanso: <Leaf className="h-4 w-4" />,
 };
 
 export default function DailyView() {
@@ -254,21 +255,24 @@ export default function DailyView() {
         {viewMode === 'plan' ? (
           <>
             {/* Routine Selector */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {ROUTINES.map((r) => {
-                const style = ROUTINE_STYLES[r.type];
                 const isActive = routineType === r.type;
                 return (
                   <button key={r.type} onClick={() => setRoutineType(r.type)}
-                    className={cn("flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]", isActive ? style.active : `${style.inactive} bg-transparent`, isActive && "scale-[1.02]")}
+                    className={cn("w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200", isActive ? "bg-foreground text-background border-foreground shadow-sm" : "bg-white dark:bg-zinc-950 text-foreground/70 border-foreground/15 hover:border-foreground/40 hover:text-foreground")}
                   >
-                    <span className="text-xl leading-none transition-transform duration-300">{r.icon}</span>
-                    <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", isActive ? "opacity-100" : "opacity-70")}>{r.shortLabel}</span>
-                    <span className={cn("text-[10px] font-mono tracking-tight", isActive ? "opacity-80" : "opacity-40")}>{r.wakeTime}—{r.sleepTime}</span>
+                    <span className={cn("shrink-0", !isActive && "opacity-60")}>{ROUTINE_ICONS[r.type]}</span>
+                    <span className="flex flex-col items-start gap-0.5 min-w-0">
+                      <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", !isActive && "opacity-70")}>{r.shortLabel}</span>
+                      <span className={cn("text-[9px] font-mono tracking-tight", isActive ? "text-background/60" : "text-foreground/40")}>{r.wakeTime}—{r.sleepTime}</span>
+                    </span>
                   </button>
                 );
               })}
             </div>
+
+            <TimePeriodSections blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} />
 
             <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
 
@@ -395,17 +399,18 @@ export default function DailyView() {
 
 
             {/* Routine Selector */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {ROUTINES.map((r) => {
-                const style = ROUTINE_STYLES[r.type];
                 const isActive = routineType === r.type;
                 return (
                   <button key={r.type} onClick={() => setRoutineType(r.type)}
-                    className={cn("flex-shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl border-2 transition-all duration-300 min-w-[100px]", isActive ? style.active : `${style.inactive} bg-transparent`, isActive && "scale-[1.02]")}
+                    className={cn("w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200", isActive ? "bg-foreground text-background border-foreground shadow-sm" : "bg-white dark:bg-zinc-950 text-foreground/70 border-foreground/15 hover:border-foreground/40 hover:text-foreground")}
                   >
-                    <span className="text-xl leading-none transition-transform duration-300">{r.icon}</span>
-                    <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", isActive ? "opacity-100" : "opacity-70")}>{r.shortLabel}</span>
-                    <span className={cn("text-[10px] font-mono tracking-tight", isActive ? "opacity-80" : "opacity-40")}>{r.wakeTime}—{r.sleepTime}</span>
+                    <span className={cn("shrink-0", !isActive && "opacity-60")}>{ROUTINE_ICONS[r.type]}</span>
+                    <span className="flex flex-col items-start gap-0.5 min-w-0">
+                      <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", !isActive && "opacity-70")}>{r.shortLabel}</span>
+                      <span className={cn("text-[9px] font-mono tracking-tight", isActive ? "text-background/60" : "text-foreground/40")}>{r.wakeTime}—{r.sleepTime}</span>
+                    </span>
                   </button>
                 );
               })}
