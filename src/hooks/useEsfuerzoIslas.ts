@@ -18,7 +18,7 @@ export interface IslaEsfuerzo {
   blocks: IslaBloque[]
 }
 
-const MIRROR_AREAS: { id: string; label: string; icon: string }[] = [
+export const MIRROR_AREAS: { id: string; label: string; icon: string }[] = [
   { id: "salud", label: "Salud y Bienestar", icon: "🩺" },
   { id: "fuerza-mental", label: "Fuerza Mental", icon: "🧠" },
   { id: "proposito", label: "Propósito", icon: "🎯" },
