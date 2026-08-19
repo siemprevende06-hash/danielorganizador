@@ -1381,9 +1381,11 @@ export type Database = {
           area_id: string | null
           cover_image: string | null
           created_at: string
+          daily_system: string | null
           description: string | null
           id: string
           progress_percentage: number | null
+          stage: string | null
           status: Database["public"]["Enums"]["goal_status"] | null
           target_date: string | null
           title: string
@@ -1394,9 +1396,11 @@ export type Database = {
           area_id?: string | null
           cover_image?: string | null
           created_at?: string
+          daily_system?: string | null
           description?: string | null
           id?: string
           progress_percentage?: number | null
+          stage?: string | null
           status?: Database["public"]["Enums"]["goal_status"] | null
           target_date?: string | null
           title: string
@@ -1407,9 +1411,11 @@ export type Database = {
           area_id?: string | null
           cover_image?: string | null
           created_at?: string
+          daily_system?: string | null
           description?: string | null
           id?: string
           progress_percentage?: number | null
+          stage?: string | null
           status?: Database["public"]["Enums"]["goal_status"] | null
           target_date?: string | null
           title?: string

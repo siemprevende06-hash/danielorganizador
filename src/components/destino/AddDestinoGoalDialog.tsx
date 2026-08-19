@@ -18,27 +18,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Plus, ShieldCheck, TrendingUp, Target } from 'lucide-react';
 import { lifeAreas } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+export const GOAL_STAGES = [
+  {
+    id: 'sosten',
+    label: 'Sostén',
+    icon: ShieldCheck,
+    emoji: '🏗️',
+    description: 'Rutinas y hábitos: constancia hasta que se vuelven estilo de vida',
+  },
+  {
+    id: 'mejora',
+    label: 'Mejora acumulativa',
+    icon: TrendingUp,
+    emoji: '📈',
+    description: 'Llegar a un punto de comodidad donde ya eres suficientemente bueno',
+  },
+  {
+    id: 'enfoque',
+    label: 'Enfoque',
+    icon: Target,
+    emoji: '🎯',
+    description: 'Resultados mínimos y tangibles que quieres conseguir',
+  },
+] as const;
+
+export type GoalStage = (typeof GOAL_STAGES)[number]['id'];
 
 interface AddDestinoGoalDialogProps {
   defaultAreaId?: string;
+  defaultStage?: GoalStage;
   onCreate: (data: {
     title: string;
     dailySystem: string;
     areaId: string | null;
+    stage: GoalStage;
     targetDate: string;
     planItems: string[];
   }) => Promise<void>;
 }
 
-export function AddDestinoGoalDialog({ defaultAreaId, onCreate }: AddDestinoGoalDialogProps) {
+export function AddDestinoGoalDialog({ defaultAreaId, defaultStage, onCreate }: AddDestinoGoalDialogProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [dailySystem, setDailySystem] = useState('');
   const [areaId, setAreaId] = useState(defaultAreaId || '');
+  const [stage, setStage] = useState<GoalStage>(defaultStage || 'mejora');
   const [targetDate, setTargetDate] = useState('');
   const [planItems, setPlanItems] = useState('');
 
@@ -46,6 +76,7 @@ export function AddDestinoGoalDialog({ defaultAreaId, onCreate }: AddDestinoGoal
     setTitle('');
     setDailySystem('');
     setAreaId(defaultAreaId || '');
+    setStage(defaultStage || 'mejora');
     setTargetDate('');
     setPlanItems('');
   };
@@ -60,6 +91,7 @@ export function AddDestinoGoalDialog({ defaultAreaId, onCreate }: AddDestinoGoal
         title: title.trim(),
         dailySystem: dailySystem.trim(),
         areaId: areaId || null,
+        stage,
         targetDate,
         planItems: planItems.split('\n').map(l => l.trim()).filter(Boolean),
       });
@@ -79,9 +111,39 @@ export function AddDestinoGoalDialog({ defaultAreaId, onCreate }: AddDestinoGoal
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nueva meta de destino</DialogTitle>
-          <DialogDescription>Define el destino, el sistema diario que te lleva allí y el plan desglosado</DialogDescription>
+          <DialogDescription>Define el destino, la etapa del camino, el sistema diario y el plan desglosado</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Etapa */}
+          <div>
+            <Label>🛤️ Etapa del camino</Label>
+            <div className="grid grid-cols-3 gap-2 mt-1.5">
+              {GOAL_STAGES.map(s => {
+                const Icon = s.icon;
+                const active = stage === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setStage(s.id)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-lg border p-2.5 text-center transition-colors',
+                      active
+                        ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                        : 'border-border/60 text-muted-foreground hover:bg-muted/50'
+                    )}
+                  >
+                    <span className="text-lg">{s.emoji}</span>
+                    <span className="text-xs font-semibold leading-tight">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              {GOAL_STAGES.find(s => s.id === stage)?.description}
+            </p>
+          </div>
+
           <div>
             <Label>🎯 La meta</Label>
             <Input

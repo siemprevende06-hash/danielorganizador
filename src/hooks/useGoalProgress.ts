@@ -7,6 +7,7 @@ export interface Goal {
   description: string | null;
   daily_system?: string | null;
   area_id: string | null;
+  stage?: string | null;
   target_date: string | null;
   progress_percentage: number;
   status: 'active' | 'completed' | 'paused' | 'abandoned';
@@ -110,6 +111,7 @@ export function useGoalProgress() {
     description?: string;
     daily_system?: string;
     area_id?: string | null;
+    stage?: string | null;
     target_date?: string | null;
   }): Promise<string> => {
     const { data: created, error } = await supabase
@@ -119,6 +121,7 @@ export function useGoalProgress() {
         description: data.description || null,
         daily_system: data.daily_system || null,
         area_id: data.area_id || null,
+        stage: data.stage || null,
         target_date: data.target_date || null,
         status: 'active',
         progress_percentage: 0,
@@ -128,6 +131,24 @@ export function useGoalProgress() {
     if (error) throw error;
     await fetchGoals();
     return created.id;
+  };
+
+  const updateStage = async (goalId: string, stage: string) => {
+    const { error } = await supabase
+      .from('goals')
+      .update({ stage } as any)
+      .eq('id', goalId);
+    if (error) throw error;
+    await fetchGoals();
+  };
+
+  const updateGoalStatus = async (goalId: string, status: Goal['status']) => {
+    const { error } = await supabase
+      .from('goals')
+      .update({ status } as any)
+      .eq('id', goalId);
+    if (error) throw error;
+    await fetchGoals();
   };
 
   const updateDailySystem = async (goalId: string, dailySystem: string) => {
@@ -188,6 +209,8 @@ export function useGoalProgress() {
     updateGoalProgress,
     createGoal,
     updateDailySystem,
+    updateStage,
+    updateGoalStatus,
     addGoalTask,
     toggleGoalTask,
     deleteGoal,

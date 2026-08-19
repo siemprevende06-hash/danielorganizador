@@ -9,10 +9,16 @@ import { ProgressRing } from '@/components/monthly-planning/ProgressRing';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronDown, ChevronRight, Calendar, Trash2, Repeat, Plus, Flag, Trophy, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Calendar, Trash2, Repeat, Plus, Flag, Trophy, X, MapPin, RotateCcw } from 'lucide-react';
 import type { Goal, GoalTask } from '@/hooks/useGoalProgress';
 
 const RING_COLORS = ['indigo', 'emerald', 'amber', 'blue', 'rose', 'purple'] as const;
+
+const STAGE_BADGE: Record<string, { label: string; className: string }> = {
+  sosten: { label: '🏗️ Sostén', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+  mejora: { label: '📈 Mejora', className: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
+  enfoque: { label: '🎯 Enfoque', className: 'bg-violet-500/10 text-violet-600 border-violet-500/20' },
+};
 
 interface DestinoGoalCardProps {
   goal: Goal;
@@ -22,6 +28,7 @@ interface DestinoGoalCardProps {
   onAddTask: (title: string) => Promise<void>;
   onDeleteTask: (task: GoalTask) => Promise<void>;
   onUpdateSystem: (dailySystem: string) => Promise<void>;
+  onUpdateStatus: (status: Goal['status']) => Promise<void>;
   onDeleteGoal: () => Promise<void>;
 }
 
@@ -40,6 +47,7 @@ export function DestinoGoalCard({
   onAddTask,
   onDeleteTask,
   onUpdateSystem,
+  onUpdateStatus,
   onDeleteGoal,
 }: DestinoGoalCardProps) {
   const [planOpen, setPlanOpen] = useState(false);
@@ -84,6 +92,9 @@ export function DestinoGoalCard({
           <div className="flex-1 min-w-0">
             <p className="font-semibold leading-snug">{goal.title}</p>
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              {goal.stage && STAGE_BADGE[goal.stage] && (
+                <Badge variant="outline" className={STAGE_BADGE[goal.stage].className}>{STAGE_BADGE[goal.stage].label}</Badge>
+              )}
               {status && <Badge variant="outline" className={status.className}>{status.label}</Badge>}
               {goal.target_date && (
                 <Badge variant="outline">
@@ -211,7 +222,26 @@ export function DestinoGoalCard({
         </div>
 
         {/* Acciones */}
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-2">
+          {goal.status === 'completed' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => onUpdateStatus('active')}
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" />Reabrir
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-success/40 text-success hover:bg-success/10"
+              onClick={() => onUpdateStatus('completed')}
+            >
+              <MapPin className="h-3.5 w-3.5 mr-1" />Llegué
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
