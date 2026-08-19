@@ -18,6 +18,18 @@ Una nueva página `/coach-ia` con un asistente que conoce tu vida entera, recuer
 - Tarjetas de acción dentro del chat: tarea propuesta → selector de bloque + área → "Crear".
 - Panel de "Memoria" para ver, editar y borrar lo que el asistente recuerda.
 
+## Lienzo visual
+
+Al lado del chat (abajo en móvil) hay un lienzo donde el asistente dibuja lo que explica, en vez de solo texto:
+
+- **Gráficos de tus datos**: barras/líneas de minutos por área, cumplimiento semanal, progreso de metas y trimestre, rachas, comparativa semana vs semana.
+- **Apoyos explicativos**: listas de pasos, comparaciones lado a lado, tabla de prioridades, línea de tiempo del día con los bloques.
+- **Resultados de la web**: tarjetas con título, resumen y enlace de cada fuente encontrada.
+- El asistente elige el visual según la pregunta (herramienta `mostrar_visual`), y cada mensaje guarda su visual para poder volver a verlo al abrir el hilo.
+- Los visuales se renderizan con Recharts y componentes propios, en el mismo estilo minimalista en grises del resto de la app.
+
+
+
 ## Detalles técnicos
 
 **Base de datos** (nuevas tablas, RLS abierta como el resto del proyecto, con GRANTs):
