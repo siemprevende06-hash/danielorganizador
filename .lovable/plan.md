@@ -41,7 +41,7 @@ Al lado del chat (abajo en móvil) hay un lienzo donde el asistente dibuja lo qu
 **Edge Function `life-coach`** (`verify_jwt = false`, como las existentes):
 - Lee el contexto directamente de la base con la service role: `tasks`, `routine_blocks`, `daily_systems_tracking`, `daily_area_stats`, `daily_reviews`, `weekly_objectives`/`weekly_plans`, `monthly_area_goals`, `twelve_week_goals`/`sprints`, `point_b_metrics`, `identity_plan`, `goals`, `area_streaks`.
 - Modelo `google/gemini-3.7-flash` vía Lovable AI Gateway, con streaming y la conversación completa reenviada en cada turno.
-- Herramientas (tool calling): `buscar_web`, `crear_tarea`, `crear_plan_dia`, `asignar_tarea_a_bloque`, `completar_tarea`, `guardar_memoria`, `leer_contexto_extra`.
+- Herramientas (tool calling): `buscar_web`, `mostrar_visual` (gráfico/tabla/pasos/timeline/fuentes), `crear_tarea`, `crear_plan_dia`, `asignar_tarea_a_bloque`, `completar_tarea`, `guardar_memoria`, `leer_contexto_extra`.
 - Búsqueda web mediante grounding del modelo; si no hay resultados, lo dice en vez de inventar.
 - Errores del gateway (402/429/etc.) se muestran tal cual en la UI, sin respuestas falsas.
 
