@@ -34,8 +34,9 @@ Al lado del chat (abajo en móvil) hay un lienzo donde el asistente dibuja lo qu
 
 **Base de datos** (nuevas tablas, RLS abierta como el resto del proyecto, con GRANTs):
 - `ai_conversations` (id, title, created_at, updated_at)
-- `ai_messages` (id, conversation_id, role, content, tool_calls jsonb, created_at)
+- `ai_messages` (id, conversation_id, role, content, tool_calls jsonb, visual jsonb, created_at)
 - `ai_memories` (id, kind, content, importance, source, created_at) — memoria de largo plazo
+
 
 **Edge Function `life-coach`** (`verify_jwt = false`, como las existentes):
 - Lee el contexto directamente de la base con la service role: `tasks`, `routine_blocks`, `daily_systems_tracking`, `daily_area_stats`, `daily_reviews`, `weekly_objectives`/`weekly_plans`, `monthly_area_goals`, `twelve_week_goals`/`sprints`, `point_b_metrics`, `identity_plan`, `goals`, `area_streaks`.
