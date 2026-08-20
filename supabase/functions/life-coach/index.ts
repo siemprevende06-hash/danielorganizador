@@ -392,8 +392,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY no está configurada" }, 500);
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) return json({ error: "OPENROUTER_API_KEY no está configurada" }, 500);
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -437,15 +437,16 @@ ${JSON.stringify(ctx).slice(0, 60000)}`;
     let finalText = "";
 
     for (let round = 0; round < 6; round++) {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Lovable-API-Key": LOVABLE_API_KEY,
-          "X-Lovable-AIG-SDK": "fetch",
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "https://lovable.dev",
+          "X-Title": "Daniel Organizador",
         },
         body: JSON.stringify({
-          model: "google/gemini-3.7-flash",
+          model: "deepseek/deepseek-chat-v3-0324:free",
           messages,
           tools,
         }),
