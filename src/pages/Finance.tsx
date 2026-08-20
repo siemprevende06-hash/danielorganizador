@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { useFinance } from '@/hooks/useFinance';
 import { supabase } from '@/integrations/supabase/client';
 import { DataTable } from '@/components/finance/data-table';
+import { FinanceAIAssistant } from '@/components/finance/FinanceAIAssistant';
 import { getTransactionColumns } from '@/components/finance/transaction-columns';
 import { getLoanColumns } from '@/components/finance/loan-columns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -796,6 +797,22 @@ export default function Finance() {
   };
   const transactionColumns = getTransactionColumns(initialWallets, transactionCategories, exchangeRate, handleRevertClick);
   const loanColumns = getLoanColumns(exchangeRate, openLoanPaymentDialog);
+
+  const handleAICreateTransaction = async (t: { description: string; amount: number; date: Date; walletId: string; categoryId: string; type: "income" | "expense" }) => {
+    const wallet = wallets.find(w => w.id === t.walletId);
+    if (!wallet) {
+      toast({ title: "Billetera no encontrada", description: "Reintenta con otra billetera.", variant: "destructive" });
+      return;
+    }
+    if (t.type === 'expense' && wallet.balance < t.amount) {
+      toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
+      throw new Error("Saldo insuficiente en la billetera elegida.");
+    }
+    const newBalance = t.type === 'expense' ? wallet.balance - t.amount : wallet.balance + t.amount;
+    await addTransaction({ description: t.description, amount: t.amount, date: t.date, walletId: t.walletId, categoryId: t.categoryId, type: t.type, transferId: undefined, loanId: undefined, distributed: false });
+    await updateWalletBalance(t.walletId, newBalance);
+    toast({ title: "Transacción registrada", description: `${t.type === 'expense' ? 'Gasto' : 'Ingreso'} "${t.description}" creado con la IA` });
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -2098,6 +2115,13 @@ export default function Finance() {
             })()}
           </DialogContent>
         </Dialog>
+
+        <FinanceAIAssistant
+          wallets={wallets}
+          categories={transactionCategories}
+          exchangeRate={exchangeRate}
+          onCreateTransaction={handleAICreateTransaction}
+        />
 
       </div>
     </div>

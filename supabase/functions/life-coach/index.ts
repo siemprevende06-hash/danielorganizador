@@ -16,6 +16,15 @@ const AREAS = [
   "lectura", "musica", "piano", "guitarra", "apariencia", "finanzas", "mental", "social", "gaming",
 ];
 
+const MODELOS_FREE = [
+  "qwen/qwen3-32b:free",
+  "qwen/qwen3-8b:free",
+  "moonshotai/kimi-k2-0905:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+];
+
+let MODELO_ACTIVO: string | null = null;
+
 const todayStr = () => {
   // Hora de Cuba (UTC-4)
   const d = new Date(Date.now() - 4 * 60 * 60 * 1000);
@@ -436,8 +445,8 @@ ${JSON.stringify(ctx).slice(0, 60000)}`;
     const out = { visuals: [] as any[], acciones: [] as any[], fuentes: [] as any[] };
     let finalText = "";
 
-    for (let round = 0; round < 6; round++) {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const chat = (modelo: string) =>
+      fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -445,18 +454,49 @@ ${JSON.stringify(ctx).slice(0, 60000)}`;
           "HTTP-Referer": "https://lovable.dev",
           "X-Title": "Daniel Organizador",
         },
-        body: JSON.stringify({
-          model: "deepseek/deepseek-chat-v3-0324:free",
-          messages,
-          tools,
-        }),
+        body: JSON.stringify({ model: modelo, messages, tools }),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        let msg = errText;
-        try { msg = JSON.parse(errText)?.error?.message || JSON.parse(errText)?.message || errText; } catch { /* texto plano */ }
-        return json({ error: msg, status: res.status }, res.status);
+    for (let round = 0; round < 6; round++) {
+      let res: Response | null = null;
+      if (MODELO_ACTIVO) {
+        try { res = await chat(MODELO_ACTIVO); } catch { res = null; }
+      }
+      if (!res || !res.ok) {
+        for (const m of MODELOS_FREE) {
+          try { res = await chat(m); } catch { continue; }
+          if (res.ok) { MODELO_ACTIVO = m; break; }
+          if (res.status === 401 || res.status === 403) break;
+        }
+        if (!res || !res.ok) {
+          try {
+            const mr = await fetch("https://openrouter.ai/api/v1/models", {
+              headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}` },
+            });
+            if (mr.ok) {
+              const lista = await mr.json();
+              const free: string[] = (lista.data || [])
+                .filter((x: any) => x.pricing && Number(x.pricing.prompt) === 0 && Number(x.pricing.completion) === 0)
+                .map((x: any) => x.id)
+                .slice(0, 12);
+              for (const m of free) {
+                try { res = await chat(m); } catch { continue; }
+                if (res.ok) { MODELO_ACTIVO = m; break; }
+                if (res.status === 401 || res.status === 403) break;
+              }
+            }
+          } catch { /* sin descubrimiento */ }
+        }
+      }
+
+      if (!res || !res.ok) {
+        if (res) {
+          const errText = await res.text();
+          let msg = errText;
+          try { msg = JSON.parse(errText)?.error?.message || JSON.parse(errText)?.message || errText; } catch { /* texto plano */ }
+          return json({ error: msg, status: res.status }, res.status);
+        }
+        return json({ error: "No se pudo conectar con OpenRouter" }, 502);
       }
 
       const data = await res.json();
