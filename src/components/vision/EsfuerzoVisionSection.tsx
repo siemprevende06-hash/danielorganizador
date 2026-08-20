@@ -3,21 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Flame, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MIRROR_AREAS, useEsfuerzoIslas } from "@/hooks/useEsfuerzoIslas";
-import { useSystemsTracking } from "@/hooks/useSystemsTracking";
 import { useAreaScores } from "@/hooks/useAreaScores";
+import { useVisionBalance } from "@/hooks/useVisionBalance";
 import { EsfuerzoIslas } from "@/components/mapa/EsfuerzoIslas";
 import { VisionAntiVisionPanel } from "@/components/systems/VisionAntiVisionPanel";
 import type { MapaNode } from "@/hooks/useMapaDeVida";
-
-const SOSTEN_IDS = [
-  "rutina-activacion", "alistamiento-desayuno", "horario-regular", "rutina-desactivacion",
-  "skincare-manana", "skincare-noche", "banarme-vestirme",
-  "pre-entreno", "desayuno", "merienda-1", "almuerzo", "merienda-2", "comida", "antes-dormir", "suplementos",
-];
-
-const MEJORA_IDS = ["lectura", "musica", "ajedrez", "game"];
-
-const TOTAL_WORK_BLOCKS = 21;
 
 const formatTotal = (minutes: number): string => {
   const h = Math.floor(minutes / 60);
@@ -26,22 +16,9 @@ const formatTotal = (minutes: number): string => {
 };
 
 export function EsfuerzoVisionSection() {
-  const { data } = useSystemsTracking();
   const { islands, totalMinutes } = useEsfuerzoIslas();
   const { averages, loading: scoresLoading } = useAreaScores("month", "ambos");
-
-  const sostenDone = SOSTEN_IDS.filter((id) => data.completions[id]).length;
-  const sostenPercent = Math.round((sostenDone / SOSTEN_IDS.length) * 100);
-  const mejoraDone = MEJORA_IDS.filter((id) => data.completions[id]).length;
-  const mejoraPercent = Math.round((mejoraDone / MEJORA_IDS.length) * 100);
-  const completedWorkBlocks = Object.entries(data.workAssignments)
-    .filter(
-      ([cellId, area]) => area && !cellId.startsWith("__mode__") && data.blockCompletions[cellId]
-    )
-    .length;
-  const focoPercent = Math.round((completedWorkBlocks / TOTAL_WORK_BLOCKS) * 100);
-
-  const dailyPercent = Math.round((sostenPercent + mejoraPercent + focoPercent) / 3);
+  const { sostenPercent, mejoraPercent, focoPercent, dailyPercent } = useVisionBalance();
 
   const areaNodes: MapaNode[] = useMemo(() => {
     const maxMinutes = Math.max(1, ...islands.map((i) => i.minutes));

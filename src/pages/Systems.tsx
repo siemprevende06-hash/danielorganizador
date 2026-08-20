@@ -33,6 +33,7 @@ import { TimeframeSelector } from "@/components/TimeframeSelector";
 import { useTimeframe } from "@/contexts/TimeframeContext";
 import { useAreaScores } from "@/hooks/useAreaScores";
 import { useHombreTopScores } from "@/hooks/useHombreTopScores";
+import { useVisionBalance } from "@/hooks/useVisionBalance";
 
 // === HÁBITOS DE SOSTÉN (te mantienen) ===
 const SOSTEN_GROUPS: SystemGroup[] = [
@@ -138,6 +139,8 @@ export default function Systems() {
     loading: hommeLoading,
   } = useHombreTopScores(timeframe, view);
 
+  const { sostenPercent, mejoraPercent, focoPercent, dailyPercent } = useVisionBalance(undefined, data);
+
   const wheelValues = areaScores.map((s) => Math.round(s.esfuerzo / 10));
   const wheelValues2 = areaScores.map((s) => Math.round(s.resultados / 10));
   const wheelAvg = Math.round(averages.esfuerzo / 10);
@@ -157,17 +160,10 @@ export default function Systems() {
   const sosten = countCompleted(SOSTEN_GROUPS, data.completions);
   const mejora = countCompleted(MEJORA_GROUPS, data.completions);
 
-  const sostenPercent = sosten.total > 0 ? Math.round((sosten.done / sosten.total) * 100) : 0;
-  const mejoraPercent = mejora.total > 0 ? Math.round((mejora.done / mejora.total) * 100) : 0;
-
   // Foco: % basado en celdas de 30min (3 por bloque × 7 bloques = 21). Excluir sentinel '__mode__'.
   const totalWorkBlocks = 21;
   const completedWorkBlocks = Object.entries(data.workAssignments)
     .filter(([cellId, area]) => area && !cellId.startsWith("__mode__") && data.blockCompletions[cellId]).length;
-  const focoPercent = Math.round((completedWorkBlocks / totalWorkBlocks) * 100);
-
-  // Progreso global del día
-  const dailyPercent = Math.round((sostenPercent + mejoraPercent + focoPercent) / 3);
 
   // Contribuciones (estimadas por día)
   const weeklyContribution = dailyPercent / 7;
