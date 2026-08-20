@@ -16,6 +16,7 @@ import { RecipeManager } from "@/components/alimentacion/RecipeManager";
 import { WeeklyMealPlan } from "@/components/alimentacion/WeeklyMealPlan";
 import { IngredientsManager } from "@/components/alimentacion/IngredientsManager";
 import { MealLog } from "@/components/alimentacion/MealLog";
+import { MealHistoryViewer } from "@/components/alimentacion/MealHistoryViewer";
 
 const MEALS = [
   { id: "pre-entreno", name: "Pre-entreno", time: "5:30 AM" },
@@ -169,9 +170,10 @@ export default function Alimentacion() {
         </Card>
 
         <Tabs defaultValue="today">
-          <TabsList className="grid grid-cols-3 md:grid-cols-6">
+          <TabsList className="grid grid-cols-3 md:grid-cols-7">
             <TabsTrigger value="today">Hoy</TabsTrigger>
             <TabsTrigger value="week">Semana</TabsTrigger>
+            <TabsTrigger value="history">Historial</TabsTrigger>
             <TabsTrigger value="log">Registro</TabsTrigger>
             <TabsTrigger value="recipes">Recetas</TabsTrigger>
             <TabsTrigger value="ingredients">Ingredientes</TabsTrigger>
@@ -290,6 +292,10 @@ export default function Alimentacion() {
 
           <TabsContent value="recipes" className="mt-4">
             <RecipeManager />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-4">
+            <MealHistoryViewer />
           </TabsContent>
 
           <TabsContent value="ingredients" className="mt-4">
