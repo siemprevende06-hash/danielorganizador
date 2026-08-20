@@ -606,7 +606,7 @@ export default function TwelveWeekYear() {
         <PeriodControlSection scope="quarter" start={quarterStartDate} end={quarterEndDate} />
 
         {/* Quarter selector */}
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {QUARTERS.map(q => {
             const isActive = selectedQuarter === q.id;
             return (
@@ -661,7 +661,7 @@ export default function TwelveWeekYear() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
           {[
             { icon: <Zap className="h-4 w-4 text-blue-500" />, label: "Semana", value: weekInQ, gradient: "from-blue-500 to-cyan-400" },
             { icon: <BarChart3 className="h-4 w-4 text-purple-500" />, label: "Progreso", value: `${overallPct}%`, gradient: "from-purple-500 to-pink-400" },

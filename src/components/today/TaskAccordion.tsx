@@ -317,20 +317,20 @@ export function TaskAccordion() {
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-4 py-3 space-y-3">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
                 <div className="p-3 rounded-lg bg-green-500/10 text-center">
                   <TrendingUp className="w-4 h-4 text-green-500 mx-auto mb-1" />
-                  <p className="text-lg font-bold text-green-600">{totalIncome === 0 ? '- ' : '+'}${totalIncome.toLocaleString()}</p>
+                  <p className="text-base sm:text-lg font-bold text-green-600">{totalIncome === 0 ? '- ' : '+'}${totalIncome.toLocaleString()}</p>
                   <p className="text-[10px] text-muted-foreground">Ingresos</p>
                 </div>
                 <div className="p-3 rounded-lg bg-red-500/10 text-center">
                   <TrendingDown className="w-4 h-4 text-red-500 mx-auto mb-1" />
-                  <p className="text-lg font-bold text-red-600">{totalExpense === 0 ? '- ' : '-'}${totalExpense.toLocaleString()}</p>
+                  <p className="text-base sm:text-lg font-bold text-red-600">{totalExpense === 0 ? '- ' : '-'}${totalExpense.toLocaleString()}</p>
                   <p className="text-[10px] text-muted-foreground">Gastos</p>
                 </div>
                 <div className="p-3 rounded-lg bg-primary/10 text-center">
                   <Wallet className="w-4 h-4 text-primary mx-auto mb-1" />
-                  <p className={cn("text-lg font-bold", netFlow >= 0 ? 'text-green-600' : 'text-red-600')}>
+                  <p className={cn("text-base sm:text-lg font-bold", netFlow >= 0 ? 'text-green-600' : 'text-red-600')}>
                     {netFlow >= 0 ? '+' : ''}${netFlow.toLocaleString()}
                   </p>
                   <p className="text-[10px] text-muted-foreground">Neto</p>

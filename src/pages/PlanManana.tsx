@@ -464,11 +464,11 @@ export default function PlanManana() {
               <Clock className="h-3.5 w-3.5 text-indigo-500" />
               <span className="text-xs font-medium text-muted-foreground">Rutina</span>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
               {ROUTINES.map(r => (
                 <button key={r.type} onClick={() => setRoutineType(r.type)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all border",
+                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all border whitespace-nowrap shrink-0",
                     routineType === r.type
                       ? "bg-indigo-500 text-white border-indigo-500 shadow-sm"
                       : "bg-white/50 dark:bg-zinc-950/50 border-border/60 hover:border-indigo-300 text-muted-foreground hover:text-foreground"

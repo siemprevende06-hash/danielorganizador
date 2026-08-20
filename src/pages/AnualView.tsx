@@ -66,7 +66,7 @@ export default function AnualView() {
         <PeriodControlSection scope="year" start={new Date(year, 0, 1)} end={new Date(year, 11, 31)} />
 
         {/* Trimestres del año */}
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {quarterStats.map(q => {
             const isCurrent = q.id === currentQuarter && year === new Date().getFullYear();
             return (

@@ -255,12 +255,12 @@ export default function UniversityPage() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full grid grid-cols-5">
-          <TabsTrigger value="overview" className="text-xs sm:text-sm">Resumen</TabsTrigger>
-          <TabsTrigger value="subjects" className="text-xs sm:text-sm">Materias</TabsTrigger>
-          <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tareas</TabsTrigger>
-          <TabsTrigger value="exams" className="text-xs sm:text-sm">Exámenes</TabsTrigger>
-          <TabsTrigger value="analytics" className="text-xs sm:text-sm">Analytics</TabsTrigger>
+        <TabsList className="w-full flex overflow-x-auto justify-start">
+          <TabsTrigger value="overview" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Resumen</TabsTrigger>
+          <TabsTrigger value="subjects" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Materias</TabsTrigger>
+          <TabsTrigger value="tasks" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Tareas</TabsTrigger>
+          <TabsTrigger value="exams" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Exámenes</TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Analytics</TabsTrigger>
         </TabsList>
 
         {/* === OVERVIEW TAB === */}

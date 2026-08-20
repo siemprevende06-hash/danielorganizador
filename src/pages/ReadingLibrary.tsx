@@ -313,12 +313,12 @@ export default function ReadingLibrary() {
 
 
       <Tabs defaultValue="monthly">
-        <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="monthly">📅 Del Mes</TabsTrigger>
-          <TabsTrigger value="history">📖 Leídos</TabsTrigger>
-          <TabsTrigger value="archive">🗂️ Historial</TabsTrigger>
-          <TabsTrigger value="future">📋 Próximas</TabsTrigger>
-          <TabsTrigger value="timeline">🗓️ Cronología</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto justify-start">
+          <TabsTrigger value="monthly" className="flex-1 min-w-fit whitespace-nowrap">📅 Del Mes</TabsTrigger>
+          <TabsTrigger value="history" className="flex-1 min-w-fit whitespace-nowrap">📖 Leídos</TabsTrigger>
+          <TabsTrigger value="archive" className="flex-1 min-w-fit whitespace-nowrap">🗂️ Historial</TabsTrigger>
+          <TabsTrigger value="future" className="flex-1 min-w-fit whitespace-nowrap">📋 Próximas</TabsTrigger>
+          <TabsTrigger value="timeline" className="flex-1 min-w-fit whitespace-nowrap">🗓️ Cronología</TabsTrigger>
         </TabsList>
 
 

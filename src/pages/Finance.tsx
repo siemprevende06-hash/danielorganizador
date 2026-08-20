@@ -1414,7 +1414,7 @@ export default function Finance() {
           </TabsContent>
 
           <TabsContent value="incomes" className="space-y-3">
-            <div className="grid gap-2 grid-cols-3">
+            <div className="grid gap-2 grid-cols-1 sm:grid-cols-3">
               <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                 <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Ingresos este mes</p>

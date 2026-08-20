@@ -159,11 +159,11 @@ export function DetailedStatsPanel({ totalHabits }: { totalHabits: number }) {
         <h3 className="font-bold">Estadísticas Detalladas</h3>
       </div>
       <Tabs defaultValue="today" className="w-full">
-        <TabsList className="grid grid-cols-4 w-full">
-          <TabsTrigger value="today" className="text-xs">Hoy</TabsTrigger>
-          <TabsTrigger value="week" className="text-xs">Semana</TabsTrigger>
-          <TabsTrigger value="month" className="text-xs">Mes</TabsTrigger>
-          <TabsTrigger value="quarter" className="text-xs">Trimestre</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto justify-start">
+          <TabsTrigger value="today" className="flex-1 min-w-fit whitespace-nowrap text-xs">Hoy</TabsTrigger>
+          <TabsTrigger value="week" className="flex-1 min-w-fit whitespace-nowrap text-xs">Semana</TabsTrigger>
+          <TabsTrigger value="month" className="flex-1 min-w-fit whitespace-nowrap text-xs">Mes</TabsTrigger>
+          <TabsTrigger value="quarter" className="flex-1 min-w-fit whitespace-nowrap text-xs">Trimestre</TabsTrigger>
         </TabsList>
         <TabsContent value="today" className="mt-4">
           {renderPeriod("Promedio de hoy", todayStats, "stable", 1)}
