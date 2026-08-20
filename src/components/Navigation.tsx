@@ -127,6 +127,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     label: 'HERRAMIENTAS',
     items: [
       { path: '/systems', label: 'Sistemas', icon: Brain },
+      { path: '/coach-ia', label: 'Coach IA', icon: Sparkles },
       { path: '/vision', label: 'Point B', icon: Eye },
       { path: '/antivision', label: 'Anti-Point B', icon: Flame },
       { path: '/identidad', label: 'Identidad', icon: ListTodo },

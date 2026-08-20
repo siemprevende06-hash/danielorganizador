@@ -19,6 +19,7 @@ export const MEALS = [
 ];
 
 interface TrackingRow {
+  id: string;
   meal_date: string;
   meal_type: string;
   scheduled_time: string;
@@ -117,7 +118,7 @@ export function MealHistoryViewer() {
     const [trackRes, detailRes, sysRes, planRes] = await Promise.all([
       supabase
         .from("meal_tracking")
-        .select("meal_date, meal_type, scheduled_time, completed, completed_at, photo_url, notes")
+        .select("id, meal_date, meal_type, scheduled_time, completed, completed_at, photo_url, notes")
         .gte("meal_date", startStr)
         .lte("meal_date", endStr),
       supabase

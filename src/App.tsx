@@ -83,6 +83,7 @@ import VisionVsRealidad from "./pages/VisionVsRealidad";
 import Identidad from "./pages/Identidad";
 import DestinoALlegar from "./pages/DestinoALlegar";
 import AnualView from "./pages/AnualView";
+import CoachIA from "./pages/CoachIA";
 
 const queryClient = new QueryClient();
 
@@ -173,6 +174,7 @@ function AppContent() {
         <Route path="/estadisticas-esfuerzo" element={<EstadisticasEsfuerzo />} />
         <Route path="/vision-vs-realidad" element={<VisionVsRealidad />} />
         <Route path="/destino-a-llegar" element={<DestinoALlegar />} />
+        <Route path="/coach-ia" element={<CoachIA />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
