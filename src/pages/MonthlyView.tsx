@@ -12,6 +12,7 @@ import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { ResultadosMes } from '@/components/resultados/ResultadosMes';
+import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 
 export default function MonthlyView() {
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -83,6 +84,7 @@ export default function MonthlyView() {
             {/* Tareas section */}
             <section className="space-y-4">
               <h2 className="text-lg font-semibold tracking-tight">Tareas</h2>
+              <PeriodAreaTasks start={monthStart} end={monthEnd} periodLabel="Este mes" defaultDate={new Date()} />
               <MonthlyTasks currentMonth={currentMonth} />
             </section>
 

@@ -41,6 +41,7 @@ import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, 
 import { Button } from '@/components/ui/button';
 import { addDays, subDays } from 'date-fns';
 import { TimePeriodSections } from '@/components/today/TimePeriodSections';
+import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {

@@ -38,6 +38,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 import { PeriodControlSection } from "@/components/control/PeriodControlSection";
 import {
   BookOpen, Music, Target, Calendar, Flame,
@@ -604,6 +605,14 @@ export default function TwelveWeekYear() {
 
         {/* Panel de control del trimestre */}
         <PeriodControlSection scope="quarter" start={quarterStartDate} end={quarterEndDate} />
+
+        {/* Tareas por área del trimestre */}
+        <PeriodAreaTasks
+          start={isQuarterScope ? quarterStartDate : monthStartDate}
+          end={isQuarterScope ? quarterEndDate : monthEndDate}
+          periodLabel={isQuarterScope ? 'Este trimestre' : 'Este mes'}
+          defaultDate={new Date()}
+        />
 
         {/* Quarter selector */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
