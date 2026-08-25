@@ -19,6 +19,7 @@ import { PeriodControlSection } from '@/components/control/PeriodControlSection'
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { PlanSemanal } from '@/components/plan/PlanSemanal';
 import { ResultadosSemana } from '@/components/resultados/ResultadosSemana';
+import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -229,6 +230,12 @@ export default function WeeklyView() {
               <MejoraProcessPanel anchorDate={weekStart} />
             </CardContent>
           </Card>
+        </section>
+
+        {/* Tareas por área */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Tareas</h2>
+          <PeriodAreaTasks start={weekStart} end={weekEnd} periodLabel="Esta semana" defaultDate={new Date()} />
         </section>
 
         {/* Enfoque section */}
