@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +63,11 @@ export function PeriodAreaTasks({ start, end, periodLabel, defaultDate }: Period
   const [dueDate, setDueDate] = useState(format(initialDate, 'yyyy-MM-dd'));
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [filter, setFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDueDate(format(initialDate, 'yyyy-MM-dd'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startStr, endStr]);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey,
