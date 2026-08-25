@@ -54,7 +54,13 @@ export function PeriodAreaTasks({ start, end, periodLabel, defaultDate }: Period
 
   const [title, setTitle] = useState('');
   const [areaId, setAreaId] = useState('general');
-  const [dueDate, setDueDate] = useState(format(defaultDate || start, 'yyyy-MM-dd'));
+  const initialDate = (() => {
+    const d = defaultDate || start;
+    if (d < start) return start;
+    if (d > end) return end;
+    return d;
+  })();
+  const [dueDate, setDueDate] = useState(format(initialDate, 'yyyy-MM-dd'));
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [filter, setFilter] = useState<string | null>(null);
 
