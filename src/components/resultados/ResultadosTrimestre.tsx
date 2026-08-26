@@ -10,6 +10,7 @@ import {
   StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, PlanDelMes, AREA_COLORS,
   UniversityPlan, UniversityObjetivos, EntPlan, EntObjetivos, ProyectosPlan, ProyectosObjetivos, OtherTasksList,
 } from './shared';
+import { CreateTaskPeriodButton } from '@/components/tasks/CreateTaskPeriodButton';
 
 const AREA_BAR: Record<string, string> = {
   universidad: '#3b82f6', emprendimiento: '#a855f7', proyectos: '#f59e0b',
@@ -86,6 +87,10 @@ export function ResultadosTrimestre({ quarter, year }: { quarter: number; year: 
           </div>
         </div>
       )}
+
+      <div className="flex justify-end">
+        <CreateTaskPeriodButton start={start} end={end} periodLabel={`Q${quarter} ${year}`} defaultDate={start} />
+      </div>
 
       <ResultadoColumnas>
         <GrupoResultados label="Prioridades">

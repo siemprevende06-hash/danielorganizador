@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -2393,6 +2393,99 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           wins?: string | null
+        }
+        Relationships: []
+      }
+      personal_list_tasks: {
+        Row: {
+          completed: boolean
+          created_at: string
+          due_date: string | null
+          id: string
+          list_id: string
+          parent_id: string | null
+          position: number
+          priority: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          list_id: string
+          parent_id?: string | null
+          position?: number
+          priority?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          list_id?: string
+          parent_id?: string | null
+          position?: number
+          priority?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_list_tasks_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "personal_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_list_tasks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "personal_list_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personal_lists: {
+        Row: {
+          area_id: string
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          sub_area: string | null
+          system_key: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          sub_area?: string | null
+          system_key?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          sub_area?: string | null
+          system_key?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
