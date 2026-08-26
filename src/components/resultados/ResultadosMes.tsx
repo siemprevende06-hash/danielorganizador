@@ -11,6 +11,7 @@ import {
   StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, PlanDelMes, AREA_COLORS,
   UniversityPlan, UniversityObjetivos, EntPlan, EntObjetivos, ProyectosPlan, ProyectosObjetivos, OtherTasksList,
 } from './shared';
+import { CreateTaskPeriodButton } from '@/components/tasks/CreateTaskPeriodButton';
 
 const AREA_BAR: Record<string, string> = {
   universidad: '#3b82f6', emprendimiento: '#a855f7', proyectos: '#f59e0b',
@@ -85,6 +86,10 @@ export function ResultadosMes({ month }: { month: Date }) {
 
       {/* Plan trimestral del mes */}
       <PlanDelMes books={r.books} songs={r.songs} />
+
+      <div className="flex justify-end">
+        <CreateTaskPeriodButton start={month} end={monthEnd} periodLabel={"Este mes"} defaultDate={month} />
+      </div>
 
       <ResultadoColumnas>
         <GrupoResultados label="Prioridades">

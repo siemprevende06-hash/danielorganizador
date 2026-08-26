@@ -10,6 +10,7 @@ import {
   StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS,
   UniversityPlan, UniversityObjetivos, EntPlan, EntObjetivos, ProyectosPlan, ProyectosObjetivos, OtherTasksList,
 } from './shared';
+import { CreateTaskPeriodButton } from '@/components/tasks/CreateTaskPeriodButton';
 
 function LoadingSkeleton() {
   return (
@@ -49,6 +50,10 @@ export function ResultadosSemana({ weekStart }: { weekStart: Date }) {
           ['Partidas', String(r.ajedrez.games)],
         ]}
       />
+
+      <div className="flex justify-end">
+        <CreateTaskPeriodButton start={weekStart} end={weekEnd} periodLabel={"Esta semana"} defaultDate={weekStart} />
+      </div>
 
       <ResultadoColumnas>
         <GrupoResultados label="Prioridades">
