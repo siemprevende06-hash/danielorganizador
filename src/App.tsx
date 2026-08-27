@@ -84,6 +84,7 @@ import Identidad from "./pages/Identidad";
 import DestinoALlegar from "./pages/DestinoALlegar";
 import AnualView from "./pages/AnualView";
 import CoachIA from "./pages/CoachIA";
+import MiListaPersonal from "./pages/MiListaPersonal";
 
 const queryClient = new QueryClient();
 
@@ -156,6 +157,7 @@ function AppContent() {
         <Route path="/chess" element={<Chess />} />
         <Route path="/grocery" element={<Grocery />} />
         <Route path="/shopping-list" element={<ShoppingList />} />
+        <Route path="/mi-lista" element={<MiListaPersonal />} />
         <Route path="/identidad" element={<Identidad />} />
         <Route path="/plan-identidad" element={<PlanIdentidad />} />
         <Route path="/morning-prep" element={<MorningPrep />} />

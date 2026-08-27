@@ -121,6 +121,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/gym', label: 'Gimnasio', icon: Dumbbell },
       { path: '/grocery', label: 'Despensa', icon: Package },
       { path: '/shopping-list', label: 'Lista Compra', icon: ShoppingCart },
+      { path: '/mi-lista', label: 'Mi Lista', icon: ListChecks },
     ]
   },
   {
