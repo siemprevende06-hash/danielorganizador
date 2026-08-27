@@ -106,6 +106,7 @@ const ROUTINE_ICONS: Record<RoutineType, React.ReactNode> = {
   normal: <Scale className="h-4 w-4" />,
   super: <Zap className="h-4 w-4" />,
   descanso: <Leaf className="h-4 w-4" />,
+  equilibrio: <Sunrise className="h-4 w-4" />,
 };
 
 export default function DailyView() {
