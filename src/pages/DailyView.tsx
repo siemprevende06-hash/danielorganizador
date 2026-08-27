@@ -37,7 +37,7 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Sunrise } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { addDays, subDays } from 'date-fns';
 import { TimePeriodSections } from '@/components/today/TimePeriodSections';
