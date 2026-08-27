@@ -1,11 +1,12 @@
 ﻿import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Save, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
+import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
 import {
   setMonthGoal,
@@ -75,8 +76,16 @@ const handleSave = async () => {
   const eventItems = events.map(e => ({
     id: e.id,
     title: e.title,
-    subtitle: `${format(new Date(e.event_date), 'd MMM', { locale: es })} ┬À ${e.category}`,
+    subtitle: `${format(new Date(e.event_date), 'd MMM', { locale: es })} · ${e.category}`,
   }));
+
+  const monthStart = startOfMonth(month);
+  const monthEnd = endOfMonth(month);
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const monthStartStr = format(monthStart, 'yyyy-MM-dd');
+  const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
+  const defaultDueThisMonth = todayStr >= monthStartStr && todayStr <= monthEndStr ? new Date() : monthStart;
+
 
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
@@ -147,6 +156,14 @@ const handleSave = async () => {
             <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
             <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
           </div>
+
+          <PeriodTaskCreator
+            periodStart={monthStart}
+            periodEnd={monthEnd}
+            defaultDueDate={defaultDueThisMonth}
+            title="Tareas del mes"
+            description="Crea tareas por área con vencimiento en este mes."
+          />
 
           <Card className="border border-indigo-200/60 dark:border-indigo-800/40 shadow-sm overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />

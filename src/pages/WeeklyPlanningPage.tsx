@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useWeeklyPlan } from '@/hooks/useWeeklyPlan';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
+import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { cn } from '@/lib/utils';
 import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
 import {
@@ -83,6 +84,12 @@ export default function WeeklyPlanningPage() {
   };
 
   const weekGoalSum = getWeekGoalSum(weekStart);
+
+  const weekEnd = addDays(weekStart, 6);
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+  const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+  const defaultDueThisWeek = todayStr >= weekStartStr && todayStr <= weekEndStr ? new Date() : weekStart;
 
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
@@ -274,6 +281,14 @@ export default function WeeklyPlanningPage() {
               </div>
             </div>
           </Card>
+
+          <PeriodTaskCreator
+            periodStart={weekStart}
+            periodEnd={weekEnd}
+            defaultDueDate={defaultDueThisWeek}
+            title="Tareas de la semana"
+            description="Crea tareas por área con vencimiento en esta semana."
+          />
         </div>
       </div>
     </div>

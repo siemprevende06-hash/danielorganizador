@@ -13,6 +13,7 @@ import { setQuarterGoal } from '@/lib/hierarchy';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { ResultadosTrimestre } from '@/components/resultados/ResultadosTrimestre';
+import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,13 @@ export default function TrimestralPlanningPage() {
 
   const monthLabels = getMonthNamesForQuarter();
   const activeMonthKey = MONTH_KEYS[activeMonth];
+
+  const quarterStart = new Date(year, (quarter - 1) * 3, 1);
+  const quarterEnd = new Date(year, quarter * 3, 0);
+  const todayStrQ = format(new Date(), 'yyyy-MM-dd');
+  const qStartStr = format(quarterStart, 'yyyy-MM-dd');
+  const qEndStr = format(quarterEnd, 'yyyy-MM-dd');
+  const defaultDueThisQuarter = todayStrQ >= qStartStr && todayStrQ <= qEndStr ? new Date() : quarterStart;
 
   const navigateQ = (dir: 'prev' | 'next') => {
     if (dir === 'prev') {
@@ -204,9 +212,17 @@ export default function TrimestralPlanningPage() {
             {saving ? 'Guardando...' : 'Guardar'}
           </Button>
         </div>
-</header>
+      </header>
 
-        {viewMode === 'esfuerzo' ? (
+      <PeriodTaskCreator
+        periodStart={quarterStart}
+        periodEnd={quarterEnd}
+        defaultDueDate={defaultDueThisQuarter}
+        title="Tareas del trimestre"
+        description="Crea tareas por área con vencimiento en este trimestre."
+      />
+
+      {viewMode === 'esfuerzo' ? (
           <>
         {/* Panel de control del trimestre */}
         <PeriodControlSection
