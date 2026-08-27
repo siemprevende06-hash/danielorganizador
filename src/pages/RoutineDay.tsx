@@ -25,6 +25,10 @@ const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> 
     active: "bg-green-500/20 border-green-500/60 text-green-500",
     inactive: "border-green-500/20 text-green-400/60 hover:border-green-500/40",
   },
+  equilibrio: {
+    active: "bg-cyan-500/20 border-cyan-500/60 text-cyan-500",
+    inactive: "border-cyan-500/20 text-cyan-400/60 hover:border-cyan-500/40",
+  },
 };
 
 export default function RoutineDay() {

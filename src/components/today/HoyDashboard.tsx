@@ -46,6 +46,7 @@ const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> 
   normal: { active: "bg-blue-500/20 border-blue-500/60 text-blue-500", inactive: "border-blue-500/20 text-blue-400/60 hover:border-blue-500/40" },
   super: { active: "bg-purple-500/20 border-purple-500/60 text-purple-500", inactive: "border-purple-500/20 text-purple-400/60 hover:border-purple-500/40" },
   descanso: { active: "bg-green-500/20 border-green-500/60 text-green-500", inactive: "border-green-500/20 text-green-400/60 hover:border-green-500/40" },
+  equilibrio: { active: "bg-cyan-500/20 border-cyan-500/60 text-cyan-500", inactive: "border-cyan-500/20 text-cyan-400/60 hover:border-cyan-500/40" },
 };
 
 function ClockWidget() {
