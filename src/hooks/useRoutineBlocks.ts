@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export type RoutineType = 'disciplina' | 'normal' | 'super' | 'descanso';
+export type RoutineType = 'disciplina' | 'normal' | 'super' | 'descanso' | 'equilibrio';
 
 export interface RoutineBlock {
   id: string;
@@ -37,6 +37,7 @@ export const ROUTINES: RoutineInfo[] = [
   { type: 'normal', label: 'Normal', shortLabel: 'Normal', wakeTime: '6:30', sleepTime: '10:30', icon: '⚖️', color: 'blue', description: 'Balance productivo diario', totalBlocks: 16 },
   { type: 'super', label: 'Súper Productividad', shortLabel: 'Súper', wakeTime: '5:00', sleepTime: '10:30', icon: '⚡', color: 'purple', description: 'Días de carga intensa', totalBlocks: 16 },
   { type: 'descanso', label: 'Descanso', shortLabel: 'Descanso', wakeTime: '8:00', sleepTime: '10:30', icon: '🌿', color: 'green', description: 'Recuperación y ocio', totalBlocks: 14 },
+  { type: 'equilibrio', label: 'Equilibrio', shortLabel: 'Equilibrio', wakeTime: '6:00', sleepTime: '10:30', icon: '🌅', color: 'cyan', description: 'Productividad sostenible con pausas', totalBlocks: 16 },
 ];
 
 const makeBlock = (
@@ -136,11 +137,31 @@ const DESCANSO_BLOCKS: RoutineBlock[] = [
   makeBlock('r-desactivacion', 'Rutina de Desactivación', '22:00', '22:30', 13, false, ['Skincare', 'Preparación para dormir']),
 ];
 
+const EQUILIBRIO_BLOCKS: RoutineBlock[] = [
+  makeBlock('e-inicio', 'Rutina de Inicio', '06:00', '06:30', 0, false, ['Higiene', 'Estiramientos', 'Preparación mental', 'Batido/Merienda']),
+  makeBlock('e-focus1', 'Focus 1 🧠', '06:30', '08:00', 1, true, ['Bloque de alto rendimiento (1h20 trabajo + 10 descanso)', 'Tareas creativas o difíciles (pico cognitivo)']),
+  makeBlock('e-alistamiento', 'Alistamiento + Desayuno', '08:00', '08:30', 2, false, ['Ducha', 'Vestirse', 'Desayuno tranquilo']),
+  makeBlock('e-lectura', 'Lectura o Podcast', '08:30', '09:00', 3, false, ['Aprendizaje pasivo', 'Inspiración', 'Desarrollo personal']),
+  makeBlock('e-bloque2', 'Bloque 2 📊 Emprendimiento', '09:00', '10:30', 4, true, ['Emprendimiento / Estrategia (1h20 trabajo + 10 descanso)', 'Decisiones, planificación, creación'], 'emprendimiento'),
+  makeBlock('e-bloque3', 'Bloque 3 📚 Universidad', '10:30', '12:00', 5, true, ['Universidad / Estudio profundo (1h20 trabajo + 10 descanso)', 'Teoría densa, repasos intensos'], 'universidad'),
+  makeBlock('e-bloque4', 'Bloque 4 📝 Tareas Mecánicas', '12:00', '13:20', 6, true, ['Tareas mecánicas (1h10 trabajo + 10 descanso)', 'Correos, organización, revisión ligera']),
+  makeBlock('e-almuerzo', 'Almuerzo', '13:20', '14:00', 7, false, ['Comida', 'Desconexión sin pantallas']),
+  makeBlock('e-bloque5', 'Bloque 5 📋 Administrativo', '14:00', '15:30', 8, true, ['Administrativo / Pendientes (1h20 trabajo + 10 descanso)', 'Baja intensidad post-almuerzo']),
+  makeBlock('e-bloque6', 'Bloque 6 🔄 Revisión / Cierre', '15:30', '17:00', 9, true, ['Revisión / Cierre (1h20 trabajo + 10 descanso)', 'Planificar mañana', 'Cerrar tareas del día']),
+  makeBlock('e-gym', 'Gimnasio 🏋️', '17:00', '18:30', 10, false, ['Preparación', '50 min entreno intenso', 'Ducha y cambio', 'Sin cardio largo']),
+  makeBlock('e-idiomas', 'Idiomas 🌍', '18:30', '19:00', 11, false, ['Vocabulario', 'Listening', 'Repetición']),
+  makeBlock('e-flexible', 'Bloque Flexible 🎯', '19:00', '20:30', 12, false, ['Comodín: ocio extra, adelantar trabajo, focus extra, más idiomas o dormir temprano']),
+  makeBlock('e-ocio', 'Ocio', '20:30', '21:30', 13, false, ['Desconexión total', 'Series, redes, amigos, lectura por placer']),
+  makeBlock('e-piano', 'Piano 🎹', '21:30', '22:00', 14, false, ['Habilidad motora + mindfulness', 'Canciones conocidas en días de estrés']),
+  makeBlock('e-fin', 'Rutina de Fin de Día', '22:00', '22:30', 15, false, ['Higiene', 'Preparar ropa para mañana', 'Planificar el día siguiente', 'Apagar pantallas', 'Acostarse 22:10 (7.5h de sueño)']),
+];
+
 const ROUTINE_MAP: Record<RoutineType, RoutineBlock[]> = {
   disciplina: DISCIPLINA_BLOCKS,
   normal: NORMAL_BLOCKS,
   super: SUPER_BLOCKS,
   descanso: DESCANSO_BLOCKS,
+  equilibrio: EQUILIBRIO_BLOCKS,
 };
 
 const ROUTINE_TYPE_KEY = 'selectedRoutineType';
