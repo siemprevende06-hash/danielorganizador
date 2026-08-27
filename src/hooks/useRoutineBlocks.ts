@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export type RoutineType = 'disciplina' | 'normal' | 'super' | 'descanso';
+export type RoutineType = 'disciplina' | 'normal' | 'super' | 'descanso' | 'equilibrio';
 
 export interface RoutineBlock {
   id: string;
@@ -37,6 +37,7 @@ export const ROUTINES: RoutineInfo[] = [
   { type: 'normal', label: 'Normal', shortLabel: 'Normal', wakeTime: '6:30', sleepTime: '10:30', icon: '⚖️', color: 'blue', description: 'Balance productivo diario', totalBlocks: 16 },
   { type: 'super', label: 'Súper Productividad', shortLabel: 'Súper', wakeTime: '5:00', sleepTime: '10:30', icon: '⚡', color: 'purple', description: 'Días de carga intensa', totalBlocks: 16 },
   { type: 'descanso', label: 'Descanso', shortLabel: 'Descanso', wakeTime: '8:00', sleepTime: '10:30', icon: '🌿', color: 'green', description: 'Recuperación y ocio', totalBlocks: 14 },
+  { type: 'equilibrio', label: 'Equilibrio', shortLabel: 'Equilibrio', wakeTime: '6:00', sleepTime: '10:30', icon: '🌅', color: 'cyan', description: 'Productividad sostenible con pausas', totalBlocks: 16 },
 ];
 
 const makeBlock = (
