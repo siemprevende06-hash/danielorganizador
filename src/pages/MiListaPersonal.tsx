@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,9 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ImagePlus, CheckCircle2, Circle, ChevronDown, ChevronRight, ListChecks, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ImagePlus, CheckCircle2, Circle, ChevronDown, ChevronRight, ListChecks, Loader2, Pencil, GraduationCap, Briefcase, FolderKanban, BookOpen, Globe, Crown, Dumbbell, Gamepad2, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { usePersonalLists, LIFE_AREAS, DAILY_SYSTEMS, type PersonalList, type PersonalListTask } from '@/hooks/usePersonalLists';
@@ -23,6 +23,18 @@ const PRIORITY_STYLES: Record<string, string> = {
   low: 'bg-muted/50 text-muted-foreground border-border',
 };
 const PRIORITY_LABEL: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
+
+const SYSTEM_ICONS: Record<string, JSX.Element> = {
+  universidad: <GraduationCap className="h-4 w-4" />,
+  emprendimiento: <Briefcase className="h-4 w-4" />,
+  proyectos: <FolderKanban className="h-4 w-4" />,
+  lectura: <BookOpen className="h-4 w-4" />,
+  musica: <Music className="h-4 w-4" />,
+  idiomas: <Globe className="h-4 w-4" />,
+  ajedrez: <Crown className="h-4 w-4" />,
+  gym: <Dumbbell className="h-4 w-4" />,
+  game: <Gamepad2 className="h-4 w-4" />,
+};
 
 function areaLabel(id: string) {
   return LIFE_AREAS.find(a => a.id === id)?.label || id;
@@ -125,6 +137,115 @@ function CreateListDialog({ onCreate }: { onCreate: (p: Partial<PersonalList>) =
   );
 }
 
+function EditListDialog({
+  list, onSave, open, onOpenChange,
+}: {
+  list: PersonalList;
+  onSave: (p: Partial<PersonalList>) => void;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [title, setTitle] = useState(list.title);
+  const [description, setDescription] = useState(list.description || '');
+  const [areaId, setAreaId] = useState(list.area_id);
+  const [subArea, setSubArea] = useState(list.sub_area || '');
+  const [systemKey, setSystemKey] = useState(list.system_key || 'none');
+  const [cover, setCover] = useState<string | null>(list.cover_image_url);
+  const { uploadImage, uploading } = useImageUpload();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTitle(list.title);
+    setDescription(list.description || '');
+    setAreaId(list.area_id);
+    setSubArea(list.sub_area || '');
+    setSystemKey(list.system_key || 'none');
+    setCover(list.cover_image_url);
+  }, [list, open]);
+
+  const submit = () => {
+    if (!title.trim()) return;
+    onSave({
+      id: list.id,
+      title: title.trim(),
+      description: description.trim() || null,
+      area_id: areaId,
+      sub_area: subArea.trim() || null,
+      cover_image_url: cover,
+      system_key: systemKey === 'none' ? null : systemKey,
+    });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Editar lista</DialogTitle>
+          <DialogDescription>Modifica los datos de la lista personal.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label>Título</Label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ej: Rutina de lectura profunda" />
+          </div>
+          <div className="grid gap-2">
+            <Label>Área de vida</Label>
+            <Select value={areaId} onValueChange={setAreaId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {LIFE_AREAS.map(a => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label>Subárea (texto libre)</Label>
+            <Input value={subArea} onChange={e => setSubArea(e.target.value)} placeholder="Ej: Hábitos de estudio" />
+          </div>
+          <div className="grid gap-2">
+            <Label>Sistema diario vinculado</Label>
+            <Select value={systemKey} onValueChange={setSystemKey}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ninguno</SelectItem>
+                {DAILY_SYSTEMS.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label>Descripción</Label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Foto de portada</Label>
+            {cover && <img src={cover} alt="Portada de la lista" className="h-32 w-full object-cover rounded-lg" />}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async e => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const url = await uploadImage(f, 'personal-lists');
+                if (url) setCover(url);
+              }}
+            />
+            <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              {uploading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <ImagePlus className="h-4 w-4 mr-1.5" />}
+              {cover ? 'Cambiar foto' : 'Subir foto'}
+            </Button>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={submit} disabled={!title.trim()}>Guardar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TaskRow({
   task, subtasks, onToggle, onDelete, onAddSub,
 }: {
@@ -208,12 +329,13 @@ function TaskRow({
 }
 
 function ListCard({
-  list, tasks, system, onDelete, onCreateTask, onToggleTask, onDeleteTask,
+  list, tasks, system, onDelete, onEdit, onCreateTask, onToggleTask, onDeleteTask,
 }: {
   list: PersonalList;
   tasks: PersonalListTask[];
   system?: { completed: boolean; minutes: number; goal: number };
   onDelete: (id: string) => void;
+  onEdit: (p: Partial<PersonalList>) => void;
   onCreateTask: (p: Partial<PersonalListTask>) => void;
   onToggleTask: (t: PersonalListTask) => void;
   onDeleteTask: (id: string) => void;
@@ -221,11 +343,19 @@ function ListCard({
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState('medium');
+  const [editing, setEditing] = useState(false);
 
   const roots = tasks.filter(t => !t.parent_id);
   const done = roots.filter(t => t.completed).length;
   const pct = roots.length ? Math.round((done / roots.length) * 100) : 0;
   const systemMeta = DAILY_SYSTEMS.find(s => s.id === list.system_key);
+  const systemPct = system
+    ? system.completed
+      ? 100
+      : system.goal > 0
+        ? Math.min(100, Math.round((system.minutes / system.goal) * 100))
+        : 0
+    : 0;
 
   const add = () => {
     if (!title.trim()) return;
@@ -242,39 +372,59 @@ function ListCard({
   return (
     <Card className="overflow-hidden">
       {list.cover_image_url ? (
-        <img src={list.cover_image_url} alt={`Portada de ${list.title}`} loading="lazy" className="h-40 w-full object-cover" />
+        <img src={list.cover_image_url} alt={`Portada de ${list.title}`} loading="lazy" className="h-24 w-full object-cover" />
       ) : (
-        <div className="h-40 w-full bg-muted flex items-center justify-center">
-          <ListChecks className="h-8 w-8 text-muted-foreground" />
+        <div className="h-24 w-full bg-muted flex items-center justify-center">
+          <ListChecks className="h-6 w-6 text-muted-foreground" />
         </div>
       )}
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-3 space-y-2.5">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="font-semibold leading-tight">{list.title}</h3>
-            <p className="text-xs text-muted-foreground">
+          <div className="min-w-0">
+            <h3 className="font-semibold leading-tight text-base truncate">{list.title}</h3>
+            <p className="text-[11px] text-muted-foreground">
               {areaLabel(list.area_id)}{list.sub_area ? ` · ${list.sub_area}` : ''}
             </p>
           </div>
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onDelete(list.id)}>
-            <Trash2 className="h-4 w-4 text-muted-foreground" />
-          </Button>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(true)}>
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDelete(list.id)}>
+              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </div>
         </div>
 
-        {list.description && <p className="text-sm text-muted-foreground">{list.description}</p>}
+        {list.description && <p className="text-xs text-muted-foreground line-clamp-2">{list.description}</p>}
 
         {systemMeta && (
           <div className={cn(
-            'rounded-lg border p-2.5 text-xs flex items-center justify-between',
+            'relative rounded-2xl p-2.5 flex items-center gap-2.5 border-0 backdrop-blur-xl overflow-hidden transition-all',
             system?.completed
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
-              : 'border-destructive/30 bg-destructive/10 text-destructive'
+              ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+              : 'bg-white/80 dark:bg-zinc-950/80 shadow-sm'
           )}>
-            <span className="font-medium">Sistema: {systemMeta.label}</span>
-            <span>
-              {system?.completed ? 'Cumplido hoy' : 'No cumplido hoy'}
-              {system && system.goal > 0 ? ` · ${system.minutes}/${system.goal} min` : ''}
+            <span className={cn('text-base shrink-0', system?.completed ? 'text-primary-foreground' : 'text-primary')}>
+              {SYSTEM_ICONS[systemMeta.id]}
             </span>
+            <div className="relative w-8 h-8 shrink-0">
+              <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+                <circle cx="16" cy="16" r="12" fill="none" stroke={system?.completed ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)'} strokeWidth="3" />
+                <circle cx="16" cy="16" r="12" fill="none" stroke={system?.completed ? 'rgba(255,255,255,0.85)' : 'currentColor'} strokeWidth="3"
+                  strokeDasharray={`${2 * Math.PI * 12}`}
+                  strokeDashoffset={`${2 * Math.PI * 12 * (1 - systemPct / 100)}`}
+                  className={cn(system?.completed ? '' : 'text-primary')} />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold tabular-nums">{systemPct}%</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold leading-tight truncate">{systemMeta.label}</div>
+              <div className={cn('text-[9px] mt-0.5 flex items-center gap-1', system?.completed ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+                {system?.completed ? 'Cumplido hoy' : 'No cumplido hoy'}
+                {system && system.goal > 0 ? ` · ${system.minutes}/${system.goal} min` : ''}
+              </div>
+            </div>
           </div>
         )}
 
@@ -314,19 +464,51 @@ function ListCard({
           <Button className="h-9" onClick={add} disabled={!title.trim()}><Plus className="h-4 w-4" /></Button>
         </div>
       </CardContent>
+      {editing && (
+        <EditListDialog list={list} open={editing} onOpenChange={setEditing} onSave={onEdit} />
+      )}
     </Card>
   );
 }
 
+const PERIODS = [
+  { id: 'dia', label: 'Día' },
+  { id: 'semana', label: 'Semana' },
+  { id: 'mes', label: 'Mes' },
+  { id: 'trimestre', label: 'Trimestre' },
+] as const;
+type PeriodId = (typeof PERIODS)[number]['id'];
+
 export default function MiListaPersonal() {
   const {
     lists, tasks, systems, isLoading,
-    createList, deleteList, createTask, updateTask, deleteTask,
+    createList, deleteList, updateList, createTask, updateTask, deleteTask,
   } = usePersonalLists();
+
+  const [period, setPeriod] = useState<PeriodId>('mes');
+  const [refDate, setRefDate] = useState<Date>(new Date());
+
+  const range = useMemo(() => {
+    let s: Date, e: Date;
+    if (period === 'dia') { s = startOfDay(refDate); e = endOfDay(refDate); }
+    else if (period === 'semana') { s = startOfWeek(refDate, { weekStartsOn: 1 }); e = endOfWeek(refDate, { weekStartsOn: 1 }); }
+    else if (period === 'mes') { s = startOfMonth(refDate); e = endOfMonth(refDate); }
+    else { s = startOfQuarter(refDate); e = endOfQuarter(refDate); }
+    return {
+      start: format(s, 'yyyy-MM-dd'),
+      end: format(e, 'yyyy-MM-dd'),
+      label: `${format(s, 'd MMM', { locale: es })} – ${format(e, 'd MMM yyyy', { locale: es })}`,
+    };
+  }, [period, refDate]);
+
+  const inRange = (t: PersonalListTask) =>
+    !!t.due_date && t.due_date >= range.start && t.due_date <= range.end;
 
   const grouped = useMemo(() => {
     const byArea = new Map<string, Map<string, PersonalList[]>>();
     lists.forEach(l => {
+      const hasInRange = tasks.some(t => t.list_id === l.id && inRange(t));
+      if (!hasInRange) return;
       const sub = l.sub_area?.trim() || 'General';
       if (!byArea.has(l.area_id)) byArea.set(l.area_id, new Map());
       const m = byArea.get(l.area_id)!;
@@ -334,7 +516,7 @@ export default function MiListaPersonal() {
       m.get(sub)!.push(l);
     });
     return byArea;
-  }, [lists]);
+  }, [lists, tasks, range]);
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-6xl space-y-6">
@@ -348,11 +530,38 @@ export default function MiListaPersonal() {
         <CreateListDialog onCreate={p => createList.mutate(p)} />
       </header>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-xl border border-border/60 bg-muted/40 p-1 gap-1">
+          {PERIODS.map(p => (
+            <button key={p.id} onClick={() => setPeriod(p.id)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                period === p.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <Input
+          type="date"
+          value={format(refDate, 'yyyy-MM-dd')}
+          onChange={e => setRefDate(e.target.value ? new Date(`${e.target.value}T12:00:00`) : new Date())}
+          className="h-9 w-auto"
+        />
+        <span className="text-xs text-muted-foreground">{range.label}</span>
+      </div>
+
       {isLoading && <p className="text-sm text-muted-foreground">Cargando listas...</p>}
 
       {!isLoading && lists.length === 0 && (
         <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
           Todavía no tienes listas. Crea la primera con "Crear lista".
+        </CardContent></Card>
+      )}
+
+      {!isLoading && lists.length > 0 && Object.keys(grouped).length === 0 && (
+        <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
+          No hay objetivos con fecha en el periodo seleccionado ({range.label}).
         </CardContent></Card>
       )}
 
@@ -362,14 +571,15 @@ export default function MiListaPersonal() {
           {[...subs.entries()].map(([sub, items]) => (
             <div key={sub} className="space-y-3">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">{sub}</p>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map(l => (
                   <ListCard
                     key={l.id}
                     list={l}
-                    tasks={tasks.filter(t => t.list_id === l.id)}
+                    tasks={tasks.filter(t => t.list_id === l.id && inRange(t))}
                     system={l.system_key ? systems[l.system_key] : undefined}
                     onDelete={id => deleteList.mutate(id)}
+                    onEdit={p => updateList.mutate(p)}
                     onCreateTask={p => createTask.mutate(p)}
                     onToggleTask={t => updateTask.mutate({ id: t.id, completed: !t.completed })}
                     onDeleteTask={id => deleteTask.mutate(id)}

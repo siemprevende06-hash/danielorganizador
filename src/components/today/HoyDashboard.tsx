@@ -107,7 +107,7 @@ export default function HoyDashboard({ headerExtra }: HoyDashboardProps) {
   const currentBlock = getCurrentBlock();
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
-  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus } = useRoutineBlocks();
+  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, extraMode, setExtraMode, updateBlockFocus: updateRoutineBlockFocus } = useRoutineBlocks();
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -226,6 +226,9 @@ export default function HoyDashboard({ headerExtra }: HoyDashboardProps) {
           musicInstrument={musicInstrument}
           onMusicInstrumentChange={setMusicInstrument}
           presetName={presetName}
+          routineType={routineType}
+          extraMode={extraMode}
+          onExtraModeChange={setExtraMode}
         />
 
         <CurrentBlockCard

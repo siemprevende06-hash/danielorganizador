@@ -350,8 +350,8 @@ export function DailyTimelinePlanner({
                           {formatTime(block.endTime)}
                         </span>
 
-                        {/* Deep Work focus selector */}
-                        {isDW && onUpdateFocus && (
+                        {/* Deep Work / focus block selector */}
+                        {(isDW || block.isFocusBlock) && onUpdateFocus && (
                           <Select
                             value={block.currentFocus || block.defaultFocus || ''}
                             onValueChange={(v) => onUpdateFocus(blockId, v)}

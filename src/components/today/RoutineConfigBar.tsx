@@ -6,6 +6,7 @@ import { Clock, Sun, Moon, Zap, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import type { WakeOption, SleepOption, MusicInstrument } from '@/hooks/useRoutineConfig';
+import type { RoutineType, ExtraMode } from '@/hooks/useRoutineBlocks';
 
 interface Props {
   wakeTime: WakeOption;
@@ -19,7 +20,17 @@ interface Props {
   musicInstrument: MusicInstrument;
   onMusicInstrumentChange: (i: MusicInstrument) => void;
   presetName: string;
+  routineType?: RoutineType;
+  extraMode?: ExtraMode;
+  onExtraModeChange?: (m: ExtraMode) => void;
 }
+
+const EXTRA_MODES: { id: ExtraMode; label: string }[] = [
+  { id: 'idiomas', label: 'Idiomas' },
+  { id: 'ocio', label: 'Ocio' },
+  { id: 'focus', label: 'Focus' },
+  { id: 'sueno', label: 'Sueño' },
+];
 
 export function RoutineConfigBar({
   wakeTime, onWakeChange,
@@ -28,6 +39,9 @@ export function RoutineConfigBar({
   lateWake, onLateWakeChange,
   musicInstrument, onMusicInstrumentChange,
   presetName,
+  routineType,
+  extraMode,
+  onExtraModeChange,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showLateInput, setShowLateInput] = useState(false);
@@ -113,6 +127,24 @@ export function RoutineConfigBar({
               )}
             >🎸 Guitarra</button>
           </div>
+
+          {routineType === 'disciplina' && onExtraModeChange && (
+            <div className="flex items-center gap-1 ml-1">
+              <span className="text-[10px] text-muted-foreground hidden sm:inline">Bloque Extra:</span>
+              <div className="flex gap-1">
+                {EXTRA_MODES.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => onExtraModeChange(m.id)}
+                    className={cn(
+                      'px-2 py-0.5 text-[10px] font-medium rounded transition-colors',
+                      extraMode === m.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    )}
+                  >{m.label}</button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <Badge variant="outline" className="text-[9px] font-normal shrink-0 hidden sm:inline-flex">
