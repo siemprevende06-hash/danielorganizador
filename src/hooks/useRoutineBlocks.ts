@@ -112,26 +112,53 @@ export const resolveDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] => 
   }
 
   if (mode === 'idiomas') {
+    // Fusiona el Bloque Extra con el bloque de Idiomas contiguo
     return raw
       .filter(b => b.id !== 'd-bloque-extra')
-      .map(b => (b.id === 'd-idiomas' ? { ...b, endTime: extra.endTime, title: 'Idiomas' } : b));
+      .map(b =>
+        b.id === 'd-idiomas'
+          ? {
+              ...b,
+              endTime: extra.endTime,
+              title: 'Idiomas (ampliado)',
+              tasks: Array.from(new Set([...(b.tasks || []), ...(extra.tasks || [])])),
+            }
+          : b
+      )
+      .map((b, index) => ({ ...b, order: index }));
   }
 
   if (mode === 'ocio') {
     return raw
       .filter(b => b.id !== 'd-bloque-extra')
-      .map(b => (b.id === 'd-ocio' ? { ...b, startTime: extra.startTime, endTime: extra.endTime } : b));
+      .map(b => (b.id === 'd-ocio' ? { ...b, startTime: extra.startTime, endTime: extra.endTime } : b))
+      .map((b, index) => ({ ...b, order: index }));
   }
 
-  // mode === 'sueno': elimina el Bloque Extra y corre Ocio/Música/Desactivación 1h antes
-  return raw
+  // mode === 'sueno': el Bloque Extra se usa para adelantar el sueño.
+  // Ocio/Música/Desactivación se corren 1h antes y se añade el bloque Sueño al final.
+  const shifted = raw
     .filter(b => b.id !== 'd-bloque-extra')
     .map(b =>
       ['d-ocio', 'd-musica', 'd-desactivacion'].includes(b.id)
         ? { ...b, startTime: shiftTime(b.startTime, 60), endTime: shiftTime(b.endTime, 60) }
         : b
     );
+
+  const desactivacion = shifted.find(b => b.id === 'd-desactivacion');
+  const sleepStart = desactivacion ? desactivacion.endTime : extra.endTime;
+  const sleepBlock: RoutineBlock = {
+    ...makeBlock('d-sueno', 'Sueño (adelantado) 😴', sleepStart, shiftTime(sleepStart, -60), 0, false, [
+      'Dormir 1h antes',
+      'Pantallas apagadas',
+      'Habitación oscura y fresca',
+    ]),
+    extraMode: undefined,
+  };
+
+  return [...shifted, sleepBlock].map((b, index) => ({ ...b, order: index }));
 };
+
 
 const NORMAL_BLOCKS: RoutineBlock[] = [
   makeBlock('n-activacion', 'Rutina de Activación', '06:30', '07:00', 0, false, ['Despertar', 'Hidratación', 'Estiramientos']),
