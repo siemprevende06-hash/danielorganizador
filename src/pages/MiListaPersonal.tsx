@@ -579,7 +579,7 @@ export default function MiListaPersonal() {
                     tasks={tasks.filter(t => t.list_id === l.id && inRange(t))}
                     system={l.system_key ? systems[l.system_key] : undefined}
                     onDelete={id => deleteList.mutate(id)}
-                    onEdit={p => updateList.mutate(p)}
+                    onEdit={p => updateList.mutate({ ...p, id: l.id })}
                     onCreateTask={p => createTask.mutate(p)}
                     onToggleTask={t => updateTask.mutate({ id: t.id, completed: !t.completed })}
                     onDeleteTask={id => deleteTask.mutate(id)}
