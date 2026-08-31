@@ -35,7 +35,9 @@ interface Props {
   }) => Promise<void> | void;
 }
 
-const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/finance-ai`;
+const PROD_SUPABASE_URL = 'https://fuqmrtenzlslkeqgdjwy.supabase.co';
+const PROD_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1cW1ydGVuemxzbGtlcWdkand5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MTgxMzksImV4cCI6MjEwMDk5NDEzOX0.3Xxk0AiGLuCjnSJvm0sK9C1cIbpeWgkuhrFc3QnnuVc';
+const FN_URL = `${import.meta.env.VITE_SUPABASE_URL || PROD_SUPABASE_URL}/functions/v1/finance-ai`;
 
 const QUICK_PROMPTS = [
   "Compré café por 5 USD en Efectivo",
@@ -102,8 +104,8 @@ export function FinanceAIAssistant({ wallets, categories, exchangeRate, onCreate
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || PROD_SUPABASE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || PROD_SUPABASE_KEY,
         },
         body: JSON.stringify({ message: trimmed, history, wallets, categories }),
       });
