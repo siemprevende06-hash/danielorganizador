@@ -472,6 +472,7 @@ function ListCard({
 }
 
 const PERIODS = [
+  { id: 'todas', label: 'Todas' },
   { id: 'dia', label: 'Día' },
   { id: 'semana', label: 'Semana' },
   { id: 'mes', label: 'Mes' },
@@ -489,6 +490,9 @@ export default function MiListaPersonal() {
   const [refDate, setRefDate] = useState<Date>(new Date());
 
   const range = useMemo(() => {
+    if (period === 'todas') {
+      return { start: '', end: '', label: 'Todas las listas' };
+    }
     let s: Date, e: Date;
     if (period === 'dia') { s = startOfDay(refDate); e = endOfDay(refDate); }
     else if (period === 'semana') { s = startOfWeek(refDate, { weekStartsOn: 1 }); e = endOfWeek(refDate, { weekStartsOn: 1 }); }
@@ -502,11 +506,19 @@ export default function MiListaPersonal() {
   }, [period, refDate]);
 
   const inRange = (t: PersonalListTask) =>
-    !!t.due_date && t.due_date >= range.start && t.due_date <= range.end;
+    period === 'todas' || (!!t.due_date && t.due_date >= range.start && t.due_date <= range.end);
 
   const grouped = useMemo(() => {
     const byArea = new Map<string, Map<string, PersonalList[]>>();
     lists.forEach(l => {
+      if (period === 'todas') {
+        const sub = l.sub_area?.trim() || 'General';
+        if (!byArea.has(l.area_id)) byArea.set(l.area_id, new Map());
+        const m = byArea.get(l.area_id)!;
+        if (!m.has(sub)) m.set(sub, []);
+        m.get(sub)!.push(l);
+        return;
+      }
       const hasInRange = tasks.some(t => t.list_id === l.id && inRange(t));
       if (!hasInRange) return;
       const sub = l.sub_area?.trim() || 'General';
@@ -516,7 +528,7 @@ export default function MiListaPersonal() {
       m.get(sub)!.push(l);
     });
     return byArea;
-  }, [lists, tasks, range]);
+  }, [lists, tasks, range, period]);
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-6xl space-y-6">
