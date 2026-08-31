@@ -92,15 +92,36 @@ export default function EstadisticasEsfuerzo() {
       const endDate = `${year}-12-31`;
 
       try {
-        const results = await Promise.allSettled([
-          supabase.from('daily_systems_tracking').select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas').gte('tracking_date', startDate).lte('tracking_date', endDate).order('tracking_date', { ascending: true }),
-          supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', startDate).lte('stat_date', endDate).order('stat_date', { ascending: true }),
-          supabase.from('tasks').select('id, completed, source, due_date, area_id').or(`due_date.gte.${startDate}`),
+        const [sysResult, areaResult, taskResult] = await Promise.allSettled([
+          supabase.from('daily_systems_tracking')
+            .select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas')
+            .gte('tracking_date', startDate).lte('tracking_date', endDate)
+            .order('tracking_date', { ascending: true })
+            .limit(5000),
+          supabase.from('daily_area_stats')
+            .select('area_id, stat_date, time_spent_minutes')
+            .gte('stat_date', startDate).lte('stat_date', endDate)
+            .order('stat_date', { ascending: true })
+            .limit(10000),
+          supabase.from('tasks')
+            .select('id, completed, source, due_date, area_id')
+            .gte('due_date', startDate)
+            .limit(5000),
         ]);
 
-        setSystemsData(results[0].status === 'fulfilled' ? results[0].value.data || [] : []);
-        setAreaStats(results[1].status === 'fulfilled' ? results[1].value.data || [] : []);
-        setTaskCompletions(results[2].status === 'fulfilled' ? results[2].value.data || [] : []);
+        if (sysResult.status === 'rejected') {
+          console.error('[EstadisticasEsfuerzo] daily_systems_tracking query failed:', sysResult.reason);
+        }
+        if (areaResult.status === 'rejected') {
+          console.error('[EstadisticasEsfuerzo] daily_area_stats query failed:', areaResult.reason);
+        }
+        if (taskResult.status === 'rejected') {
+          console.error('[EstadisticasEsfuerzo] tasks query failed:', taskResult.reason);
+        }
+
+        setSystemsData(sysResult.status === 'fulfilled' ? sysResult.value.data || [] : []);
+        setAreaStats(areaResult.status === 'fulfilled' ? areaResult.value.data || [] : []);
+        setTaskCompletions(taskResult.status === 'fulfilled' ? taskResult.value.data || [] : []);
       } catch (e) {
         console.error('[EstadisticasEsfuerzo] Error loading data:', e);
       }
