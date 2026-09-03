@@ -59,6 +59,8 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/anual', label: 'Año', icon: CalendarDays },
       { path: '/weeks', label: 'Semanas', icon: CalendarDays },
       { path: '/goals', label: 'Metas', icon: Goal },
+      { path: '/cinco-anos', label: '5 Años', icon: CalendarRange },
+      { path: '/algun-dia', label: 'Algún Día', icon: Star },
       { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
     ]
   },
