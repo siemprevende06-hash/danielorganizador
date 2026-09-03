@@ -87,6 +87,7 @@ import CoachIA from "./pages/CoachIA";
 import MiListaPersonal from "./pages/MiListaPersonal";
 import CincoAnos from "./pages/CincoAnos";
 import AlgunDia from "./pages/AlgunDia";
+import AhoraMismo from "./pages/AhoraMismo";
 
 const queryClient = new QueryClient();
 
@@ -180,6 +181,7 @@ function AppContent() {
         <Route path="/destino-a-llegar" element={<DestinoALlegar />} />
         <Route path="/cinco-anos" element={<CincoAnos />} />
         <Route path="/algun-dia" element={<AlgunDia />} />
+        <Route path="/ahora-mismo" element={<AhoraMismo />} />
         <Route path="/coach-ia" element={<CoachIA />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
