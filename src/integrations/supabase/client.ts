@@ -4,14 +4,20 @@ import type { Database } from './types';
 import { brokeredPreviewStorage } from './previewAuthStorage';
 
 // Base de datos de producción CORRECTA (empieza con "f").
-// Se fija directamente aquí para garantizar que la app siempre apunte a
+// Se fija directamente aquí para garantizar que la app SIEMPRE apunte a
 // esta base, independientemente de las variables de entorno del panel de
-// despliegue (Lovable). Las variables de entorno se usan solo como fallback.
+// despliegue (Lovable). Si en el entorno se define una URL que empiece con
+// "f", se respeta; de lo contrario se usa la producción forzada.
 const PROD_SUPABASE_URL = 'https://fuqmrtenzlslkeqgdjwy.supabase.co';
 const PROD_SUPABASE_PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1cW1ydGVuemxzbGtlcWdkand5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MTgxMzksImV4cCI6MjEwMDk5NDEzOX0.3Xxk0AiGLuCjnSJvm0sK9C1cIbpeWgkuhrFc3QnnuVc';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || PROD_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || PROD_SUPABASE_PUBLISHABLE_KEY;
+const ENV_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const IS_F_URL = typeof ENV_SUPABASE_URL === 'string' && ENV_SUPABASE_URL.includes('fuqmrtenzlslkeqgdjwy');
+
+const SUPABASE_URL = IS_F_URL ? ENV_SUPABASE_URL : PROD_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = IS_F_URL
+  ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  : PROD_SUPABASE_PUBLISHABLE_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
