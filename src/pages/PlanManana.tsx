@@ -230,18 +230,7 @@ export default function PlanManana() {
     }
   }, [mode]);
 
-  // --- Hoy mode ---
-  if (mode === 'hoy') {
-    return (
-      <HoyDashboard
-        headerExtra={
-          <div className="pt-2 pb-1">
-            <DateSwitchTabs mode={mode} onModeChange={setMode} />
-          </div>
-        }
-      />
-    );
-  }
+  // --- Hoy mode (render condicional al final, tras todos los hooks) ---
 
   const loadData = async () => {
     setLoading(true);
@@ -428,6 +417,18 @@ export default function PlanManana() {
           <div className="h-64 w-full bg-muted rounded" />
         </div>
       </div>
+    );
+  }
+
+  if (mode === 'hoy') {
+    return (
+      <HoyDashboard
+        headerExtra={
+          <div className="pt-2 pb-1">
+            <DateSwitchTabs mode={mode} onModeChange={setMode} />
+          </div>
+        }
+      />
     );
   }
 
