@@ -90,7 +90,7 @@ export default function AhoraMismo() {
 
   // Cascada de metas: semana → mes → trimestre → mes
   const currentDate = now;
-  const activeGoals = useMemo(() => goals.filter(g => (g.status === 'active' || g.status === 'in-progress')), [goals]);
+  const activeGoals = useMemo(() => goals.filter(g => (g.status === 'active' || !g.status)), [goals]);
   const monthlyGoals = useMemo(() => getMonthGoalsSummary(currentDate), [currentDate]);
   const monthlyGoalTotal = useMemo(
     () => Object.entries(monthlyGoals).reduce((s, [, v]) => s + (v || 0), 0),
