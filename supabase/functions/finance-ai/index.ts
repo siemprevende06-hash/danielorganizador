@@ -88,7 +88,7 @@ B) Faltan datos:
           "Content-Type": "application/json",
           Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           "HTTP-Referer": "https://lovable.dev",
-          "X-Title": "Daniel Organizador",
+          "X-Title": "Segundo Cerebro",
         },
         body: JSON.stringify({ model: modelo, messages, temperature: 0.2 }),
       });

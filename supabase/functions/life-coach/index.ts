@@ -452,7 +452,7 @@ ${JSON.stringify(ctx).slice(0, 60000)}`;
           "Content-Type": "application/json",
           Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           "HTTP-Referer": "https://lovable.dev",
-          "X-Title": "Daniel Organizador",
+          "X-Title": "Segundo Cerebro",
         },
         body: JSON.stringify({ model: modelo, messages, tools }),
       });

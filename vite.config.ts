@@ -25,8 +25,8 @@ export default defineConfig(({ mode }) => ({
       devOptions: { enabled: false },
       includeAssets: ["pwa-192x192.png", "pwa-512x512.png", "pwa-512x512-maskable.png", "app-icon.svg", "robots.txt", "favicon.ico", "favicon.svg"],
       manifest: {
-        name: "Daniel Organizador",
-        short_name: "Organizador",
+        name: "Segundo Cerebro",
+        short_name: "Segundo Cerebro",
         description: "App para seguimiento de hábitos diarios, gestión de tareas y productividad personal",
         theme_color: "#0f172a",
         background_color: "#0f172a",

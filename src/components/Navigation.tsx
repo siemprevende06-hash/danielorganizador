@@ -177,7 +177,7 @@ function getPageTitle(pathname: string): string {
       if (sub) return sub.label;
     }
   }
-  return 'Organizador';
+  return 'Segundo Cerebro';
 }
 
 function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
@@ -316,7 +316,7 @@ export const Navigation = () => {
           <div className="h-12 flex items-center justify-between px-4 border-b shrink-0"
             style={{ paddingTop: 'env(safe-area-inset-top)', marginTop: 0 }}>
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold">Organizador</h1>
+            <h1 className="text-sm font-semibold">Segundo Cerebro</h1>
             <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
           </div>
           </div>
@@ -378,7 +378,7 @@ export const Navigation = () => {
         )}>
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-sm font-semibold truncate">Organizador</h1>
+              <h1 className="text-sm font-semibold truncate">Segundo Cerebro</h1>
               <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
             </div>
           )}
