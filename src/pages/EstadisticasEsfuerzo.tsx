@@ -132,10 +132,36 @@ export default function EstadisticasEsfuerzo() {
 
   const monthKey = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
 
+  // ─── Months with data (systems or area stats) ───
+  const monthsWithData = useMemo(() => {
+    const set = new Set<number>();
+    systemsData.forEach(r => {
+      if (typeof r.tracking_date === 'string' && r.tracking_date.startsWith(`${year}-`)) {
+        set.add(Number(r.tracking_date.slice(5, 7)) - 1);
+      }
+    });
+    areaStats.forEach(a => {
+      if (typeof a.stat_date === 'string' && a.stat_date.startsWith(`${year}-`) && (a.time_spent_minutes || 0) > 0) {
+        set.add(Number(a.stat_date.slice(5, 7)) - 1);
+      }
+    });
+    return set;
+  }, [systemsData, areaStats, year]);
+
+  // ─── Auto-jump to the most recent month with data ───
+  useEffect(() => {
+    if (loading || monthsWithData.size === 0) return;
+    if (monthsWithData.has(monthIdx)) return;
+    const latest = Math.max(...Array.from(monthsWithData));
+    setMonthIdx(latest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, monthsWithData]);
+
   // ─── Filtered days for the selected month ───
   const monthDays = useMemo(() => {
     return systemsData.filter(r => r.tracking_date.startsWith(monthKey));
   }, [systemsData, monthKey]);
+
 
   // ─── Focus data per day ───
   const focusPerDay = useMemo(() => {
@@ -316,9 +342,12 @@ export default function EstadisticasEsfuerzo() {
           {MONTHS.map((name, i) => (
             <button key={i} onClick={() => setMonthIdx(i)}
               className={cn("px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0",
-                i === monthIdx ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}>{name}</button>
+                i === monthIdx ? "bg-primary text-primary-foreground shadow-sm"
+                  : monthsWithData.has(i) ? "bg-muted text-foreground hover:bg-muted/80"
+                  : "bg-muted/50 text-muted-foreground/50 hover:bg-muted"
+              )}>{name}{monthsWithData.has(i) && i !== monthIdx ? ' ·' : ''}</button>
           ))}
+
         </div>
 
         {loading ? (
