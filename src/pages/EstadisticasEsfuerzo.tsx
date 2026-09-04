@@ -342,9 +342,12 @@ export default function EstadisticasEsfuerzo() {
           {MONTHS.map((name, i) => (
             <button key={i} onClick={() => setMonthIdx(i)}
               className={cn("px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0",
-                i === monthIdx ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}>{name}</button>
+                i === monthIdx ? "bg-primary text-primary-foreground shadow-sm"
+                  : monthsWithData.has(i) ? "bg-muted text-foreground hover:bg-muted/80"
+                  : "bg-muted/50 text-muted-foreground/50 hover:bg-muted"
+              )}>{name}{monthsWithData.has(i) && i !== monthIdx ? ' ·' : ''}</button>
           ))}
+
         </div>
 
         {loading ? (
