@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, ListChecks, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package, RefreshCw, MapPin, Network, Clock, Timeline
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, ListChecks, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package, RefreshCw, MapPin, Network, Clock, GitBranch
 } from 'lucide-react';
 import {
   Sheet,
@@ -51,7 +51,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
   {
     label: 'LÍNEA DE TIEMPO',
     items: [
-      { path: '/linea-de-tiempo', label: 'Línea de Tiempo', icon: Timeline },
+      { path: '/linea-de-tiempo', label: 'Línea de Tiempo', icon: GitBranch },
       { path: '/ahora-mismo', label: 'Ahora Mismo', icon: Clock },
       { path: '/daily', label: 'Hoy', icon: CalendarDays },
       { path: '/plan-manana', label: 'Mañana', icon: CalendarDays },
