@@ -68,7 +68,7 @@ export const BlockFocusSelector = ({
 
       <div className="flex flex-wrap gap-2">
         {focuses.map((focus) => {
-          const config = focusConfig[focus];
+          const config = focusConfig[focus] ?? focusConfig.none;
           const Icon = config.icon;
           const isSelected = currentFocus === focus;
           const isDefault = defaultFocus === focus;
@@ -106,7 +106,7 @@ export const BlockTypeIndicator = ({ blockType, emergencyOnly }: { blockType: Bl
     evitar: { label: "Evitar", className: "bg-red-500/20 text-red-400 border-red-500/30" },
   };
 
-  const typeConfig = config[blockType];
+  const typeConfig = config[blockType] ?? config.fijo;
 
   return (
     <Badge variant="outline" className={cn("text-xs", typeConfig.className)}>
