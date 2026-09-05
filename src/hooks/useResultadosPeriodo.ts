@@ -229,6 +229,13 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         readActiveSelections('activeProjects'),
       ]);
 
+      // Solo cuentan las tareas con fecha dentro del período (hoy/semana/mes/trimestre)
+      const inPeriod = (t: any) => {
+        if (!t?.due_date) return false;
+        const d = String(t.due_date).slice(0, 10);
+        return d >= startStr && d <= endStr;
+      };
+
       const entityFor = (t: any): string | null => {
         if (t.source === 'project' || t.area_id === 'proyectos' || t.source === 'proyectos') {
           return projMap.get(t.source_id) || null;
@@ -272,10 +279,15 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         if (t.source === 'university' && t.source_id) mergeSubjectTask(t.source_id, t);
       });
       (subjPendingRes.data || []).forEach((t: any) => {
-        if (t.source === 'university' && t.source_id) mergeSubjectTask(t.source_id, t);
+        if (t.source === 'university' && t.source_id && inPeriod(t)) mergeSubjectTask(t.source_id, t);
       });
-      const examsRows = (examsRes.data || []).filter((e: any) => activeSubjects.includes(e.subject_id));
-      const partialsRows = (partialsRes.data || []).filter((p: any) => activeSubjects.includes(p.subject_id));
+      const dateInPeriod = (d: any) => {
+        if (!d) return false;
+        const s = String(d).slice(0, 10);
+        return s >= startStr && s <= endStr;
+      };
+      const examsRows = (examsRes.data || []).filter((e: any) => activeSubjects.includes(e.subject_id) && dateInPeriod(e.exam_date));
+      const partialsRows = (partialsRes.data || []).filter((p: any) => activeSubjects.includes(p.subject_id) && dateInPeriod(p.exam_date));
       const topicRows = (topicRes.data || []).filter((t: any) => activeSubjects.includes(t.subject_id));
       const universitySubjects: UniversitySubjectResult[] = activeSubjects.map(id => {
         const ts = subjectTaskMap[id] || [];
@@ -313,7 +325,9 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         if (!list.some(x => x.id === t.id)) list.push(t);
       };
       (entTasksRes.data || []).forEach((t: any) => mergeBusinessTask(t.entrepreneurship_id, t));
-      (entPendingRes.data || []).forEach((t: any) => mergeBusinessTask(t.entrepreneurship_id, t));
+      (entPendingRes.data || []).forEach((t: any) => {
+        if (inPeriod(t)) mergeBusinessTask(t.entrepreneurship_id, t);
+      });
       const goalRows = (goalsRes.data || []).filter((g: any) => activeBusinesses.includes(g.entrepreneurship_id));
       const businessList: BusinessResult[] = activeBusinesses.map(id => {
         const ts = businessTaskMap[id] || [];
