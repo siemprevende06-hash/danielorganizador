@@ -229,6 +229,13 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         readActiveSelections('activeProjects'),
       ]);
 
+      // Solo cuentan las tareas con fecha dentro del período (hoy/semana/mes/trimestre)
+      const inPeriod = (t: any) => {
+        if (!t?.due_date) return false;
+        const d = String(t.due_date).slice(0, 10);
+        return d >= startStr && d <= endStr;
+      };
+
       const entityFor = (t: any): string | null => {
         if (t.source === 'project' || t.area_id === 'proyectos' || t.source === 'proyectos') {
           return projMap.get(t.source_id) || null;
