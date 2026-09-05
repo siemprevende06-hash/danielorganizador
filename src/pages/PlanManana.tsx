@@ -19,7 +19,6 @@ import { lifeAreas } from "@/lib/data";
 import { flattenAreas } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
 import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
-import HoyDashboard from "@/components/today/HoyDashboard";
 import { MinutesGoalInput } from "@/components/hierarchy/MinutesGoalInput";
 import {
   setDayGoal,
@@ -149,10 +148,10 @@ export default function PlanManana() {
   const [mode, setMode] = useState<TabMode>('manana');
 
   // --- ALL HOOKS MUST BE UNCONDITIONAL (before any return) ---
-  const tomorrow = addDays(new Date(), 1);
-  const tomorrowStr = format(tomorrow, "yyyy-MM-dd");
-  const tomorrowDisplay = format(tomorrow, "EEEE d 'de' MMMM", { locale: es });
-  const tomorrowCapitalized = tomorrowDisplay.charAt(0).toUpperCase() + tomorrowDisplay.slice(1);
+  const targetDate = mode === 'hoy' ? new Date() : addDays(new Date(), 1);
+  const targetStr = format(targetDate, "yyyy-MM-dd");
+  const targetDisplay = format(targetDate, "EEEE d 'de' MMMM", { locale: es });
+  const targetCapitalized = targetDisplay.charAt(0).toUpperCase() + targetDisplay.slice(1);
 
   const { blocks, routineType, setRoutineType, updateBlockFocus } = useRoutineBlocks();
 
@@ -187,11 +186,11 @@ export default function PlanManana() {
 
   const applyDayGoal = (area: string, value: string) => {
     const mins = Math.max(0, parseInt(value) || 0);
-    setDayGoal(tomorrow, area, mins);
+    setDayGoal(targetDate, area, mins);
     setGoalsVersion(v => v + 1);
   };
 
-  const dayGoalSum = getDayGoalSum(tomorrow);
+  const dayGoalSum = getDayGoalSum(targetDate);
 
   const tasksByBlockForPlanner = useMemo(() => {
     const result: Record<string, { id: string; title: string; source: string; completed: boolean }[]> = {};
@@ -219,18 +218,47 @@ export default function PlanManana() {
   }, []);
 
   useEffect(() => {
-    if (mode === 'manana') {
-      loadData();
-      const saved = localStorage.getItem(`planManana_intensity`);
-      if (saved) setSystemIntensity(JSON.parse(saved));
-      const savedLang = localStorage.getItem(`planManana_language`);
-      if (savedLang) setLanguageChoice(savedLang);
-      const savedInst = localStorage.getItem(`planManana_instrument`);
-      if (savedInst) setMusicInstrument(savedInst);
-    }
+    loadData();
   }, [mode]);
 
   // --- Hoy mode (render condicional al final, tras todos los hooks) ---
+
+  const loadSavedPlan = async (dateStr: string) => {
+    const validTypes: RoutineType[] = ['disciplina', 'normal', 'super', 'descanso', 'equilibrio'];
+    const resetDefaults = () => {
+      setBlockAssignments({});
+      setSelectedTasks(new Set());
+      const savedIntensity = localStorage.getItem(`planIntensity_${dateStr}`) || localStorage.getItem(`planManana_intensity`);
+      if (savedIntensity) { try { setSystemIntensity(JSON.parse(savedIntensity)); } catch {} }
+      else setSystemIntensity({});
+      setLanguageChoice(localStorage.getItem(`planLanguage_${dateStr}`) || localStorage.getItem(`planManana_language`) || "ingles");
+      setMusicInstrument(localStorage.getItem(`planInstrument_${dateStr}`) || localStorage.getItem(`planManana_instrument`) || "piano");
+    };
+    try {
+      const { data: plan } = await supabase.from("daily_plans").select("routine_type, block_assignments, notes").eq("plan_date", dateStr).maybeSingle();
+      if (plan && plan.block_assignments) {
+        const assignments = plan.block_assignments as Record<string, string[]>;
+        const { _unassigned, ...rest } = assignments;
+        setBlockAssignments(rest);
+        setSelectedTasks(new Set(Object.values(assignments).flat()));
+        if (plan.routine_type && validTypes.includes(plan.routine_type as RoutineType)) {
+          setRoutineType(plan.routine_type as RoutineType);
+        }
+        if (plan.notes) {
+          try {
+            const parsed = JSON.parse(plan.notes as string);
+            if (parsed.systemIntensity) setSystemIntensity(parsed.systemIntensity);
+            if (parsed.language === 'ingles' || parsed.language === 'italiano') setLanguageChoice(parsed.language);
+            if (parsed.instrument === 'piano' || parsed.instrument === 'guitarra') setMusicInstrument(parsed.instrument);
+          } catch {}
+        }
+      } else {
+        resetDefaults();
+      }
+    } catch {
+      resetDefaults();
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -254,6 +282,7 @@ export default function PlanManana() {
         })));
       }
     } catch {}
+    await loadSavedPlan(targetStr);
     setLoading(false);
   };
 
