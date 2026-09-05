@@ -325,7 +325,9 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         if (!list.some(x => x.id === t.id)) list.push(t);
       };
       (entTasksRes.data || []).forEach((t: any) => mergeBusinessTask(t.entrepreneurship_id, t));
-      (entPendingRes.data || []).forEach((t: any) => mergeBusinessTask(t.entrepreneurship_id, t));
+      (entPendingRes.data || []).forEach((t: any) => {
+        if (inPeriod(t)) mergeBusinessTask(t.entrepreneurship_id, t);
+      });
       const goalRows = (goalsRes.data || []).filter((g: any) => activeBusinesses.includes(g.entrepreneurship_id));
       const businessList: BusinessResult[] = activeBusinesses.map(id => {
         const ts = businessTaskMap[id] || [];
