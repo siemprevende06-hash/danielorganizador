@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from "react"
 
 export type Timeframe = "today" | "week" | "month" | "quarter" | "year" | "sprint"
-export type ScoreView = "esfuerzo" | "resultados" | "ambos"
+export type ScoreView = "esfuerzo" | "plan" | "resultados" | "ambos" | "autocritica"
 
 interface TimeframeContextType {
   timeframe: Timeframe

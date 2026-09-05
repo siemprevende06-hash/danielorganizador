@@ -1,5 +1,4 @@
-import { ArrowRight, CheckCircle2, ChevronDown, ChevronRight, Target, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight, CheckCircle2, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChipMetaComodidad, type MetaComodidadChip } from './ChipMetaComodidad';
 
@@ -33,7 +32,6 @@ export interface EjeAreaData {
 const NODE_ORDER = ['hoy', 'semana', 'mes', 'trimestre', 'comodidad', 'vision'];
 
 export function EjeDeTiempoArea({ data }: { data: EjeAreaData }) {
-  const [open, setOpen] = useState(false);
   const node = (key: string): Nivel => {
     switch (key) {
       case 'hoy': return data.nivelHoy;
@@ -50,10 +48,7 @@ export function EjeDeTiempoArea({ data }: { data: EjeAreaData }) {
 
   return (
     <div className="rounded-2xl border bg-card overflow-hidden">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/40 transition-colors"
-      >
+      <div className="flex items-center gap-3 p-4">
         <span className="text-2xl shrink-0">{data.icon}</span>
         <div className="flex-1 min-w-0">
           <p className="font-semibold">{data.label}</p>
@@ -64,11 +59,9 @@ export function EjeDeTiempoArea({ data }: { data: EjeAreaData }) {
             <Target className="h-3 w-3" />Meta del mes
           </span>
         )}
-        {open ? <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />}
-      </button>
+      </div>
 
-      {open && (
-        <div className="border-t p-4 space-y-4">
+      <div className="border-t p-4 space-y-4">
           {/* Eje lineal horizontal */}
           <div className="flex items-center gap-1 overflow-x-auto pb-1">
             {NODE_ORDER.map((key, i) => {
@@ -156,7 +149,6 @@ export function EjeDeTiempoArea({ data }: { data: EjeAreaData }) {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }

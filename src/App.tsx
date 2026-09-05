@@ -1,11 +1,12 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { SplashScreen } from "./components/SplashScreen";
+import { useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { pullPlansIntoLocal } from "@/lib/planSync";
-import { useEffect } from "react";
 import { Navigation } from "./components/Navigation";
 import { OfflineProvider } from "./providers/OfflineProvider";
 import { useAutoTheme } from "./hooks/useAutoTheme";
@@ -191,22 +192,27 @@ function AppContent() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <OfflineProvider>
-        <Toaster />
-        <Sonner />
-        <HashRouter>
-          <TimeframeProvider>
-            <SidebarProvider>
-              <AppContent />
-            </SidebarProvider>
-          </TimeframeProvider>
-        </HashRouter>
-      </OfflineProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [splashDone, setSplashDone] = useState(false);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <OfflineProvider>
+          <Toaster />
+          <Sonner />
+          {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
+          <HashRouter>
+            <TimeframeProvider>
+              <SidebarProvider>
+                <AppContent />
+              </SidebarProvider>
+            </TimeframeProvider>
+          </HashRouter>
+        </OfflineProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

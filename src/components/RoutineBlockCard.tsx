@@ -65,7 +65,18 @@ const getSourceIcon = (source: string) => {
   }
 };
 
-export const RoutineBlockCard = ({ block, onUpdate, onComplete, dailyTasks = [], onAssignTasks, onToggleTaskComplete }: RoutineBlockCardProps) => {
+const DEFAULT_WEEK: boolean[] = [false, false, false, false, false, false, false];
+
+export const RoutineBlockCard = ({ block: rawBlock, onUpdate, onComplete, dailyTasks = [], onAssignTasks, onToggleTaskComplete }: RoutineBlockCardProps) => {
+  const block = {
+    ...rawBlock,
+    title: rawBlock.title || "Bloque",
+    startTime: rawBlock.startTime || "00:00",
+    endTime: rawBlock.endTime || "00:00",
+    currentStreak: rawBlock.currentStreak || 0,
+    maxStreak: rawBlock.maxStreak || 0,
+    weeklyCompletion: rawBlock.weeklyCompletion || DEFAULT_WEEK,
+  };
   const [specificTask, setSpecificTask] = useState(block.specificTask || "");
   const [completedGenericTasks, setCompletedGenericTasks] = useState<Set<number>>(new Set());
   const [timeProgress, setTimeProgress] = useState(0);

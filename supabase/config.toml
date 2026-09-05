@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.life-coach]
 verify_jwt = false
+
+[functions.finance-ai]
+verify_jwt = false

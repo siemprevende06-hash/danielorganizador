@@ -43,8 +43,9 @@ export function HombreTopWheel({
   const levels = [0.25, 0.5, 0.75, 1]
   const n = values.length
   const angleStep = 360 / n
-  const showEsfuerzo = view === "esfuerzo" || view === "ambos"
-  const showResultados = view === "resultados" || view === "ambos"
+  const mappedView = view === "plan" ? "esfuerzo" : view === "autocritica" ? "ambos" : view
+  const showEsfuerzo = mappedView === "esfuerzo" || mappedView === "ambos"
+  const showResultados = mappedView === "resultados" || mappedView === "ambos"
 
   const displayAvg = avgProp !== undefined
     ? avgProp
@@ -141,7 +142,7 @@ export function HombreTopWheel({
         )}
 
         <circle cx={cx} cy={cy} r={32} fill="hsl(var(--card))" stroke="hsl(var(--border))" strokeWidth={1} />
-        {view === "ambos" && (
+        {mappedView === "ambos" && (
           <>
             <text x={cx} y={cy - 10} textAnchor="middle" className="fill-muted-foreground" fontSize={8} fontWeight={600}>
               ESFUERZO
@@ -157,7 +158,7 @@ export function HombreTopWheel({
             </text>
           </>
         )}
-        {view === "esfuerzo" && (
+        {mappedView === "esfuerzo" && (
           <>
             <text x={cx} y={cy - 5} textAnchor="middle" className="fill-foreground" fontSize={11} fontWeight={600}>
               PROMEDIO
@@ -167,7 +168,7 @@ export function HombreTopWheel({
             </text>
           </>
         )}
-        {view === "resultados" && (
+        {mappedView === "resultados" && (
           <>
             <text x={cx} y={cy - 5} textAnchor="middle" className="fill-foreground" fontSize={11} fontWeight={600}>
               PROMEDIO
@@ -199,7 +200,7 @@ export function HombreTopWheel({
         ))}
       </svg>
 
-      {view === "ambos" && (
+      {mappedView === "ambos" && (
         <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-0.5 bg-primary inline-block" />
@@ -219,7 +220,7 @@ export function HombreTopWheel({
             <span className="text-muted-foreground truncate">{label.replace(/\n/g, " ")}</span>
             <span className="font-bold text-foreground">
               {showEsfuerzo ? values[i] : ""}
-              {view === "ambos" && <span className="text-muted-foreground font-normal"> / </span>}
+              {mappedView === "ambos" && <span className="text-muted-foreground font-normal"> / </span>}
               {showResultados && values2 ? (
                 <span style={{ color: "hsl(35, 85%, 55%)" }}>{values2[i]}</span>
               ) : ""}

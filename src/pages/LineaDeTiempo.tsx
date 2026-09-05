@@ -17,6 +17,7 @@ import {
   getDayGoalEffective, getWeekGoalEffective, getMonthGoalsSummary, getQuarterGoal,
   getQuarterFromDate, getMonthKeyOf, AREA_LABELS,
 } from '@/lib/hierarchy';
+import { getAreasByGroup } from '@/data/pointB2027';
 import { cn } from '@/lib/utils';
 import { TablaProcesosMetas } from '@/components/linea-de-tiempo/TablaProcesosMetas';
 import { useProcesosMatriz } from '@/hooks/useProcesosMatriz';
@@ -60,10 +61,19 @@ interface AreaStats {
   dias: number;
 }
 
-const STREAK_HABITS = [
-  { id: 'estructurales', label: 'Estructurales', emoji: '🏗️' },
-  { id: 'apariencia', label: 'Apariencia', emoji: '✨' },
-];
+const ESTRUCTURALES = getAreasByGroup('cimientos');
+
+function getScoreColor(score: number): string {
+  if (score >= 70) return 'text-green-500';
+  if (score >= 40) return 'text-amber-500';
+  return 'text-red-500';
+}
+
+function getScoreBg(score: number): string {
+  if (score >= 70) return 'bg-green-500';
+  if (score >= 40) return 'bg-amber-500';
+  return 'bg-red-500';
+}
 
 export default function LineaDeTiempo() {
   const { blocks } = useRoutineBlocks();
@@ -77,6 +87,7 @@ export default function LineaDeTiempo() {
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
   const [statsByArea, setStatsByArea] = useState<Record<string, { semana: AreaStats; mes: AreaStats }>>({});
+  const [estructuralStats, setEstructuralStats] = useState<Record<string, { consistencia: number; minutos: number; dias: number; diasVerdes: number }>>({});
 
   // Consultar daily_area_stats acumulado por ventanas (semana / mes)
   useEffect(() => {
@@ -128,6 +139,63 @@ export default function LineaDeTiempo() {
     return () => { active = false; };
   }, [todayStr, today]);
 
+  // Constancia de las áreas estructurales (cimientos) en el mes actual
+  useEffect(() => {
+    let active = true;
+    const ids = ESTRUCTURALES.flatMap(a => a.effortTrackingIds);
+    if (ids.length === 0) return;
+
+    const ms = format(startOfMonth(today), 'yyyy-MM-dd');
+    const me = format(endOfMonth(today), 'yyyy-MM-dd');
+    const monthDays = endOfMonth(today).getDate();
+
+    const load = async () => {
+      const { data } = await supabase
+        .from('daily_area_stats')
+        .select('area_id, stat_date, time_spent_minutes, time_goal_minutes, completed')
+        .in('area_id', ids)
+        .gte('stat_date', ms)
+        .lte('stat_date', me);
+
+      const byId: Record<string, { rates: number[]; minutos: number; dias: number; verdes: number }> = {};
+      const seen = new Set<string>();
+      (data || []).forEach((r: any) => {
+        const key = `${r.area_id}|${r.stat_date}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const cur = byId[r.area_id] || { rates: [], minutos: 0, dias: 0, verdes: 0 };
+        cur.minutos += r.time_spent_minutes || 0;
+        cur.dias += 1;
+        if (r.completed) cur.verdes += 1;
+        const goal = r.time_goal_minutes || 30;
+        cur.rates.push(Math.min(100, Math.round(((r.time_spent_minutes || 0) / goal) * 100)));
+        byId[r.area_id] = cur;
+      });
+
+      const out: Record<string, { consistencia: number; minutos: number; dias: number; diasVerdes: number }> = {};
+      ESTRUCTURALES.forEach(area => {
+        const rows = area.effortTrackingIds.map(id => byId[id]).filter(Boolean);
+        if (rows.length === 0) {
+          out[area.id] = { consistencia: 0, minutos: 0, dias: 0, diasVerdes: 0 };
+          return;
+        }
+        const minutos = rows.reduce((s, x) => s + x.minutos, 0);
+        const dias = Math.max(...rows.map(x => x.dias));
+        const verdes = rows.reduce((s, x) => s + x.verdes, 0);
+        const totalRates = rows.reduce((s, x) => s + x.rates.length, 0);
+        const avgRate = totalRates > 0
+          ? rows.reduce((s, x) => s + x.rates.reduce((a, b) => a + b, 0), 0) / totalRates
+          : 0;
+        const consistencia = Math.min(100, Math.round(avgRate * (totalRates / monthDays)));
+        out[area.id] = { consistencia, minutos, dias, diasVerdes: verdes };
+      });
+
+      if (active) setEstructuralStats(out);
+    };
+    load();
+    return () => { active = false; };
+  }, [todayStr, today]);
+
   // Bloques de trabajo de hoy (deep/focus) para el mapa
   const focusBlockIds = useMemo(() => {
     const set = new Set<string>();
@@ -142,15 +210,15 @@ export default function LineaDeTiempo() {
 
   const doneToday = useMemo(() => bloqueSnapshots.filter(b => b.state === 'done').length, [bloqueSnapshots]);
 
-  // Consistencia de Sostén
-  const sustentos = STREAK_HABITS.map(h => {
-    const hist = habitHistory[h.id];
-    return {
-      ...h,
-      racha: hist?.currentStreak || 0,
-      maxRacha: hist?.longestStreak || 0,
-      diasVerdes: hist?.completedDates?.length || 0,
-    };
+  // Constancia por área estructural (racha + consistencia del mes)
+  const estructurales = ESTRUCTURALES.map(area => {
+    const stat = estructuralStats[area.id] || { consistencia: 0, minutos: 0, dias: 0, diasVerdes: 0 };
+    const streaks = area.effortTrackingIds
+      .map(id => habitHistory[id])
+      .filter((h): h is NonNullable<typeof h> => !!h);
+    const racha = streaks.length ? Math.max(...streaks.map(h => h.currentStreak || 0)) : 0;
+    const maxRacha = streaks.length ? Math.max(...streaks.map(h => h.longestStreak || 0)) : 0;
+    return { ...area, ...stat, racha, maxRacha };
   });
 
   // Metas de comodidad por área (listas vinculadas por system_key)
@@ -275,21 +343,30 @@ export default function LineaDeTiempo() {
                 <h2 className="font-bold">Áreas estructurales · Tu base (constancia)</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {sustentos.map(s => (
-                  <div key={s.id} className="rounded-xl border bg-card p-3.5">
+                {estructurales.map(a => (
+                  <div key={a.id} className="rounded-xl border bg-card p-4 space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{s.emoji}</span>
-                      <p className="font-semibold">{s.label}</p>
-                      <Badge variant="secondary" className="ml-auto">{s.racha} 🔥 seguidos</Badge>
+                      <span className="text-2xl shrink-0">{a.icon}</span>
+                      <p className="font-semibold flex-1 min-w-0">{a.label}</p>
+                      {a.racha > 0 && <Badge variant="secondary" className="shrink-0">{a.racha} 🔥 seguidos</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      {s.diasVerdes} días verdes de constancia · máxima racha {s.maxRacha}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>Constancia este mes</span>
+                        <span className={cn('font-bold tabular-nums', getScoreColor(a.consistencia))}>{a.consistencia}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div className={cn('h-full rounded-full transition-all duration-500', getScoreBg(a.consistencia))} style={{ width: `${a.consistencia}%` }} />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {a.minutos} min este mes · {a.dias} día(s) con datos · {a.diasVerdes} día(s) verde(s) · máx. racha {a.maxRacha}
                     </p>
                   </div>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Estos hábitos no tienen meta de comodidad: son el cimiento que sostiene todo lo demás.
+                Son el cimiento que sostiene todo lo demás: tu constancia diaria aquí define la base sobre la que se mueve toda la línea.
               </p>
             </div>
 
