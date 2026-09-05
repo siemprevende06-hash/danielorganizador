@@ -18,7 +18,8 @@ import {
   getQuarterFromDate, getMonthKeyOf, AREA_LABELS,
 } from '@/lib/hierarchy';
 import { cn } from '@/lib/utils';
-import { EjeDeTiempoArea, type EjeAreaData } from '@/components/linea-de-tiempo/EjeDeTiempoArea';
+import { TablaProcesosMetas } from '@/components/linea-de-tiempo/TablaProcesosMetas';
+import { useProcesosMatriz } from '@/hooks/useProcesosMatriz';
 import { ChipMetaComodidad, type MetaComodidadChip } from '@/components/linea-de-tiempo/ChipMetaComodidad';
 import { MapaDeBloquesDeHoy, toBlockSnapshots } from '@/components/linea-de-tiempo/MapaDeBloquesDeHoy';
 
@@ -69,6 +70,9 @@ export default function LineaDeTiempo() {
   const { data, loading: trackingLoading } = useSystemsTracking();
   const { lists, tasks, isLoading: listsLoading } = usePersonalLists();
   const { habitHistory, isLoading: habitLoading } = useHabitHistory();
+
+  const hoyMinutos = data.timeData || {};
+  const { rows: procesoRows, loading: matrizLoading } = useProcesosMatriz(hoyMinutos as Record<string, number>);
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -382,17 +386,24 @@ export default function LineaDeTiempo() {
               </p>
             </div>
 
-            {/* Áreas centrales */}
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold border-b border-border pb-1">Áreas centrales · Profesional / Académico</h2>
-              {renderAreas(CENTRALES)}
-            </div>
-
-            {/* Desarrollo personal */}
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold border-b border-border pb-1">Desarrollo personal</h2>
-              {renderAreas(DESARROLLO)}
-            </div>
+            {/* Tabla de procesos → resultados */}
+            {matrizLoading ? (
+              <Skeleton className="h-64 w-full" />
+            ) : (
+              <>
+                <TablaProcesosMetas
+                  titulo="Áreas centrales · Profesional / Académico"
+                  rows={procesoRows.filter(r => r.config.grupo === 'centrales')}
+                />
+                <TablaProcesosMetas
+                  titulo="Desarrollo personal"
+                  rows={procesoRows.filter(r => r.config.grupo === 'desarrollo')}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Cada fila es un proceso activo: lo que inviertes hoy se acumula a la derecha y se convierte en resultados.
+                </p>
+              </>
+            )}
           </>
         )}
       </div>
