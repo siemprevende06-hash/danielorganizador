@@ -135,7 +135,9 @@ const DailyRoutine = () => {
         }
 
         setRoutineStreak(parsed);
-      } catch {}
+      } catch {
+        // Ignorar datos corruptos del streak
+      }
     }
   }, []);
 
@@ -165,19 +167,20 @@ const DailyRoutine = () => {
     const dayIndex = today === 0 ? 6 : today - 1;
     if (blocks.length === 0) return;
     const allComplete = blocks.every(b => b.weeklyCompletion?.[dayIndex]);
+    const todayStr = new Date().toDateString();
 
-    if (allComplete && routineStreak.lastCompletedDate !== new Date().toDateString()) {
+    if (allComplete && routineStreak.lastCompletedDate !== todayStr) {
       const newWeeklyCompletion = [...routineStreak.weeklyCompletion];
       newWeeklyCompletion[dayIndex] = true;
       setRoutineStreak(prev => ({
         currentStreak: prev.currentStreak + 1,
         maxStreak: Math.max(prev.maxStreak, prev.currentStreak + 1),
         totalDaysCompleted: prev.totalDaysCompleted + 1,
-        lastCompletedDate: new Date().toISOString(),
+        lastCompletedDate: todayStr,
         weeklyCompletion: newWeeklyCompletion,
       }));
     }
-  }, [blocks, routineStreak]);
+  }, [blocks, routineStreak.lastCompletedDate, routineStreak.weeklyCompletion]);
 
   const handleAssignTasks = (blockId: string, taskIds: string[]) => {
     const currentIds = dailyTasks.filter(t => t.routine_block_id === blockId).map(t => t.id);
