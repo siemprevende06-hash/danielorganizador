@@ -104,13 +104,13 @@ export const habits: Habit[] = [
 
 // Wallets
 export const wallets: Wallet[] = [
-  { id: "wallet-efectivo-cup", name: "Efectivo CUP", balance: 0, icon: Banknote },
-  { id: "wallet-efectivo-usd", name: "Efectivo USD", balance: 0, icon: Banknote },
-  { id: "wallet-banco", name: "Banco", balance: 0, icon: CreditCard },
-  { id: "wallet-ahorros", name: "Ahorros", balance: 0, icon: PiggyBank },
-  { id: "wallet-inversion", name: "Inversión", balance: 0, icon: Target },
-  { id: "wallet-digital-1", name: "Digital 1", balance: 0, icon: WalletIcon },
-  { id: "wallet-digital-2", name: "Digital 2", balance: 0, icon: WalletIcon },
+  { id: "wallet-efectivo-cup", name: "Efectivo CUP", balance: 0, currency: 'CUP', icon: Banknote },
+  { id: "wallet-efectivo-usd", name: "Efectivo USD", balance: 0, currency: 'USD', icon: Banknote },
+  { id: "wallet-banco", name: "Banco", balance: 0, currency: 'CUP', icon: CreditCard },
+  { id: "wallet-ahorros", name: "Ahorros", balance: 0, currency: 'CUP', icon: PiggyBank },
+  { id: "wallet-inversion", name: "Inversión", balance: 0, currency: 'CUP', icon: Target },
+  { id: "wallet-digital-1", name: "Digital 1", balance: 0, currency: 'CUP', icon: WalletIcon },
+  { id: "wallet-digital-2", name: "Digital 2", balance: 0, currency: 'CUP', icon: WalletIcon },
 ];
 
 // Distribution Bags

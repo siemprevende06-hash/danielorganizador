@@ -238,7 +238,8 @@ export default function PlanManana() {
       const { data: plan } = await supabase.from("daily_plans").select("routine_type, block_assignments, notes").eq("plan_date", dateStr).maybeSingle();
       if (plan && plan.block_assignments) {
         const assignments = plan.block_assignments as Record<string, string[]>;
-        const { _unassigned, ...rest } = assignments;
+        const rest = { ...assignments };
+        delete rest["_unassigned"];
         setBlockAssignments(rest);
         setSelectedTasks(new Set(Object.values(assignments).flat()));
         if (plan.routine_type && validTypes.includes(plan.routine_type as RoutineType)) {
@@ -407,7 +408,7 @@ export default function PlanManana() {
         assignments["_unassigned"] = unassignedInPlan;
       }
 
-      const existing = await supabase.from("daily_plans").select("id").eq("plan_date", tomorrowStr).maybeSingle();
+      const existing = await supabase.from("daily_plans").select("id").eq("plan_date", targetStr).maybeSingle();
       if (existing.data) {
         await supabase.from("daily_plans").update({
           routine_type: routineType,
@@ -416,7 +417,7 @@ export default function PlanManana() {
         }).eq("id", existing.data.id);
       } else {
         await supabase.from("daily_plans").insert({
-          plan_date: tomorrowStr,
+          plan_date: targetStr,
           mode: routineType,
           routine_type: routineType,
           block_assignments: JSON.parse(JSON.stringify(assignments)),
@@ -424,16 +425,16 @@ export default function PlanManana() {
         });
       }
 
-      localStorage.setItem(`planManana_tasks_${tomorrowStr}`, JSON.stringify({
+      localStorage.setItem(`planTasks_${targetStr}`, JSON.stringify({
         selectedTasks: [...selectedTasks],
         blockAssignments: assignments,
         routineType,
       }));
-      localStorage.setItem("planManana_intensity", JSON.stringify(systemIntensity));
-      localStorage.setItem("planManana_language", languageChoice);
-      localStorage.setItem("planManana_instrument", musicInstrument);
+      localStorage.setItem(`planIntensity_${targetStr}`, JSON.stringify(systemIntensity));
+      localStorage.setItem(`planLanguage_${targetStr}`, languageChoice);
+      localStorage.setItem(`planInstrument_${targetStr}`, musicInstrument);
 
-      toast.success("Plan para mañana guardado");
+      toast.success(mode === 'hoy' ? "Plan para hoy guardado" : "Plan para mañana guardado");
     } catch { toast.error("Error al guardar"); }
     setSaving(false);
   };
@@ -449,18 +450,6 @@ export default function PlanManana() {
     );
   }
 
-  if (mode === 'hoy') {
-    return (
-      <HoyDashboard
-        headerExtra={
-          <div className="pt-2 pb-1">
-            <DateSwitchTabs mode={mode} onModeChange={setMode} />
-          </div>
-        }
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background p-4 pt-20 pb-24">
       <div className="max-w-4xl mx-auto space-y-5">
@@ -471,9 +460,9 @@ export default function PlanManana() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Planificar Mañana</h1>
+            <h1 className="text-xl font-bold tracking-tight">{mode === 'hoy' ? 'Planificar Hoy' : 'Planificar Mañana'}</h1>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
-              <Clock className="h-3.5 w-3.5" /> {tomorrowCapitalized}
+              <Clock className="h-3.5 w-3.5" /> {targetCapitalized}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -661,7 +650,7 @@ export default function PlanManana() {
               onUpdateFocus={(blockId, focus) => updateBlockFocus(blockId, focus)}
               musicInstrument={musicInstrument === "piano" ? "piano" : "guitar"}
               languageChoice={languageChoice as "ingles" | "italiano"}
-              isFutureView={true}
+              isFutureView={mode !== 'hoy'}
             />
 
             {/* Daily minute goals */}
@@ -810,7 +799,7 @@ export default function PlanManana() {
           <CardContent className="p-4 space-y-3">
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <Brain className="h-4 w-4 text-amber-500" /> Sistemas Acumulativos
-              <span className="text-[9px] text-muted-foreground font-normal">— define la intensidad para mañana</span>
+              <span className="text-[9px] text-muted-foreground font-normal">— define la intensidad para {mode === 'hoy' ? 'hoy' : 'mañana'}</span>
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {SYSTEM_HABITS.map(sys => {
@@ -858,7 +847,7 @@ export default function PlanManana() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Nueva Tarea</DialogTitle>
-            <DialogDescription>Crea una tarea para planificar mañana.</DialogDescription>
+            <DialogDescription>{mode === 'hoy' ? 'Crea una tarea para planificar hoy.' : 'Crea una tarea para planificar mañana.'}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>

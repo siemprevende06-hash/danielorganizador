@@ -87,6 +87,7 @@ export async function syncWallets(): Promise<SyncResult> {
     name: w.name || "Billetera",
     balance: w.balance ?? 0,
     icon: w.icon || null,
+    currency: w.currency === 'USD' ? 'USD' : 'CUP',
   }));
 
   return upsertBatch("wallets", mapped, "id");
@@ -100,6 +101,7 @@ export async function syncTransactions(): Promise<SyncResult> {
     id: t.id,
     description: t.description || "Sin descripción",
     amount: t.amount ?? 0,
+    currency: t.currency === 'CUP' ? 'CUP' : 'USD',
     transaction_type: t.type || "expense",
     category_id: t.categoryId || null,
     wallet_id: t.walletId || null,

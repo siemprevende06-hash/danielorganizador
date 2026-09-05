@@ -1,29 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { RoutineBlockCard } from "@/components/RoutineBlockCard";
 import { RoutineStreakCard } from "@/components/routine/RoutineStreakCard";
-import { DailyPlanChecklist } from "@/components/routine/DailyPlanChecklist";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { useRoutineBlocks, type RoutineBlock, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
-
-interface TaskItem {
-  id: string;
-  title: string;
-  description?: string;
-  source: "tasks" | "entrepreneurship" | "project" | "university";
-  sourceId?: string;
-  sourceName?: string;
-  dueDate?: string;
-  completed?: boolean;
-  routine_block_id?: string;
-}
+import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
+import { useRoutineConfig } from "@/hooks/useRoutineConfig";
+import { useDailyPlanData, type TaskItem as PlanTask } from "@/hooks/useDailyPlanData";
+import type { TaskItem as AssignerTask } from "@/components/routine/BlockTaskAssigner";
 
 const ROUTINE_STREAK_KEY = "routineStreakData";
-const DAILY_PLAN_KEY = "dailyPlanTasks";
+const DEFAULT_WEEK = [false, false, false, false, false, false, false];
 
 const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string; glow: string }> = {
   disciplina: {
@@ -53,57 +43,76 @@ const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string; gl
   },
 };
 
+const toAssignerSource = (source: string): AssignerTask["source"] => {
+  if (source === "entrepreneurship") return "entrepreneurship";
+  if (source === "project") return "project";
+  if (source === "university") return "university";
+  return "tasks";
+};
+
+const toAssignerTask = (t: PlanTask, blockId?: string): AssignerTask => ({
+  id: t.id,
+  title: t.title,
+  description: t.description,
+  source: toAssignerSource(t.source),
+  sourceName: t.sourceName,
+  completed: t.completed,
+  routine_block_id: blockId !== undefined ? blockId : t.routine_block_id,
+});
+
 const DailyRoutine = () => {
   const {
-    blocks: rawBlocks,
+    blocks: routineBlocks,
     isLoaded,
     routineType,
     setRoutineType,
-    updateBlock: updateHookBlock,
+    updateBlock,
   } = useRoutineBlocks();
 
-  const [blocks, setBlocks] = useState<RoutineBlock[]>([]);
+  const { adjustedBlocks } = useRoutineConfig();
+  const {
+    tasksByBlock,
+    unassignedTasks,
+    tasks,
+    toggleTaskDone,
+    toggleBlockComplete,
+    isBlockCompleted,
+    assignTaskToBlock,
+    removeTaskFromBlock,
+  } = useDailyPlanData();
 
   const [routineStreak, setRoutineStreak] = useState({
     currentStreak: 0,
     maxStreak: 0,
     totalDaysCompleted: 0,
     lastCompletedDate: "",
-    weeklyCompletion: [false, false, false, false, false, false, false],
+    weeklyCompletion: [...DEFAULT_WEEK],
   });
 
-  const [dailyTasks, setDailyTasks] = useState<TaskItem[]>([]);
-  const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
-  const [planDate, setPlanDate] = useState<"today" | "tomorrow">("today");
+  // Mismos bloques que la sección "plan" de la página Daily
+  const blocks = useMemo(
+    () => (isLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks),
+    [isLoaded, routineBlocks, adjustedBlocks]
+  );
 
   const currentRoutine = ROUTINES.find(r => r.type === routineType) || ROUTINES[0];
 
-  useEffect(() => {
-    if (isLoaded && rawBlocks.length > 0) {
-      const storageKey = `dailyRoutineBlocks_${routineType}`;
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          const merged = rawBlocks.map(block => {
-            const savedBlock = parsed.find((b: RoutineBlock) => b.id === block.id);
-            if (savedBlock) {
-              return {
-                ...block,
-                currentStreak: savedBlock.currentStreak || 0,
-                maxStreak: savedBlock.maxStreak || 0,
-                weeklyCompletion: savedBlock.weeklyCompletion || [false, false, false, false, false, false, false],
-              };
-            }
-            return block;
-          });
-          setBlocks(merged);
-          return;
-        } catch {}
+  // Une todas las tareas del día con su bloque del plan (fallback routine_block_id)
+  const dailyTasks: AssignerTask[] = useMemo(() => {
+    const map = new Map<string, AssignerTask>();
+    for (const [blockId, blockTasks] of Object.entries(tasksByBlock)) {
+      for (const t of blockTasks) {
+        map.set(t.id, toAssignerTask(t, blockId));
       }
-      setBlocks(rawBlocks);
     }
-  }, [isLoaded, rawBlocks, routineType]);
+    for (const t of unassignedTasks) {
+      if (!map.has(t.id)) map.set(t.id, toAssignerTask(t));
+    }
+    for (const t of tasks) {
+      if (!map.has(t.id)) map.set(t.id, toAssignerTask(t));
+    }
+    return Array.from(map.values());
+  }, [tasksByBlock, unassignedTasks, tasks]);
 
   useEffect(() => {
     const stored = localStorage.getItem(ROUTINE_STREAK_KEY);
@@ -122,7 +131,7 @@ const DailyRoutine = () => {
 
         const dayOfWeek = new Date().getDay();
         if (dayOfWeek === 1 && lastDate !== today) {
-          parsed.weeklyCompletion = [false, false, false, false, false, false, false];
+          parsed.weeklyCompletion = [...DEFAULT_WEEK];
         }
 
         setRoutineStreak(parsed);
@@ -131,143 +140,57 @@ const DailyRoutine = () => {
   }, []);
 
   useEffect(() => {
-    const dateKey = planDate === "today"
-      ? new Date().toISOString().split('T')[0]
-      : new Date(Date.now() + 86400000).toISOString().split('T')[0];
-
-    const stored = localStorage.getItem(`${DAILY_PLAN_KEY}_${dateKey}`);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setDailyTasks(parsed.tasks || []);
-        setCompletedTaskIds(new Set(parsed.completedIds || []));
-      } catch {
-        setDailyTasks([]);
-        setCompletedTaskIds(new Set());
-      }
-    } else {
-      setDailyTasks([]);
-      setCompletedTaskIds(new Set());
-    }
-  }, [planDate]);
-
-  useEffect(() => {
-    if (dailyTasks.length > 0 || completedTaskIds.size > 0) {
-      const dateKey = planDate === "today"
-        ? new Date().toISOString().split('T')[0]
-        : new Date(Date.now() + 86400000).toISOString().split('T')[0];
-
-      localStorage.setItem(`${DAILY_PLAN_KEY}_${dateKey}`, JSON.stringify({
-        tasks: dailyTasks,
-        completedIds: Array.from(completedTaskIds),
-      }));
-    }
-  }, [dailyTasks, completedTaskIds, planDate]);
-
-  useEffect(() => {
     localStorage.setItem(ROUTINE_STREAK_KEY, JSON.stringify(routineStreak));
   }, [routineStreak]);
 
-  useEffect(() => {
-    if (blocks.length > 0) {
-      const storageKey = `dailyRoutineBlocks_${routineType}`;
-      localStorage.setItem(storageKey, JSON.stringify(blocks));
-    }
-  }, [blocks, routineType]);
-
-  const updateBlock = (updatedBlock: RoutineBlock) => {
-    setBlocks(blocks.map(block =>
-      block.id === updatedBlock.id ? updatedBlock : block
-    ));
-    updateHookBlock(updatedBlock);
-  };
-
   const completeBlock = (blockId: string) => {
-    setBlocks(blocks.map(block => {
-      if (block.id === blockId) {
-        const today = new Date().getDay();
-        const dayIndex = today === 0 ? 6 : today - 1;
-        const newWeekly = [...block.weeklyCompletion];
-        newWeekly[dayIndex] = true;
-
-        const newStreak = block.currentStreak + 1;
-        return {
-          ...block,
-          currentStreak: newStreak,
-          maxStreak: Math.max(block.maxStreak, newStreak),
-          weeklyCompletion: newWeekly,
-        };
-      }
-      return block;
-    }));
-  };
-
-  const checkAndUpdateRoutineStreak = () => {
+    toggleBlockComplete(blockId);
+    const target = blocks.find(b => b.id === blockId);
+    if (!target) return;
     const today = new Date().getDay();
     const dayIndex = today === 0 ? 6 : today - 1;
-
-    const allBlocksComplete = blocks.every(b => b.weeklyCompletion[dayIndex]);
-
-    if (allBlocksComplete && blocks.length > 0) {
-      const todayStr = new Date().toISOString();
-
-      if (routineStreak.lastCompletedDate !== new Date().toDateString()) {
-        const newWeeklyCompletion = [...routineStreak.weeklyCompletion];
-        newWeeklyCompletion[dayIndex] = true;
-
-        setRoutineStreak(prev => ({
-          currentStreak: prev.currentStreak + 1,
-          maxStreak: Math.max(prev.maxStreak, prev.currentStreak + 1),
-          totalDaysCompleted: prev.totalDaysCompleted + 1,
-          lastCompletedDate: todayStr,
-          weeklyCompletion: newWeeklyCompletion,
-        }));
-      }
-    }
+    const newWeekly = [...(target.weeklyCompletion || DEFAULT_WEEK)];
+    newWeekly[dayIndex] = true;
+    const newStreak = (target.currentStreak || 0) + 1;
+    updateBlock({
+      ...target,
+      weeklyCompletion: newWeekly,
+      currentStreak: newStreak,
+      maxStreak: Math.max(target.maxStreak || 0, newStreak),
+    });
   };
 
   useEffect(() => {
-    checkAndUpdateRoutineStreak();
-  }, [blocks]);
-
-  const handleTasksChange = (tasks: TaskItem[]) => setDailyTasks(tasks);
-
-  const handleToggleComplete = (taskId: string) => {
-    setCompletedTaskIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(taskId)) newSet.delete(taskId);
-      else newSet.add(taskId);
-      return newSet;
-    });
-  };
-
-  const handleRemoveTask = (taskId: string) => {
-    setDailyTasks(prev => prev.filter(t => t.id !== taskId));
-    setCompletedTaskIds(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(taskId);
-      return newSet;
-    });
-  };
-
-  const handleAssignTasksToBlock = (blockId: string, taskIds: string[]) => {
-    setDailyTasks(prev => prev.map(task => {
-      if (taskIds.includes(task.id)) return { ...task, routine_block_id: blockId };
-      else if (task.routine_block_id === blockId) return { ...task, routine_block_id: undefined };
-      return task;
-    }));
-  };
-
-  const tasksWithCompletion = dailyTasks.map(task => ({
-    ...task,
-    completed: completedTaskIds.has(task.id),
-  }));
-
-  const completedBlocks = blocks.filter(b => {
     const today = new Date().getDay();
     const dayIndex = today === 0 ? 6 : today - 1;
-    return b.weeklyCompletion[dayIndex];
-  }).length;
+    if (blocks.length === 0) return;
+    const allComplete = blocks.every(b => b.weeklyCompletion?.[dayIndex]);
+
+    if (allComplete && routineStreak.lastCompletedDate !== new Date().toDateString()) {
+      const newWeeklyCompletion = [...routineStreak.weeklyCompletion];
+      newWeeklyCompletion[dayIndex] = true;
+      setRoutineStreak(prev => ({
+        currentStreak: prev.currentStreak + 1,
+        maxStreak: Math.max(prev.maxStreak, prev.currentStreak + 1),
+        totalDaysCompleted: prev.totalDaysCompleted + 1,
+        lastCompletedDate: new Date().toISOString(),
+        weeklyCompletion: newWeeklyCompletion,
+      }));
+    }
+  }, [blocks, routineStreak]);
+
+  const handleAssignTasks = (blockId: string, taskIds: string[]) => {
+    const currentIds = dailyTasks.filter(t => t.routine_block_id === blockId).map(t => t.id);
+    const target = new Set(taskIds);
+    for (const id of currentIds) {
+      if (!target.has(id)) removeTaskFromBlock(id);
+    }
+    for (const id of taskIds) {
+      if (!currentIds.includes(id)) assignTaskToBlock(id, blockId);
+    }
+  };
+
+  const completedBlocks = blocks.filter(b => isBlockCompleted(b.id)).length;
   const progressPercentage = blocks.length > 0 ? (completedBlocks / blocks.length) * 100 : 0;
 
   if (!isLoaded) {
@@ -344,17 +267,6 @@ const DailyRoutine = () => {
         weeklyCompletion={routineStreak.weeklyCompletion}
       />
 
-      {/* Daily Plan Checklist */}
-      <DailyPlanChecklist
-        tasks={dailyTasks}
-        completedTaskIds={completedTaskIds}
-        onTasksChange={handleTasksChange}
-        onToggleComplete={handleToggleComplete}
-        onRemoveTask={handleRemoveTask}
-        planDate={planDate}
-        onPlanDateChange={setPlanDate}
-      />
-
       {/* Progress Card */}
       <Card>
         <CardHeader>
@@ -380,11 +292,11 @@ const DailyRoutine = () => {
           <RoutineBlockCard
             key={block.id}
             block={block}
-            onUpdate={updateBlock}
+            onUpdate={(updated) => updateBlock(updated)}
             onComplete={() => completeBlock(block.id)}
-            dailyTasks={tasksWithCompletion}
-            onAssignTasks={handleAssignTasksToBlock}
-            onToggleTaskComplete={handleToggleComplete}
+            dailyTasks={dailyTasks}
+            onAssignTasks={handleAssignTasks}
+            onToggleTaskComplete={(taskId) => toggleTaskDone(taskId)}
           />
         ))}
       </div>

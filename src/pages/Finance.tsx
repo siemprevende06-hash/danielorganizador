@@ -141,8 +141,8 @@ const defaultBudgetLimits: Record<string, number> = {
   'cat-personal': 1500, 'cat-coffee': 1000, 'cat-travel': 5000,
 };
 
-function CurrencyDisplay({ usd, exchangeRate, large = false }: { usd: number; exchangeRate: number; large?: boolean }) {
-  const cup = usd * exchangeRate;
+function CurrencyDisplay({ cup, exchangeRate, large = false }: { cup: number; exchangeRate: number; large?: boolean }) {
+  const usd = exchangeRate > 0 ? cup / exchangeRate : cup;
   return (
     <div className="flex flex-col">
       <span className={cn("font-semibold tracking-tight text-zinc-900 dark:text-zinc-100", large ? "text-lg sm:text-xl" : "text-sm")}>
@@ -203,7 +203,13 @@ export default function Finance() {
     addFinancialGoal, updateFinancialGoal, deleteFinancialGoal,
   } = useFinance();
 
-  const toUSD = (amount: number, currency: string) => currency === 'CUP' ? amount / exchangeRate : amount;
+  const rate = exchangeRate > 0 ? exchangeRate : 1;
+  const toCUP = (amount: number, currency: string) => currency === 'USD' ? amount * rate : amount;
+  const toUSD = (amount: number, currency: string) => currency === 'CUP' ? amount / rate : amount;
+  const convertAmount = (amount: number, from: string, to: string) => {
+    if (from === to) return amount;
+    return from === 'USD' ? amount * rate : amount / rate;
+  };
 
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
@@ -337,13 +343,13 @@ export default function Finance() {
 
   const transactionType = transactionForm.watch('type');
 
-  const totalBalance = useMemo(() => wallets.reduce((acc, w) => acc + w.balance, 0), [wallets]);
+  const totalBalance = useMemo(() => wallets.reduce((acc, w) => acc + (w.currency === 'USD' ? w.balance * rate : w.balance), 0), [wallets, rate]);
   const monthlyIncome = useMemo(() =>
     transactions.filter(t => t.type === 'income' && isThisMonth(t.date) && t.categoryId !== 'cat-transfer')
-      .reduce((acc, t) => acc + t.amount, 0), [transactions]);
+      .reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0), [transactions, rate]);
   const monthlyExpenses = useMemo(() =>
     transactions.filter(t => t.type === 'expense' && isThisMonth(t.date) && t.categoryId !== 'cat-transfer')
-      .reduce((acc, t) => acc + t.amount, 0), [transactions]);
+      .reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0), [transactions, rate]);
   const monthlyBalance = monthlyIncome - monthlyExpenses;
 
   const savingsRate = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0;
@@ -352,15 +358,15 @@ export default function Finance() {
     const lastMonth = subMonths(new Date(), 1);
     return transactions.filter(t => t.type === 'income' && t.categoryId !== 'cat-transfer' &&
       new Date(t.date) >= startOfMonth(lastMonth) && new Date(t.date) <= endOfMonth(lastMonth))
-      .reduce((acc, t) => acc + t.amount, 0);
-  }, [transactions]);
+      .reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
+  }, [transactions, rate]);
 
   const lastMonthExpenses = useMemo(() => {
     const lastMonth = subMonths(new Date(), 1);
     return transactions.filter(t => t.type === 'expense' && t.categoryId !== 'cat-transfer' &&
       new Date(t.date) >= startOfMonth(lastMonth) && new Date(t.date) <= endOfMonth(lastMonth))
-      .reduce((acc, t) => acc + t.amount, 0);
-  }, [transactions]);
+      .reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
+  }, [transactions, rate]);
 
   const incomeChange = lastMonthIncome > 0 ? ((monthlyIncome - lastMonthIncome) / lastMonthIncome) * 100 : 0;
   const expenseChange = lastMonthExpenses > 0 ? ((monthlyExpenses - lastMonthExpenses) / lastMonthExpenses) * 100 : 0;
@@ -378,23 +384,23 @@ export default function Finance() {
         const tDate = new Date(t.date);
         return tDate >= monthStart && tDate <= monthEnd && t.categoryId !== 'cat-transfer';
       });
-      const income = monthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-      const expense = monthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-      return { month: format(date, 'MMM', { locale: es }), income: income * exchangeRate, expense: expense * exchangeRate };
+      const income = monthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
+      const expense = monthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
+      return { month: format(date, 'MMM', { locale: es }), income, expense };
     }).reverse();
 
     const categorySpend = transactionCategories
       .filter(cat => cat.type === 'expense')
       .map(cat => {
         const total = transactions.filter(t => t.categoryId === cat.id && isThisMonth(new Date(t.date)))
-          .reduce((acc, t) => acc + t.amount, 0);
-        return { name: cat.name, value: total * exchangeRate };
+          .reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
+        return { name: cat.name, value: total };
       })
       .filter(d => d.value > 0);
 
     const walletDistribution = wallets.map(wallet => ({
       name: wallet.name,
-      value: wallet.balance * exchangeRate,
+      value: wallet.currency === 'USD' ? wallet.balance * rate : wallet.balance,
     }));
 
     const cashFlowTrend = Array.from({ length: 6 }).map((_, i) => {
@@ -403,21 +409,21 @@ export default function Finance() {
       const balance = transactions.filter(t => {
         const tDate = new Date(t.date);
         return tDate <= upTo && t.categoryId !== 'cat-transfer';
-      }).reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
-      return { month: format(date, 'MMM', { locale: es }), balance: balance * exchangeRate };
+      }).reduce((acc, t) => t.type === 'income' ? acc + (t.currency === 'USD' ? t.amount * rate : t.amount) : acc - (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
+      return { month: format(date, 'MMM', { locale: es }), balance };
     }).reverse();
 
     return { monthlySummary, categorySpend, walletDistribution, cashFlowTrend };
-  }, [transactions, wallets, exchangeRate]);
+  }, [transactions, wallets, rate]);
 
   const budgetData = useMemo(() => {
     return transactionCategories.filter(c => c.type === 'expense').map(cat => {
       const spent = transactions.filter(t => t.categoryId === cat.id && isThisMonth(new Date(t.date)))
-        .reduce((acc, t) => acc + t.amount * exchangeRate, 0);
+        .reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
       const limit = budgetLimits[cat.id] || 0;
       return { category: cat, spent, limit, percentage: limit > 0 ? (spent / limit) * 100 : 0 };
     }).filter(d => d.limit > 0);
-  }, [transactions, exchangeRate, budgetLimits]);
+  }, [transactions, rate, budgetLimits]);
 
   const incomes = useMemo(() => transactions.filter(t => t.type === 'income' && t.categoryId !== 'cat-transfer'), [transactions]);
   const expenses = useMemo(() => transactions.filter(t => t.type === 'expense' && t.categoryId !== 'cat-transfer'), [transactions]);
@@ -453,15 +459,15 @@ export default function Finance() {
     const wallet = wallets.find(w => w.id === data.walletId);
     if (!wallet) return;
 
-    const amountUSD = toUSD(data.amount, data.currency);
+    const amountInWallet = convertAmount(data.amount, data.currency, wallet.currency);
 
-    if (data.type === 'expense' && wallet.balance < amountUSD) {
+    if (data.type === 'expense' && wallet.balance < amountInWallet) {
       toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
       return;
     }
 
-    const newBalance = data.type === 'expense' ? wallet.balance - amountUSD : wallet.balance + amountUSD;
-    await addTransaction({ description: data.description, amount: amountUSD, date: data.date, walletId: data.walletId, categoryId: data.categoryId, type: data.type, transferId: undefined, loanId: undefined, distributed: false });
+    const newBalance = data.type === 'expense' ? wallet.balance - amountInWallet : wallet.balance + amountInWallet;
+    await addTransaction({ description: data.description, amount: data.amount, currency: data.currency, date: data.date, walletId: data.walletId, categoryId: data.categoryId, type: data.type, transferId: undefined, loanId: undefined, distributed: false });
     await updateWalletBalance(data.walletId, newBalance);
 
     toast({ title: "Transacción registrada", description: `${data.type === 'expense' ? 'Gasto' : 'Ingreso'} de ${data.amount} ${data.currency}` });
@@ -474,24 +480,25 @@ export default function Finance() {
     const toWallet = wallets.find(w => w.id === data.toWalletId);
     if (!fromWallet || !toWallet) return;
 
-    const amountUSD = toUSD(data.amount, data.currency);
+    const amountFrom = convertAmount(data.amount, data.currency, fromWallet.currency);
+    const amountTo = convertAmount(data.amount, data.currency, toWallet.currency);
 
-    if (fromWallet.balance < amountUSD) {
+    if (fromWallet.balance < amountFrom) {
       toast({ title: "Saldo insuficiente", description: "La billetera de origen no tiene suficiente balance.", variant: "destructive" });
       return;
     }
 
     const transferId = crypto.randomUUID();
     await addTransaction({
-      description: `Traspaso a ${toWallet.name}`, amount: amountUSD,
+      description: `Traspaso a ${toWallet.name}`, amount: amountFrom, currency: fromWallet.currency,
       date: new Date(), walletId: data.fromWalletId, categoryId: 'cat-transfer', type: 'expense', transferId, distributed: false,
     });
     await addTransaction({
-      description: `Traspaso desde ${fromWallet.name}`, amount: amountUSD,
+      description: `Traspaso desde ${fromWallet.name}`, amount: amountTo, currency: toWallet.currency,
       date: new Date(), walletId: data.toWalletId, categoryId: 'cat-transfer', type: 'income', transferId, distributed: false,
     });
-    await updateWalletBalance(data.fromWalletId, fromWallet.balance - amountUSD);
-    await updateWalletBalance(data.toWalletId, toWallet.balance + amountUSD);
+    await updateWalletBalance(data.fromWalletId, fromWallet.balance - amountFrom);
+    await updateWalletBalance(data.toWalletId, toWallet.balance + amountTo);
 
     toast({ title: "Traspaso realizado", description: `${data.amount} ${data.currency} transferidos` });
     setIsTransferDialogOpen(false);
@@ -503,19 +510,20 @@ export default function Finance() {
     if (!wallet) return;
 
     const amountUSD = toUSD(data.amount, data.currency);
+    const amountInWallet = convertAmount(data.amount, data.currency, wallet.currency);
 
-    if (wallet.balance < amountUSD) {
+    if (wallet.balance < amountInWallet) {
       toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
       return;
     }
 
     await addTransaction({
-      description: `Préstamo a ${data.person}: ${data.description}`, amount: amountUSD,
+      description: `Préstamo a ${data.person}: ${data.description}`, amount: amountInWallet, currency: wallet.currency,
       date: new Date(), walletId: data.walletId, categoryId: 'cat-loan', type: 'expense',
       loanId: crypto.randomUUID(), distributed: false,
     });
     await addLoan({ person: data.person, description: data.description, totalAmount: amountUSD, paidAmount: 0, walletId: data.walletId, date: new Date(), status: 'outstanding' });
-    await updateWalletBalance(data.walletId, wallet.balance - amountUSD);
+    await updateWalletBalance(data.walletId, wallet.balance - amountInWallet);
 
     toast({ title: "Préstamo registrado", description: `Préstamo a ${data.person} por ${data.amount} ${data.currency}` });
     setIsLoanDialogOpen(false);
@@ -554,8 +562,9 @@ export default function Finance() {
     if (!wallet) return;
 
     const amountUSD = toUSD(data.amount, data.currency);
+    const amountInWallet = convertAmount(data.amount, data.currency, wallet.currency);
 
-    if (wallet.balance < amountUSD) {
+    if (wallet.balance < amountInWallet) {
       toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
       return;
     }
@@ -563,7 +572,7 @@ export default function Finance() {
     const newPaid = debtToPay.paidAmount + amountUSD;
     const status = newPaid >= debtToPay.totalAmount ? 'paid' : 'outstanding';
     await updateDebt(debtToPay.id, { paidAmount: newPaid, status });
-    await updateWalletBalance(debtToPay.walletId, wallet.balance - amountUSD);
+    await updateWalletBalance(debtToPay.walletId, wallet.balance - amountInWallet);
 
     toast({ title: "Pago registrado", description: `Pagado ${data.amount} ${data.currency} a ${debtToPay.person}` });
     setIsDebtPaymentDialogOpen(false);
@@ -573,14 +582,14 @@ export default function Finance() {
 
   const openWalletDialog = (wallet: Wallet) => {
     setWalletToEdit(wallet);
-    walletForm.reset({ name: wallet.name, balance: wallet.balance, currency: 'CUP' });
+    walletForm.reset({ name: wallet.name, balance: wallet.balance, currency: wallet.currency });
     setIsWalletDialogOpen(true);
   };
 
   const onWalletSubmit = async (data: z.infer<typeof walletSchema>) => {
     if (!walletToEdit) return;
-    await updateWallet(walletToEdit.id, { balance: data.balance });
-    toast({ title: "Billetera actualizada", description: `${walletToEdit.name}: ${data.balance} CUP` });
+    await updateWallet(walletToEdit.id, { balance: data.balance, currency: data.currency });
+    toast({ title: "Billetera actualizada", description: `${walletToEdit.name}: ${data.balance} ${data.currency}` });
     setIsWalletDialogOpen(false);
     setWalletToEdit(null);
   };
@@ -602,7 +611,8 @@ export default function Finance() {
     const wallet = wallets.find(w => w.id === transactionToRevert.walletId);
     if (!wallet) return;
 
-    const reversalAmount = transactionToRevert.type === 'expense' ? wallet.balance + transactionToRevert.amount : wallet.balance - transactionToRevert.amount;
+    const amountInWallet = convertAmount(transactionToRevert.amount, transactionToRevert.currency, wallet.currency);
+    const reversalAmount = transactionToRevert.type === 'expense' ? wallet.balance + amountInWallet : wallet.balance - amountInWallet;
     await deleteTransaction(transactionToRevert.id);
     await updateWalletBalance(transactionToRevert.walletId, reversalAmount);
 
@@ -660,17 +670,18 @@ export default function Finance() {
     }
     const wallet = wallets.find(w => w.id === depositWalletId);
     if (!wallet) { toast({ title: "Billetera no encontrada", variant: "destructive" }); return; }
-    const depositUSD = toUSD(depositAmount, 'CUP');
-    if (wallet.balance < depositUSD) {
+    const amountInWallet = convertAmount(depositAmount, 'CUP', wallet.currency);
+    if (wallet.balance < amountInWallet) {
       toast({ title: "Saldo insuficiente", description: `"${wallet.name}" no tiene ${depositAmount.toLocaleString("es-ES")} CUP disponibles.`, variant: "destructive" });
       return;
     }
-    const newAmount = goalToDeposit.currentAmount + depositUSD;
+    const newAmount = goalToDeposit.currentAmount + depositAmount;
     updateFinancialGoal(goalToDeposit.id, { currentAmount: Math.min(newAmount, goalToDeposit.targetAmount) });
-    updateWalletBalance(depositWalletId, wallet.balance - depositUSD);
+    updateWalletBalance(depositWalletId, wallet.balance - amountInWallet);
     addTransaction({
       description: `Abono a meta: ${goalToDeposit.name}`,
-      amount: depositUSD,
+      amount: amountInWallet,
+      currency: wallet.currency,
       date: new Date(),
       walletId: depositWalletId,
       categoryId: 'cat-transfer',
@@ -686,7 +697,7 @@ export default function Finance() {
   };
 
   const onWalletCreateSubmit = async (data: z.infer<typeof walletCreateSchema>) => {
-    const newWallet: Wallet = { id: crypto.randomUUID(), name: data.name, balance: data.balance, icon: iconMap[data.icon] || WalletIcon };
+    const newWallet: Wallet = { id: crypto.randomUUID(), name: data.name, balance: data.balance, icon: iconMap[data.icon] || WalletIcon, currency: data.currency };
     await addWallet(newWallet);
     toast({ title: "Billetera creada", description: `${data.name} creada con éxito` });
     setIsWalletCreateDialogOpen(false);
@@ -795,21 +806,22 @@ export default function Finance() {
     setTransactionToRevert(transaction);
     setIsRevertDialogOpen(true);
   };
-  const transactionColumns = getTransactionColumns(initialWallets, transactionCategories, exchangeRate, handleRevertClick);
+  const transactionColumns = getTransactionColumns(wallets, transactionCategories, exchangeRate, handleRevertClick);
   const loanColumns = getLoanColumns(exchangeRate, openLoanPaymentDialog);
 
-  const handleAICreateTransaction = async (t: { description: string; amount: number; date: Date; walletId: string; categoryId: string; type: "income" | "expense" }) => {
+  const handleAICreateTransaction = async (t: { description: string; amount: number; currency: "USD" | "CUP"; date: Date; walletId: string; categoryId: string; type: "income" | "expense" }) => {
     const wallet = wallets.find(w => w.id === t.walletId);
     if (!wallet) {
       toast({ title: "Billetera no encontrada", description: "Reintenta con otra billetera.", variant: "destructive" });
       return;
     }
-    if (t.type === 'expense' && wallet.balance < t.amount) {
+    const amountInWallet = convertAmount(t.amount, t.currency, wallet.currency);
+    if (t.type === 'expense' && wallet.balance < amountInWallet) {
       toast({ title: "Saldo insuficiente", description: "La billetera no tiene suficiente balance.", variant: "destructive" });
       throw new Error("Saldo insuficiente en la billetera elegida.");
     }
-    const newBalance = t.type === 'expense' ? wallet.balance - t.amount : wallet.balance + t.amount;
-    await addTransaction({ description: t.description, amount: t.amount, date: t.date, walletId: t.walletId, categoryId: t.categoryId, type: t.type, transferId: undefined, loanId: undefined, distributed: false });
+    const newBalance = t.type === 'expense' ? wallet.balance - amountInWallet : wallet.balance + amountInWallet;
+    await addTransaction({ description: t.description, amount: t.amount, currency: t.currency, date: t.date, walletId: t.walletId, categoryId: t.categoryId, type: t.type, transferId: undefined, loanId: undefined, distributed: false });
     await updateWalletBalance(t.walletId, newBalance);
     toast({ title: "Transacción registrada", description: `${t.type === 'expense' ? 'Gasto' : 'Ingreso'} "${t.description}" creado con la IA` });
   };
@@ -976,7 +988,7 @@ export default function Finance() {
                   <Coins className="h-3.5 w-3.5" />
                 </div>
               </div>
-              <CurrencyDisplay usd={totalBalance} exchangeRate={exchangeRate} large />
+              <CurrencyDisplay cup={totalBalance} exchangeRate={exchangeRate} large />
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl overflow-hidden">
@@ -989,7 +1001,7 @@ export default function Finance() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <CurrencyDisplay usd={monthlyIncome} exchangeRate={exchangeRate} large />
+                <CurrencyDisplay cup={monthlyIncome} exchangeRate={exchangeRate} large />
                 <TrendIndicator value={incomeChange} />
               </div>
               <div className="flex items-center gap-1 mt-1">
@@ -1010,7 +1022,7 @@ export default function Finance() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <CurrencyDisplay usd={monthlyExpenses} exchangeRate={exchangeRate} large />
+                <CurrencyDisplay cup={monthlyExpenses} exchangeRate={exchangeRate} large />
                 <TrendIndicator value={-expenseChange} />
               </div>
               <div className="flex items-center gap-1 mt-1">
@@ -1031,7 +1043,7 @@ export default function Finance() {
                 </div>
               </div>
               <div className={cn(monthlyBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500")}>
-                <CurrencyDisplay usd={monthlyBalance} exchangeRate={exchangeRate} large />
+                <CurrencyDisplay cup={monthlyBalance} exchangeRate={exchangeRate} large />
               </div>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-[10px] font-medium">{savingsRate.toFixed(1)}%</span>
@@ -1175,7 +1187,7 @@ export default function Finance() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Billeteras</h2>
-              <p className="text-[10px] sm:text-xs text-zinc-400">{wallets.length} billeteras · Total: {(totalBalance * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
+              <p className="text-[10px] sm:text-xs text-zinc-400">{wallets.length} billeteras · Total: {totalBalance.toLocaleString("es-ES", { maximumFractionDigits: 0 })} CUP</p>
             </div>
             {isEditMode && (
               <Button size="sm" className="rounded-full text-[10px] h-7 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => { walletCreateForm.reset({ name: '', balance: 0, icon: 'Wallet', currency: 'CUP' }); setIsWalletCreateDialogOpen(true); }}>
@@ -1208,10 +1220,20 @@ export default function Finance() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                        {(wallet.balance * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 2 })}
+                      {wallet.currency === 'USD' ? (
+                        <div className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                          ${wallet.balance.toLocaleString("es-ES", { minimumFractionDigits: 2 })}
+                        </div>
+                      ) : (
+                        <div className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                          {wallet.balance.toLocaleString("es-ES", { minimumFractionDigits: 2 })}
+                        </div>
+                      )}
+                      <div className="text-[10px] text-zinc-400">
+                        {wallet.currency === 'USD'
+                          ? `USD · ${(wallet.balance * rate).toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP`
+                          : `CUP · $${(wallet.balance / rate).toFixed(2)} USD`}
                       </div>
-                      <div className="text-[10px] text-zinc-400">CUP · ${wallet.balance.toFixed(2)} USD</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1230,12 +1252,12 @@ export default function Finance() {
             </div>
             <div className="flex items-center gap-1.5">
               {(() => {
-                const totalUndistributed = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
+                const totalUndistributed = undistributedIncomes.reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
                 if (totalUndistributed > 0) {
                   return (
                     <Button onClick={() => setIsDistributeIncomeDialogOpen(true)} size="sm" className="rounded-full text-[10px] h-7 bg-blue-600 hover:bg-blue-700 text-white">
                       <Coins className="mr-1 h-3 w-3" />
-                      Distribuir {formatCurrency(totalUndistributed * exchangeRate)}
+                      Distribuir {formatCurrency(totalUndistributed)}
                     </Button>
                   );
                 }
@@ -1309,7 +1331,7 @@ export default function Finance() {
                           </div>
                           <div className="flex items-center justify-between">
                             <span className={cn("text-[10px] font-semibold text-white px-1.5 py-0.5 rounded-full", color.badge)}>{bag.percentage}%</span>
-                            <CurrencyDisplay usd={bag.balance || 0} exchangeRate={exchangeRate} />
+                            <CurrencyDisplay cup={bag.balance || 0} exchangeRate={exchangeRate} />
                           </div>
                           <p className="text-[10px] text-zinc-400 leading-relaxed truncate">{bag.description}</p>
                         </CardContent>
@@ -1435,8 +1457,8 @@ export default function Finance() {
               <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
                 <CardContent className="p-2.5 sm:p-3 space-y-0.5">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Ingresos este mes</p>
-                  <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{(monthlyIncome * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP</p>
-                  <p className="text-[10px] text-zinc-400">${monthlyIncome.toFixed(2)} USD</p>
+                  <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{monthlyIncome.toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP</p>
+                  <p className="text-[10px] text-zinc-400">${(monthlyIncome / rate).toFixed(2)} USD</p>
                 </CardContent>
               </Card>
               <Card className="border-0 shadow-sm bg-white dark:bg-zinc-950 rounded-2xl">
@@ -1451,7 +1473,7 @@ export default function Finance() {
                   <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Promedio</p>
                   <p className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
                     {incomes.filter(t => isThisMonth(t.date)).length > 0
-                      ? `${((monthlyIncome / incomes.filter(t => isThisMonth(t.date)).length) * exchangeRate).toLocaleString("es-ES", { maximumFractionDigits: 0 })}`
+                      ? `${(monthlyIncome / incomes.filter(t => isThisMonth(t.date)).length).toLocaleString("es-ES", { maximumFractionDigits: 0 })}`
                       : "0"}
                   </p>
                   <p className="text-[10px] text-zinc-400">CUP por ingreso</p>
@@ -2045,7 +2067,7 @@ export default function Finance() {
                         <SelectItem key={w.id} value={w.id}>
                           <div className="flex items-center justify-between w-full">
                             <span>{w.name}</span>
-                            <span className="text-zinc-400 ml-2">{(w.balance * exchangeRate).toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP</span>
+                            <span className="text-zinc-400 ml-2">{toCUP(w.balance, w.currency).toLocaleString("es-ES", { minimumFractionDigits: 0 })} CUP</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -2078,12 +2100,12 @@ export default function Finance() {
               <DialogDescription>Distribuye ingresos no asignados según tus bolsas.</DialogDescription>
             </DialogHeader>
             {(() => {
-              const total = undistributedIncomes.reduce((acc, t) => acc + t.amount, 0);
+              const total = undistributedIncomes.reduce((acc, t) => acc + (t.currency === 'USD' ? t.amount * rate : t.amount), 0);
               return (
                 <div className="space-y-3">
                   <div className="p-3 bg-zinc-50 dark:bg-zinc-950/50 rounded-xl">
                     <p className="text-[10px] text-zinc-400">Total a distribuir</p>
-                    <CurrencyDisplay usd={total} exchangeRate={exchangeRate} large />
+                    <CurrencyDisplay cup={total} exchangeRate={exchangeRate} large />
                     <p className="text-[10px] text-zinc-400 mt-1">{undistributedIncomes.length} ingreso(s) sin distribuir</p>
                   </div>
                   <div className="space-y-1.5 max-h-60 overflow-y-auto">
@@ -2101,7 +2123,7 @@ export default function Finance() {
                               <p className="text-[10px] text-zinc-400">{bag.percentage}%</p>
                             </div>
                           </div>
-                          <CurrencyDisplay usd={amount} exchangeRate={exchangeRate} />
+                          <CurrencyDisplay cup={amount} exchangeRate={exchangeRate} />
                         </div>
                       );
                     })}
@@ -2119,7 +2141,6 @@ export default function Finance() {
         <FinanceAIAssistant
           wallets={wallets}
           categories={transactionCategories}
-          exchangeRate={exchangeRate}
           onCreateTransaction={handleAICreateTransaction}
         />
 

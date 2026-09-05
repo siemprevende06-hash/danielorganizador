@@ -70,15 +70,21 @@ export const getTransactionColumns = (
     accessorKey: "amount",
     header: "Monto",
     cell: ({ row }) => {
-      const amountCUP = row.original.amount * exchangeRate;
-      const amountUSD = row.original.amount;
+      const rate = exchangeRate > 0 ? exchangeRate : 1;
+      const currency = row.original.currency || 'CUP';
       const isIncome = row.original.type === "income";
+      const amountInCurrency = currency === 'USD'
+        ? `$${row.original.amount.toLocaleString("es-ES", { minimumFractionDigits: 2 })}`
+        : `${row.original.amount.toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP`;
+      const equivalent = currency === 'USD'
+        ? `${(row.original.amount * rate).toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP`
+        : `$${(row.original.amount / rate).toFixed(2)} USD`;
       return (
         <div className="text-right">
           <div className={`text-sm font-semibold ${isIncome ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-            {isIncome ? "+" : "-"}{amountCUP.toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP
+            {isIncome ? "+" : "-"}{amountInCurrency}
           </div>
-          <div className="text-xs text-muted-foreground">${amountUSD.toFixed(2)} USD</div>
+          <div className="text-xs text-muted-foreground">{equivalent}</div>
         </div>
       );
     },

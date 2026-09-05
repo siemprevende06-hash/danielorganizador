@@ -295,8 +295,6 @@ export default function LineaDeTiempo() {
     return map;
   }, [lists, tasks, today]);
 
-  );
-
   const loading = trackingLoading || listsLoading || habitLoading;
 
   return (

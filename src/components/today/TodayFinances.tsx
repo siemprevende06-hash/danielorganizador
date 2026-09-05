@@ -11,6 +11,7 @@ interface TodayTransaction {
   id: string;
   description: string;
   amount: number;
+  currency: 'USD' | 'CUP';
   type: 'income' | 'expense';
   wallet_name?: string;
 }
@@ -19,11 +20,13 @@ interface WalletSummary {
   id: string;
   name: string;
   balance: number;
+  currency: 'USD' | 'CUP';
 }
 
 export function TodayFinances() {
   const [transactions, setTransactions] = useState<TodayTransaction[]>([]);
   const [wallets, setWallets] = useState<WalletSummary[]>([]);
+  const [exchangeRate, setExchangeRate] = useState(360);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,18 +35,26 @@ export function TodayFinances() {
 
   const loadFinanceData = async () => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    
-    const [transRes, walletsRes] = await Promise.all([
+
+    const [transRes, walletsRes, rateRes] = await Promise.all([
       supabase
         .from('transactions')
-        .select('id, description, amount, transaction_type, wallet_id')
+        .select('id, description, amount, currency, transaction_type, wallet_id')
         .gte('transaction_date', `${today}T00:00:00`)
         .lte('transaction_date', `${today}T23:59:59`)
         .order('created_at', { ascending: false }),
       supabase
         .from('wallets')
-        .select('id, name, balance'),
+        .select('id, name, balance, currency'),
+      supabase
+        .from('text_sections')
+        .select('content')
+        .eq('section_key', 'finance_exchange_rate')
+        .maybeSingle(),
     ]);
+
+    const storedRate = Number(rateRes.data?.content);
+    if (storedRate > 0) setExchangeRate(storedRate);
 
     const walletMap = new Map(
       (walletsRes.data || []).map((w: any) => [w.id, w.name])
@@ -53,6 +64,7 @@ export function TodayFinances() {
       id: t.id,
       description: t.description,
       amount: Number(t.amount),
+      currency: t.currency === 'CUP' ? 'CUP' : 'USD',
       type: t.transaction_type as 'income' | 'expense',
       wallet_name: walletMap.get(t.wallet_id) || undefined,
     }));
@@ -62,14 +74,18 @@ export function TodayFinances() {
       id: w.id,
       name: w.name,
       balance: Number(w.balance),
+      currency: w.currency === 'USD' ? 'USD' : 'CUP',
     })));
     setLoading(false);
   };
 
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+  const rate = exchangeRate > 0 ? exchangeRate : 1;
+  const toCUP = (amount: number, currency: string) => currency === 'USD' ? amount * rate : amount;
+
+  const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + toCUP(t.amount, t.currency), 0);
+  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + toCUP(t.amount, t.currency), 0);
   const netFlow = totalIncome - totalExpense;
-  const totalBalance = wallets.reduce((acc, w) => acc + w.balance, 0);
+  const totalBalance = wallets.reduce((acc, w) => acc + (w.currency === 'USD' ? w.balance * rate : w.balance), 0);
 
   if (loading) {
     return (
@@ -83,6 +99,8 @@ export function TodayFinances() {
       </Card>
     );
   }
+
+  const formatAmount = (amount: number) => amount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <Card>
@@ -101,27 +119,27 @@ export function TodayFinances() {
               <span className="text-xs font-medium">Ingresos</span>
             </div>
             <p className="text-lg font-bold text-green-600">
-              +${totalIncome.toLocaleString()}
+              +{formatAmount(totalIncome)} CUP
             </p>
           </div>
-          
+
           <div className="p-3 rounded-lg bg-muted/50 text-center">
             <div className="flex items-center justify-center gap-1 text-red-500 mb-1">
               <TrendingDown className="w-4 h-4" />
               <span className="text-xs font-medium">Gastos</span>
             </div>
             <p className="text-lg font-bold text-red-600">
-              -${totalExpense.toLocaleString()}
+              -{formatAmount(totalExpense)} CUP
             </p>
           </div>
-          
+
           <div className="p-3 rounded-lg bg-primary/10 text-center">
             <div className="flex items-center justify-center gap-1 text-primary mb-1">
               <Wallet className="w-4 h-4" />
               <span className="text-xs font-medium">Neto</span>
             </div>
             <p className={`text-lg font-bold ${netFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {netFlow >= 0 ? '+' : ''}${netFlow.toLocaleString()}
+              {netFlow >= 0 ? '+' : ''}{formatAmount(netFlow)} CUP
             </p>
           </div>
         </div>
@@ -148,7 +166,7 @@ export function TodayFinances() {
                       </Badge>
                     )}
                     <span className={`text-sm font-medium ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString()}
+                      {t.type === 'income' ? '+' : '-'}{t.currency === 'USD' ? `$${formatAmount(t.amount)}` : `${formatAmount(t.amount)} CUP`}
                     </span>
                   </div>
                 </div>
@@ -172,13 +190,13 @@ export function TodayFinances() {
           <div className="flex flex-wrap gap-2">
             {wallets.map((wallet) => (
               <Badge key={wallet.id} variant="secondary" className="text-xs">
-                {wallet.name}: ${wallet.balance.toLocaleString()}
+                {wallet.name}: {wallet.currency === 'USD' ? `$${formatAmount(wallet.balance)}` : `${formatAmount(wallet.balance)} CUP`}
               </Badge>
             ))}
           </div>
           <div className="flex justify-between items-center mt-2 pt-2 border-t border-dashed">
             <span className="text-sm font-medium">Balance Total:</span>
-            <span className="text-lg font-bold text-primary">${totalBalance.toLocaleString()}</span>
+            <span className="text-lg font-bold text-primary">{formatAmount(totalBalance)} CUP</span>
           </div>
         </div>
       </CardContent>

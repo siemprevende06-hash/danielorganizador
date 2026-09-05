@@ -24,10 +24,10 @@ interface AITransaction {
 interface Props {
   wallets: { id: string; name: string }[];
   categories: { id: string; name: string; type: string }[];
-  exchangeRate: number;
   onCreateTransaction: (t: {
     description: string;
     amount: number;
+    currency: "USD" | "CUP";
     date: Date;
     walletId: string;
     categoryId: string;
@@ -53,7 +53,7 @@ declare global {
   }
 }
 
-export function FinanceAIAssistant({ wallets, categories, exchangeRate, onCreateTransaction }: Props) {
+export function FinanceAIAssistant({ wallets, categories, onCreateTransaction }: Props) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
@@ -115,12 +115,11 @@ export function FinanceAIAssistant({ wallets, categories, exchangeRate, onCreate
       }
       if (data.completado && data.transaccion) {
         const t: AITransaction = data.transaccion;
-        const rate = exchangeRate && exchangeRate > 0 ? exchangeRate : 24;
-        const amountUSD = t.currency === "CUP" ? t.amount / rate : t.amount;
         const date = typeof t.date === "string" ? new Date(`${t.date}T12:00:00`) : new Date();
         await onCreateTransaction({
           description: t.description,
-          amount: Number(amountUSD) || 0,
+          amount: Number(t.amount) || 0,
+          currency: t.currency,
           date,
           walletId: t.walletId,
           categoryId: t.categoryId,
@@ -144,7 +143,7 @@ export function FinanceAIAssistant({ wallets, categories, exchangeRate, onCreate
     } finally {
       setLoading(false);
     }
-  }, [messages, loading, wallets, categories, exchangeRate, onCreateTransaction]);
+  }, [messages, loading, wallets, categories, onCreateTransaction]);
 
   return (
     <>

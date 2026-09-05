@@ -105,6 +105,7 @@ export interface Wallet {
   name: string;
   balance: number;
   icon: LucideIcon;
+  currency: 'USD' | 'CUP';
 }
 
 export interface DistributionBag {
@@ -131,6 +132,7 @@ export interface Transaction {
   id: string;
   description: string;
   amount: number;
+  currency: 'USD' | 'CUP';
   date: Date;
   walletId: string;
   categoryId: string;

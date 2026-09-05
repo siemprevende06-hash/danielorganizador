@@ -76,7 +76,7 @@ async function saveTextSection(key: string, value: any) {
 
 // --- Mappers ---
 function walletFromRow(row: any): Wallet {
-  return { id: row.id, name: row.name, balance: Number(row.balance) || 0, icon: stringToIcon(row.icon) };
+  return { id: row.id, name: row.name, balance: Number(row.balance) || 0, icon: stringToIcon(row.icon), currency: row.currency === 'USD' ? 'USD' : 'CUP' };
 }
 function walletToRow(w: Partial<Wallet> & { id?: string }): any {
   const out: any = {};
@@ -84,6 +84,7 @@ function walletToRow(w: Partial<Wallet> & { id?: string }): any {
   if (w.name !== undefined) out.name = w.name;
   if (w.balance !== undefined) out.balance = w.balance;
   if (w.icon !== undefined) out.icon = iconToString(w.icon);
+  if (w.currency !== undefined) out.currency = w.currency;
   return out;
 }
 function transactionFromRow(row: any): Transaction {
@@ -91,6 +92,7 @@ function transactionFromRow(row: any): Transaction {
     id: row.id,
     description: row.description || '',
     amount: Number(row.amount) || 0,
+    currency: row.currency === 'CUP' ? 'CUP' : 'USD',
     date: new Date(row.transaction_date),
     walletId: row.wallet_id,
     categoryId: row.category_id || '',
@@ -105,6 +107,7 @@ function transactionToRow(t: Partial<Transaction> & { id?: string }): any {
   if (t.id) out.id = t.id;
   if (t.description !== undefined) out.description = t.description;
   if (t.amount !== undefined) out.amount = t.amount;
+  if (t.currency !== undefined) out.currency = t.currency;
   if (t.date !== undefined) out.transaction_date = (t.date instanceof Date ? t.date : new Date(t.date as any)).toISOString();
   if (t.walletId !== undefined) out.wallet_id = t.walletId;
   if (t.categoryId !== undefined) out.category_id = t.categoryId;
@@ -173,7 +176,7 @@ export const useFinance = () => {
 
   // Cache to local whenever state changes
   useEffect(() => {
-    if (wallets.length > 0) saveLocal('finance_wallets', wallets.map(w => ({ id: w.id, name: w.name, balance: w.balance, iconName: iconToString(w.icon) })));
+    if (wallets.length > 0) saveLocal('finance_wallets', wallets.map(w => ({ id: w.id, name: w.name, balance: w.balance, iconName: iconToString(w.icon), currency: w.currency })));
   }, [wallets]);
   useEffect(() => { if (transactions.length > 0) saveLocal('finance_transactions', transactions); }, [transactions]);
   useEffect(() => { if (loans.length > 0) saveLocal('finance_loans', loans); }, [loans]);
@@ -191,11 +194,11 @@ export const useFinance = () => {
   const loadFromLocalStorage = useCallback(() => {
     const cachedWallets = loadLocal<any[]>('finance_wallets', []);
     if (cachedWallets.length > 0) {
-      setWallets(cachedWallets.map((w: any) => ({ ...w, icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) })));
+      setWallets(cachedWallets.map((w: any) => ({ ...w, currency: w.currency === 'USD' ? 'USD' : 'CUP', icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) })));
     }
     const cachedTx = loadLocal<any[]>('finance_transactions', []);
     if (cachedTx.length > 0) {
-      setTransactions(cachedTx.map((t: any) => ({ ...t, date: new Date(t.date) })));
+      setTransactions(cachedTx.map((t: any) => ({ ...t, currency: t.currency === 'CUP' ? 'CUP' : 'USD', date: new Date(t.date) })));
     }
     const cachedLoans = loadLocal<any[]>('finance_loans', []);
     if (cachedLoans.length > 0) {
@@ -235,10 +238,10 @@ export const useFinance = () => {
         if (walletsList.length === 0) {
           const cached = loadLocal<any[]>('finance_wallets', []);
           if (cached.length > 0) {
-            walletsList = cached.map((w: any) => ({ ...w, icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) }));
+            walletsList = cached.map((w: any) => ({ ...w, currency: w.currency === 'USD' ? 'USD' : 'CUP', icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) }));
           } else {
             const seeded = initialWallets.map(w => ({ ...w, id: genId() }));
-            try { await supabase.from('wallets').insert(seeded.map(w => ({ id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon) }))); } catch {}
+            try { await supabase.from('wallets').insert(seeded.map(w => ({ id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon), currency: w.currency }))); } catch {}
             walletsList = seeded;
           }
         }
@@ -249,7 +252,7 @@ export const useFinance = () => {
           const txList = (txRes.data || []).map(transactionFromRow);
           if (txList.length === 0) {
             const cached = loadLocal<any[]>('finance_transactions', []);
-            if (cached.length > 0) setTransactions(cached.map((t: any) => ({ ...t, date: new Date(t.date) })));
+            if (cached.length > 0) setTransactions(cached.map((t: any) => ({ ...t, currency: t.currency === 'CUP' ? 'CUP' : 'USD', date: new Date(t.date) })));
           } else {
             setTransactions(txList);
           }
