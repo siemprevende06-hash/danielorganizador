@@ -279,10 +279,15 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         if (t.source === 'university' && t.source_id) mergeSubjectTask(t.source_id, t);
       });
       (subjPendingRes.data || []).forEach((t: any) => {
-        if (t.source === 'university' && t.source_id) mergeSubjectTask(t.source_id, t);
+        if (t.source === 'university' && t.source_id && inPeriod(t)) mergeSubjectTask(t.source_id, t);
       });
-      const examsRows = (examsRes.data || []).filter((e: any) => activeSubjects.includes(e.subject_id));
-      const partialsRows = (partialsRes.data || []).filter((p: any) => activeSubjects.includes(p.subject_id));
+      const dateInPeriod = (d: any) => {
+        if (!d) return false;
+        const s = String(d).slice(0, 10);
+        return s >= startStr && s <= endStr;
+      };
+      const examsRows = (examsRes.data || []).filter((e: any) => activeSubjects.includes(e.subject_id) && dateInPeriod(e.exam_date));
+      const partialsRows = (partialsRes.data || []).filter((p: any) => activeSubjects.includes(p.subject_id) && dateInPeriod(p.exam_date));
       const topicRows = (topicRes.data || []).filter((t: any) => activeSubjects.includes(t.subject_id));
       const universitySubjects: UniversitySubjectResult[] = activeSubjects.map(id => {
         const ts = subjectTaskMap[id] || [];
