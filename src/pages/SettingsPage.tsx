@@ -3,17 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Settings, BookOpen, Save, CloudUpload, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
+import { Settings, BookOpen, Save, CloudUpload, CheckCircle2, XCircle, Loader2, Clock, Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { syncAll, type SyncReport } from '@/lib/dataSync';
 import { getTimeUnit, setTimeUnit as persistTimeUnit, type TimeUnit } from '@/lib/timeUnit';
 import { getSetting, setSetting } from '@/lib/settings';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
+import {
+  requestNotificationPermission,
+  setNotificationsEnabled,
+  areNotificationsEnabled,
+  closeAllAppNotifications,
+} from '@/lib/notifications';
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [booksPerMonth, setBooksPerMonth] = useState(2);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>(() => getTimeUnit());
+  const [notificationsOn, setNotificationsOn] = useState(() => areNotificationsEnabled());
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncReport, setLastSyncReport] = useState<SyncReport | null>(null);
@@ -43,6 +51,26 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error saving settings:', error);
       toast({ title: 'Error', description: 'No se pudo guardar', variant: 'destructive' });
+    }
+  };
+
+  const handleNotificationsToggle = async (checked: boolean) => {
+    if (checked) {
+      const perm = await requestNotificationPermission();
+      if (perm === 'granted') {
+        setNotificationsEnabled(true);
+        setNotificationsOn(true);
+        toast({ title: 'Notificaciones activadas', description: 'Verás el pomodoro activo y el bloque de rutina en el panel.' });
+      } else if (perm === 'denied') {
+        toast({ title: 'Permiso denegado', description: 'Habilita las notificaciones desde los ajustes del navegador/Android.', variant: 'destructive' });
+      } else {
+        toast({ title: 'No disponible', description: 'Este dispositivo/navegador no permite notificaciones.', variant: 'destructive' });
+      }
+    } else {
+      setNotificationsEnabled(false);
+      setNotificationsOn(false);
+      await closeAllAppNotifications();
+      toast({ title: 'Notificaciones desactivadas' });
     }
   };
 
@@ -123,6 +151,32 @@ export default function SettingsPage() {
             <Save className="h-4 w-4 mr-2" />
             Guardar
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Notificaciones */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Bell className="h-5 w-5" />
+            Notificaciones
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Notificaciones de panel (PWA)</p>
+              <p className="text-xs text-muted-foreground">
+                Muestra dos notificaciones en la barra de Android: el pomodoro activo con cuenta regresiva
+                y el bloque actual de la rutina seleccionada. Se actualizan mientras la app está abierta.
+              </p>
+            </div>
+            <Switch
+              checked={notificationsOn}
+              onCheckedChange={handleNotificationsToggle}
+              aria-label="Activar notificaciones"
+            />
+          </div>
         </CardContent>
       </Card>
 

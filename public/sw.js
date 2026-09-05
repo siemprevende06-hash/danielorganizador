@@ -29,6 +29,22 @@ registerRoute(
   )
 );
 
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || self.registration.scope || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate(url);
+          return client.focus().catch(() => null);
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener('message', (event) => {
   if (!event.data) return;
   if (event.data.type === 'PRECACHE_PHOTOS') {

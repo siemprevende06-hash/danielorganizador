@@ -10,6 +10,7 @@ import { pullPlansIntoLocal } from "@/lib/planSync";
 import { Navigation } from "./components/Navigation";
 import { OfflineProvider } from "./providers/OfflineProvider";
 import { useAutoTheme } from "./hooks/useAutoTheme";
+import { useActiveNotifications } from "./hooks/useActiveNotifications";
 import { TimeframeProvider } from "./contexts/TimeframeContext";
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
 import Index from "./pages/Index";
@@ -95,6 +96,7 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   useAutoTheme();
+  useActiveNotifications();
   const { collapsed } = useSidebar();
 
   // Sincronizar planes (trimestral/mensual, overrides y progreso) desde Supabase al abrir la app

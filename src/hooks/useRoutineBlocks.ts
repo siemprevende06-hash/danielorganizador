@@ -395,3 +395,71 @@ export const useRoutineBlocks = () => {
     routineInfo: ROUTINES.find(r => r.type === routineType) || ROUTINES[0],
   };
 };
+
+export const getRoutineInfoFromStorage = (): RoutineInfo | null => {
+  try {
+    const savedType = localStorage.getItem(ROUTINE_TYPE_KEY) as RoutineType | null;
+    const type = savedType && ROUTINE_MAP[savedType] ? savedType : 'disciplina';
+    return ROUTINES.find(r => r.type === type) || ROUTINES[0];
+  } catch {
+    return ROUTINES[0];
+  }
+};
+
+export const loadRoutineBlocksFromStorage = (type?: RoutineType): RoutineBlock[] => {
+  const info = getRoutineInfoFromStorage();
+  const routineType: RoutineType = type || info?.type || 'disciplina';
+  const storageKey = `${ROUTINE_BLOCKS_PREFIX}${routineType}`;
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.sort((a: RoutineBlock, b: RoutineBlock) => a.order - b.order);
+      }
+    }
+  } catch {}
+  return ROUTINE_MAP[routineType];
+};
+
+export interface CurrentRoutineBlockInfo {
+  block: RoutineBlock;
+  index: number;
+  total: number;
+  routineLabel: string;
+}
+
+export const getCurrentRoutineBlockInfo = (now = new Date()): CurrentRoutineBlockInfo | null => {
+  const info = getRoutineInfoFromStorage();
+  if (!info) return null;
+  const raw = loadRoutineBlocksFromStorage(info.type);
+  const blocks = info.type === 'disciplina' ? resolveDisciplinaBlocks(raw) : raw;
+  if (blocks.length === 0) return null;
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  let activeIndex = -1;
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const startMinutes = parseTime(block.startTime);
+    let endMinutes = parseTime(block.endTime);
+    if (endMinutes <= startMinutes) {
+      if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
+        activeIndex = i;
+        break;
+      }
+    } else if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+      activeIndex = i;
+      break;
+    }
+  }
+
+  if (activeIndex === -1) return null;
+
+  return {
+    block: blocks[activeIndex],
+    index: activeIndex + 1,
+    total: blocks.length,
+    routineLabel: info.label,
+  };
+};

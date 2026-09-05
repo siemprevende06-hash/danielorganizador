@@ -13,6 +13,8 @@ import { Play, Pause, RotateCcw, Target, Clock, CheckCircle2, Brain, Coffee, Bar
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSearchParams, useLocation } from "react-router-dom";
+import { setActivePomodoro, getActivePomodoro, clearActivePomodoro, type PomodoroPhase } from "@/lib/activePomodoro";
+import { requestNotificationPermission, areNotificationsEnabled } from "@/lib/notifications";
 
 const FOCUS_AREAS = [
   { id: "universidad", name: "Universidad", icon: GraduationCap },
@@ -172,10 +174,19 @@ export default function Focus() {
       toast.success("¡Tiempo completado! Tómate un descanso ☕");
       setIsBreak(true);
       setTimeRemaining(BREAK_TIME * 60);
+      setActivePomodoro({
+        startTime: Date.now(),
+        totalSeconds: BREAK_TIME * 60,
+        remainingSeconds: BREAK_TIME * 60,
+        phase: 'break',
+        running: false,
+        title: focusedTask?.title ?? taskTitle,
+      });
     } else {
       toast.success("¡Descanso terminado! Listo para el siguiente 🚀");
       setIsBreak(false);
       setTimeRemaining(pomodoroMinutes * 60);
+      clearActivePomodoro();
     }
   }, [timeRemaining]);
 
@@ -225,6 +236,17 @@ export default function Focus() {
     }
     setIsRunning(true);
     toast.success(`Enfocado en: ${title}${selectedArea ? ` · ${selectedArea}` : ""}`);
+
+    const phase: PomodoroPhase = isBreak ? 'break' : 'focus';
+    setActivePomodoro({ startTime: Date.now(), totalSeconds: timeRemaining, phase, running: true, title });
+
+    if (areNotificationsEnabled() && ("Notification" in window)) {
+      requestNotificationPermission().then(perm => {
+        if (perm === 'granted') {
+          toast.success("Notificaciones activadas: podrás ver el pomodoro y tu bloque de rutina en el panel.");
+        }
+      });
+    }
   };
 
   const handlePause = async () => {
@@ -242,6 +264,16 @@ export default function Focus() {
       setActiveSessionId(null);
     }
     if (aId && elapsed >= 1) addTime(aId as any, Math.round(elapsed));
+
+    const current = getActivePomodoro();
+    setActivePomodoro({
+      startTime: current?.startTime ?? Date.now(),
+      totalSeconds: current?.totalSeconds ?? timeRemaining,
+      remainingSeconds: timeRemaining,
+      phase: isBreak ? 'break' : 'focus',
+      running: false,
+      title: current?.title ?? focusedTask?.title ?? taskTitle,
+    });
   };
 
   const handleReset = () => {
@@ -259,6 +291,7 @@ export default function Focus() {
     setTimeRemaining(pomodoroMinutes * 60);
     setFocusedTask(null);
     setShowTaskPicker(true);
+    clearActivePomodoro();
   };
 
   const handleGoalEdit = (areaId: string) => {
@@ -391,7 +424,7 @@ export default function Focus() {
                   </button>
                 ))}
                 <button
-                  onClick={() => { if (!isRunning) { setIsBreak(true); setTimeRemaining(BREAK_TIME * 60); } }}
+                  onClick={() => { if (!isRunning) { setIsBreak(true); setTimeRemaining(BREAK_TIME * 60); setActivePomodoro({ startTime: Date.now(), totalSeconds: BREAK_TIME * 60, remainingSeconds: BREAK_TIME * 60, phase: 'break', running: false, title: focusedTask?.title ?? taskTitle }); } }}
                   disabled={isRunning}
                   className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all flex items-center justify-center gap-1 ${
                     isBreak ? "bg-amber-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
