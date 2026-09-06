@@ -7,6 +7,8 @@ import type { MapaNode } from "@/hooks/useMapaDeVida"
 import { PILARES_DIRECCION, PILAR_DESEOS, DESEO_DESEOS } from "@/hooks/useMapaDeVida"
 import type { AreaScore } from "@/hooks/useAreaScores"
 import type { Necesidad } from "@/lib/definitions"
+import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers"
+import { SubAreaCard } from "@/components/areas/SubAreaCard"
 import { Clock, ArrowRight, X } from "lucide-react"
 import { NecesidadGaleria } from "./NecesidadGaleria"
 
@@ -70,6 +72,7 @@ export function MapaDetailPanel({
   onClose: () => void
 }) {
   const navigate = useNavigate()
+  const { covers: coversMap } = useAreaCovers()
   const area = areas.find((a) => a.id === node.id)
   const need = needs.find((n) => n.necesidad_id === node.id)
 
@@ -124,15 +127,13 @@ export function MapaDetailPanel({
               <Clock className="h-3.5 w-3.5" />
               {formatMinutes(node.minutes)} invertidos en esta área
             </p>
-            <div className="space-y-2">
-              {area.sub.slice(0, 8).map((s) => (
-                <div key={s.id} className="flex items-center gap-2">
-                  <span className="text-xs flex-1 truncate">{s.label}</span>
-                  <div className="h-1.5 w-24 bg-muted rounded-full overflow-hidden shrink-0">
-                    <div className="h-full rounded-full bg-cyan-400" style={{ width: `${s.esfuerzo}%` }} />
-                  </div>
-                  <span className="text-[10px] tabular-nums text-muted-foreground w-8 text-right">{s.esfuerzo}%</span>
-                </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {area.sub.map((s) => (
+                <SubAreaCard
+                  key={s.id}
+                  data={s}
+                  getCover={(id) => coversMap[coverKey("sub", id)] ?? null}
+                />
               ))}
             </div>
             <Button size="sm" variant="outline" onClick={() => navigate("/areas-de-vida")}>

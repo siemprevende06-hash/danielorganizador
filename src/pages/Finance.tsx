@@ -812,8 +812,7 @@ export default function Finance() {
   const handleAICreateTransaction = async (t: { description: string; amount: number; currency: "USD" | "CUP"; date: Date; walletId: string; categoryId: string; type: "income" | "expense" }) => {
     const wallet = wallets.find(w => w.id === t.walletId);
     if (!wallet) {
-      toast({ title: "Billetera no encontrada", description: "Reintenta con otra billetera.", variant: "destructive" });
-      return;
+      throw new Error("La billetera elegida por la IA no existe. Intenta de nuevo.");
     }
     const amountInWallet = convertAmount(t.amount, t.currency, wallet.currency);
     if (t.type === 'expense' && wallet.balance < amountInWallet) {

@@ -67,8 +67,15 @@ export interface MapaEdge {
 
 const VIEW_W = 1200
 
-const HUB = { x: VIEW_W / 2, y: 715, r: 68 }
-const AREAS_Y = 470
+const HUB = { x: VIEW_W / 2, y: 860, r: 68 }
+const AREA_R = 48
+// Áreas distribuidas en filas apiladas (de abajo hacia arriba).
+// Las uniones (edges) no cambian, solo cambia la posición de los nodos.
+const AREA_ROWS: { ids: string[]; y: number }[] = [
+  { ids: ["salud", "fuerza-mental", "apariencia"], y: 690 },
+  { ids: ["desarrollo", "profesional", "finanzas"], y: 555 },
+  { ids: ["familia", "amor", "ocio"], y: 420 },
+]
 const DESEOS_Y = 270
 const PILARES_Y = 60
 
@@ -164,32 +171,41 @@ function nodeMinutes(area: AreaScore): number {
 }
 
 export function useMapaDeVida(timeframe: Timeframe) {
-  const { scores, averages, loading } = useAreaScores(timeframe, "ambos")
+  const { scores, loading } = useAreaScores(timeframe, "ambos")
   const { necesidades, loading: needsLoading } = useNecesidades()
+
+  const visibleAreas = scores.filter((a) => a.id !== "proposito")
 
   const { nodes, edges } = useMemo(() => {
     const areaNodes: MapaNode[] = []
     const deseoNodes: MapaNode[] = []
     const pilarNodes: MapaNode[] = []
 
-    const areaPositions = spread(scores.length || 1, 110, VIEW_W - 110)
     const deseoPositions = spread(necesidades.length || 1, 150, VIEW_W - 150)
     const pilarPositions = spread(PILARES_DIRECCION.length, 110, VIEW_W - 110)
 
-    scores.forEach((area, i) => {
-      areaNodes.push({
-        id: area.id,
-        kind: "area",
-        label: AREA_SHORT[area.id] ?? area.label,
-        icon: area.icon,
-        x: areaPositions[i] ?? VIEW_W / 2,
-        y: AREAS_Y,
-        r: 54,
-        score: Math.round(area.esfuerzo),
-        score2: Math.round(area.resultados),
-        minutes: nodeMinutes(area),
+    const scoresById: Record<string, AreaScore> = {}
+    for (const a of scores) scoresById[a.id] = a
+
+    for (const row of AREA_ROWS) {
+      const positions = spread(row.ids.length, 110, VIEW_W - 110)
+      row.ids.forEach((id, i) => {
+        const area = scoresById[id]
+        if (!area) return
+        areaNodes.push({
+          id: area.id,
+          kind: "area",
+          label: AREA_SHORT[area.id] ?? area.label,
+          icon: area.icon,
+          x: positions[i] ?? VIEW_W / 2,
+          y: row.y,
+          r: AREA_R,
+          score: Math.round(area.esfuerzo),
+          score2: Math.round(area.resultados),
+          minutes: nodeMinutes(area),
+        })
       })
-    })
+    }
 
     necesidades.forEach((n, i) => {
       deseoNodes.push({
@@ -258,6 +274,14 @@ export function useMapaDeVida(timeframe: Timeframe) {
 
     for (const n of deseoNodes) n.score = deseoScores[n.id] ?? 0
 
+    const activeVisible = visibleAreas.filter(a => a.esfuerzo > 0 || a.resultados > 0)
+    const avgEsfuerzo = activeVisible.length > 0
+      ? Math.round(activeVisible.reduce((s, a) => s + a.esfuerzo, 0) / activeVisible.length)
+      : 0
+    const avgResultados = activeVisible.length > 0
+      ? Math.round(activeVisible.reduce((s, a) => s + a.resultados, 0) / activeVisible.length)
+      : 0
+
     const nodes: MapaNode[] = [
       ...areaNodes,
       ...deseoNodes,
@@ -270,8 +294,8 @@ export function useMapaDeVida(timeframe: Timeframe) {
         x: HUB.x,
         y: HUB.y,
         r: HUB.r,
-        score: Math.round(averages.esfuerzo),
-        score2: Math.round(averages.resultados),
+        score: avgEsfuerzo,
+        score2: avgResultados,
         minutes: 0,
       },
     ]
@@ -342,15 +366,20 @@ export function useMapaDeVida(timeframe: Timeframe) {
     }
 
     return { nodes, edges }
-  }, [scores, necesidades, averages])
+  }, [scores, necesidades, visibleAreas])
+
+  const activeVisible = visibleAreas.filter(a => a.esfuerzo > 0 || a.resultados > 0)
+  const averageEsfuerzo = activeVisible.length > 0
+    ? Math.round(activeVisible.reduce((s, a) => s + a.esfuerzo, 0) / activeVisible.length)
+    : 0
 
   return {
     nodes,
     edges,
     hub: nodes.find((n) => n.id === "esfuerzo-hub") ?? null,
     loading: loading || needsLoading,
-    averageEsfuerzo: Math.round(averages.esfuerzo),
-    areas: scores,
+    averageEsfuerzo,
+    areas: visibleAreas,
     necesidades,
   }
 }

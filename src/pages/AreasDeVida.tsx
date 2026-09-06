@@ -1,12 +1,16 @@
+import { useState } from "react"
 import { useTimeframe } from "@/contexts/TimeframeContext"
 import { useAreaScores } from "@/hooks/useAreaScores"
 import type { SubAreaScore } from "@/hooks/useAreaScores"
 import { TimeframeSelector } from "@/components/TimeframeSelector"
 import { WheelOfLife } from "@/components/WheelOfLife"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { SubAreaCard } from "@/components/areas/SubAreaCard"
+import { AreaCover, getCoverGradient } from "@/components/areas/AreaCover"
+import { useAreaCovers, coverKey, type CoverType } from "@/hooks/useAreaCovers"
+import { useImageUpload } from "@/hooks/useImageUpload"
 import { cn } from "@/lib/utils"
 import {
   Anchor, Target, Sparkles, LayoutDashboard,
@@ -60,10 +64,8 @@ function getScoreBg(score: number): string {
 function AreaCardSkeleton() {
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="pb-3">
-        <Skeleton className="h-6 w-48" />
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <Skeleton className="h-24 w-full rounded-none" />
+      <CardContent className="space-y-4 py-4">
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-8 w-32" />
@@ -75,6 +77,20 @@ function AreaCardSkeleton() {
 export default function AreasDeVida() {
   const { timeframe, view } = useTimeframe()
   const { scores, averages, loading } = useAreaScores(timeframe, view)
+  const { covers, saveCover } = useAreaCovers()
+  const { uploadImage } = useImageUpload()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const handleUploadCover = async (type: CoverType, id: string, file: File) => {
+    const key = coverKey(type, id)
+    setBusy(key)
+    try {
+      const url = await uploadImage(file, "area-covers")
+      if (url) await saveCover(type, id, url)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const wheelValues = scores.map((s) => Math.round(s.esfuerzo / 10))
   const wheelValues2 = scores.map((s) => Math.round(s.resultados / 10))
@@ -171,8 +187,13 @@ export default function AreasDeVida() {
                 <AreaCard
                   key={area.id}
                   area={area}
-                  progressColor={section.progressColor}
                   borderColor={section.border}
+                  coverUrl={covers[coverKey("area", area.id)] ?? null}
+                  uploading={busy === coverKey("area", area.id)}
+                  onUploadCover={(file) => handleUploadCover("area", area.id, file)}
+                  getSubCover={(id) => covers[coverKey("sub", id)] ?? null}
+                  busySubId={busy}
+                  onSubUploadCover={(id, file) => handleUploadCover("sub", id, file)}
                 />
               ))}
             </div>
@@ -185,8 +206,13 @@ export default function AreasDeVida() {
 
 function AreaCard({
   area,
-  progressColor,
   borderColor,
+  coverUrl,
+  uploading,
+  onUploadCover,
+  getSubCover,
+  busySubId,
+  onSubUploadCover,
 }: {
   area: {
     id: string
@@ -196,19 +222,29 @@ function AreaCard({
     resultados: number
     sub: SubAreaScore[]
   }
-  progressColor: string
   borderColor: string
+  coverUrl?: string | null
+  uploading?: boolean
+  onUploadCover?: (file: File) => void
+  getSubCover?: (id: string) => string | null | undefined
+  busySubId?: string | null
+  onSubUploadCover?: (id: string, file: File) => void
 }) {
   const hasNested = area.sub.some(s => s.children && s.children.length > 0)
+  const gradient = getCoverGradient(area.id)
 
   return (
     <Card className={cn("overflow-hidden transition-all hover:shadow-md", borderColor)}>
-      <CardHeader className={cn("pb-3 border-b", borderColor)}>
-        <CardTitle className="flex items-center gap-3 text-lg">
-          <span className="text-2xl">{area.icon}</span>
-          <span>{area.label}</span>
-        </CardTitle>
-      </CardHeader>
+      <AreaCover
+        cover={coverUrl ?? null}
+        gradient={gradient}
+        label={area.label}
+        icon={area.icon}
+        showCamera
+        uploading={uploading}
+        onUpload={onUploadCover}
+        className="h-24"
+      />
       <CardContent className="pt-4 space-y-4">
         {/* Effort */}
         <div className="space-y-1.5">
@@ -245,7 +281,14 @@ function AreaCard({
         {/* Sub-areas */}
         <div className={cn("space-y-2", hasNested ? "" : "grid grid-cols-2 gap-2")}>
           {area.sub.map(sub => (
-            <SubAreaCard key={sub.id} data={sub} />
+            <SubAreaCard
+              key={sub.id}
+              data={sub}
+              getCover={getSubCover}
+              showCamera
+              getUploading={(id) => busySubId === coverKey("sub", id)}
+              onUploadCover={onSubUploadCover}
+            />
           ))}
         </div>
       </CardContent>

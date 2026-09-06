@@ -14,6 +14,7 @@ import { useOffline } from '@/providers/OfflineProvider';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAutoTheme } from '@/hooks/useAutoTheme';
 import { InstallPrompt } from '@/components/InstallPrompt';
+import { PageCoverMenu } from '@/components/PageCoverMenu';
 
 interface SidebarItem {
   path?: string;
@@ -51,9 +52,17 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     ]
   },
   {
-    label: 'LÍNEA DE TIEMPO',
+    label: 'EXTRAS TIEMPO',
     items: [
       { path: '/linea-de-tiempo', label: 'Línea de Tiempo', icon: Timeline },
+      { path: '/weeks', label: 'Semanas', icon: CalendarDays },
+      { path: '/goals', label: 'Metas', icon: Goal },
+      { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
+    ]
+  },
+  {
+    label: 'LÍNEA DE TIEMPO',
+    items: [
       { path: '/ahora-mismo', label: 'Ahora Mismo', icon: Clock },
       { path: '/daily', label: 'Hoy', icon: CalendarDays },
       { path: '/plan-manana', label: 'Mañana', icon: CalendarDays },
@@ -61,11 +70,8 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/monthly', label: 'Mes', icon: Calendar },
       { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
       { path: '/anual', label: 'Año', icon: CalendarDays },
-      { path: '/weeks', label: 'Semanas', icon: CalendarDays },
-      { path: '/goals', label: 'Metas', icon: Goal },
       { path: '/cinco-anos', label: '5 Años', icon: CalendarRange },
       { path: '/algun-dia', label: 'Algún Día', icon: Star },
-      { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
     ]
   },
   {
@@ -74,6 +80,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/entrepreneurship', label: 'Emprendimiento', icon: Briefcase },
       { path: '/university', label: 'Universidad', icon: GraduationCap },
       { path: '/projects', label: 'Proyectos', icon: Target },
+      { path: '/tasks', label: 'Tareas generales', icon: ListTodo },
       { path: '/finance', label: 'Finanzas', icon: DollarSign },
     ]
   },
@@ -81,7 +88,6 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     label: 'SEGUIMIENTO',
     items: [
       { path: '/habits', label: 'Hábitos', icon: CheckSquare },
-      { path: '/tasks', label: 'Tareas', icon: ListTodo },
       { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
       { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
       { path: '/journaling', label: 'Diario', icon: BookOpen },
@@ -95,6 +101,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/morning-prep', label: 'Alistamiento', icon: Shirt },
       { path: '/deactivation-routine', label: 'Desactivación', icon: Moon },
       { path: '/weekend-routine', label: 'Fin de Semana', icon: Sun },
+      { path: '/organizacion', label: 'Organización', icon: LayoutList },
     ]
   },
   {
@@ -301,6 +308,7 @@ export const Navigation = () => {
           <span className="font-medium text-sm">{currentPage}</span>
         </div>
         <div className="flex items-center gap-1">
+          <PageCoverMenu />
           <button
             onClick={() => (window as any).__pwaCheckForUpdates?.()}
             className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -386,6 +394,7 @@ export const Navigation = () => {
             </div>
           )}
           <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "gap-1")}>
+            <PageCoverMenu />
             <button
               onClick={() => (window as any).__pwaCheckForUpdates?.()}
               className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0 transition-colors"

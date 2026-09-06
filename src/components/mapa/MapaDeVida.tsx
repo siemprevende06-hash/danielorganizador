@@ -117,7 +117,7 @@ export function MapaDeVida({
   return (
     <div className="mapa-canvas border border-border/60 relative overflow-hidden">
       <svg
-        viewBox="0 0 1200 840"
+        viewBox="0 0 1200 1000"
         className="w-full h-auto select-none"
         onClick={() => {
           setHover(null)

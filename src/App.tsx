@@ -13,6 +13,8 @@ import { useAutoTheme } from "./hooks/useAutoTheme";
 import { useActiveNotifications } from "./hooks/useActiveNotifications";
 import { TimeframeProvider } from "./contexts/TimeframeContext";
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
+import { PageCoversProvider } from "./contexts/PageCoversContext";
+import { PageCoverBanner } from "./components/PageCoverBanner";
 import Index from "./pages/Index";
 import Inicio2 from "./pages/Inicio2";
 import NotFound from "./pages/NotFound";
@@ -87,6 +89,7 @@ import DestinoALlegar from "./pages/DestinoALlegar";
 import AnualView from "./pages/AnualView";
 import CoachIA from "./pages/CoachIA";
 import MiListaPersonal from "./pages/MiListaPersonal";
+import Organizacion from "./pages/Organizacion";
 import CincoAnos from "./pages/CincoAnos";
 import AlgunDia from "./pages/AlgunDia";
 import AhoraMismo from "./pages/AhoraMismo";
@@ -107,7 +110,9 @@ function AppContent() {
   return (
     <div className={cn("pt-12 lg:pt-0 min-h-screen transition-all duration-200", collapsed ? "lg:ml-14" : "lg:ml-56")}>
       <Navigation />
-      <Routes>
+      <PageCoversProvider>
+        <PageCoverBanner />
+        <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/inicio-2" element={<Inicio2 />} />
         <Route path="/control-room" element={<ControlRoom />} />
@@ -188,8 +193,10 @@ function AppContent() {
         <Route path="/ahora-mismo" element={<AhoraMismo />} />
         <Route path="/linea-de-tiempo" element={<LineaDeTiempo />} />
         <Route path="/coach-ia" element={<CoachIA />} />
+        <Route path="/organizacion" element={<Organizacion />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </PageCoversProvider>
     </div>
   );
 }

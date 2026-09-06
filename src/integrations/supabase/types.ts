@@ -3746,6 +3746,27 @@ export type Database = {
         }
         Relationships: []
       }
+      area_covers: {
+        Row: {
+          id: string
+          type: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          id: string
+          type?: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          id?: string
+          type?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       uploaded_images: {
         Row: {
           created_at: string

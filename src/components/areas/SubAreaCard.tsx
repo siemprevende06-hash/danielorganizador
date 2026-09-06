@@ -2,29 +2,7 @@ import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { ChevronDown, ChevronRight, Clock, Target } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const COVER_GRADIENTS = [
-  "from-blue-600/40 to-cyan-500/40",
-  "from-purple-600/40 to-pink-500/40",
-  "from-emerald-600/40 to-teal-500/40",
-  "from-amber-600/40 to-orange-500/40",
-  "from-rose-600/40 to-red-500/40",
-  "from-indigo-600/40 to-violet-500/40",
-  "from-lime-600/40 to-green-500/40",
-  "from-sky-600/40 to-blue-500/40",
-]
-
-function hashId(id: string): number {
-  let hash = 0
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) - hash) + id.charCodeAt(i)
-  }
-  return Math.abs(hash)
-}
-
-function getCoverGradient(id: string): string {
-  return COVER_GRADIENTS[hashId(id) % COVER_GRADIENTS.length]
-}
+import { AreaCover, getCoverGradient } from "./AreaCover"
 
 function getScoreColor(score: number): string {
   if (score >= 70) return "text-green-600 dark:text-green-400"
@@ -51,20 +29,41 @@ export interface SubAreaCardData {
 interface SubAreaCardProps {
   data: SubAreaCardData
   depth?: number
+  getCover?: (id: string) => string | null | undefined
+  showCamera?: boolean
+  getUploading?: (id: string) => boolean
+  onUploadCover?: (id: string, file: File) => void
 }
 
-export function SubAreaCard({ data, depth = 0 }: SubAreaCardProps) {
+function resolveUploading(getUploading: SubAreaCardProps["getUploading"], id: string): boolean {
+  return getUploading ? getUploading(id) : false
+}
+
+export function SubAreaCard({
+  data,
+  depth = 0,
+  getCover,
+  showCamera,
+  getUploading,
+  onUploadCover,
+}: SubAreaCardProps) {
   const [expanded, setExpanded] = useState(false)
   const hasChildren = data.children && data.children.length > 0
   const gradient = getCoverGradient(data.id)
+  const cover = getCover ? (getCover(data.id) ?? null) : null
+  const uploading = resolveUploading(getUploading, data.id)
 
   return (
     <Card className={cn("overflow-hidden border-0 shadow-sm", depth > 0 && "ml-3")}>
-      <div className={cn("h-14 bg-gradient-to-br flex items-center px-4", gradient)}>
-        <span className="text-sm font-bold text-white drop-shadow-sm truncate">
-          {data.label}
-        </span>
-      </div>
+      <AreaCover
+        cover={cover}
+        gradient={gradient}
+        label={data.label}
+        showCamera={showCamera}
+        uploading={uploading}
+        onUpload={onUploadCover ? (file) => onUploadCover(data.id, file) : undefined}
+        className="h-16"
+      />
 
       <div className="px-4 py-3 space-y-2">
         <div className="grid grid-cols-2 gap-3">
@@ -115,7 +114,15 @@ export function SubAreaCard({ data, depth = 0 }: SubAreaCardProps) {
       {hasChildren && expanded && (
         <div className="px-4 pb-4 space-y-2">
           {data.children!.map(child => (
-            <SubAreaCard key={child.id} data={child} depth={depth + 1} />
+            <SubAreaCard
+              key={child.id}
+              data={child}
+              depth={depth + 1}
+              getCover={getCover}
+              showCamera={showCamera}
+              getUploading={getUploading}
+              onUploadCover={onUploadCover}
+            />
           ))}
         </div>
       )}

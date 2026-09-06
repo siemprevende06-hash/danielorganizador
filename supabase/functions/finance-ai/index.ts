@@ -48,6 +48,11 @@ serve(async (req) => {
       ? wallets.map((w) => `- ${w.id}: "${w.name}"`).join("\n")
       : "(sin billeteras)";
 
+    // Ejemplos para el prompt con datos reales, para que el modelo no copie ids inventados ni fechas viejas
+    const hoy = todayStr();
+    const ejemploWalletId = wallets[0]?.id || "wallet-id";
+    const ejemploCatExpense = categories.find((c) => c.type === "expense")?.id || "cat-id";
+
     const systemPrompt = `Eres el asistente financiero de Daniel. Conviertes lo que te dice en una transacción de su app, y si faltan datos se los pides por chat hasta completarla.
 
 CATEGORÍAS DISPONIBLES (usa SIEMPRE estos ids exactos; el "type" de la categoría elegida define income/expense):
@@ -70,10 +75,10 @@ REGLAS:
 RESPONDE ÚNICAMENTE JSON VÁLIDO, sin markdown, sin texto extra. Dos formatos:
 
 A) Transacción completa:
-{"completado":true,"transaccion":{"description":"Café","amount":5,"currency":"USD","date":"2026-08-20","walletId":"wallet-efectivo","categoryId":"cat-coffee","type":"expense"}}
+{"completado":true,"transaccion":{"description":"Café","amount":5,"currency":"USD","date":"${hoy}","walletId":"${ejemploWalletId}","categoryId":"${ejemploCatExpense}","type":"expense"}}
 
 B) Faltan datos:
-{"completado":false,"pregunta":"¿En qué billetera fue? (Efectivo, Digital 1, Digital 2)","parcial":{"description":"Café","amount":5,"currency":"USD","date":"2026-08-20"}}`;
+{"completado":false,"pregunta":"¿En qué billetera fue? (Efectivo, Digital 1, Digital 2)","parcial":{"description":"Café","amount":5,"currency":"USD","date":"${hoy}"}}`;
 
     const messages: any[] = [
       { role: "system", content: systemPrompt },
@@ -145,6 +150,28 @@ B) Faltan datos:
 
     if (parsed.completado && parsed.transaccion) {
       const t = parsed.transaccion;
+      const type = t.type === "income" ? "income" : "expense";
+
+      // NUNCA inventar ids: si el modelo devolvió un id que no existe en las listas,
+      // se corrige con una billetera/categoría válidas, que es mejor que registrar nada.
+      let walletId = String(t.walletId || "");
+      if (!wallets.some((w) => w.id === walletId)) {
+        walletId = wallets[0]?.id || "";
+      }
+
+      let categoryId = String(t.categoryId || "");
+      let resolvedType = type;
+      const catMatch = categories.find((c) => c.id === categoryId);
+      if (catMatch) {
+        resolvedType = catMatch.type === "income" ? "income" : "expense";
+      } else {
+        const fallbackCat = categories.find((c) =>
+          type === "income" ? c.type === "income" : c.type === "expense"
+        );
+        categoryId = fallbackCat?.id || "";
+        if (fallbackCat) resolvedType = fallbackCat.type === "income" ? "income" : "expense";
+      }
+
       return json({
         completado: true,
         transaccion: {
@@ -152,9 +179,9 @@ B) Faltan datos:
           amount: Number(t.amount) || 0,
           currency: t.currency === "USD" ? "USD" : "CUP",
           date: typeof t.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : todayStr(),
-          walletId: String(t.walletId || ""),
-          categoryId: String(t.categoryId || ""),
-          type: t.type === "income" ? "income" : "expense",
+          walletId,
+          categoryId,
+          type: resolvedType,
         },
       });
     }
