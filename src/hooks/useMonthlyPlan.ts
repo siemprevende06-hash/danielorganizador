@@ -12,6 +12,7 @@ export interface MonthlyPlanData {
   personal_goals: { title: string; target?: string }[];
   inherited_from?: { quarter: number; year: number };
   distribution?: Record<string, { books: string[]; songs: string[] }>;
+  week_distribution?: Record<string, { books: string[]; songs: string[] }>;
 
 }
 
