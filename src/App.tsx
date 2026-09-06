@@ -109,8 +109,8 @@ function AppContent() {
 
   return (
     <div className={cn("pt-12 lg:pt-0 min-h-screen transition-all duration-200", collapsed ? "lg:ml-14" : "lg:ml-56")}>
-      <Navigation />
       <PageCoversProvider>
+        <Navigation />
         <PageCoverBanner />
         <Routes>
         <Route path="/" element={<Index />} />
