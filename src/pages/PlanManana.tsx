@@ -56,11 +56,11 @@ interface UniTask {
 }
 
 const SYSTEM_HABITS = [
-  { id: "lectura", name: "Lectura", icon: BookOpen, baseMin: 20 },
-  { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, baseMin: 15 },
-  { id: "game", name: "Game (Seducción)", icon: Gamepad2, baseMin: 15 },
+  { id: "lectura", name: "Lectura", icon: BookOpen, baseMin: 30 },
+  { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, baseMin: 20 },
+  { id: "game", name: "Game (Seducción)", icon: Gamepad2, baseMin: 20 },
   { id: "idiomas", name: "Idiomas", icon: Languages, baseMin: 30 },
-  { id: "gym", name: "Gym", icon: Dumbbell, baseMin: 45 },
+  { id: "gym", name: "Gym", icon: Dumbbell, baseMin: 60 },
   { id: "musica", name: "Música", icon: BookOpen, baseMin: 30 },
 ];
 
