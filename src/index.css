@@ -241,8 +241,8 @@
   }
 
   @keyframes splash-icon-breathe {
-    0%, 100% { filter: drop-shadow(0 0 10px hsla(250, 90%, 60%, 0.6)); }
-    50%      { filter: drop-shadow(0 0 26px hsla(290, 90%, 60%, 0.9)); }
+    0%, 100% { filter: drop-shadow(0 0 10px hsla(210, 90%, 60%, 0.6)); }
+    50%      { filter: drop-shadow(0 0 26px hsla(190, 90%, 60%, 0.9)); }
   }
   .splash-brain-icon {
     animation: splash-icon-breathe 1.2s ease-in-out infinite;
