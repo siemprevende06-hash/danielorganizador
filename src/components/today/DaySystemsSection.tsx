@@ -86,15 +86,15 @@ const TIERS: Record<TierKey, Tier> = {
   },
 };
 
-function getTier(actual: number, skipped: boolean, speedOptions: SpeedOption[]): Tier {
+function getTier(actual: number, skipped: boolean, meta: number, speedOptions: SpeedOption[]): Tier {
   if (skipped) return TIERS.red;
-  const min = speedOptions.find(o => o.id === "minimo")?.minutes ?? 0;
-  const max = speedOptions.find(o => o.id === "maximo")?.minutes ?? 0;
+  const baseMin = speedOptions.find(o => o.id === "minimo")?.minutes ?? 0;
   const extra = speedOptions.find(o => o.id === "extra")?.minutes ?? 0;
   if (actual <= 0) return TIERS.grey;
   if (extra > 0 && actual >= extra) return TIERS.gold;
-  if (actual >= max) return TIERS.green;
-  if (actual >= min) return TIERS.blue;
+  // La velocidad elegida (mín/máx/extra) actúa como tiempo máximo del sistema
+  if (meta > 0 && actual >= meta) return TIERS.green;
+  if (baseMin > 0 && actual >= baseMin) return TIERS.blue;
   return TIERS.grey;
 }
 
@@ -136,7 +136,7 @@ function CentralSystemCard({
   onToggle: () => void;
   onTimeChange: (minutes: number) => void;
 }) {
-  const tier = getTier(actualMinutes, skipped, system.speedOptions);
+  const tier = getTier(actualMinutes, skipped, meta, system.speedOptions);
   const pct = meta > 0 ? Math.round((actualMinutes / meta) * 100) : 0;
 
   return (

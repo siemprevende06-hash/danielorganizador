@@ -29,6 +29,14 @@ export function SystemSpeedCell({ system }: { system: DaySystem }) {
           <p className="text-[9px] text-muted-foreground">
             ~{system.speedOptions.find(o => o.id === level)?.minutes} min
           </p>
+          {system.streakMinutes > 0 && (
+            <p className="text-[9px] flex items-center gap-1 mt-0.5">
+              <span className={system.streakMinutes >= 30 ? "text-yellow-600" : "text-orange-500"}>
+                {system.streakMinutes >= 30 ? "🏆" : "🔥"}
+              </span>
+              <span className="text-muted-foreground">Salvar racha {system.streakMinutes}'</span>
+            </p>
+          )}
         </div>
       </div>
       <div className="flex gap-1 shrink-0">
@@ -82,7 +90,7 @@ export function DaySpeedSection() {
             </div>
           ))}
           <p className="text-[9px] text-muted-foreground px-1">
-            Mín y Máx se muestran según cada sistema. Extra suma un bloque de 60 min. Los minutos reales los registras en la vista Sistemas.
+            La opción marcada se guarda (localStorage) y se usa en la vista Sistemas como tiempo máximo (verde). Extra suma un bloque de 60 min; los minutos reales los registras en la vista Sistemas.
           </p>
         </div>
       </CardContent>
