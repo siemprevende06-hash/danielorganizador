@@ -29,6 +29,8 @@ import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { ResultadosDia } from '@/components/resultados/ResultadosDia';
+import { DaySystemsSection } from '@/components/today/DaySystemsSection';
+import { DaySpeedSection } from '@/components/today/DaySpeedSection';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
@@ -288,6 +290,8 @@ export default function DailyView() {
             </div>
 
             <TaskChecklist tasks={tasks} onToggle={toggleTaskDone} />
+
+            <DaySpeedSection />
           </>
         ) : viewMode === 'esfuerzo' ? (
           <>
@@ -576,6 +580,15 @@ export default function DailyView() {
           </FocusProcessPanel>
         )}
           </>
+        ) : viewMode === 'sistemas' ? (
+          <DaySystemsSection
+            completions={data.completions}
+            timeData={data.timeData}
+            workoutDuration={data.workoutDuration}
+            onToggle={toggleCompletion}
+            onTimeChange={setTimeValue}
+            skipped={data.skipped}
+          />
         ) : (
           <ResultadosDia date={selectedDate} />
         )}

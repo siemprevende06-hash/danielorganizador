@@ -80,11 +80,13 @@ export const POINT_B_AREAS: PointBArea[] = [
     label: "Desarrollo Personal",
     group: "construccion",
     icon: "📚",
-    effortTrackingIds: ["ingles", "italiano", "musica", "lectura"],
+    effortTrackingIds: ["ingles", "italiano", "musica", "lectura", "game", "ajedrez"],
     sub: [
       { id: "lectura", label: "Lectura", start: 0, target: 24, unit: "libros/año", trackingIds: ["lectura"] },
       { id: "idiomas", label: "Idiomas (inglés + italiano)", start: 3, target: 6, unit: "/10 (B1)", trackingIds: ["ingles", "italiano", "idioma-ingles-lectura-l", "idioma-italiano-lectura-l"] },
       { id: "musica", label: "Música", start: 5, target: 10, unit: "canciones", trackingIds: ["musica"] },
+      { id: "game", label: "Game (Seducción)", start: 2, target: 8, unit: "/10", trackingIds: ["game"] },
+      { id: "ajedrez", label: "Ajedrez", start: 0, target: 30, unit: "partidas/mes", trackingIds: ["ajedrez"] },
     ],
   },
   {
