@@ -33,6 +33,7 @@ const defaultPlanData: MonthlyPlanData = {
   subjects: [],
   events: [],
   personal_goals: [],
+  week_distribution: {},
 };
 
 const STORAGE_PREFIX = 'monthly_plan_';

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { format, startOfWeek, addDays } from 'date-fns';
+import { useState } from 'react';
+import { format, startOfWeek, startOfMonth, endOfMonth, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Save, ListChecks, Plus, Trash2, Book, Music, FolderKanban, GraduationCap, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { cn } from '@/lib/utils';
 import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
+import { WeeklyBookSongDistribution, type WeekDistribution } from '@/components/planning/WeeklyBookSongDistribution';
 import {
   setWeekGoal,
   getWeekGoalEffective,
@@ -32,13 +33,41 @@ export default function WeeklyPlanningPage() {
   const [weekDate, setWeekDate] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const { planData, loading, saving, addAction, toggleAction, removeAction, savePlan } = useWeeklyPlan(weekDate);
   const month = new Date(weekDate.getFullYear(), weekDate.getMonth(), 1);
-  const { planData: monthlyPlan, trimestralData } = useMonthlyPlan(month);
+  const {
+    planData: monthlyPlan,
+    trimestralData,
+    loading: monthLoading,
+    updatePlanData: updateMonthPlan,
+    savePlan: saveMonthPlan,
+    books: monthBooks,
+    songs: monthSongs,
+  } = useMonthlyPlan(month);
   const { toast } = useToast();
   const [newAction, setNewAction] = useState('');
 
   const weekStart = startOfWeek(weekDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekLabel = `${format(weekDays[0], 'd MMM', { locale: es })} - ${format(weekDays[6], 'd MMM', { locale: es })}`;
+
+  const monthWeeks = (() => {
+    const first = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
+    const last = endOfMonth(month);
+    const weeks: { key: string; label: string }[] = [];
+    let cursor = new Date(first);
+    while (cursor <= last) {
+      const end = addDays(cursor, 6);
+      weeks.push({
+        key: format(cursor, 'yyyy-MM-dd'),
+        label: `${format(cursor, 'd MMM', { locale: es })} - ${format(end, 'd MMM', { locale: es })}`,
+      });
+      cursor = addDays(cursor, 7);
+    }
+    return weeks;
+  })();
+
+  const setWeekDistribution = (dist: WeekDistribution) => {
+    updateMonthPlan(p => ({ ...p, week_distribution: dist }));
+  };
 
   const navigateWeek = (dir: 'prev' | 'next') => {
     setWeekDate(prev => {
@@ -49,8 +78,8 @@ export default function WeeklyPlanningPage() {
   };
 
   const handleSave = async () => {
-    await savePlan();
-    toast({ title: 'Plan semanal guardado' });
+    await Promise.all([savePlan(), saveMonthPlan()]);
+    toast({ title: 'Plan guardado' });
   };
 
   const handleAdd = () => {
@@ -121,6 +150,24 @@ export default function WeeklyPlanningPage() {
           </Button>
         </div>
       </header>
+
+      {monthLoading ? (
+        <div className="h-48 bg-muted/50 rounded-xl animate-pulse mb-4" />
+      ) : (
+        <div className="mb-4">
+          <WeeklyBookSongDistribution
+            weeks={monthWeeks}
+            activeWeekKey={format(weekStart, 'yyyy-MM-dd')}
+            monthLabel={format(month, 'MMMM yyyy', { locale: es })}
+            books={monthBooks}
+            songs={monthSongs}
+            selectedBookIds={monthlyPlan.books.selected || []}
+            selectedSongIds={monthlyPlan.songs.selected || []}
+            distribution={monthlyPlan.week_distribution || {}}
+            onChange={setWeekDistribution}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
