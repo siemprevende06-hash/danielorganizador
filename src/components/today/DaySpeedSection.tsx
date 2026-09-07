@@ -9,7 +9,7 @@ import { Gauge } from "lucide-react";
 export function SystemSpeedCell({ system }: { system: DaySystem }) {
   const { getSpeed, setSpeed } = useSystemSpeed();
   const level = getSpeed(system.id);
-  const { covers } = useAreaCovers();
+  const covers = useAreaCovers();
   const coverUrl = covers.covers[coverKey(system.cover.type, system.cover.id)] ?? null;
 
   return (
