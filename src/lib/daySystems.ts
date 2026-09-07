@@ -1,6 +1,6 @@
 import type { SystemsData } from "@/hooks/useSystemsTracking";
 
-export type SystemSpeed = "minimo" | "maximo" | "extra";
+export type SystemSpeed = "minimo" | "maximo" | "extra" | "racha";
 
 export interface SpeedOption {
   id: SystemSpeed;
@@ -33,8 +33,16 @@ export function systemActualMinutes(system: DaySystem, data: SystemsData): numbe
 }
 
 export function systemMinForSpeed(system: DaySystem, speed: SystemSpeed): number {
-  const opt = system.speedOptions.find(o => o.id === speed);
+  const opt = systemSpeedOptions(system).find(o => o.id === speed);
   return opt?.minutes ?? 0;
+}
+
+// Opciones de velocidad de un sistema, incluyendo "Racha" (minutos para salvar la racha) cuando aplica
+export function systemSpeedOptions(system: DaySystem): SpeedOption[] {
+  if (system.streakMinutes > 0) {
+    return [...system.speedOptions, { id: "racha", label: "Racha", minutes: system.streakMinutes }];
+  }
+  return system.speedOptions;
 }
 
 const BLOCK80: SpeedOption[] = [

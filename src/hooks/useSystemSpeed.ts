@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { DAY_SYSTEMS, type SystemSpeed } from "@/lib/daySystems";
+import { DAY_SYSTEMS, systemSpeedOptions, type SystemSpeed } from "@/lib/daySystems";
 
 const STORAGE_KEY = "daniel_system_speed_v1";
 
@@ -59,7 +59,7 @@ export function useSystemSpeed() {
         const sys = area.systems.find(s => s.id === systemId);
         if (sys) {
           const speed = map[systemId] ?? DEFAULT_SPEED;
-          const opt = sys.speedOptions.find(o => o.id === speed);
+          const opt = systemSpeedOptions(sys).find(o => o.id === speed);
           return opt?.minutes ?? 0;
         }
       }

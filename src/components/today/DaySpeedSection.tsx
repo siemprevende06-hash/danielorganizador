@@ -2,13 +2,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getCoverGradient } from "@/components/areas/AreaCover";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { useSystemSpeed } from "@/hooks/useSystemSpeed";
-import { DAY_SYSTEMS, type DaySystem } from "@/lib/daySystems";
+import { DAY_SYSTEMS, systemSpeedOptions, type DaySystem } from "@/lib/daySystems";
 import { cn } from "@/lib/utils";
 import { Gauge } from "lucide-react";
 
 export function SystemSpeedCell({ system }: { system: DaySystem }) {
   const { getSpeed, setSpeed } = useSystemSpeed();
   const level = getSpeed(system.id);
+  const options = systemSpeedOptions(system);
   const covers = useAreaCovers();
   const coverUrl = covers.covers[coverKey(system.cover.type, system.cover.id)] ?? null;
 
@@ -27,20 +28,12 @@ export function SystemSpeedCell({ system }: { system: DaySystem }) {
         <div className="min-w-0">
           <p className="text-xs font-medium truncate">{system.name}</p>
           <p className="text-[9px] text-muted-foreground">
-            ~{system.speedOptions.find(o => o.id === level)?.minutes} min
+            ~{options.find(o => o.id === level)?.minutes} min
           </p>
-          {system.streakMinutes > 0 && (
-            <p className="text-[9px] flex items-center gap-1 mt-0.5">
-              <span className={system.streakMinutes >= 30 ? "text-yellow-600" : "text-orange-500"}>
-                {system.streakMinutes >= 30 ? "🏆" : "🔥"}
-              </span>
-              <span className="text-muted-foreground">Salvar racha {system.streakMinutes}'</span>
-            </p>
-          )}
         </div>
       </div>
       <div className="flex gap-1 shrink-0">
-        {system.speedOptions.map(opt => (
+        {options.map(opt => (
           <button
             key={opt.id}
             onClick={() => setSpeed(system.id, opt.id)}
@@ -51,11 +44,13 @@ export function SystemSpeedCell({ system }: { system: DaySystem }) {
                   ? "bg-blue-500 text-white border-blue-500"
                   : opt.id === "maximo"
                   ? "bg-green-500 text-white border-green-500"
-                  : "bg-amber-500 text-white border-amber-500"
+                  : opt.id === "extra"
+                  ? "bg-amber-500 text-white border-amber-500"
+                  : "bg-rose-500 text-white border-rose-500"
                 : "bg-transparent border-border/50 text-muted-foreground hover:border-foreground/30"
             )}
           >
-            {opt.label === "Extra" ? "Extra" : opt.label === "Mín" ? "Mín" : "Máx"}
+            {opt.label}
           </button>
         ))}
       </div>
@@ -90,7 +85,7 @@ export function DaySpeedSection() {
             </div>
           ))}
           <p className="text-[9px] text-muted-foreground px-1">
-            La opción marcada se guarda (localStorage) y se usa en la vista Sistemas como tiempo máximo (verde). Extra suma un bloque de 60 min; los minutos reales los registras en la vista Sistemas.
+            La opción marcada se guarda (localStorage) y se usa en la vista Sistemas como tiempo máximo (verde). Racha = límite de minutos para salvar la racha. Extra suma un bloque de 60 min; los minutos reales los registras en la vista Sistemas.
           </p>
         </div>
       </CardContent>
