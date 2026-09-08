@@ -165,7 +165,9 @@ function PageItem({
       )}
       onClick={onSelect}
     >
-      <span className="text-base shrink-0">{page.icon || '📄'}</span>
+      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/60 text-sm leading-none shrink-0">
+        {page.icon || '📄'}
+      </span>
       <span className="truncate flex-1 text-sm">{page.title || 'Sin título'}</span>
       <button
         onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}

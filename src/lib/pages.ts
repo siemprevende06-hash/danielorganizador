@@ -78,10 +78,44 @@ export function createPageMeta(overrides?: Partial<PageMeta>): PageMeta {
   }
 }
 
-export function emojiList(): string[] {
+export interface EmojiCategory {
+  name: string
+  emojis: string[]
+}
+
+export function emojiCategories(): EmojiCategory[] {
   return [
-    '📄', '📝', '📋', '📌', '📎', '🎯', '💡', '🚀', '⭐', '🔥',
-    '💪', '🧠', '🎵', '📖', '🎨', '🏆', '💻', '📊', '🗂️', '📁',
-    '🎉', '✅', '🔄', '📅', '📈', '🏠', '💼', '🎓', '❤️', '👀',
+    {
+      name: 'Frecuentes',
+      emojis: ['📄', '📝', '📋', '📌', '📎', '🎯', '💡', '🚀', '⭐', '🔥'],
+    },
+    {
+      name: 'Objetos',
+      emojis: ['💼', '📁', '🗂️', '📊', '📈', '📉', '📅', '📆', '🗒️', '🗓️'],
+    },
+    {
+      name: 'Actividades',
+      emojis: ['💪', '🧠', '🎵', '📖', '🎨', '🏆', '💻', '🎮', '🏋️', '🏃'],
+    },
+    {
+      name: 'Simbolos',
+      emojis: ['✅', '❌', '🔄', '⏳', '🔔', '💎', '🔑', '📌', '🏷️', '🔖'],
+    },
+    {
+      name: 'Caras',
+      emojis: ['😀', '😎', '🤩', '🥳', '😏', '🤔', '😴', '🤗', '👀', '❤️'],
+    },
+    {
+      name: 'Naturaleza',
+      emojis: ['🌟', '🌙', '☀️', '🌈', '🔥', '💧', '🌿', '🌸', '🌺', '🍀'],
+    },
+    {
+      name: 'Colores',
+      emojis: ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '💖'],
+    },
   ]
+}
+
+export function emojiList(): string[] {
+  return emojiCategories().flatMap(cat => cat.emojis)
 }

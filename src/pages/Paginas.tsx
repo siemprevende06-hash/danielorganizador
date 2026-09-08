@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { usePageList, usePageContent } from '@/hooks/usePages'
 import { PageSidebar } from '@/components/notion/PageSidebar'
 import { BlockEditor } from '@/components/notion/BlockEditor'
-import { emojiList } from '@/lib/pages'
+import { PageIconPicker } from '@/components/notion/PageIconPicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -108,22 +108,22 @@ export default function Paginas() {
               </button>
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="text-2xl hover:bg-muted rounded-md p-1 transition-colors">
-                    {selectedPage.icon || '📄'}
+                  <button
+                    className={cn(
+                      'flex items-center justify-center rounded-full transition-colors',
+                      'hover:bg-muted p-1.5'
+                    )}
+                  >
+                    <span className="flex items-center justify-center w-9 h-9 rounded-full bg-accent/60 text-2xl leading-none shrink-0">
+                      {selectedPage.icon || '📄'}
+                    </span>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72" align="start">
-                  <div className="grid grid-cols-6 gap-1">
-                    {emojiList().map(emoji => (
-                      <button
-                        key={emoji}
-                        className="text-xl p-1.5 rounded-md hover:bg-accent transition-colors"
-                        onClick={() => { updatePage(selectedPage.id, { icon: emoji }) }}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+                  <PageIconPicker
+                    currentIcon={selectedPage.icon || ''}
+                    onSelect={(icon) => updatePage(selectedPage.id, { icon: icon || '📄' })}
+                  />
                 </PopoverContent>
               </Popover>
 
