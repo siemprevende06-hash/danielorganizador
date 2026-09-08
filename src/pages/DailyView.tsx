@@ -39,7 +39,7 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Sunrise, Moon } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { addDays, subDays } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -108,9 +108,7 @@ const ALL_GROUPS = [...SOSTEN_GROUPS, ...MEJORA_GROUPS];
 const ROUTINE_ICONS: Record<RoutineType, React.ReactNode> = {
   disciplina: <Flame className="h-4 w-4" />,
   normal: <Scale className="h-4 w-4" />,
-  super: <Zap className="h-4 w-4" />,
   descanso: <Leaf className="h-4 w-4" />,
-  equilibrio: <Sunrise className="h-4 w-4" />,
 };
 
 export default function DailyView() {

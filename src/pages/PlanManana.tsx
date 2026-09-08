@@ -224,7 +224,7 @@ export default function PlanManana() {
   // --- Hoy mode (render condicional al final, tras todos los hooks) ---
 
   const loadSavedPlan = async (dateStr: string) => {
-    const validTypes: RoutineType[] = ['disciplina', 'normal', 'super', 'descanso', 'equilibrio'];
+    const validTypes: RoutineType[] = ['disciplina', 'normal', 'descanso'];
     const resetDefaults = () => {
       setBlockAssignments({});
       setSelectedTasks(new Set());
