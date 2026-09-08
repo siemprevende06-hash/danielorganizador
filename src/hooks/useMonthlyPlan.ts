@@ -145,7 +145,7 @@ export function useMonthlyPlan(month: Date) {
           .select('id, title')
           .order('created_at', { ascending: true });
         if (projRows && projRows.length > 0) {
-          setProjects(projRows.map((p: { id: string; title: string }) => ({ id: p.id, name: p.title })));
+          setProjects(projRows.map((p: { id: string; title: string }) => ({ id: p.id, name: p.title, tasks: [] })));
         }
       } catch (e) { console.error('Error loading projects:', e); }
 
@@ -155,7 +155,7 @@ export function useMonthlyPlan(month: Date) {
           .select('id, name')
           .order('name');
         if (subjRows && subjRows.length > 0) {
-          setSubjects(subjRows.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })));
+          setSubjects(subjRows.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name, color: null })));
         }
       } catch (e) { console.error('Error loading subjects:', e); }
 

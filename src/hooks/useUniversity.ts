@@ -111,7 +111,7 @@ export function useUniversity() {
       const subjectsWithData: Subject[] = (subjectsRes.data || []).map(subject => ({
         id: subject.id,
         name: subject.name,
-        code: subject.code || '',
+        code: (subject as any).code || '',
         professor: subject.professor || '',
         schedule: subject.schedule || '',
         approved: subject.approved || false,
