@@ -1,0 +1,1 @@
+alter table public.music_repertoire add column if not exists cover_image_url text;

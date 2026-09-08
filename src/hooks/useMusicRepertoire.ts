@@ -8,6 +8,7 @@ export interface Song {
   instrument: 'piano' | 'guitar';
   title: string;
   artist: string | null;
+  cover_image_url: string | null;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   status: 'learning' | 'mastered';
   youtube_url: string | null;
@@ -49,6 +50,7 @@ export const useMusicRepertoire = () => {
           instrument: song.instrument || 'piano',
           title: song.title || '',
           artist: song.artist,
+          cover_image_url: song.cover_image_url,
           difficulty: song.difficulty || 'beginner',
           status: song.status || 'learning',
           youtube_url: song.youtube_url,

@@ -13,7 +13,7 @@ import { MusicStatsTab } from '@/components/music/MusicStatsTab';
 import { MusicDailyIndicator } from '@/components/music/MusicDailyIndicator';
 
 export default function MusicDashboard() {
-  const { songs, loading, addSong, markAsMastered, deleteSong, getSongsByInstrument, getStats } = useMusicRepertoire();
+  const { songs, loading, addSong, updateSong, markAsMastered, deleteSong, getSongsByInstrument, getStats } = useMusicRepertoire();
   const { toast } = useToast();
 
   const [instrument, setInstrument] = useState<'piano' | 'guitar'>('piano');
@@ -35,6 +35,22 @@ export default function MusicDashboard() {
   const [metronomeActive, setMetronomeActive] = useState(false);
   const metronomeRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Cover upload
+  const handleUploadCover = async (songId: string, file: File) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `song-${songId}-${Date.now()}.${fileExt}`;
+      const { error } = await supabase.storage.from('user-images').upload(`songs/${fileName}`, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('user-images').getPublicUrl(`songs/${fileName}`);
+      await updateSong(songId, { cover_image_url: publicUrl });
+      toast({ title: 'Portada actualizada ✓' });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Error', description: 'No se pudo subir la portada', variant: 'destructive' });
+    }
+  };
 
   // Practice sessions
   const [todayPractice, setTodayPractice] = useState(0);
@@ -260,6 +276,7 @@ export default function MusicDashboard() {
               }}
               onMarkMastered={markAsMastered}
               onDelete={deleteSong}
+              onUploadCover={handleUploadCover}
             />
           </TabsContent>
 
