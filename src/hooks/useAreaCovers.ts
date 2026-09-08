@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
-import { supabase } from "@/integrations/supabase/client"
+import { supabase as typedSupabase } from "@/integrations/supabase/client"
+
+const supabase = typedSupabase as any
 import { toast } from "sonner"
 
 export type CoverType = "area" | "sub"
@@ -25,7 +27,7 @@ export function useAreaCovers() {
           return
         }
         const map: Record<string, string> = {}
-        for (const row of data ?? []) {
+        for (const row of (data ?? []) as Array<{ id: string; type: string; url: string }>) {
           map[coverKey(row.type as CoverType, row.id)] = row.url
         }
         setCovers(map)

@@ -387,7 +387,7 @@ const ObjetivoPrioritario = () => {
           </>
         ) : (
           <div className="rounded-2xl border border-dashed border-border/60 py-16 text-center text-sm text-muted-foreground">
-            {loading || scoresLoading ? 'Cargando estadísticas...' : 'Sin datos disponibles'}
+            {scoresLoading ? 'Cargando estadísticas...' : 'Sin datos disponibles'}
           </div>
         )}
 

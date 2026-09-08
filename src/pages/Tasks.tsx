@@ -205,7 +205,7 @@ export default function TasksPage() {
       if (error) throw error;
       
       if (data) {
-        const mapped = data.map(t => ({
+        const mapped = (data as any[]).map(t => ({
           id: t.id,
           title: t.title,
           description: t.description || undefined,
