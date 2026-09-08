@@ -11,11 +11,14 @@ import { Activity, Dumbbell, Brain, Languages, Music, Gamepad2, BookOpen, Crown 
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "@/components/systems/WeekStreakBar";
 import { useMusicRepertoire } from "@/hooks/useMusicRepertoire";
+import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
+import { getCoverGradient } from "@/components/areas/AreaCover";
 
 interface SystemCard {
   id: string;
   label: string;
   icon: any;
+  cover?: { type: "area" | "sub"; id: string };
   route?: string;
   schedule: string;
   todayValue: number;
@@ -37,15 +40,27 @@ const semaphore = (value: number, min: number, max: number) => {
   return { ring: "ring-red-500/40", bg: "bg-red-500/5", text: "text-red-500", label: "Sin hacer", dot: "bg-gray-400" };
 };
 
-function SystemCardView({ c }: { c: SystemCard }) {
+function SystemCardView({ c, covers }: { c: SystemCard; covers: Record<string, string> }) {
   const Icon = c.icon;
   const sem = semaphore(c.todayValue, c.minThreshold, c.maxThreshold);
   const goalPct = c.maxThreshold > 0 ? Math.min(100, Math.round((c.todayValue / c.maxThreshold) * 100)) : 0;
   const max = Math.max(1, ...c.spark);
+  const url = c.cover ? covers[coverKey(c.cover.type, c.cover.id)] ?? null : null;
 
   return (
     <Link to={c.route || "/systems"} className="block relative">
       <Card className={cn("p-3 ring-2 transition-all h-full", sem.ring, sem.bg)}>
+        {c.cover && (
+          <div className={cn("relative -mx-3 -mt-3 mb-2 h-12 rounded-t-2xl overflow-hidden bg-gradient-to-br", getCoverGradient(c.cover.id))}>
+            {url ? (
+              <img src={url} alt={c.label} className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 grid place-items-center">
+                <Icon className="h-5 w-5 text-white/80 drop-shadow-sm" />
+              </div>
+            )}
+          </div>
+        )}
         <div className={cn("absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", sem.dot)} />
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
@@ -99,6 +114,7 @@ export function MySystemsSection() {
   const [musicaMin, setMusicaMin] = useState(0);
   const [loading, setLoading] = useState(true);
   const { getSongsByInstrument } = useMusicRepertoire();
+  const { covers } = useAreaCovers();
 
   const pianoLearning = getSongsByInstrument("piano").find(s => s.status === "learning");
   const guitarLearning = getSongsByInstrument("guitar").find(s => s.status === "learning");
@@ -175,21 +191,21 @@ export function MySystemsSection() {
 
     const cards: SystemCard[] = [
       {
-        id: "lectura", label: "Lectura", icon: BookOpen, route: "/reading-library",
+        id: "lectura", label: "Lectura", icon: BookOpen, route: "/reading-library", cover: { type: "sub", id: "lectura" },
         schedule: "8:30 - 9:00 AM",
         todayValue: last(minutesByDay("lectura")), unit: "min",
         minThreshold: 15, maxThreshold: 30,
         weekTotal: sum(minutesByDay("lectura")), streak: streaks.lectura || 0, spark: minutesByDay("lectura"),
       },
       {
-        id: "ajedrez", label: "Ajedrez", icon: Crown, route: "/chess",
+        id: "ajedrez", label: "Ajedrez", icon: Crown, route: "/chess", cover: { type: "sub", id: "ajedrez" },
         schedule: "1:20 - 2:00 PM",
         todayValue: last(minutesByDay("ajedrez")), unit: "min",
         minThreshold: 10, maxThreshold: 20,
         weekTotal: sum(minutesByDay("ajedrez")), streak: streaks.ajedrez || 0, spark: minutesByDay("ajedrez"),
       },
       {
-        id: "game", label: "Game (Seducción)", icon: Gamepad2, route: "/systems",
+        id: "game", label: "Game (Seducción)", icon: Gamepad2, route: "/systems", cover: { type: "sub", id: "game" },
         schedule: "1:20 - 2:00 PM",
         todayValue: last(gameSpark), unit: "min",
         minThreshold: 10, maxThreshold: 20,
@@ -199,7 +215,7 @@ export function MySystemsSection() {
 
     const idiomasSpark = minutesByDay("idiomas");
     const iCard: SystemCard = {
-      id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard",
+      id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard", cover: { type: "sub", id: "idiomas" },
       schedule: "5:00 - 6:30 PM",
       todayValue: last(idiomasSpark), unit: "min",
       minThreshold: 30, maxThreshold: 90,
@@ -207,7 +223,7 @@ export function MySystemsSection() {
     };
 
     const gCard: SystemCard = {
-      id: "gym", label: "Gym", icon: Dumbbell, route: "/gym",
+      id: "gym", label: "Gym", icon: Dumbbell, route: "/gym", cover: { type: "area", id: "salud" },
       schedule: "6:00 - 7:00 PM",
       todayValue: last(gymSpark), unit: "min",
       minThreshold: 30, maxThreshold: 60,
@@ -233,14 +249,14 @@ export function MySystemsSection() {
       {/* === Hobbies Mentales === */}
       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Hobbies Mentales</p>
       <div className="grid grid-cols-3 gap-3 mb-5">
-        {cards.map(c => <SystemCardView key={c.id} c={c} />)}
+        {cards.map(c => <SystemCardView key={c.id} c={c} covers={covers} />)}
       </div>
 
       {/* Idiomas — entre secciones, pertenece a Hobbies Mentales */}
       {idiomasCard && (
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div className="col-span-3">
-            <SystemCardView c={idiomasCard} />
+            <SystemCardView c={idiomasCard} covers={covers} />
           </div>
         </div>
       )}
@@ -251,6 +267,15 @@ export function MySystemsSection() {
         {/* Música — 3 columnas */}
         <Link to="/music-dashboard" className="col-span-3 block relative">
           <Card className={cn("p-3 ring-2 h-full", musicaSem.ring, musicaSem.bg)}>
+            <div className={cn("relative -mx-3 -mt-3 mb-2 h-12 rounded-t-2xl overflow-hidden bg-gradient-to-br", getCoverGradient("musica"))}>
+              {covers[coverKey("sub", "musica")] ? (
+                <img src={covers[coverKey("sub", "musica")]} alt="Música" className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 grid place-items-center">
+                  <Music className="h-5 w-5 text-white/80 drop-shadow-sm" />
+                </div>
+              )}
+            </div>
             <div className={cn("absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", musicaSem.dot)} />
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
@@ -304,7 +329,7 @@ export function MySystemsSection() {
       <div className="grid grid-cols-3 gap-3">
         {gymCard && (
           <div className="col-span-3">
-            <SystemCardView c={gymCard} />
+            <SystemCardView c={gymCard} covers={covers} />
           </div>
         )}
       </div>
