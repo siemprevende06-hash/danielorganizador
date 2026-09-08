@@ -39,9 +39,10 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Sunrise } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Sunrise, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { addDays, subDays } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { TimePeriodSections } from '@/components/today/TimePeriodSections';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
@@ -255,6 +256,13 @@ export default function DailyView() {
             <Badge variant="outline" className="text-xs font-mono">
               Día {dayOfYear} · {yearProgress}% del año
             </Badge>
+            <Link
+              to="/plan-manana"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-sm hover:bg-primary/90 transition-colors"
+            >
+              <Moon className="h-3.5 w-3.5" />
+              Planificación mañana
+            </Link>
           </div>
         </div>
 
