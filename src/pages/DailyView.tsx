@@ -191,7 +191,7 @@ export default function DailyView() {
     }
   }, [planRoutineType, setRoutineType]);
 
-  const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten' | 'control'>('tasks');
+  const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten'>('tasks');
   const completedHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.filter(h => data.completions?.[h.id]).length, 0);
   const totalHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.length, 0);
   const mejoraMinutes = (data.timeData?.lectura || 0) + (data.timeData?.musica || 0) + (data.timeData?.ajedrez || 0) + (data.workoutDuration || 0);
@@ -214,7 +214,6 @@ export default function DailyView() {
     { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: 0 },
     { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: mejoraMinutes },
     { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: sostenMinutes },
-    { id: 'control' as const, label: 'Autocrítica', icon: <Sparkles className="h-4 w-4" />, pct: 0, time: 0 },
   ];
 
   if (loading) {
@@ -229,7 +228,7 @@ export default function DailyView() {
     <div className="min-h-screen bg-background p-3 md:p-6 pt-20 pb-24">
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica />
         </div>
 
         <div className="flex items-center justify-between">
@@ -307,7 +306,7 @@ export default function DailyView() {
         <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} date={selectedDate} />
 
         {/* Section tabs as cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {SECTIONS.map(s => {
             const isActive = activeSection === s.id;
             return (
@@ -588,11 +587,9 @@ export default function DailyView() {
           </FocusProcessPanel>
         )}
 
-        {/* ===== SECCIÓN: AUTOCRÍTICA ===== */}
-        {activeSection === 'control' && (
-          <AutocriticaSection start={selectedDate} end={selectedDate} scope="day" />
-        )}
           </>
+        ) : viewMode === 'autocritica' ? (
+          <AutocriticaSection start={selectedDate} end={selectedDate} scope="day" />
         ) : viewMode === 'sistemas' ? (
           <DaySystemsSection
             completions={data.completions}

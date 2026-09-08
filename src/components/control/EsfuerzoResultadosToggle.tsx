@@ -1,21 +1,24 @@
 import { cn } from '@/lib/utils';
 
-export type PeriodViewMode = 'esfuerzo' | 'plan' | 'resultados' | 'sistemas';
+export type PeriodViewMode = 'esfuerzo' | 'plan' | 'resultados' | 'sistemas' | 'autocritica';
 
 const OPTIONS: { id: PeriodViewMode; label: string }[] = [
   { id: 'esfuerzo', label: 'Esfuerzo' },
   { id: 'plan', label: 'Plan' },
   { id: 'resultados', label: 'Resultados' },
   { id: 'sistemas', label: 'Sistemas' },
+  { id: 'autocritica', label: 'Autocrítica' },
 ];
 
-export function EsfuerzoResultadosToggle({ value, onChange, className, withPlan = true }: {
+export function EsfuerzoResultadosToggle({ value, onChange, className, withPlan = true, withAutocritica = false }: {
   value: PeriodViewMode;
   onChange: (v: PeriodViewMode) => void;
   className?: string;
   withPlan?: boolean;
+  withAutocritica?: boolean;
 }) {
-  const options = withPlan ? OPTIONS : OPTIONS.filter(o => o.id !== 'plan' && o.id !== 'sistemas');
+  let options = withPlan ? OPTIONS : OPTIONS.filter(o => o.id !== 'plan' && o.id !== 'sistemas');
+  if (!withAutocritica) options = options.filter(o => o.id !== 'autocritica');
   return (
     <div className={cn("inline-flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border/50", className)}>
       {options.map(o => (

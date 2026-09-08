@@ -52,6 +52,20 @@ export const HOBBY_RANGES: Record<string, { min: number; max: number }> = {
   game: { min: 10, max: 20 },
 };
 
+/** Máximo diario fijo de esfuerzo por área según el día de la semana
+ *  (índice de Date.getDay(): 0=Domingo ... 6=Sábado) */
+const EFFORT_DAILY_MAX: Record<string, number[]> = {
+  universidad: [90, 240, 240, 240, 240, 240, 90],
+  emprendimiento: [90, 240, 240, 240, 240, 240, 90],
+  proyectos: [450, 90, 90, 90, 90, 90, 450],
+  idiomas: [20, 20, 120, 20, 20, 120, 20],
+};
+
+function dailyEffortMax(today: Date, id: string): number | null {
+  const byDay = EFFORT_DAILY_MAX[id];
+  return byDay ? (byDay[today.getDay()] ?? null) : null;
+}
+
 function hexToRgb(hex: string): string {
   const h = hex.replace('#', '');
   const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
@@ -66,6 +80,8 @@ export function minutesOfToday(timeData: Record<string, number>, workoutDuration
 }
 
 export function goalOfToday(today: Date, id: string): number {
+  const fixed = dailyEffortMax(today, id);
+  if (fixed != null) return fixed;
   if (id === 'idiomas') {
     const g = getDayGoalEffective(today, 'italiano') + getDayGoalEffective(today, 'ingles');
     return g > 0 ? g : (DEFAULT_GOALS.idiomas || 0);
