@@ -11,8 +11,15 @@ cleanupOutdatedCaches();
 self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await caches.delete('static-assets-v2');
+      await caches.delete('pages');
+      await self.clients.claim();
+    })()
+  );
 });
+
 
 setCatchHandler(async ({ event }) => {
   if (event.request.mode === 'navigate') {
@@ -119,15 +126,30 @@ registerRoute(
 );
 
 registerRoute(
-  /\.(?:js|css|woff2?|ttf|otf|eot)$/i,
-  new StaleWhileRevalidate({
-    cacheName: 'static-assets-v2',
+  /\.(?:woff2?|ttf|otf|eot)$/i,
+  new CacheFirst({
+    cacheName: 'fonts',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 60, maxAgeSeconds: 180 * 24 * 60 * 60 }),
+    ],
+  }),
+  'GET'
+);
+
+// Scripts/estilos: siempre red primero para evitar mezclar versiones
+// (una parte nueva con otra vieja provoca errores tipo "X is not defined").
+registerRoute(
+  /\.(?:js|css)$/i,
+  new NetworkFirst({
+    cacheName: 'static-assets-v3',
+    networkTimeoutSeconds: 5,
     plugins: [
       new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 30 * 24 * 60 * 60 }),
     ],
   }),
   'GET'
 );
+
 
 registerRoute(
   /\.(?:json|xml)$/i,
