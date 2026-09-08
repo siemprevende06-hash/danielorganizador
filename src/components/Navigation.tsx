@@ -16,6 +16,7 @@ import { useAutoTheme } from '@/hooks/useAutoTheme';
 import { InstallPrompt } from '@/components/InstallPrompt';
 import { PageCoverMenu } from '@/components/PageCoverMenu';
 import { usePageIcons } from '@/contexts/PageIconsContext';
+import { usePageNames } from '@/contexts/PageNamesContext';
 
 interface SidebarItem {
   path?: string;
@@ -59,6 +60,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/weeks', label: 'Semanas', icon: CalendarDays },
       { path: '/goals', label: 'Metas', icon: Goal },
       { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
+      { path: '/estadisticas-esfuerzo', label: 'Esfuerzo', icon: Activity },
     ]
   },
   {
@@ -151,7 +153,6 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/confidence-steps', label: 'Escalones', icon: Target },
       { path: '/sprint', label: 'Sprint', icon: Target },
       { path: '/vida-daniel', label: 'Estadísticas', icon: BarChart3 },
-      { path: '/estadisticas-esfuerzo', label: 'Esfuerzo', icon: Activity },
       { path: '/periodic-review', label: 'Revisión Periódica', icon: Sparkles },
       { path: '/performance-modes', label: 'Modos', icon: Zap },
       { path: '/novia', label: 'Novia', icon: Heart },
@@ -169,7 +170,10 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
 
 const allNavItems = sidebarGroups.flatMap(g => g.items);
 
-function getPageTitle(pathname: string): string {
+function getPageTitle(pathname: string, customName?: string): string {
+  if (customName && customName.trim()) {
+    return customName;
+  }
   if (pathname.startsWith('/paginas')) {
     return 'Páginas';
   }
@@ -230,6 +234,7 @@ export const Navigation = () => {
     if (item.submenu) {
       const Icon = item.icon;
       const isActive = item.submenu.some(s => location.pathname === s.path);
+      const customName = getPageName(item.path || '');
       return (
         <div key={item.label} className="space-y-0.5">
           <div className={cn(
@@ -240,13 +245,15 @@ export const Navigation = () => {
             <Icon className="h-4 w-4 shrink-0" />
             {!collapsed && (
               <>
-                <span>{item.label}</span>
+                <span>{customName || item.label}</span>
                 <ChevronDown className="h-3 w-3 ml-auto opacity-50" />
               </>
             )}
           </div>
           {!collapsed && item.submenu.map(sub => {
             const isSubActive = location.pathname === sub.path;
+            const subIcon = getIcon(sub.path);
+            const subName = getPageName(sub.path);
             return (
               <Link
                 key={sub.path}
@@ -258,8 +265,12 @@ export const Navigation = () => {
                     : "text-foreground/70 hover:text-foreground hover:bg-accent/50"
                 )}
               >
-                <span className="w-1 h-1 rounded-full bg-current shrink-0" />
-                {sub.label}
+                {subIcon ? (
+                  <span className="text-sm shrink-0">{subIcon}</span>
+                ) : (
+                  <span className="w-1 h-1 rounded-full bg-current shrink-0" />
+                )}
+                {subName || sub.label}
               </Link>
             );
           })}
@@ -269,6 +280,8 @@ export const Navigation = () => {
 
     const Icon = item.icon;
     const isActive = item.path ? location.pathname === item.path : false;
+    const itemIcon = item.path ? getIcon(item.path) : undefined;
+    const itemName = item.path ? getPageName(item.path) : undefined;
     return (
       <Link
         key={item.path}
@@ -281,15 +294,21 @@ export const Navigation = () => {
             : "text-foreground/80 hover:text-foreground hover:bg-accent/50"
         )}
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        {!collapsed && <span>{item.label}</span>}
+        {itemIcon ? (
+          <span className="text-sm shrink-0">{itemIcon}</span>
+        ) : (
+          <Icon className="h-4 w-4 shrink-0" />
+        )}
+        {!collapsed && <span>{itemName || item.label}</span>}
       </Link>
     );
   };
 
-  const currentPage = getPageTitle(location.pathname);
   const { getIcon } = usePageIcons();
+  const { getPageName } = usePageNames();
   const pageIcon = getIcon(location.pathname);
+  const customCurrentName = getPageName(location.pathname);
+  const currentPage = getPageTitle(location.pathname, customCurrentName);
 
   return (
     <>
@@ -304,7 +323,7 @@ export const Navigation = () => {
           <span className="font-medium text-sm">{currentPage}</span>
         </div>
         <div className="flex items-center gap-1">
-          <PageCoverMenu />
+          <PageCoverMenu currentName={currentPage} />
           <button
             onClick={() => (window as any).__pwaCheckForUpdates?.()}
             className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -390,7 +409,7 @@ export const Navigation = () => {
             </div>
           )}
           <div className={cn("flex items-center", collapsed ? "flex-col gap-1" : "gap-1")}>
-            <PageCoverMenu />
+            <PageCoverMenu currentName={currentPage} />
             <button
               onClick={() => (window as any).__pwaCheckForUpdates?.()}
               className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground shrink-0 transition-colors"

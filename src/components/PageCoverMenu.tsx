@@ -1,6 +1,6 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ImagePlus, MoreHorizontal, SmilePlus, Trash2 } from 'lucide-react';
+import { ImagePlus, MoreHorizontal, Pencil, SmilePlus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -14,19 +14,44 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { usePageCovers } from '@/contexts/PageCoversContext';
 import { usePageIcons } from '@/contexts/PageIconsContext';
+import { usePageNames } from '@/contexts/PageNamesContext';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { emojiList } from '@/lib/pages';
 
-export function PageCoverMenu({ className }: { className?: string }) {
+export function PageCoverMenu({ className, currentName }: { className?: string; currentName?: string }) {
   const { pathname } = useLocation();
   const { covers, setCover, removeCover } = usePageCovers();
   const { icons, setIcon, removeIcon } = usePageIcons();
+  const { setPageName, removePageName, getPageName } = usePageNames();
   const { uploadImage } = useImageUpload();
   const fileRef = useRef<HTMLInputElement>(null);
   const hasCover = !!covers?.[pathname];
   const hasIcon = !!icons?.[pathname];
+  const customName = getPageName(pathname);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+
+  const openRename = () => {
+    setRenameValue(customName || currentName || '');
+    setRenameOpen(true);
+  };
+
+  const saveRename = () => {
+    const value = renameValue.trim();
+    if (value) {
+      setPageName(pathname, value);
+      toast.success('Nombre actualizado');
+    } else if (customName) {
+      removePageName(pathname);
+      toast.success('Nombre restaurado');
+    }
+    setRenameOpen(false);
+  };
 
   const handleFile = async (file: File) => {
     const url = await uploadImage(file, 'covers');
@@ -52,6 +77,11 @@ export function PageCoverMenu({ className }: { className?: string }) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem onClick={openRename}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Editar nombre
+          </DropdownMenuItem>
+
           <DropdownMenuItem onClick={() => fileRef.current?.click()}>
             <ImagePlus className="h-4 w-4 mr-2" />
             {hasCover ? 'Cambiar portada' : 'Agregar portada'}
@@ -117,6 +147,31 @@ export function PageCoverMenu({ className }: { className?: string }) {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar nombre de la página</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            placeholder="Nombre de la página"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveRename();
+            }}
+          />
+          {customName && (
+            <p className="text-[10px] text-muted-foreground -mt-1">
+              Deja vacío para restaurar el nombre original
+            </p>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setRenameOpen(false)}>Cancelar</Button>
+            <Button onClick={saveRename}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <input
         ref={fileRef}
         type="file"

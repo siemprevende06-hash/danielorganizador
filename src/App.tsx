@@ -113,9 +113,10 @@ function AppContent() {
     <div className={cn("pt-12 lg:pt-0 min-h-screen transition-all duration-200", collapsed ? "lg:ml-14" : "lg:ml-56")}>
       <PageCoversProvider>
         <PageIconsProvider>
-          <Navigation />
-          <PageCoverBanner />
-          <PageIconBanner />
+          <PageNamesProvider>
+            <Navigation />
+            <PageCoverBanner />
+            <PageIconBanner />
           <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/inicio-2" element={<Inicio2 />} />
@@ -200,6 +201,7 @@ function AppContent() {
         <Route path="/organizacion" element={<Organizacion />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+        </PageNamesProvider>
         </PageIconsProvider>
       </PageCoversProvider>
     </div>
