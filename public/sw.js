@@ -11,8 +11,15 @@ cleanupOutdatedCaches();
 self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      await caches.delete('static-assets-v2');
+      await caches.delete('pages');
+      await self.clients.claim();
+    })()
+  );
 });
+
 
 setCatchHandler(async ({ event }) => {
   if (event.request.mode === 'navigate') {
