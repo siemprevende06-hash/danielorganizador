@@ -79,15 +79,22 @@ export function GrupoResultados({ label, children }: { label: string; children: 
 }
 
 /** Fila de área: título arriba y su contenido repartido en las 2 columnas (planificado | objetivos) */
-export function AreaRowCols({ title, color, plan, objetivo }: {
+export function AreaRowCols({ title, color, cover, plan, objetivo }: {
   title: string;
   color?: string;
+  cover?: string | null;
   plan: React.ReactNode;
   objetivo: React.ReactNode;
 }) {
   return (
     <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      {color && <div className={cn('h-1 bg-gradient-to-r', color)} />}
+      {cover ? (
+        <div className="h-20 md:h-24 overflow-hidden">
+          <img src={cover} alt={title} className="w-full h-full object-cover" />
+        </div>
+      ) : color ? (
+        <div className={cn('h-1 bg-gradient-to-r', color)} />
+      ) : null}
       <CardContent className="p-4">
         <h3 className="text-sm font-bold tracking-tight mb-3">{title}</h3>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -213,17 +220,28 @@ export function ProyectosPlan({ data }: { data: ProjectResult[] }) {
   if (data.length === 0) return <AreaEmpty>Activa proyectos desde su página</AreaEmpty>;
   return (
     <div className="space-y-3">
-      {data.map(p => (
-        <div key={p.id} className="rounded-xl border border-muted/50 p-2.5 space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold truncate">{p.name}</p>
-            <Badge variant="outline" className="text-[8px] shrink-0">{p.done}/{p.total}</Badge>
+      {data.map(p => {
+        const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
+        return (
+          <div key={p.id} className="rounded-xl border border-muted/50 overflow-hidden">
+            {p.cover ? (
+              <div className="h-16 overflow-hidden">
+                <img src={p.cover} alt={p.name} className="w-full h-full object-cover" />
+              </div>
+            ) : null}
+            <div className="p-2.5 space-y-1.5">
+              <Progress value={pct} className={cn('h-1.5', pct >= 100 && 'bg-emerald-500/20')} />
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold truncate">{p.name}</p>
+                <Badge variant={pct >= 100 ? 'secondary' : 'outline'} className="text-[8px] shrink-0">{p.done}/{p.total}</Badge>
+              </div>
+              {p.tasks.length > 0 ? <TaskPlanList area={{ tasks: p.tasks }} /> : (
+                <p className="text-[10px] italic text-muted-foreground">Sin tareas aún</p>
+              )}
+            </div>
           </div>
-          {p.tasks.length > 0 ? <TaskPlanList area={{ tasks: p.tasks }} /> : (
-            <p className="text-[10px] italic text-muted-foreground">Sin tareas aún</p>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -236,13 +254,20 @@ export function ProyectosObjetivos({ data }: { data: ProjectResult[] }) {
       {data.map(p => {
         const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
         return (
-          <div key={p.id} className="rounded-xl border border-muted/50 p-2.5 space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold truncate">{p.name}</p>
-              <Badge variant={pct >= 100 ? 'secondary' : 'outline'} className="text-[8px] shrink-0">{pct}%</Badge>
+          <div key={p.id} className="rounded-xl border border-muted/50 overflow-hidden">
+            {p.cover ? (
+              <div className="h-16 overflow-hidden">
+                <img src={p.cover} alt={p.name} className="w-full h-full object-cover" />
+              </div>
+            ) : null}
+            <div className="p-2.5 space-y-1.5">
+              <Progress value={pct} className={cn('h-1.5', pct >= 100 && 'bg-emerald-500/20')} />
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold truncate">{p.name}</p>
+                <Badge variant={pct >= 100 ? 'secondary' : 'outline'} className="text-[8px] shrink-0">{pct}%</Badge>
+              </div>
+              <p className="text-[10px] text-muted-foreground">{p.done} de {p.total} tareas completadas</p>
             </div>
-            <Progress value={pct} className={cn('h-1.5', pct >= 100 && 'bg-emerald-500/20')} />
-            <p className="text-[10px] text-muted-foreground">{p.done} de {p.total} tareas completadas</p>
           </div>
         );
       })}

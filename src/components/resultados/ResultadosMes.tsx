@@ -8,7 +8,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import {
   ResultadoColumnas, GrupoResultados, AreaRowCols, ResumenGeneral, CheckItem, ResultRow,
-  StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, PlanDelMes, AREA_COLORS,
+  StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS, BookCloud, SongCloud,
   UniversityPlan, UniversityObjetivos, EntPlan, EntObjetivos, ProyectosPlan, ProyectosObjetivos, OtherTasksList,
 } from './shared';
 import { CreateTaskPeriodButton } from '@/components/tasks/CreateTaskPeriodButton';
@@ -83,9 +83,6 @@ export function ResultadosMes({ month }: { month: Date }) {
           </div>
         </div>
       )}
-
-      {/* Plan trimestral del mes */}
-      <PlanDelMes books={r.books} songs={r.songs} />
 
       <div className="flex justify-end">
         <CreateTaskPeriodButton start={month} end={monthEnd} periodLabel={"Este mes"} defaultDate={month} />
@@ -181,10 +178,18 @@ export function ResultadosMes({ month }: { month: Date }) {
             title="Lectura"
             color={AREA_COLORS.lectura}
             plan={
-              <ul className="space-y-1.5">
-                <CheckItem>Meta mensual de páginas</CheckItem>
-                <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer {r.lectura.pagesGoal || 600} páginas en el mes</CheckItem>
-              </ul>
+              <>
+                {r.books.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Libros del plan</p>
+                    <BookCloud books={r.books} />
+                  </div>
+                )}
+                <ul className="space-y-1.5">
+                  <CheckItem>Meta mensual de páginas</CheckItem>
+                  <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer {r.lectura.pagesGoal || 600} páginas en el mes</CheckItem>
+                </ul>
+              </>
             }
             objetivo={
               <>
@@ -220,10 +225,18 @@ export function ResultadosMes({ month }: { month: Date }) {
             title="Música"
             color={AREA_COLORS.musica}
             plan={
-              <ul className="space-y-1.5">
-                <CheckItem done={r.musica.minutes > 0}>Práctica mensual</CheckItem>
-                <CheckItem>Escalas diarias</CheckItem>
-              </ul>
+              <>
+                {r.songs.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Canciones del plan</p>
+                    <SongCloud songs={r.songs} />
+                  </div>
+                )}
+                <ul className="space-y-1.5">
+                  <CheckItem done={r.musica.minutes > 0}>Práctica mensual</CheckItem>
+                  <CheckItem>Escalas diarias</CheckItem>
+                </ul>
+              </>
             }
             objetivo={
               <>

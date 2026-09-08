@@ -95,6 +95,7 @@ export interface ProjectResult {
   tasks: PlanTaskItem[];
   done: number;
   total: number;
+  cover: string | null;
 }
 
 export interface ResultadoPeriodo {
@@ -353,6 +354,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
           tasks: pts.map(t => ({ id: t.id, title: t.title, completed: !!t.completed, task_type: 'project' })),
           done,
           total,
+          cover: p.cover_image || null,
         };
       });
       const projOther = tasks.filter((t: any) => normalizeArea(t.area_id || t.source || t.area) === 'proyectos');
@@ -368,12 +370,15 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         (sids || []).forEach((id: string) => planSongIds.add(id));
       };
       if (plan) {
-        if (daysSpan === 7) {
-          // Semana: usar el libro/canción seleccionada para esa semana en el plan mensual
+        if (daysSpan === 7 || daysSpan === 1) {
+          // Semana (o día dentro de la semana): usar el libro/canción seleccionada para esa semana en el plan mensual
+          const weekStartDate = new Date(start);
+          weekStartDate.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+          const weekKey = format(weekStartDate, 'yyyy-MM-dd');
           let weekDist: { books?: string[]; songs?: string[] } | undefined;
           try {
-            const monthPlanRaw = localStorage.getItem(`monthly_plan_${format(new Date(start.getFullYear(), start.getMonth(), 1), 'yyyy-MM-dd')}`);
-            if (monthPlanRaw) weekDist = ((JSON.parse(monthPlanRaw) || {}).week_distribution || {})[startStr];
+            const monthPlanRaw = localStorage.getItem(`monthly_plan_${format(new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), 1), 'yyyy-MM-dd')}`);
+            if (monthPlanRaw) weekDist = ((JSON.parse(monthPlanRaw) || {}).week_distribution || {})[weekKey];
           } catch {}
           if (weekDist && (((weekDist.books || []).length > 0) || ((weekDist.songs || []).length > 0))) {
             addPlanIds(weekDist.books || [], weekDist.songs || []);

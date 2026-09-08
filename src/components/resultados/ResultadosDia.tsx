@@ -6,10 +6,23 @@ import {
 } from '@/hooks/useResultadosPeriodo';
 import {
   ResultadoColumnas, GrupoResultados, AreaRowCols, ResumenGeneral, CheckItem, ResultRow,
-  StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS,
+  StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS, BookCloud,
   UniversityPlan, UniversityObjetivos, EntPlan, EntObjetivos, ProyectosPlan, ProyectosObjetivos, OtherTasksList,
 } from './shared';
 import { CreateTaskPeriodButton } from '@/components/tasks/CreateTaskPeriodButton';
+import { useAreaCovers, coverKey } from '@/hooks/useAreaCovers';
+
+const AREA_COVER_FALLBACK: Record<string, string> = {
+  universidad: 'profesional',
+  emprendimiento: 'profesional',
+  proyectos: 'profesional',
+  lectura: 'desarrollo',
+  musica: 'desarrollo',
+  ajedrez: 'desarrollo',
+  game: 'desarrollo',
+  idiomas: 'desarrollo',
+  gym: 'salud',
+};
 
 function LoadingSkeleton() {
   return (
@@ -23,6 +36,9 @@ function LoadingSkeleton() {
 export function ResultadosDia({ date }: { date: Date }) {
   const { data } = useResultadosPeriodo(date, date);
   const r = data ?? EMPTY_RESULTADO;
+  const { covers } = useAreaCovers();
+  const coverFor = (key: string) =>
+    covers[coverKey('sub', key)] || (AREA_COVER_FALLBACK[key] ? covers[coverKey('area', AREA_COVER_FALLBACK[key])] : undefined);
 
   const pct = r.globalTotal > 0 ? Math.round((r.globalDone / r.globalTotal) * 100) : 0;
   const totalMin = r.systems.minutes + r.workoutMin + r.focusMin + Object.values(r.byArea).reduce((a, v) => a + v.minutes, 0);
@@ -57,6 +73,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Universidad"
             color={AREA_COLORS.universidad}
+            cover={coverFor('universidad')}
             plan={<><UniversityPlan data={r.university.subjects} /><OtherTasksList tasks={r.university.otherTasks} /></>}
             objetivo={
               <div className="space-y-1">
@@ -72,6 +89,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Emprendimiento"
             color={AREA_COLORS.emprendimiento}
+            cover={coverFor('emprendimiento')}
             plan={<><EntPlan data={r.entrepreneurships.businesses} /><OtherTasksList tasks={r.entrepreneurships.otherTasks} /></>}
             objetivo={
               <div className="space-y-1">
@@ -88,6 +106,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Proyectos"
             color={AREA_COLORS.proyectos}
+            cover={coverFor('proyectos')}
             plan={<><ProyectosPlan data={r.projects.list} /><OtherTasksList tasks={r.projects.otherTasks} /></>}
             objetivo={
               <div className="space-y-1">
@@ -103,6 +122,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Idiomas"
             color={AREA_COLORS.idiomas}
+            cover={coverFor('idiomas')}
             plan={<TaskPlanList area={r.byArea.idiomas} />}
             objetivo={
               <div className="space-y-1">
@@ -117,6 +137,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Gym"
             color={AREA_COLORS.gym}
+            cover={coverFor('gym')}
             plan={
               <ul className="space-y-1.5">
                 <CheckItem done={r.workoutMin > 0}>Entrenamiento del día</CheckItem>
@@ -139,11 +160,20 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Lectura"
             color={AREA_COLORS.lectura}
+            cover={coverFor('lectura')}
             plan={
-              <ul className="space-y-1.5">
-                <CheckItem>Meta de páginas del día</CheckItem>
-                <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer mínimo {r.lectura.pagesGoal || 25} páginas</CheckItem>
-              </ul>
+              <>
+                {r.books.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Libro de la semana</p>
+                    <BookCloud books={r.books} />
+                  </div>
+                )}
+                <ul className="space-y-1.5">
+                  <CheckItem>Meta de páginas del día</CheckItem>
+                  <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer mínimo {r.lectura.pagesGoal || 25} páginas</CheckItem>
+                </ul>
+              </>
             }
             objetivo={
               <div className="space-y-1">
@@ -164,6 +194,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Música"
             color={AREA_COLORS.musica}
+            cover={coverFor('musica')}
             plan={
               <ul className="space-y-1.5">
                 <CheckItem done={r.musica.minutes > 0}>Practicar instrumento</CheckItem>
@@ -190,6 +221,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Ajedrez"
             color={AREA_COLORS.ajedrez}
+            cover={coverFor('ajedrez')}
             plan={
               <ul className="space-y-1.5">
                 <CheckItem done={r.ajedrez.games > 0}>Partidas del día</CheckItem>
@@ -211,6 +243,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           <AreaRowCols
             title="Game"
             color={AREA_COLORS.game}
+            cover={coverFor('game')}
             plan={
               <ul className="space-y-1.5">
                 <CheckItem>Interacciones del día</CheckItem>
