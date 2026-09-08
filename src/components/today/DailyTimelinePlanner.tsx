@@ -417,6 +417,33 @@ export function DailyTimelinePlanner({
                       </div>
                     )}
 
+                    {/* Timed events on top of the block, without hiding the template */}
+                    {blockEvents.length > 0 && (
+                      <div className="mt-1.5 ml-6 space-y-1">
+                        {blockEvents.map(ev => {
+                          const ec = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.default;
+                          return (
+                            <div
+                              key={ev.id}
+                              className={cn("flex items-center gap-1.5 px-2 py-1 rounded-md border-l-2", ec.bg, ec.border)}
+                              title={`${ev.title}${ev.start_time ? ` (${formatHour(ev.start_time)} - ${formatHour(ev.end_time!)})` : ''}`}
+                            >
+                              <Clock className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+                              <span className="text-[9px] font-bold truncate leading-tight flex-1">{ev.title}</span>
+                              {ev.start_time && (
+                                <span className="text-[8px] text-muted-foreground font-mono shrink-0">
+                                  {formatHour(ev.start_time)} – {formatHour(ev.end_time!)}
+                                </span>
+                              )}
+                              <span className={cn("text-[7px] font-medium shrink-0", ec.text)}>
+                                {EVENT_CATEGORY_NAMES[ev.category] || ev.category}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {/* Tasks */}
                     {tasks.length > 0 && (
                       <div className="mt-1.5 ml-6 space-y-0.5">
@@ -450,31 +477,6 @@ export function DailyTimelinePlanner({
 
                   {isCurrent && (
                     <div className="h-0.5 bg-primary rounded-full" />
-                  )}
-
-                  {blockEvents.length > 0 && (
-                    <div className="absolute right-0 top-0 bottom-0 w-[35%] pointer-events-none overflow-hidden rounded-r-lg">
-                      {blockEvents.map(ev => {
-                        const ec = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.default;
-                        return (
-                          <div
-                            key={ev.id}
-                            className={cn("absolute inset-0 border-l-2 flex flex-col justify-center px-2", ec.bg, ec.border)}
-                            title={`${ev.title}${ev.start_time ? ` (${formatHour(ev.start_time)} - ${formatHour(ev.end_time!)})` : ''}`}
-                          >
-                            <span className="text-[9px] font-bold truncate leading-tight">{ev.title}</span>
-                            {ev.start_time && (
-                              <span className="text-[7px] text-muted-foreground font-mono leading-tight">
-                                {formatHour(ev.start_time)} - {formatHour(ev.end_time!)}
-                              </span>
-                            )}
-                            <span className={cn("text-[7px] font-medium leading-tight", ec.text)}>
-                              {EVENT_CATEGORY_NAMES[ev.category] || ev.category}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
                   )}
                 </div>
                   );

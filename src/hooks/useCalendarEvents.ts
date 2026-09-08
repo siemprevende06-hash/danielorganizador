@@ -78,7 +78,7 @@ export function useCalendarEvents(month: Date) {
   const addEvent = async (title: string, eventDate: string, category?: string, description?: string, startTime?: string, endTime?: string) => {
     const { data, error } = await supabase
       .from('calendar_events')
-      .insert({ title, event_date: eventDate, category: category || 'default', description })
+      .insert({ title, event_date: eventDate, category: category || 'default', description, start_time: startTime || null, end_time: endTime || null })
       .select()
       .single();
 
@@ -92,8 +92,7 @@ export function useCalendarEvents(month: Date) {
   };
 
   const updateEvent = async (id: string, updates: Partial<CalendarEvent>) => {
-    const { start_time, end_time, ...persistedUpdates } = updates;
-    const { error } = await supabase.from('calendar_events').update(persistedUpdates).eq('id', id);
+    const { error } = await supabase.from('calendar_events').update(updates).eq('id', id);
     if (error) {
       toast({ title: 'Error', description: 'No se pudo actualizar el evento', variant: 'destructive' });
       return;

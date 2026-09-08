@@ -390,8 +390,10 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          end_time: string | null
           event_date: string
           id: string
+          start_time: string | null
           title: string
           updated_at: string
           user_id: string | null
@@ -400,8 +402,10 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          end_time?: string | null
           event_date: string
           id?: string
+          start_time?: string | null
           title: string
           updated_at?: string
           user_id?: string | null
@@ -410,8 +414,10 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          end_time?: string | null
           event_date?: string
           id?: string
+          start_time?: string | null
           title?: string
           updated_at?: string
           user_id?: string | null

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay, isSameMonth, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, Edit3, Check, Palette } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Edit3, Check, Palette, Clock } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,56 @@ const CATEGORIES = [
   { value: 'social', label: 'Social', color: 'bg-orange-500' },
   { value: 'finanzas', label: 'Finanzas', color: 'bg-yellow-500' },
 ];
+
+function formatEventTime(time: string): string {
+  const parts = time.split(':');
+  if (parts.length < 2) return time;
+  const h = Number(parts[0]);
+  const m = parts[1];
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${m} ${ampm}`;
+}
+
+function TimeField({ label, value, onChange, onEnter }: { label: string; value: string; onChange: (v: string) => void; onEnter?: () => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const openPicker = () => {
+    const el = ref.current;
+    if (!el) return;
+    try {
+      if (typeof (el as HTMLInputElement & { showPicker?: () => void }).showPicker === 'function') {
+        (el as HTMLInputElement & { showPicker?: () => void }).showPicker!();
+        return;
+      }
+    } catch { /* picker unavailable or not allowed */ }
+    el.focus();
+    el.click();
+  };
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-[9px] text-muted-foreground font-medium">{label}</span>
+      <div className="relative">
+        <Input
+          ref={ref}
+          type="time"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onEnter?.(); }}
+          className="h-7 w-[92px] text-[10px] pr-6"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={openPicker}
+          title={`Seleccionar ${label.toLowerCase()}`}
+          className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Clock className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function NotionCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -190,20 +240,9 @@ export default function NotionCalendar() {
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
-              <div className="flex gap-1.5">
-                <Input
-                  type="time"
-                  value={newStartTime}
-                  onChange={e => setNewStartTime(e.target.value)}
-                  className="h-6 text-[9px] w-24"
-                />
-                <span className="text-[9px] text-muted-foreground self-center">a</span>
-                <Input
-                  type="time"
-                  value={newEndTime}
-                  onChange={e => setNewEndTime(e.target.value)}
-                  className="h-6 text-[9px] w-24"
-                />
+              <div className="flex flex-wrap items-center gap-2">
+                <TimeField label="De" value={newStartTime} onChange={setNewStartTime} onEnter={handleAddEvent} />
+                <TimeField label="Hasta" value={newEndTime} onChange={setNewEndTime} onEnter={handleAddEvent} />
                 <span className="text-[9px] text-muted-foreground self-center">(opcional)</span>
               </div>
             </div>
@@ -239,26 +278,21 @@ export default function NotionCalendar() {
                           <Check className="h-3 w-3 text-green-500" />
                         </Button>
                       </div>
-                      <div className="flex gap-1 items-center">
-                        <Input
-                          type="time"
-                          value={editStartTime}
-                          onChange={e => setEditStartTime(e.target.value)}
-                          className="h-5 text-[8px] w-20"
-                        />
-                        <span className="text-[8px] text-muted-foreground">a</span>
-                        <Input
-                          type="time"
-                          value={editEndTime}
-                          onChange={e => setEditEndTime(e.target.value)}
-                          className="h-5 text-[8px] w-20"
-                        />
-                        <span className="text-[8px] text-muted-foreground">(opcional)</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <TimeField label="De" value={editStartTime} onChange={setEditStartTime} />
+                        <TimeField label="Hasta" value={editEndTime} onChange={setEditEndTime} />
                       </div>
                     </div>
                   ) : (
                     <>
-                      <span className="flex-1 text-[10px]">{ev.title}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[10px] truncate">{ev.title}</span>
+                        {ev.start_time && (
+                          <span className="block text-[8px] text-muted-foreground font-mono">
+                            {formatEventTime(ev.start_time)}{ev.end_time ? ` – ${formatEventTime(ev.end_time)}` : ''}
+                          </span>
+                        )}
+                      </span>
                       <Badge variant="outline" className="text-[8px] h-4 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {CATEGORIES.find(c => c.value === ev.category)?.label || ev.category}
                       </Badge>
