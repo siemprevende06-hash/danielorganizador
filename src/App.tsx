@@ -96,6 +96,7 @@ import CincoAnos from "./pages/CincoAnos";
 import AlgunDia from "./pages/AlgunDia";
 import AhoraMismo from "./pages/AhoraMismo";
 import LineaDeTiempo from "./pages/LineaDeTiempo";
+import ObjetivoPrioritario from "./pages/ObjetivoPrioritario";
 
 const queryClient = new QueryClient();
 
@@ -197,6 +198,7 @@ function AppContent() {
         <Route path="/algun-dia" element={<AlgunDia />} />
         <Route path="/ahora-mismo" element={<AhoraMismo />} />
         <Route path="/linea-de-tiempo" element={<LineaDeTiempo />} />
+        <Route path="/objetivo-prioritario" element={<ObjetivoPrioritario />} />
         <Route path="/coach-ia" element={<CoachIA />} />
         <Route path="/organizacion" element={<Organizacion />} />
         <Route path="*" element={<NotFound />} />

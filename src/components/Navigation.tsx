@@ -59,6 +59,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/linea-de-tiempo', label: 'Línea de Tiempo', icon: Timeline },
       { path: '/weeks', label: 'Semanas', icon: CalendarDays },
       { path: '/goals', label: 'Metas', icon: Goal },
+      { path: '/objetivo-prioritario', label: 'Objetivo Prioritario', icon: Milestone },
       { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
       { path: '/estadisticas-esfuerzo', label: 'Esfuerzo', icon: Activity },
     ]
