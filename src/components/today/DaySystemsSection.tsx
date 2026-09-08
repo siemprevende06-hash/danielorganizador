@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Flame, Trophy, Zap, Sun, Shield, Sparkles, Clock, Gauge, Droplets, Camera, ExternalLink, Dumbbell, Moon } from "lucide-react";
+import { Flame, Trophy, Zap, Sun, Shield, Sparkles, Clock, Gauge, Droplets, Camera, ExternalLink, Dumbbell, Moon, GraduationCap, Rocket, Music, Languages, Gamepad2, BookOpen, Crown, Wallet } from "lucide-react";
 
 const AREA_ICONS: Record<string, React.ReactNode> = {
   "prof-acad": <Zap className="h-3.5 w-3.5" />,
@@ -29,6 +29,17 @@ const AREA_ICONS: Record<string, React.ReactNode> = {
   salud: <Sun className="h-3.5 w-3.5" />,
   "fuerza-mental": <Sparkles className="h-3.5 w-3.5" />,
   apariencia: <Sparkles className="h-3.5 w-3.5" />,
+};
+
+const SYSTEM_ICONS: Record<string, React.ReactNode> = {
+  universidad: <GraduationCap className="h-4 w-4" />,
+  emprendimiento: <Rocket className="h-4 w-4" />,
+  musica: <Music className="h-4 w-4" />,
+  idiomas: <Languages className="h-4 w-4" />,
+  game: <Gamepad2 className="h-4 w-4" />,
+  ajedrez: <Crown className="h-4 w-4" />,
+  lectura: <BookOpen className="h-4 w-4" />,
+  finanzas: <Wallet className="h-4 w-4" />,
 };
 
 type TierKey = "red" | "grey" | "blue" | "green" | "gold";
@@ -41,6 +52,8 @@ interface Tier {
   bar: string;
   text: string;
   hex: string;
+  ring: string;
+  dot: string;
 }
 
 const TIERS: Record<TierKey, Tier> = {
@@ -52,6 +65,8 @@ const TIERS: Record<TierKey, Tier> = {
     bar: "bg-red-500",
     text: "text-red-500",
     hex: "#ef4444",
+    ring: "ring-red-500/50",
+    dot: "bg-red-500",
   },
   grey: {
     key: "grey",
@@ -61,6 +76,8 @@ const TIERS: Record<TierKey, Tier> = {
     bar: "bg-muted-foreground/40",
     text: "text-muted-foreground",
     hex: "#64748b",
+    ring: "ring-border/40",
+    dot: "bg-gray-400",
   },
   blue: {
     key: "blue",
@@ -70,6 +87,8 @@ const TIERS: Record<TierKey, Tier> = {
     bar: "bg-blue-500",
     text: "text-blue-500",
     hex: "#3b82f6",
+    ring: "ring-blue-500/50",
+    dot: "bg-blue-500",
   },
   green: {
     key: "green",
@@ -79,6 +98,8 @@ const TIERS: Record<TierKey, Tier> = {
     bar: "bg-emerald-500",
     text: "text-emerald-500",
     hex: "#10b981",
+    ring: "ring-emerald-500/50",
+    dot: "bg-emerald-500",
   },
   gold: {
     key: "gold",
@@ -88,6 +109,8 @@ const TIERS: Record<TierKey, Tier> = {
     bar: "bg-amber-500",
     text: "text-amber-500",
     hex: "#f59e0b",
+    ring: "ring-amber-500/60",
+    dot: "bg-amber-400",
   },
 };
 
@@ -103,22 +126,6 @@ function getTier(actual: number, skipped: boolean, meta: number, speedOptions: S
   return TIERS.grey;
 }
 
-function SystemCover({ type, id, name, emoji, fallbackUrl }: { type: "area" | "sub"; id: string; name: string; emoji?: string; fallbackUrl?: string | null }) {
-  const { covers } = useAreaCovers();
-  const url = covers[coverKey(type, id)] ?? fallbackUrl ?? null;
-  return (
-    <div className={cn("relative bg-gradient-to-br overflow-hidden", getCoverGradient(id))}>
-      {url ? (
-        <img src={url} alt={name} className="absolute inset-0 w-full h-full object-cover" />
-      ) : (
-        <div className="absolute inset-0 grid place-items-center">
-          <span className="text-lg drop-shadow-sm">{emoji || "🖼️"}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function CentralSystemCard({
   system,
   completed,
@@ -131,7 +138,7 @@ function CentralSystemCard({
   onToggle,
   onTimeChange,
   onCountChange,
-  areaCoverUrl,
+  coverUrl,
 }: {
   system: DaySystem;
   completed: boolean;
@@ -144,102 +151,98 @@ function CentralSystemCard({
   onToggle: () => void;
   onTimeChange: (minutes: number) => void;
   onCountChange?: (count: number) => void;
-  areaCoverUrl?: string | null;
+  coverUrl?: string | null;
 }) {
   const tier = getTier(actualMinutes, skipped, meta, system.speedOptions);
   const pct = meta > 0 ? Math.round((actualMinutes / meta) * 100) : 0;
+  const icon = SYSTEM_ICONS[system.id];
 
   return (
     <div
       className={cn(
-        "relative rounded-2xl overflow-hidden border transition-all hover:shadow-md group flex flex-col",
-        tier.border,
+        "relative rounded-2xl overflow-hidden ring-2 p-2.5 flex flex-col h-full transition-all hover:shadow-md",
+        tier.ring,
         tier.bg
       )}
     >
-      <div className="h-16 w-full shrink-0">
-        <SystemCover type={system.cover.type} id={system.cover.id} name={system.name} fallbackUrl={areaCoverUrl} />
+      <div className={cn("relative -mx-2.5 -mt-2.5 mb-2 h-16 shrink-0 overflow-hidden bg-gradient-to-br", getCoverGradient(system.cover.id))}>
+        {coverUrl ? (
+          <img src={coverUrl} alt={system.name} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center">
+            <span className="text-white/80 drop-shadow-sm">{icon || "🖼️"}</span>
+          </div>
+        )}
       </div>
-      <div className="p-2.5 space-y-1.5 flex-1 flex flex-col">
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            checked={completed || actualMinutes >= meta}
-            onCheckedChange={onToggle}
-            className="h-4 w-4 data-[state=checked]:bg-primary"
-          />
-          <span className={cn("text-xs font-semibold truncate", (completed || actualMinutes >= meta) && "line-through text-muted-foreground")}>
-            {system.name}
-          </span>
-        </div>
 
-        <div className="flex items-center justify-between gap-1">
-          <div className="flex items-center gap-1 min-w-0">
-            <Clock className={cn("h-3 w-3 shrink-0", tier.text)} />
+      <div className={cn("absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", tier.dot)} />
+
+      <div className="flex items-center justify-between gap-1 mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-muted-foreground shrink-0">{icon}</span>
+          <span className="text-xs font-bold truncate">{system.name}</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {streakLabel && <span className="text-[10px] text-orange-500">{streakLabel}</span>}
+          <span className={cn("text-[10px] font-semibold", tier.text)}>{tier.label}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Checkbox
+          checked={completed || actualMinutes >= meta}
+          onCheckedChange={onToggle}
+          className="h-4 w-4 data-[state=checked]:bg-primary"
+        />
+        <span className="text-[10px] text-muted-foreground">Hecho</span>
+      </div>
+
+      <div className="flex items-center gap-1 mb-1.5">
+        <Input
+          type="number"
+          min={0}
+          value={actualMinutes || ""}
+          onChange={e => onTimeChange(Math.max(0, parseInt(e.target.value) || 0))}
+          placeholder="min"
+          className={cn("h-7 w-16 text-center text-xs px-1 font-semibold", tier.text)}
+        />
+        <span className="text-[10px] text-muted-foreground">min</span>
+        {system.countKey && (
+          <>
             <Input
               type="number"
               min={0}
-              value={actualMinutes || ""}
-              onChange={e => onTimeChange(Math.max(0, parseInt(e.target.value) || 0))}
-              placeholder="min"
-              className={cn("h-6 w-16 text-center text-[10px] px-1", tier.text)}
+              value={count || ""}
+              onChange={e => onCountChange?.(Math.max(0, parseInt(e.target.value) || 0))}
+              placeholder={system.countLabel || "partidas"}
+              className="h-7 w-16 text-center text-xs px-1 font-semibold text-indigo-600 dark:text-indigo-400"
             />
-          </div>
-          {system.countKey && (
-            <div className="flex items-center gap-1 min-w-0">
-              <Input
-                type="number"
-                min={0}
-                value={count || ""}
-                onChange={e => onCountChange?.(Math.max(0, parseInt(e.target.value) || 0))}
-                placeholder="partidas"
-                className="h-6 w-16 text-center text-[10px] px-1 text-indigo-600 dark:text-indigo-400"
-              />
-            </div>
-          )}
-          <span className="text-[9px] text-muted-foreground shrink-0">
-            <span className="font-mono font-semibold text-foreground">{meta}</span> min
-          </span>
-        </div>
-
-        <Progress
-          value={Math.min(100, pct)}
-          className="h-1.5"
-          indicatorClassName={tier.bar}
-        />
-
-        <div className="flex items-center justify-between gap-1 text-[9px]">
-          <span className={cn("font-medium flex items-center gap-1", tier.text)}>
-            <span
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: tier.hex }}
-            />
-            {tier.label}
-          </span>
-          <span className="flex items-center gap-1 text-muted-foreground">
-            {streakLabel && (
-              <span className={cn("font-medium flex items-center gap-0.5", streakLabel.startsWith("🔥") ? "text-orange-500" : "text-yellow-600")}>
-                {streakLabel}
-              </span>
-            )}
-            {streak && (streak.current > 0 || streak.best > 0) && (
-              <span className="flex items-center gap-1">
-                {streak.current > 0 && (
-                  <span className="flex items-center gap-0.5 text-orange-500">
-                    <Flame className="h-2.5 w-2.5" />
-                    {streak.current}
-                  </span>
-                )}
-                {streak.best > 0 && (
-                  <span className="flex items-center gap-0.5 text-yellow-600">
-                    <Trophy className="h-2.5 w-2.5" />
-                    {streak.best}
-                  </span>
-                )}
-              </span>
-            )}
-          </span>
-        </div>
+            <span className="text-[10px] text-muted-foreground hidden sm:inline">{system.countLabel || "partidas"}</span>
+          </>
+        )}
+        {meta > 0 && <span className="text-[10px] text-muted-foreground ml-auto">/{meta}</span>}
       </div>
+
+      <Progress
+        value={Math.min(100, pct)}
+        className="h-1.5 mt-auto"
+        indicatorClassName={tier.bar}
+      />
+
+      {streak && (streak.current > 0 || streak.best > 0) && (
+        <div className="flex items-center gap-2 mt-1.5 text-[9px]">
+          {streak.current > 0 && (
+            <span className="flex items-center gap-0.5 text-orange-500">
+              <Flame className="h-2.5 w-2.5" /> {streak.current}
+            </span>
+          )}
+          {streak.best > 0 && (
+            <span className="flex items-center gap-0.5 text-yellow-600">
+              <Trophy className="h-2.5 w-2.5" /> {streak.best}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -410,6 +413,7 @@ function AreaGroup({
             const isSkipped = !!skipped?.[sys.id];
             const streak = streaks?.[sys.id];
             const count = sys.countKey ? countData?.[sys.countKey] ?? 0 : undefined;
+            const sysCoverUrl = covers.covers[coverKey(sys.cover.type, sys.cover.id)] ?? coverUrl ?? null;
             const streakLabel =
               sys.streakMinutes > 0
                 ? sys.streakMinutes === 30
@@ -430,7 +434,7 @@ function AreaGroup({
                 onTimeChange={v => onTimeChange(sys.id, v)}
                 onCountChange={sys.countKey ? (v => onCountChange?.(sys.countKey!, v)) : undefined}
                 streak={streak}
-                areaCoverUrl={coverUrl}
+                coverUrl={sysCoverUrl}
               />
             );
           })}
