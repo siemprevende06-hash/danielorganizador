@@ -144,6 +144,7 @@ function CentralSystemCard({
   onToggle: () => void;
   onTimeChange: (minutes: number) => void;
   onCountChange?: (count: number) => void;
+  areaCoverUrl?: string | null;
 }) {
   const tier = getTier(actualMinutes, skipped, meta, system.speedOptions);
   const pct = meta > 0 ? Math.round((actualMinutes / meta) * 100) : 0;
@@ -157,7 +158,7 @@ function CentralSystemCard({
       )}
     >
       <div className="h-16 w-full shrink-0">
-        <SystemCover type={system.cover.type} id={system.cover.id} name={system.name} />
+        <SystemCover type={system.cover.type} id={system.cover.id} name={system.name} fallbackUrl={areaCoverUrl} />
       </div>
       <div className="p-2.5 space-y-1.5 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5">
@@ -429,6 +430,7 @@ function AreaGroup({
                 onTimeChange={v => onTimeChange(sys.id, v)}
                 onCountChange={sys.countKey ? (v => onCountChange?.(sys.countKey!, v)) : undefined}
                 streak={streak}
+                areaCoverUrl={coverUrl}
               />
             );
           })}
