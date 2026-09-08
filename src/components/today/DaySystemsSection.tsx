@@ -103,9 +103,9 @@ function getTier(actual: number, skipped: boolean, meta: number, speedOptions: S
   return TIERS.grey;
 }
 
-function SystemCover({ type, id, name, emoji }: { type: "area" | "sub"; id: string; name: string; emoji?: string }) {
+function SystemCover({ type, id, name, emoji, fallbackUrl }: { type: "area" | "sub"; id: string; name: string; emoji?: string; fallbackUrl?: string | null }) {
   const { covers } = useAreaCovers();
-  const url = covers[coverKey(type, id)] ?? null;
+  const url = covers[coverKey(type, id)] ?? fallbackUrl ?? null;
   return (
     <div className={cn("relative bg-gradient-to-br overflow-hidden", getCoverGradient(id))}>
       {url ? (
@@ -131,6 +131,7 @@ function CentralSystemCard({
   onToggle,
   onTimeChange,
   onCountChange,
+  areaCoverUrl,
 }: {
   system: DaySystem;
   completed: boolean;
@@ -536,6 +537,7 @@ function EstructuralAreaCard({
             onWorkoutDurationChange={onWorkoutDurationChange}
             onWorkoutIntensityChange={onWorkoutIntensityChange}
             streaks={streaks}
+            areaCoverUrl={coverUrl}
           />
         ))}
       </CardContent>
@@ -564,6 +566,7 @@ function SubareaBlock({
   onWorkoutDurationChange,
   onWorkoutIntensityChange,
   streaks,
+  areaCoverUrl,
 }: {
   subarea: SostenSubarea;
   completions: Record<string, boolean>;
@@ -585,6 +588,7 @@ function SubareaBlock({
   onWorkoutDurationChange?: (v: number) => void;
   onWorkoutIntensityChange?: (v: string) => void;
   streaks?: Record<string, { current: number; best: number }>;
+  areaCoverUrl?: string | null;
 }) {
   const doneCount = subarea.habits.filter(h => completions[h.id]).length;
 
@@ -618,6 +622,7 @@ function SubareaBlock({
             wakeTime={wakeTime}
             sleepTime={sleepTime}
             streak={streaks?.[habit.id]}
+            areaCoverUrl={areaCoverUrl}
             onToggle={() => onToggle(habit.id)}
             onSkip={() => onSkipToggle?.(habit.id)}
             onWater={() => onWaterToggle?.(habit.id)}
@@ -651,6 +656,7 @@ function EstructuralHabitCard({
   wakeTime,
   sleepTime,
   streak,
+  areaCoverUrl,
   onToggle,
   onSkip,
   onWater,
@@ -677,6 +683,7 @@ function EstructuralHabitCard({
   wakeTime?: string;
   sleepTime?: string;
   streak?: { current: number; best: number };
+  areaCoverUrl?: string | null;
   onToggle: () => void;
   onSkip: () => void;
   onWater: () => void;
@@ -713,8 +720,14 @@ function EstructuralHabitCard({
 
   return (
     <div className={cn("relative rounded-xl overflow-hidden border transition-all hover:shadow-sm flex flex-col", border)}>
-      <div className="h-12 w-full shrink-0">
-        <SystemCover type={habit.cover?.type ?? "sub"} id={habit.cover?.id ?? coverId} name={habit.name} emoji={habit.emoji} />
+      <div className={cn("h-12 w-full shrink-0 relative bg-gradient-to-br overflow-hidden", getCoverGradient(coverId))}>
+        {areaCoverUrl ? (
+          <img src={areaCoverUrl} alt={habit.name} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center">
+            <span className="text-lg drop-shadow-sm">{habit.emoji}</span>
+          </div>
+        )}
       </div>
       <div className="p-2 space-y-1.5 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5 flex-1">

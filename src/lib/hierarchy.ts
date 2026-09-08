@@ -443,14 +443,14 @@ export function reconcileMonthlyToQuarter(month: Date) {
 /**
  * Al cargar el plan mensual, hereda del trimestral: libros/canciones del mes,
  * metas personales y metas de minutos del mes (para visualización).
+ * Funciona aunque el plan mensual aún no exista en localStorage.
  */
 export function syncMonthlyFromQuarter(month: Date): QuarterPlanLike | null {
-  const monthly = loadMonthlyPlan(month);
-  if (!monthly) return null;
+  const monthly = loadMonthlyPlan(month) || {};
   const { quarter, year } = getQuarterFromDate(month);
   const monthKey = getMonthKeyOf(month, quarter);
   const qp = loadQuarterPlan(quarter, year);
-  if (!qp) return monthly;
+  if (!qp) return Object.keys(monthly).length > 0 ? (monthly as QuarterPlanLike) : null;
 
   const dist = qp.distribution?.[monthKey] || { books: [], songs: [] };
   const next: QuarterPlanLike = {

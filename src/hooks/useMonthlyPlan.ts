@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { format, startOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
+import { syncMonthlyFromQuarter } from '@/lib/hierarchy';
 
 export interface MonthlyPlanData {
   books: { goal: number; selected: string[] };
@@ -101,9 +102,16 @@ export function useMonthlyPlan(month: Date) {
     setLoading(true);
     await pullPlansIntoLocal();
     const local = loadFromLocal(monthStr);
-    setPlanData(local || defaultPlanData);
+    const synced = syncMonthlyFromQuarter(month);
+    if (synced) {
+      const merged = { ...defaultPlanData, ...synced } as MonthlyPlanData;
+      setPlanData(merged);
+      if (!local) saveToLocal(monthStr, merged);
+    } else {
+      setPlanData(local || defaultPlanData);
+    }
     setLoading(false);
-  }, [monthStr]);
+  }, [monthStr, month]);
 
   const savePlan = useCallback(async () => {
     setSaving(true);
