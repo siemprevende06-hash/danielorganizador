@@ -15,6 +15,7 @@ import { TimeframeProvider } from "./contexts/TimeframeContext";
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
 import { PageCoversProvider } from "./contexts/PageCoversContext";
 import { PageIconsProvider } from "./contexts/PageIconsContext";
+import { PageNamesProvider } from "./contexts/PageNamesContext";
 import { PageCoverBanner } from "./components/PageCoverBanner";
 import { PageIconBanner } from "./components/PageIconBanner";
 import Index from "./pages/Index";

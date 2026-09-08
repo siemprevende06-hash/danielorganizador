@@ -2130,7 +2130,6 @@ export type Database = {
       music_repertoire: {
         Row: {
           artist: string | null
-          cover_image_url: string | null
           created_at: string | null
           difficulty: string | null
           id: string
@@ -2146,7 +2145,6 @@ export type Database = {
         }
         Insert: {
           artist?: string | null
-          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
           id?: string
@@ -2162,7 +2160,6 @@ export type Database = {
         }
         Update: {
           artist?: string | null
-          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
           id?: string
@@ -3480,15 +3477,12 @@ export type Database = {
           due_date: string | null
           estimated_minutes: number | null
           id: string
-          parent_id: string | null
           priority: string | null
-          recurrence: string | null
           routine_block_id: string | null
           source: string
           source_id: string | null
           start_date: string | null
           status: string
-          tags: string[] | null
           task_type: string | null
           title: string
           topic_id: string | null
@@ -3503,15 +3497,12 @@ export type Database = {
           due_date?: string | null
           estimated_minutes?: number | null
           id?: string
-          parent_id?: string | null
           priority?: string | null
-          recurrence?: string | null
           routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
           status?: string
-          tags?: string[] | null
           task_type?: string | null
           title: string
           topic_id?: string | null
@@ -3526,15 +3517,12 @@ export type Database = {
           due_date?: string | null
           estimated_minutes?: number | null
           id?: string
-          parent_id?: string | null
           priority?: string | null
-          recurrence?: string | null
           routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
           status?: string
-          tags?: string[] | null
           task_type?: string | null
           title?: string
           topic_id?: string | null
@@ -3575,7 +3563,6 @@ export type Database = {
           amount: number
           category_id: string | null
           created_at: string
-          currency: string
           description: string
           distributed: boolean
           id: string
@@ -3590,7 +3577,6 @@ export type Database = {
           amount: number
           category_id?: string | null
           created_at?: string
-          currency?: string
           description: string
           distributed?: boolean
           id?: string
@@ -3605,7 +3591,6 @@ export type Database = {
           amount?: number
           category_id?: string | null
           created_at?: string
-          currency?: string
           description?: string
           distributed?: boolean
           id?: string
@@ -3716,7 +3701,6 @@ export type Database = {
       university_subjects: {
         Row: {
           approved: boolean
-          code: string | null
           color: string | null
           created_at: string
           credits: number | null
@@ -3731,7 +3715,6 @@ export type Database = {
         }
         Insert: {
           approved?: boolean
-          code?: string | null
           color?: string | null
           created_at?: string
           credits?: number | null
@@ -3746,7 +3729,6 @@ export type Database = {
         }
         Update: {
           approved?: boolean
-          code?: string | null
           color?: string | null
           created_at?: string
           credits?: number | null
@@ -3758,27 +3740,6 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           year?: number | null
-        }
-        Relationships: []
-      }
-      area_covers: {
-        Row: {
-          id: string
-          type: string
-          updated_at: string
-          url: string
-        }
-        Insert: {
-          id: string
-          type?: string
-          updated_at?: string
-          url: string
-        }
-        Update: {
-          id?: string
-          type?: string
-          updated_at?: string
-          url?: string
         }
         Relationships: []
       }
@@ -3942,7 +3903,6 @@ export type Database = {
         Row: {
           balance: number | null
           created_at: string
-          currency: string
           icon: string | null
           id: string
           name: string
@@ -3952,7 +3912,6 @@ export type Database = {
         Insert: {
           balance?: number | null
           created_at?: string
-          currency?: string
           icon?: string | null
           id?: string
           name: string
@@ -3962,7 +3921,6 @@ export type Database = {
         Update: {
           balance?: number | null
           created_at?: string
-          currency?: string
           icon?: string | null
           id?: string
           name?: string
