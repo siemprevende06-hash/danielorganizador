@@ -87,9 +87,98 @@ function AreaScoreRow({ label, icon: Icon, value, color }: {
   );
 }
 
-function AreaCard({ area, listProgress }: {
+function AreaDetailDialog({ open, onOpenChange, area, color, Icon, listProgress }: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  area: AreaScore;
+  color: { bar: string; text: string; bg: string };
+  Icon: React.ComponentType<{ className?: string }>;
+  listProgress?: { lists: number; done: number; total: number };
+}) {
+  return (
+    <DialogContent className="w-[94vw] max-w-4xl h-[90vh] flex flex-col gap-4 overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-3 text-xl font-bold">
+          <span className={cn("p-2 rounded-xl", color.bg, color.text)}>
+            <Icon className="h-6 w-6" />
+          </span>
+          {area.label}
+        </DialogTitle>
+        <DialogDescription className="hidden" />
+      </DialogHeader>
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-xl border bg-muted/30 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium flex items-center gap-2">
+                <Timer className="h-4 w-4 text-muted-foreground" />
+                Esfuerzo
+              </span>
+              <span className="text-3xl font-extrabold">{area.esfuerzo}%</span>
+            </div>
+            <StatBar value={area.esfuerzo} color={color.bar} />
+          </div>
+          <div className="rounded-xl border bg-muted/30 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-muted-foreground" />
+                Resultados
+              </span>
+              <span className="text-3xl font-extrabold">{area.resultados}%</span>
+            </div>
+            <StatBar value={area.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold mb-3">Desglose por sub-área</p>
+          <div className="space-y-3">
+            {area.sub.length === 0 && (
+              <p className="text-sm text-muted-foreground">Aún no hay sub-áreas con datos.</p>
+            )}
+            {area.sub.map((sub) => (
+              <div key={sub.id} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">{sub.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Esf {sub.esfuerzo}% · Res {sub.resultados}%
+                    {sub.minutes > 0 && ` · ${sub.minutes} min`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <StatBar value={sub.esfuerzo} color={color.bar} />
+                  </div>
+                  <div className="flex-1">
+                    <StatBar value={sub.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {listProgress && listProgress.total > 0 && (
+          <div className="rounded-lg border p-3 flex items-center justify-between">
+            <span className="text-sm font-medium flex items-center gap-2">
+              <Target className="h-4 w-4 text-muted-foreground" />
+              Tus listas
+            </span>
+            <span className="text-sm font-semibold">
+              {listProgress.done}/{listProgress.total} tareas en {listProgress.lists} lista{listProgress.lists !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+      </div>
+    </DialogContent>
+  );
+}
+
+function AreaCard({ area, listProgress, compact }: {
   area: AreaScore;
   listProgress?: { lists: number; done: number; total: number };
+  compact?: boolean;
 }) {
   const color = AREA_COLORS[area.id] || AREA_COLORS.salud;
   const Icon = AREA_ICONS[area.id] || Target;
@@ -102,121 +191,68 @@ function AreaCard({ area, listProgress }: {
         onClick={() => setOpen(true)}
         className="cursor-pointer transition-transform duration-150 hover:scale-[1.02] active:scale-[0.98]"
       >
-        <Card className="h-full overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <span className={cn("p-1.5 rounded-lg", color.bg, color.text)}>
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="truncate">{area.label}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-0">
-            <div className="space-y-2">
+        {compact ? (
+          <Card className="h-full overflow-hidden">
+            <CardHeader className="px-3 pt-2.5 pb-1">
+              <CardTitle className="flex items-center gap-1.5 text-xs font-semibold">
+                <span className={cn("p-1 rounded-md", color.bg, color.text)}>
+                  <Icon className="h-3 w-3" />
+                </span>
+                <span className="truncate">{area.label}</span>
+                <span className="ml-auto text-[9px] text-muted-foreground shrink-0">Ver detalle</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-3 pb-2.5 pt-1 space-y-1">
               <AreaScoreRow label="Esfuerzo" icon={Timer} value={area.esfuerzo} color={color.bar} />
-              <AreaScoreRow label="Resultados" icon={Trophy} value={area.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
-            </div>
-            <div className="space-y-1.5 pt-2 border-t">
-              {visibleSubs.map((sub) => (
-                <div key={sub.id} className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-muted-foreground truncate">{sub.label}</span>
-                  <span className="text-[11px] font-semibold shrink-0">
-                    {sub.esfuerzo}% / {sub.resultados}%
-                  </span>
-                </div>
-              ))}
-            </div>
-            {listProgress && listProgress.total > 0 && (
-              <div className="pt-2 border-t flex items-center justify-between gap-2">
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Target className="h-3 w-3" />
-                  Tus listas
-                </span>
-                <span className="text-[11px] font-semibold">
-                  {listProgress.done}/{listProgress.total} tareas · {listProgress.lists} lista{listProgress.lists !== 1 ? 's' : ''}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <DialogContent className="w-[94vw] max-w-4xl h-[90vh] flex flex-col gap-4 overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-3 text-xl font-bold">
-            <span className={cn("p-2 rounded-xl", color.bg, color.text)}>
-              <Icon className="h-6 w-6" />
-            </span>
-            {area.label}
-          </DialogTitle>
-          <DialogDescription className="hidden" />
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border bg-muted/30 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Timer className="h-4 w-4 text-muted-foreground" />
-                  Esfuerzo
-                </span>
-                <span className="text-3xl font-extrabold">{area.esfuerzo}%</span>
-              </div>
-              <StatBar value={area.esfuerzo} color={color.bar} />
-            </div>
-            <div className="rounded-xl border bg-muted/30 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-muted-foreground" />
-                  Resultados
-                </span>
-                <span className="text-3xl font-extrabold">{area.resultados}%</span>
-              </div>
-              <StatBar value={area.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
-            </div>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold mb-3">Desglose por sub-área</p>
-            <div className="space-y-3">
-              {area.sub.length === 0 && (
-                <p className="text-sm text-muted-foreground">Aún no hay sub-áreas con datos.</p>
+              <AreaScoreRow label="Resultado" icon={Trophy} value={area.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
+              {area.sub.length > 0 && (
+                <p className="text-[9px] text-muted-foreground truncate pt-0.5">
+                  {area.sub.slice(0, 3).map(s => s.label).join(' · ')}
+                </p>
               )}
-              {area.sub.map((sub) => (
-                <div key={sub.id} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">{sub.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      Esf {sub.esfuerzo}% · Res {sub.resultados}%
-                      {sub.minutes > 0 && ` · ${sub.minutes} min`}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="h-full overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <span className={cn("p-1.5 rounded-lg", color.bg, color.text)}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="truncate">{area.label}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-0">
+              <div className="space-y-2">
+                <AreaScoreRow label="Esfuerzo" icon={Timer} value={area.esfuerzo} color={color.bar} />
+                <AreaScoreRow label="Resultados" icon={Trophy} value={area.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
+              </div>
+              <div className="space-y-1.5 pt-2 border-t">
+                {visibleSubs.map((sub) => (
+                  <div key={sub.id} className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground truncate">{sub.label}</span>
+                    <span className="text-[11px] font-semibold shrink-0">
+                      {sub.esfuerzo}% / {sub.resultados}%
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <StatBar value={sub.esfuerzo} color={color.bar} />
-                    </div>
-                    <div className="flex-1">
-                      <StatBar value={sub.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
-                    </div>
-                  </div>
+                ))}
+              </div>
+              {listProgress && listProgress.total > 0 && (
+                <div className="pt-2 border-t flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Target className="h-3 w-3" />
+                    Tus listas
+                  </span>
+                  <span className="text-[11px] font-semibold">
+                    {listProgress.done}/{listProgress.total} tareas · {listProgress.lists} lista{listProgress.lists !== 1 ? 's' : ''}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {listProgress && listProgress.total > 0 && (
-            <div className="rounded-lg border p-3 flex items-center justify-between">
-              <span className="text-sm font-medium flex items-center gap-2">
-                <Target className="h-4 w-4 text-muted-foreground" />
-                Tus listas
-              </span>
-              <span className="text-sm font-semibold">
-                {listProgress.done}/{listProgress.total} tareas en {listProgress.lists} lista{listProgress.lists !== 1 ? 's' : ''}
-              </span>
-            </div>
-          )}
-        </div>
-      </DialogContent>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+      <AreaDetailDialog open={open} onOpenChange={setOpen} area={area} color={color} Icon={Icon} listProgress={listProgress} />
     </Dialog>
   );
 }
@@ -245,7 +281,7 @@ function PhotoCard({ version, latestPhoto, startPhotoUrl, targetPhotoUrl, onUplo
     <Card className="h-full">
       <CardContent className="pt-6 space-y-4">
         <div className="flex items-center justify-center gap-3">
-          <div className="relative w-32 h-44 md:w-36 md:h-48 rounded-lg overflow-hidden border-2 border-primary shadow-lg shadow-primary/20">
+          <div className="relative w-28 h-40 md:w-32 md:h-44 rounded-lg overflow-hidden border-2 border-primary shadow-lg shadow-primary/20">
             <img src={mainSrc} alt={mainLabel} className="w-full h-full object-cover object-top" />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
               <span className="text-white text-[10px] font-medium">{mainLabel}</span>
@@ -453,7 +489,7 @@ const ObjetivoPrioritario = () => {
                 )}
               </div>
 
-              <div className="flex flex-col gap-4 w-full">
+              <div className="flex flex-col gap-3 w-full justify-center">
                 <PhotoCard
                   version={version}
                   latestPhoto={latestPhoto}
@@ -463,9 +499,9 @@ const ObjetivoPrioritario = () => {
                 />
 
                 {financeArea ? (
-                  <AreaCard area={financeArea} listProgress={listProgress['finanzas']} />
+                  <AreaCard compact area={financeArea} listProgress={listProgress['finanzas']} />
                 ) : (
-                  <AreaCard area={emptyArea} />
+                  <AreaCard compact area={emptyArea} />
                 )}
               </div>
 
