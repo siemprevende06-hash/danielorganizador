@@ -15,6 +15,7 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { useAutoTheme } from '@/hooks/useAutoTheme';
 import { InstallPrompt } from '@/components/InstallPrompt';
 import { PageCoverMenu } from '@/components/PageCoverMenu';
+import { usePageIcons } from '@/contexts/PageIconsContext';
 
 interface SidebarItem {
   path?: string;
@@ -108,14 +109,6 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     label: 'PÁGINAS',
     items: [
       { path: '/paginas', label: 'Todas las Páginas', icon: FileText },
-    ]
-  },
-  {
-    label: 'PLANES',
-    items: [
-      { path: '/trimestral-planning', label: 'Plan Trimestral', icon: CalendarRange },
-      { path: '/weekly-planning', label: 'Plan Semanal', icon: ListChecks },
-      { path: '/monthly-planning', label: 'Plan Mensual', icon: Target },
     ]
   },
   {
@@ -295,6 +288,8 @@ export const Navigation = () => {
   };
 
   const currentPage = getPageTitle(location.pathname);
+  const { getIcon } = usePageIcons();
+  const pageIcon = getIcon(location.pathname);
 
   return (
     <>
@@ -305,6 +300,7 @@ export const Navigation = () => {
           <button onClick={() => setIsOpen(true)} className="p-1 -ml-1 rounded-md hover:bg-accent">
             <Menu className="h-5 w-5" />
           </button>
+          {pageIcon && <span className="text-base leading-none">{pageIcon}</span>}
           <span className="font-medium text-sm">{currentPage}</span>
         </div>
         <div className="flex items-center gap-1">

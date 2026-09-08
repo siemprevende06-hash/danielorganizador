@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { 
   Briefcase, Plus, Rocket, CheckCircle2, 
-  ListTodo, DollarSign, Edit3, Trash2, ImagePlus, Loader2, X, Star
+  ListTodo, DollarSign, Edit3, Trash2, ImagePlus, Loader2, X, Star,
+  Clock, Target, TrendingUp
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -23,7 +24,11 @@ interface Entrepreneurship {
   cover_image: string | null;
   taskCount?: number;
   completedCount?: number;
+  improvementCount?: number;
   totalIncome?: number;
+  goalsCompleted?: number;
+  goalsTotal?: number;
+  focusMinutes?: number;
 }
 
 export default function EntrepreneurshipPage() {
@@ -48,14 +53,44 @@ export default function EntrepreneurshipPage() {
         .from('entrepreneurships').select('*').order('created_at');
       if (error) throw error;
 
+      const [tasksRes, sessionsRes] = await Promise.all([
+        supabase.from('tasks').select('id, source_id').eq('source', 'entrepreneurship'),
+        supabase.from('focus_sessions').select('task_id, task_ids, duration_minutes').eq('task_area', 'emprendimiento'),
+      ]);
+
+      const entForTask: Record<string, string> = {};
+      (tasksRes.data || []).forEach((t: any) => { if (t.source_id) entForTask[t.id] = t.source_id; });
+      const focusMinutes: Record<string, number> = {};
+      (sessionsRes.data || []).forEach((s: any) => {
+        const ids: string[] = Array.isArray(s.task_ids) && (s.task_ids as string[]).length > 0
+          ? (s.task_ids as string[]).filter((x: any) => typeof x === 'string')
+          : (s.task_id ? [s.task_id] : []);
+        ids.forEach((tid) => {
+          const entId = entForTask[tid];
+          if (entId) focusMinutes[entId] = (focusMinutes[entId] || 0) + (s.duration_minutes || 0);
+        });
+      });
+
       const enriched = await Promise.all((data || []).map(async (e) => {
-        const [{ count: taskCount }, { count: completedCount }, { data: incomeData }] = await Promise.all([
+        const [{ count: taskCount }, { count: completedCount }, { count: improvementCount }, { data: incomeData }, { count: goalsCompleted }, { count: goalsTotal }] = await Promise.all([
           supabase.from('entrepreneurship_tasks').select('*', { count: 'exact', head: true }).eq('entrepreneurship_id', e.id),
           supabase.from('entrepreneurship_tasks').select('*', { count: 'exact', head: true }).eq('entrepreneurship_id', e.id).eq('completed', true),
+          supabase.from('entrepreneurship_tasks').select('*', { count: 'exact', head: true }).eq('entrepreneurship_id', e.id).eq('task_type', 'improvement'),
           supabase.from('entrepreneurship_income').select('amount').eq('entrepreneurship_id', e.id),
+          supabase.from('entrepreneurship_goals').select('*', { count: 'exact', head: true }).eq('entrepreneurship_id', e.id).eq('completed', true),
+          supabase.from('entrepreneurship_goals').select('*', { count: 'exact', head: true }).eq('entrepreneurship_id', e.id),
         ]);
         const totalIncome = (incomeData || []).reduce((s, r) => s + Number(r.amount), 0);
-        return { ...e, taskCount: taskCount || 0, completedCount: completedCount || 0, totalIncome };
+        return {
+          ...e,
+          taskCount: taskCount || 0,
+          completedCount: completedCount || 0,
+          improvementCount: improvementCount || 0,
+          totalIncome,
+          goalsCompleted: goalsCompleted || 0,
+          goalsTotal: goalsTotal || 0,
+          focusMinutes: focusMinutes[e.id] || 0,
+        };
       }));
 
       setEntrepreneurships(enriched);
@@ -122,6 +157,8 @@ export default function EntrepreneurshipPage() {
   const totalIncome = entrepreneurships.reduce((s, e) => s + (e.totalIncome || 0), 0);
   const totalTasks = entrepreneurships.reduce((s, e) => s + (e.taskCount || 0), 0);
   const totalCompleted = entrepreneurships.reduce((s, e) => s + (e.completedCount || 0), 0);
+  const totalFocusMinutes = entrepreneurships.reduce((s, e) => s + (e.focusMinutes || 0), 0);
+  const formatMinutes = (m: number) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
 
   if (loading) {
     return (
@@ -150,7 +187,7 @@ export default function EntrepreneurshipPage() {
 
       {/* Stats */}
       {entrepreneurships.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card className="bg-card border-border">
             <CardContent className="p-3 text-center">
               <ListTodo className="h-5 w-5 mx-auto text-primary mb-1" />
@@ -174,66 +211,91 @@ export default function EntrepreneurshipPage() {
               <div className="text-[10px] text-muted-foreground">Ingresos</div>
             </CardContent>
           </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-3 text-center">
+              <Clock className="h-5 w-5 mx-auto text-blue-500 mb-1" />
+              <div className="text-xl font-bold text-foreground">{formatMinutes(totalFocusMinutes)}</div>
+              <div className="text-[10px] text-muted-foreground">Tiempo dedicado</div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {/* Project Cards */}
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {entrepreneurships.map(ent => {
           const progress = ent.taskCount ? Math.round(((ent.completedCount || 0) / ent.taskCount) * 100) : 0;
+          const focusTime = ent.focusMinutes || 0;
           return (
-            <Card 
-              key={ent.id} 
+            <Card
+              key={ent.id}
               className={cn(
-                "cursor-pointer border-border hover:border-primary/50 transition-all active:scale-[0.99]",
+                "cursor-pointer border-border hover:border-primary/50 hover:shadow-md transition-all active:scale-[0.99] overflow-hidden",
                 activeEntIds.includes(ent.id) && "ring-2 ring-primary"
               )}
               onClick={() => navigate(`/entrepreneurship/${ent.id}`)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {ent.cover_image ? (
-                      <img src={ent.cover_image} alt={ent.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Briefcase className="h-6 w-6 text-primary" />
-                    )}
+              <div className="relative h-28 w-full bg-gradient-to-br from-purple-500/20 via-amber-500/10 to-transparent">
+                {ent.cover_image ? (
+                  <img src={ent.cover_image} alt={ent.name} className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <div className="absolute inset-0 grid place-items-center">
+                    <Briefcase className="h-10 w-10 text-primary/70" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-foreground truncate">{ent.name}</h3>
-                      <div className="flex gap-1 flex-shrink-0 ml-2">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); toggleActiveEnt(ent.id); }} title={activeEntIds.includes(ent.id) ? "Quitar activo" : "Marcar activo"}>
-                          <Star className={cn("h-3.5 w-3.5", activeEntIds.includes(ent.id) ? "fill-primary text-primary" : "text-muted-foreground")} />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => openEdit(ent, e)}>
-                          <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => deleteEntrepreneurship(ent.id, e)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                    {ent.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ent.description}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-2">
-                      <Badge variant="secondary" className="text-[10px] gap-1">
-                        <ListTodo className="h-3 w-3" />
-                        {ent.completedCount}/{ent.taskCount}
-                      </Badge>
-                      {(ent.totalIncome || 0) > 0 && (
-                        <Badge variant="secondary" className="text-[10px] gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          ${ent.totalIncome?.toLocaleString()}
-                        </Badge>
-                      )}
-                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
-                      </div>
-                      <span className="text-[10px] font-medium text-muted-foreground">{progress}%</span>
-                    </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+              </div>
+              <CardContent className="p-4 -mt-8 relative">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-semibold text-foreground truncate text-base">{ent.name}</h3>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); toggleActiveEnt(ent.id); }} title={activeEntIds.includes(ent.id) ? "Quitar activo" : "Marcar activo"}>
+                      <Star className={cn("h-3.5 w-3.5", activeEntIds.includes(ent.id) ? "fill-primary text-primary" : "text-muted-foreground")} />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => openEdit(ent, e)}>
+                      <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => deleteEntrepreneurship(ent.id, e)}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
                   </div>
+                </div>
+                {ent.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ent.description}</p>
+                )}
+                <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    <ListTodo className="h-3 w-3" />
+                    {ent.completedCount}/{ent.taskCount}
+                  </Badge>
+                  {(ent.improvementCount || 0) > 0 && (
+                    <Badge variant="outline" className="text-[10px] gap-1 text-purple-600">
+                      <TrendingUp className="h-3 w-3" />
+                      {ent.improvementCount} mejoras
+                    </Badge>
+                  )}
+                  {(ent.goalsTotal || 0) > 0 && (
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <Target className="h-3 w-3" />
+                      {ent.goalsCompleted}/{ent.goalsTotal} metas
+                    </Badge>
+                  )}
+                  {focusTime > 0 && (
+                    <Badge variant="outline" className="text-[10px] gap-1 text-blue-600">
+                      <Clock className="h-3 w-3" />
+                      {formatMinutes(focusTime)}
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className="text-[10px] gap-1 text-yellow-600">
+                    <DollarSign className="h-3 w-3" />
+                    ${Number(ent.totalIncome || 0).toLocaleString()}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 mt-2.5">
+                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
+                  </div>
+                  <span className="text-[10px] font-medium text-muted-foreground">{progress}%</span>
                 </div>
               </CardContent>
             </Card>

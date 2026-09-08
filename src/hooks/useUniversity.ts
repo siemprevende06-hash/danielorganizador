@@ -76,6 +76,7 @@ export function useUniversity() {
       const { data, error } = await (supabase as any)
         .from('university_settings')
         .select('*')
+        .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
 
@@ -110,7 +111,7 @@ export function useUniversity() {
       const subjectsWithData: Subject[] = (subjectsRes.data || []).map(subject => ({
         id: subject.id,
         name: subject.name,
-        code: subject.color || '',
+        code: subject.code || '',
         professor: subject.professor || '',
         schedule: subject.schedule || '',
         approved: subject.approved || false,
@@ -171,17 +172,33 @@ export function useUniversity() {
   const updateSettings = async (newSettings: Partial<UniversitySettings>) => {
     try {
       const merged = { ...settings, ...newSettings };
-      const { error } = await (supabase as any)
-        .from('university_settings')
-        .upsert({
-          user_id: null,
-          current_year: merged.current_year,
-          current_semester: merged.current_semester,
-          academic_schedule: merged.academic_schedule,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
+      const payload = {
+        current_year: merged.current_year,
+        current_semester: merged.current_semester,
+        academic_schedule: merged.academic_schedule,
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
+      const { data: existing } = await (supabase as any)
+        .from('university_settings')
+        .select('id')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing?.id) {
+        const { error } = await (supabase as any)
+          .from('university_settings')
+          .update(payload)
+          .eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any)
+          .from('university_settings')
+          .insert({ user_id: null, ...payload });
+        if (error) throw error;
+      }
+
       setSettings(merged);
       toast({ title: 'Configuración guardada' });
       return true;
@@ -203,7 +220,7 @@ export function useUniversity() {
         .from('university_subjects')
         .insert({
           name: data.name,
-          color: data.code,
+          code: data.code,
           professor: data.professor,
           schedule: data.schedule,
           year: settings.current_year,

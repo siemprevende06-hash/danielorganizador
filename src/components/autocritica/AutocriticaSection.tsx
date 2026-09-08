@@ -8,7 +8,7 @@ import { Activity, Gauge, Save, Scale, Target, Layers } from 'lucide-react';
 import { format } from 'date-fns';
 import { useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER } from '@/hooks/useResultadosPeriodo';
 import { useDailyReview } from '@/hooks/useDailyReview';
-import { usePeriodicReview } from '@/hooks/usePeriodicReview';
+import { usePeriodicReview, type ReviewType } from '@/hooks/usePeriodicReview';
 import { ReflectionForm } from '@/components/self-review/ReflectionForm';
 import { OverallRating } from '@/components/self-review/OverallRating';
 import { cn } from '@/lib/utils';
@@ -78,7 +78,7 @@ export function AutocriticaSection({ start, end, scope }: AutocriticaSectionProp
   const isDay = scope === 'day';
   const dateStr = format(start, 'yyyy-MM-dd');
   const dayReview = useDailyReview(dateStr);
-  const periodic = usePeriodicReview(isDay ? 'weekly' : (SCOPE_TYPES[scope] || 'weekly'), start);
+  const periodic = usePeriodicReview((isDay ? 'weekly' : (SCOPE_TYPES[scope] || 'weekly')) as ReviewType, start);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [ratingDraft, setRatingDraft] = useState<number | null>(null);
   const p = periodic.review;

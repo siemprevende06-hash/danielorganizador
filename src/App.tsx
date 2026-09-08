@@ -14,7 +14,9 @@ import { useActiveNotifications } from "./hooks/useActiveNotifications";
 import { TimeframeProvider } from "./contexts/TimeframeContext";
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
 import { PageCoversProvider } from "./contexts/PageCoversContext";
+import { PageIconsProvider } from "./contexts/PageIconsContext";
 import { PageCoverBanner } from "./components/PageCoverBanner";
+import { PageIconBanner } from "./components/PageIconBanner";
 import Index from "./pages/Index";
 import Inicio2 from "./pages/Inicio2";
 import NotFound from "./pages/NotFound";
@@ -110,9 +112,11 @@ function AppContent() {
   return (
     <div className={cn("pt-12 lg:pt-0 min-h-screen transition-all duration-200", collapsed ? "lg:ml-14" : "lg:ml-56")}>
       <PageCoversProvider>
-        <Navigation />
-        <PageCoverBanner />
-        <Routes>
+        <PageIconsProvider>
+          <Navigation />
+          <PageCoverBanner />
+          <PageIconBanner />
+          <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/inicio-2" element={<Inicio2 />} />
         <Route path="/control-room" element={<ControlRoom />} />
@@ -196,6 +200,7 @@ function AppContent() {
         <Route path="/organizacion" element={<Organizacion />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+        </PageIconsProvider>
       </PageCoversProvider>
     </div>
   );

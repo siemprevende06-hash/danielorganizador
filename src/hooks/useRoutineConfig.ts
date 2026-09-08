@@ -95,17 +95,18 @@ function buildSchedule(wakeTime: string, focusBlock: boolean, sleepTime: string)
   s.push({ title: 'Deep Work 4', start: '14:00', end: '15:30', type: 'deep' });
   s.push({ title: 'Deep Work 5', start: '15:30', end: '16:50', type: 'deep' });
   s.push({ title: 'Rutina de Llegada', start: '16:50', end: '17:00', type: 'fijo' });
-  s.push({ title: 'Bloque', start: '17:00', end: '18:30', type: 'deep' });
 
   if (sleepTime === '21:00') {
     s.push({ title: 'Ocio', start: '18:30', end: '20:00', type: 'ocio' });
     s.push({ title: 'Música', start: '20:00', end: '20:30', type: 'musica' });
     s.push({ title: 'Rutina de Desactivación', start: '20:30', end: '21:00', type: 'fijo' });
   } else {
-    s.push({ title: 'Bloque', start: '18:30', end: '20:00', type: 'deep' });
-    s.push({ title: 'Ocio', start: '20:00', end: '21:30', type: 'ocio' });
-    s.push({ title: 'Música', start: '21:30', end: '22:00', type: 'musica' });
-    s.push({ title: 'Rutina de Desactivación', start: '22:00', end: '22:30', type: 'fijo' });
+    s.push({ title: 'Deep Work 6', start: '17:00', end: '18:30', type: 'deep' });
+    s.push({ title: 'Idiomas', start: '18:30', end: '19:00', type: 'fijo' });
+    s.push({ title: 'Bloque Extra', start: '19:00', end: '20:00', type: 'deep' });
+    s.push({ title: 'Ocio', start: '20:00', end: '21:00', type: 'ocio' });
+    s.push({ title: 'Música', start: '21:00', end: '21:30', type: 'musica' });
+    s.push({ title: 'Rutina de Desactivación', start: '21:30', end: '22:00', type: 'fijo' });
   }
 
   return s;

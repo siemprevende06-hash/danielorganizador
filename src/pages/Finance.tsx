@@ -1502,6 +1502,8 @@ export default function Finance() {
                     { label: "Freelance", category: "cat-income-2" },
                     { label: "Venta", category: "cat-income-1" },
                     { label: "Devolución", category: "cat-income-2" },
+                    { label: "Deuda Pagada", category: "cat-income-4" },
+                    { label: "Pago de Padres", category: "cat-income-5" },
                   ].map(preset => (
                     <Button key={preset.label} variant="outline" size="sm" className="rounded-full text-[10px] h-7 border-zinc-200 dark:border-zinc-700" onClick={() => {
                       transactionForm.reset({ description: preset.label, amount: 0, currency: "CUP", date: new Date(), walletId: "", categoryId: preset.category, type: "income" });

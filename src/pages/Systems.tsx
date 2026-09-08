@@ -34,6 +34,8 @@ import { useTimeframe } from "@/contexts/TimeframeContext";
 import { useAreaScores } from "@/hooks/useAreaScores";
 import { useHombreTopScores } from "@/hooks/useHombreTopScores";
 import { useVisionBalance } from "@/hooks/useVisionBalance";
+import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
+import { DailyMotivation } from "@/components/today/DailyMotivation";
 
 // === HÁBITOS DE SOSTÉN (te mantienen) ===
 const SOSTEN_GROUPS: SystemGroup[] = [
@@ -97,10 +99,10 @@ const MEJORA_GROUPS: SystemGroup[] = [
 
 // === FOCO (te avanza) — sin habits, son áreas de trabajo ===
 const FOCO_AREAS = [
-  { id: "universidad", name: "Universidad", icon: GraduationCap, color: "text-purple-500", bg: "bg-purple-500/10", link: "/university" },
-  { id: "emprendimiento", name: "Emprendimiento", icon: Briefcase, color: "text-amber-500", bg: "bg-amber-500/10", link: "/entrepreneurship" },
-  { id: "proyectos", name: "Proyectos", icon: Code2, color: "text-cyan-500", bg: "bg-cyan-500/10", link: "/projects" },
-  { id: "tareas", name: "Tareas", icon: ListTodo, color: "text-blue-500", bg: "bg-blue-500/10", link: "/tasks" },
+  { id: "universidad", name: "Universidad", icon: GraduationCap, color: "text-purple-500", bg: "bg-purple-500/10", link: "/university", cover: { type: "sub" as const, id: "universidad" } },
+  { id: "emprendimiento", name: "Emprendimiento", icon: Briefcase, color: "text-amber-500", bg: "bg-amber-500/10", link: "/entrepreneurship", cover: { type: "sub" as const, id: "emprendimiento" } },
+  { id: "proyectos", name: "Proyectos", icon: Code2, color: "text-cyan-500", bg: "bg-cyan-500/10", link: "/projects", cover: { type: "sub" as const, id: "proyectos" } },
+  { id: "tareas", name: "Tareas", icon: ListTodo, color: "text-blue-500", bg: "bg-blue-500/10", link: "/tasks", cover: null },
 ];
 
 const ALL_GROUPS = [...SOSTEN_GROUPS, ...MEJORA_GROUPS];
@@ -131,6 +133,7 @@ export default function Systems() {
   } = useSystemsTracking();
   const { streak: overallStreak } = useOverallSystemStreak();
   const { timeframe, view } = useTimeframe();
+  const { covers } = useAreaCovers();
   const { scores: areaScores, averages, loading: areaLoading } = useAreaScores(timeframe, view);
   const {
     scores: hommeScores,
@@ -197,6 +200,9 @@ export default function Systems() {
 
         {/* Selector de rutina del día (presets) */}
         <PresetSchedulePicker />
+
+        {/* Frase motivacional */}
+        <DailyMotivation />
 
         {/* Indicadores de esfuerzo: Rueda de la Vida + Hombre Top */}
         <TimeframeSelector />
@@ -397,9 +403,17 @@ export default function Systems() {
               const Icon = area.icon;
               const blocksInArea = Object.entries(data.workAssignments)
                 .filter(([_, a]) => a === area.id).length;
+              const coverUrl = area.cover ? covers[coverKey(area.cover.type, area.cover.id)] ?? null : null;
               return (
                 <Link key={area.id} to={area.link}>
                   <Card className={`p-3 hover:scale-[1.02] transition-all ${area.bg} border-2 hover:border-primary/40`}>
+                    {coverUrl && (
+                      <img
+                        src={coverUrl}
+                        alt={area.name}
+                        className="w-full h-12 object-cover rounded-lg mb-2"
+                      />
+                    )}
                     <div className="flex items-center gap-2 mb-1">
                       <Icon className={`h-5 w-5 ${area.color}`} />
                       <span className="font-semibold text-sm">{area.name}</span>

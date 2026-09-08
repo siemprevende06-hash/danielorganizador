@@ -203,8 +203,8 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const areaStats = areaStatsRes.data || [];
       const systems = systemsRes.data || [];
       const reviews = reviewsRes.data || [];
-      const readings = readRes.data || [];
-      const music = musicRes.data || [];
+      const readingsAll = readRes.data || [];
+      const musicAll = musicRes.data || [];
       const chess = chessRes.data || [];
       const logs = logsRes.data || [];
       const focus = focusRes.data || [];
@@ -360,21 +360,39 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const { quarter: planQ, year: planY } = getQuarterFromDate(start);
       const plan = loadTrimestralPlanFromLocal(`Q${planQ}_${planY}`);
       const monthKey = `month${start.getMonth() - (planQ - 1) * 3 + 1}` as 'month1' | 'month2' | 'month3';
+      const daysSpan = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
       const planBookIds = new Set<string>();
       const planSongIds = new Set<string>();
+      const addPlanIds = (bids: string[], sids: string[]) => {
+        (bids || []).forEach((id: string) => planBookIds.add(id));
+        (sids || []).forEach((id: string) => planSongIds.add(id));
+      };
       if (plan) {
-        if (end.getMonth() === start.getMonth()) {
+        if (daysSpan === 7) {
+          // Semana: usar el libro/canción seleccionada para esa semana en el plan mensual
+          let weekDist: { books?: string[]; songs?: string[] } | undefined;
+          try {
+            const monthPlanRaw = localStorage.getItem(`monthly_plan_${format(new Date(start.getFullYear(), start.getMonth(), 1), 'yyyy-MM-dd')}`);
+            if (monthPlanRaw) weekDist = ((JSON.parse(monthPlanRaw) || {}).week_distribution || {})[startStr];
+          } catch {}
+          if (weekDist && (((weekDist.books || []).length > 0) || ((weekDist.songs || []).length > 0))) {
+            addPlanIds(weekDist.books || [], weekDist.songs || []);
+          } else {
+            const dist = plan.distribution?.[monthKey];
+            addPlanIds(dist?.books || plan.books?.selected || [], dist?.songs || plan.songs?.selected || []);
+          }
+        } else if (end.getMonth() === start.getMonth()) {
           const dist = plan.distribution?.[monthKey];
-          (dist?.books || plan.books?.selected || []).forEach((id: string) => planBookIds.add(id));
-          (dist?.songs || plan.songs?.selected || []).forEach((id: string) => planSongIds.add(id));
+          addPlanIds(dist?.books || plan.books?.selected || [], dist?.songs || plan.songs?.selected || []);
         } else {
           (['month1', 'month2', 'month3'] as const).forEach(mk => {
             const dist = plan.distribution?.[mk];
-            (dist?.books || []).forEach((id: string) => planBookIds.add(id));
-            (dist?.songs || []).forEach((id: string) => planSongIds.add(id));
+            addPlanIds(dist?.books || [], dist?.songs || []);
           });
         }
       }
+      const selectedReadings = planBookIds.size > 0 ? (readingsAll as any[]).filter((r: any) => planBookIds.has(r.book_id)) : (readingsAll as any[]);
+      const selectedMusic = planSongIds.size > 0 ? (musicAll as any[]).filter((m: any) => planSongIds.has(m.song_id)) : (musicAll as any[]);
       const books = [...planBookIds]
         .map(id => library.find((b: any) => b.id === id))
         .filter(Boolean)
@@ -433,7 +451,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       let pagesGoal = 0;
       let readMin = 0;
       const readPerDay: Record<string, number> = {};
-      readings.forEach((r: any) => {
+      selectedReadings.forEach((r: any) => {
         pages += r.pages_read || 0;
         readMin += r.minutes || 0;
         const d = r.session_date;
@@ -446,7 +464,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       let musicMin = 0;
       const musicPerDay: Record<string, number> = {};
       const songs = new Set<string>();
-      music.forEach((m: any) => {
+      selectedMusic.forEach((m: any) => {
         musicMin += m.duration_minutes || 0;
         const d = m.practice_date;
         musicPerDay[d] = (musicPerDay[d] || 0) + (m.duration_minutes || 0);
@@ -488,8 +506,8 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       systems.forEach((s: any) => allDates.add(s.tracking_date));
       areaStats.forEach((s: any) => allDates.add(s.stat_date));
       reviews.forEach((r: any) => allDates.add(r.review_date));
-      readings.forEach((r: any) => allDates.add(r.session_date));
-      music.forEach((m: any) => allDates.add(m.practice_date));
+      selectedReadings.forEach((r: any) => allDates.add(r.session_date));
+      selectedMusic.forEach((m: any) => allDates.add(m.practice_date));
       chess.forEach((c: any) => allDates.add(c.session_date));
       logs.forEach((l: any) => allDates.add(l.log_date));
 
@@ -530,12 +548,12 @@ export function useResultadosPeriodo(start: Date, end: Date) {
           pages,
           pagesGoal,
           minutes: readMin + byArea.lectura.minutes,
-          sessions: readings.length,
+          sessions: selectedReadings.length,
           perDay: Object.entries(readPerDay).sort().map(([d, pag]) => ({ d, pag })),
         },
         musica: {
           minutes: musicMin + byArea.musica.minutes,
-          sessions: music.length,
+          sessions: selectedMusic.length,
           songs: songs.size,
           perDay: Object.entries(musicPerDay).sort().map(([d, min]) => ({ d, min })),
         },

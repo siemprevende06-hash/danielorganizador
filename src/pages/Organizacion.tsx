@@ -11,7 +11,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, CheckCircle2, Circle, Sun, Moon, Utensils, BedDouble, BedSingle, Sofa, Bath, Boxes, Loader2, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { HOUSE_AREAS, ORGANIZACION_MOMENTS, areaLabel, type OrganizacionGroup, type OrganizacionMoment } from '@/hooks/useOrganizacion';
+import { HOUSE_AREAS, ORGANIZACION_MOMENTS, areaLabel, useOrganizacion, type OrganizacionGroup, type OrganizacionMoment } from '@/hooks/useOrganizacion';
 
 const AREA_ICONS: Record<string, typeof Utensils> = {
   cocina: Utensils,

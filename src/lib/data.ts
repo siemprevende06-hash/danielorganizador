@@ -128,6 +128,8 @@ export const transactionCategories: TransactionCategory[] = [
   { id: "cat-income-1", name: "Salario/Ingreso Principal", type: "income", icon: Briefcase },
   { id: "cat-income-2", name: "Freelance/Trabajo Extra", type: "income", icon: Code },
   { id: "cat-income-3", name: "Inversiones", type: "income", icon: Target },
+  { id: "cat-income-4", name: "Deuda Pagada", type: "income", icon: Banknote },
+  { id: "cat-income-5", name: "Pago de Padres", type: "income", icon: Home },
   { id: "cat-food", name: "Comida", type: "expense", icon: Utensils },
   { id: "cat-transport", name: "Transporte", type: "expense", icon: Car },
   { id: "cat-entertainment", name: "Entretenimiento", type: "expense", icon: Gamepad2 },

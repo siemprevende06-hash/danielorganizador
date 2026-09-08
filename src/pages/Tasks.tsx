@@ -12,15 +12,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { 
-  PlusCircle, Trash2, Calendar, Clock, Pencil, 
+import {
+  PlusCircle, Trash2, Calendar, Clock, Pencil,
   CheckCircle2, Circle, AlertTriangle, Target,
   ListTodo, ArrowUpDown, LayoutGrid, List, Zap, Play,
   BookOpen, Briefcase, FolderKanban, Sparkles, Languages,
-  TrendingUp, BarChart3, Layers, ChevronRight
+  TrendingUp, BarChart3, Layers, ChevronRight, Repeat, Tags as TagsIcon, Timer
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format, isToday, isTomorrow, isPast, isThisWeek, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval } from 'date-fns';
+import { format, isToday, isTomorrow, isPast, isThisWeek, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cachedQuery, cachedMutation, clearCacheForTable } from '@/lib/supabaseCache';
@@ -36,7 +36,9 @@ const taskSchema = z.object({
   title: z.string().trim().min(1, "El título es requerido").max(200),
   description: z.string().max(1000).optional(),
   priority: z.enum(["low", "medium", "high"]),
-  dueDate: z.string().optional()
+  dueDate: z.string().optional(),
+  estimatedMinutes: z.number().min(0).max(600).optional(),
+  recurrence: z.enum(["none", "daily", "weekly", "monthly"]),
 });
 
 interface TaskItem {
@@ -50,6 +52,10 @@ interface TaskItem {
   routineBlockId?: string;
   source: string;
   createdAt: Date;
+  estimatedMinutes?: number;
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
+  tags?: string[];
+  parentId?: string;
 }
 
 type Category = 'all' | 'universidad' | 'emprendimiento' | 'proyectos' | 'idiomas' | 'tareas';
@@ -167,6 +173,11 @@ export default function TasksPage() {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueDate, setDueDate] = useState('');
+  const [estimatedMinutes, setEstimatedMinutes] = useState<string>('');
+  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [parentTaskId, setParentTaskId] = useState<string>('');
   const [selectedAreaId, setSelectedAreaId] = useState<string>('');
   const [selectedBlockId, setSelectedBlockId] = useState<string>('');
   
@@ -205,6 +216,10 @@ export default function TasksPage() {
           routineBlockId: t.routine_block_id || undefined,
           source: t.source,
           createdAt: new Date(t.created_at),
+          estimatedMinutes: t.estimated_minutes || undefined,
+          recurrence: (t.recurrence as any) || 'none',
+          tags: t.tags || [],
+          parentId: t.parent_id || undefined,
         }));
         setTasks(mapped);
       }
@@ -226,6 +241,10 @@ export default function TasksPage() {
           routineBlockId: t.routine_block_id || undefined,
           source: t.source,
           createdAt: new Date(t.created_at),
+          estimatedMinutes: t.estimated_minutes || undefined,
+          recurrence: t.recurrence || 'none',
+          tags: t.tags || [],
+          parentId: t.parent_id || undefined,
         })));
       }
     } finally {
@@ -236,17 +255,42 @@ export default function TasksPage() {
   const resetForm = () => {
     setTitle(''); setDescription(''); setPriority('medium');
     setDueDate(''); setSelectedAreaId(''); setSelectedBlockId('');
+    setEstimatedMinutes(''); setRecurrence('none'); setTags([]); setTagInput(''); setParentTaskId('');
+  };
+
+  const addTag = () => {
+    const t = tagInput.trim().replace(/^#/, '');
+    if (t && !tags.includes(t)) setTags(prev => [...prev, t]);
+    setTagInput('');
+  };
+
+  const removeTag = (t: string) => setTags(prev => prev.filter(x => x !== t));
+
+  const advanceDate = (d: Date | undefined, rule: 'none' | 'daily' | 'weekly' | 'monthly'): string | null => {
+    if (!d) return null;
+    if (rule === 'daily') return addDays(d, 1).toISOString();
+    if (rule === 'weekly') return addWeeks(d, 1).toISOString();
+    if (rule === 'monthly') return addMonths(d, 1).toISOString();
+    return null;
   };
 
   const handleCreateTask = async () => {
     try {
-      const validated = taskSchema.parse({ title, description, priority, dueDate });
+      const validated = taskSchema.parse({
+        title, description, priority, dueDate,
+        estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : undefined,
+        recurrence,
+      });
       const payload = {
         title: validated.title, description: validated.description || null,
         status: 'pendiente', priority: validated.priority,
         due_date: validated.dueDate || null, completed: false, source: 'general',
         area_id: selectedAreaId || null,
         routine_block_id: selectedBlockId && selectedBlockId !== 'none' ? selectedBlockId : null,
+        estimated_minutes: validated.estimatedMinutes || null,
+        recurrence: validated.recurrence,
+        tags: tags.length > 0 ? tags : null,
+        parent_id: parentTaskId || null,
         user_id: null,
       };
       const { queued } = await cachedMutation("tasks", "insert", payload);
@@ -268,12 +312,20 @@ export default function TasksPage() {
   const handleEditTask = async () => {
     if (!editingTask) return;
     try {
-      const validated = taskSchema.parse({ title, description, priority, dueDate });
+      const validated = taskSchema.parse({
+        title, description, priority, dueDate,
+        estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : undefined,
+        recurrence,
+      });
       const payload = {
         title: validated.title, description: validated.description || null,
         priority: validated.priority, due_date: validated.dueDate || null,
         area_id: selectedAreaId || null,
         routine_block_id: selectedBlockId && selectedBlockId !== 'none' ? selectedBlockId : null,
+        estimated_minutes: validated.estimatedMinutes || null,
+        recurrence: validated.recurrence,
+        tags: tags.length > 0 ? tags : null,
+        parent_id: parentTaskId || null,
       };
       const { queued } = await cachedMutation("tasks", "update", payload, { id: editingTask.id });
       if (queued) {
@@ -297,6 +349,9 @@ export default function TasksPage() {
     setPriority(task.priority || 'medium');
     setDueDate(task.dueDate ? format(task.dueDate, 'yyyy-MM-dd') : '');
     setSelectedAreaId(task.areaId || ''); setSelectedBlockId(task.routineBlockId || '');
+    setEstimatedMinutes(task.estimatedMinutes ? String(task.estimatedMinutes) : '');
+    setRecurrence(task.recurrence || 'none'); setTags(task.tags || []); setTagInput('');
+    setParentTaskId(task.parentId || '');
     setIsEditDialogOpen(true);
   };
 
@@ -307,9 +362,35 @@ export default function TasksPage() {
     const { queued } = await cachedMutation("tasks", "update", {
       completed: !task.completed, status: task.completed ? 'pendiente' : 'completada'
     }, { id: taskId });
+
+    if (!task.completed && task.recurrence && task.recurrence !== 'none') {
+      const nextDue = advanceDate(task.dueDate, task.recurrence);
+      const exists = tasks.some(t =>
+        t.id !== taskId && t.title === task.title && !t.completed &&
+        t.recurrence === task.recurrence && t.dueDate?.toISOString().slice(0, 10) === nextDue?.slice(0, 10)
+      );
+      if (nextDue && !exists) {
+        try {
+          await supabase.from('tasks').insert({
+            title: task.title, description: task.description || null,
+            priority: task.priority || 'medium', due_date: nextDue, completed: false,
+            status: 'pendiente', source: 'general',
+            area_id: task.areaId || null, routine_block_id: task.routineBlockId || null,
+            estimated_minutes: task.estimatedMinutes || null, recurrence: task.recurrence,
+            tags: task.tags && task.tags.length > 0 ? task.tags : null,
+            parent_id: task.parentId || null, user_id: null,
+          });
+          toast({ title: 'Recurrencia: se programó la próxima tarea' });
+        } catch (e) {
+          toast({ title: 'No se pudo programar la próxima tarea (offline)', variant: 'destructive' });
+        }
+      }
+    }
+
     if (queued) {
       toast({ title: 'Cambio guardado offline — pendiente de sincronización' });
     }
+    await loadTasks();
   };
 
   const handleDeleteTask = async (taskId: string) => {
@@ -422,6 +503,18 @@ export default function TasksPage() {
     return 'text-muted-foreground';
   };
 
+  const renderOrder = useMemo(() => {
+    const parents = filteredTasks.filter(t => !t.parentId);
+    const kids = filteredTasks.filter(t => t.parentId);
+    const out: TaskItem[] = [];
+    parents.forEach(p => {
+      out.push(p);
+      kids.filter(k => k.parentId === p.id).forEach(k => out.push(k));
+    });
+    kids.forEach(k => { if (!out.includes(k)) out.push(k); });
+    return out;
+  }, [filteredTasks]);
+
   const renderTaskForm = (onSubmit: () => void, submitLabel: string) => (
     <div className="space-y-4">
       <div>
@@ -453,6 +546,50 @@ export default function TasksPage() {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
+          <Label className="text-sm font-medium">Repetición</Label>
+          <Select value={recurrence} onValueChange={(v: any) => setRecurrence(v)}>
+            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No repetir</SelectItem>
+              <SelectItem value="daily">Diaria</SelectItem>
+              <SelectItem value="weekly">Semanal</SelectItem>
+              <SelectItem value="monthly">Mensual</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-sm font-medium">Minutos estimados</Label>
+          <div className="relative mt-1">
+            <Timer className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input type="number" min={0} step={5} value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)}
+              placeholder="60" className="pl-8" />
+          </div>
+        </div>
+      </div>
+      <div>
+        <Label className="text-sm font-medium">Etiquetas</Label>
+        <div className="flex gap-1.5 mt-1">
+          <Input value={tagInput} onChange={e => setTagInput(e.target.value)} placeholder="Nueva etiqueta..."
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }} />
+          <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={addTag}>
+            <PlusCircle className="h-4 w-4" />
+          </Button>
+        </div>
+        {tags.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {tags.map(t => (
+              <Badge key={t} variant="secondary" className="gap-1 pr-1.5 pl-2.5 text-[11px]">
+                <TagsIcon className="h-3 w-3" />{t}
+                <button onClick={() => removeTag(t)} className="text-muted-foreground hover:text-foreground">
+                  ×
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
           <Label className="text-sm font-medium">Área</Label>
           <Select value={selectedAreaId} onValueChange={setSelectedAreaId}>
             <SelectTrigger className="mt-1"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
@@ -469,6 +606,18 @@ export default function TasksPage() {
             <BlockSelector value={selectedBlockId} onValueChange={setSelectedBlockId} />
           </div>
         </div>
+      </div>
+      <div>
+        <Label className="text-sm font-medium">Sub-tarea de</Label>
+        <Select value={parentTaskId} onValueChange={setParentTaskId}>
+          <SelectTrigger className="mt-1"><SelectValue placeholder="Ninguna (tarea principal)" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Ninguna (tarea principal)</SelectItem>
+            {tasks.filter(t => !t.completed && !t.parentId).map(t => (
+              <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <DialogFooter>
         <Button onClick={onSubmit} className="w-full">{submitLabel}</Button>
@@ -499,12 +648,13 @@ export default function TasksPage() {
     };
     const areaName = allAreas.find(a => a.id === task.areaId)?.name;
     const blockName = blocks.find(b => b.id === task.routineBlockId)?.title;
+    const isSub = !!task.parentId;
 
     return (
       <div
         key={task.id}
         className={`group flex items-start gap-3 p-3 rounded-lg border border-l-[3px] ${priorityStyles[task.priority || 'low']} 
-          bg-card hover:shadow-sm transition-all ${task.completed ? 'opacity-60' : ''}`}
+          bg-card hover:shadow-sm transition-all ${task.completed ? 'opacity-60' : ''} ${isSub ? 'ml-6 border-dashed' : ''}`}
       >
         <button onClick={() => handleToggleTask(task.id)} className="mt-0.5 flex-shrink-0">
           {task.completed 
@@ -527,6 +677,17 @@ export default function TasksPage() {
                 {getDateLabel(task.dueDate)}
               </span>
             )}
+            {task.estimatedMinutes && (
+              <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                <Timer className="w-3 h-3" />{task.estimatedMinutes}m
+              </span>
+            )}
+            {task.recurrence && task.recurrence !== 'none' && (
+              <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                <Repeat className="w-3 h-3" />
+                {task.recurrence === 'daily' ? 'Diaria' : task.recurrence === 'weekly' ? 'Semanal' : 'Mensual'}
+              </span>
+            )}
             {areaName && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal">{areaName}</Badge>
             )}
@@ -535,6 +696,11 @@ export default function TasksPage() {
                 <Clock className="w-2.5 h-2.5" /> {blockName}
               </Badge>
             )}
+            {task.tags && task.tags.length > 0 && task.tags.map(tag => (
+              <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal gap-0.5 text-primary">
+                <TagsIcon className="w-2.5 h-2.5" /> {tag}
+              </Badge>
+            ))}
             {task.priority === 'high' && !task.completed && (
               <AlertTriangle className="w-3 h-3 text-destructive" />
             )}
@@ -743,14 +909,14 @@ export default function TasksPage() {
                 <Badge variant="outline" className="text-[10px] h-4">{areaTasks.length}</Badge>
               </div>
               <div className="space-y-1.5">
-                {areaTasks.map(renderTask)}
+                {renderOrder.filter(t => areaTasks.includes(t)).map(renderTask)}
               </div>
             </div>
           ))}
         </div>
       ) : (
         <div className="space-y-1.5">
-          {filteredTasks.map(renderTask)}
+          {renderOrder.map(renderTask)}
         </div>
       )}
 

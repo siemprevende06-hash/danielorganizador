@@ -6,36 +6,28 @@ import { Card, CardContent } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SOSTEN_STRUCTURAL } from '@/lib/daySystems';
 
 // ---------- Sostén ----------
+// Sincronizado con la cuadrícula de hoy (SOSTEN_STRUCTURAL de daySystems)
+const SOSTEN_LABELS: Record<string, string> = {
+  'rutina-activacion': 'Activación',
+  'rutina-desactivacion': 'Desactivación',
+  'alistamiento-desayuno': 'Alistamiento',
+  'horario-regular': 'Horario',
+  'skincare-manana': 'Skincare AM',
+  'skincare-noche': 'Skincare PM',
+  'banarme-vestirme': 'Bañarse',
+  gym: 'Gym',
+  desayuno: 'Desayuno',
+  almuerzo: 'Almuerzo',
+  comida: 'Comida',
+  suplementos: 'Suplem.',
+};
 const SOSTEN_GROUPS = [
-  {
-    label: 'Estructural', habits: [
-      { id: 'rutina-activacion', label: 'Activación' },
-      { id: 'alistamiento-desayuno', label: 'Alistamiento' },
-      { id: 'horario-regular', label: 'Horario' },
-      { id: 'rutina-desactivacion', label: 'Desactivación' },
-    ],
-  },
-  {
-    label: 'Apariencia', habits: [
-      { id: 'skincare-manana', label: 'Skincare AM' },
-      { id: 'skincare-noche', label: 'Skincare PM' },
-      { id: 'banarme-vestirme', label: 'Bañarse' },
-    ],
-  },
-  {
-    label: 'Alimentación', habits: [
-      { id: 'pre-entreno', label: 'Pre-entreno' },
-      { id: 'desayuno', label: 'Desayuno' },
-      { id: 'merienda-1', label: 'Merienda 1' },
-      { id: 'almuerzo', label: 'Almuerzo' },
-      { id: 'merienda-2', label: 'Merienda 2' },
-      { id: 'comida', label: 'Comida' },
-      { id: 'antes-dormir', label: 'Antes dormir' },
-      { id: 'suplementos', label: 'Suplem.' },
-    ],
-  },
+  { label: 'Salud', habits: (SOSTEN_STRUCTURAL.salud || []).map(h => ({ id: h.id, label: SOSTEN_LABELS[h.id] || h.name })) },
+  { label: 'Fuerza Mental', habits: (SOSTEN_STRUCTURAL['fuerza-mental'] || []).map(h => ({ id: h.id, label: SOSTEN_LABELS[h.id] || h.name })) },
+  { label: 'Apariencia', habits: (SOSTEN_STRUCTURAL.apariencia || []).map(h => ({ id: h.id, label: SOSTEN_LABELS[h.id] || h.name })) },
 ];
 const ALL_SOSTEN_IDS = SOSTEN_GROUPS.flatMap(g => g.habits.map(h => h.id));
 

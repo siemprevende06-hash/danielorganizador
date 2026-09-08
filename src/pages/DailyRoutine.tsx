@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
+import { useRoutineBlocks, type RoutineType, type RoutineBlock as StoredRoutineBlock, ROUTINES } from "@/hooks/useRoutineBlocks";
+import { type RoutineBlock as CardRoutineBlock } from "@/components/RoutineBlockCard";
 import { useRoutineConfig } from "@/hooks/useRoutineConfig";
 import { useDailyPlanData, type TaskItem as PlanTask } from "@/hooks/useDailyPlanData";
 import type { TaskItem as AssignerTask } from "@/components/routine/BlockTaskAssigner";
@@ -91,7 +92,7 @@ const DailyRoutine = () => {
 
   // Mismos bloques que la sección "plan" de la página Daily
   const blocks = useMemo(
-    () => (isLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks),
+    () => (isLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks) as CardRoutineBlock[],
     [isLoaded, routineBlocks, adjustedBlocks]
   );
 
@@ -147,7 +148,7 @@ const DailyRoutine = () => {
 
   const completeBlock = (blockId: string) => {
     toggleBlockComplete(blockId);
-    const target = blocks.find(b => b.id === blockId);
+    const target = blocks.find(b => b.id === blockId) as StoredRoutineBlock | undefined;
     if (!target) return;
     const today = new Date().getDay();
     const dayIndex = today === 0 ? 6 : today - 1;
@@ -295,7 +296,7 @@ const DailyRoutine = () => {
           <RoutineBlockCard
             key={block.id}
             block={block}
-            onUpdate={(updated) => updateBlock(updated)}
+            onUpdate={(updated) => updateBlock(updated as StoredRoutineBlock)}
             onComplete={() => completeBlock(block.id)}
             dailyTasks={dailyTasks}
             onAssignTasks={handleAssignTasks}

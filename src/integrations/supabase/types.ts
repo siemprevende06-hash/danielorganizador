@@ -3477,12 +3477,15 @@ export type Database = {
           due_date: string | null
           estimated_minutes: number | null
           id: string
+          parent_id: string | null
           priority: string | null
+          recurrence: string | null
           routine_block_id: string | null
           source: string
           source_id: string | null
           start_date: string | null
           status: string
+          tags: string[] | null
           task_type: string | null
           title: string
           topic_id: string | null
@@ -3497,12 +3500,15 @@ export type Database = {
           due_date?: string | null
           estimated_minutes?: number | null
           id?: string
+          parent_id?: string | null
           priority?: string | null
+          recurrence?: string | null
           routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
           status?: string
+          tags?: string[] | null
           task_type?: string | null
           title: string
           topic_id?: string | null
@@ -3517,12 +3523,15 @@ export type Database = {
           due_date?: string | null
           estimated_minutes?: number | null
           id?: string
+          parent_id?: string | null
           priority?: string | null
+          recurrence?: string | null
           routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
           status?: string
+          tags?: string[] | null
           task_type?: string | null
           title?: string
           topic_id?: string | null
@@ -3704,6 +3713,7 @@ export type Database = {
       university_subjects: {
         Row: {
           approved: boolean
+          code: string | null
           color: string | null
           created_at: string
           credits: number | null
@@ -3718,6 +3728,7 @@ export type Database = {
         }
         Insert: {
           approved?: boolean
+          code?: string | null
           color?: string | null
           created_at?: string
           credits?: number | null
@@ -3732,6 +3743,7 @@ export type Database = {
         }
         Update: {
           approved?: boolean
+          code?: string | null
           color?: string | null
           created_at?: string
           credits?: number | null

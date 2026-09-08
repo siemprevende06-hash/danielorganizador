@@ -44,6 +44,7 @@ import { Button } from '@/components/ui/button';
 import { addDays, subDays } from 'date-fns';
 import { TimePeriodSections } from '@/components/today/TimePeriodSections';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
+import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -214,6 +215,7 @@ export default function DailyView() {
     { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: 0 },
     { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: mejoraMinutes },
     { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: sostenMinutes },
+    { id: 'control' as const, label: 'Autocrítica', icon: <Sparkles className="h-4 w-4" />, pct: 0, time: 0 },
   ];
 
   if (loading) {
@@ -299,7 +301,7 @@ export default function DailyView() {
         <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} date={selectedDate} />
 
         {/* Section tabs as cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {SECTIONS.map(s => {
             const isActive = activeSection === s.id;
             return (
@@ -579,6 +581,11 @@ export default function DailyView() {
             </div>
           </FocusProcessPanel>
         )}
+
+        {/* ===== SECCIÓN: AUTOCRÍTICA ===== */}
+        {activeSection === 'control' && (
+          <AutocriticaSection start={selectedDate} end={selectedDate} scope="day" />
+        )}
           </>
         ) : viewMode === 'sistemas' ? (
           <DaySystemsSection
@@ -588,6 +595,20 @@ export default function DailyView() {
             onToggle={toggleCompletion}
             onTimeChange={setTimeValue}
             skipped={data.skipped}
+            onSkipToggle={toggleSkip}
+            countData={data.countData}
+            onCountChange={setCountValue}
+            waterData={data.waterData}
+            onWaterToggle={toggleWater}
+            mealPhotos={data.mealPhotos}
+            onMealPhotoUpload={setMealPhoto}
+            wakeTime={wakeTime}
+            sleepTime={sleepTime}
+            onWakeTimeChange={setWakeTime}
+            onSleepTimeChange={setSleepTime}
+            workoutIntensity={data.workoutIntensity}
+            onWorkoutIntensityChange={v => update('workoutIntensity', v)}
+            onWorkoutDurationChange={v => update('workoutDuration', v)}
           />
         ) : (
           <ResultadosDia date={selectedDate} />

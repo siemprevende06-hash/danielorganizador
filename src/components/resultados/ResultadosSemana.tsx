@@ -145,10 +145,17 @@ export function ResultadosSemana({ weekStart }: { weekStart: Date }) {
             title="Lectura"
             color={AREA_COLORS.lectura}
             plan={
-              <ul className="space-y-1.5">
-                <CheckItem>Meta semanal de páginas</CheckItem>
-                <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer {r.lectura.pagesGoal || 150} páginas en la semana</CheckItem>
-              </ul>
+              <>
+                {r.books.length > 0 && (
+                  <p className="text-[10px] font-medium text-cyan-700 dark:text-cyan-400 mb-1">
+                    📚 {r.books.map(b => b.title).join(' · ')}
+                  </p>
+                )}
+                <ul className="space-y-1.5">
+                  <CheckItem>Meta semanal de páginas</CheckItem>
+                  <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer {r.lectura.pagesGoal || 150} páginas en la semana</CheckItem>
+                </ul>
+              </>
             }
             objetivo={
               <>
@@ -184,10 +191,17 @@ export function ResultadosSemana({ weekStart }: { weekStart: Date }) {
             title="Música"
             color={AREA_COLORS.musica}
             plan={
-              <ul className="space-y-1.5">
-                <CheckItem done={r.musica.minutes > 0}>Practicar instrumento</CheckItem>
-                <CheckItem>Escalas diarias</CheckItem>
-              </ul>
+              <>
+                {r.songs.length > 0 && (
+                  <p className="text-[10px] font-medium text-pink-700 dark:text-pink-400 mb-1">
+                    🎵 {r.songs.map(s => s.title).join(' · ')}
+                  </p>
+                )}
+                <ul className="space-y-1.5">
+                  <CheckItem done={r.musica.minutes > 0}>Practicar instrumento</CheckItem>
+                  <CheckItem>Escalas diarias</CheckItem>
+                </ul>
+              </>
             }
             objetivo={
               <>

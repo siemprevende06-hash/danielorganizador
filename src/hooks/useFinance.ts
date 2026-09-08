@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { safeMutation } from '@/lib/offlineQueue';
 import { wallets as initialWallets, defaultDistributionBags } from '@/lib/data';
 import type { Wallet, Transaction, Loan, DistributionBag, Debt, FinancialGoal } from '@/lib/definitions';
 import type { LucideIcon } from 'lucide-react';
@@ -320,18 +321,19 @@ export const useFinance = () => {
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id'>) => {
     const newTransaction: Transaction = { ...transaction, id: genId() };
     setTransactions(prev => [newTransaction, ...prev]);
-    try { await supabase.from('transactions').insert(transactionToRow(newTransaction)); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'transactions', op: 'insert', payload: transactionToRow(newTransaction) });
+    if (queued) console.warn('[useFinance] Transacción encolada para reintento offline.');
     return newTransaction;
   }, []);
   const deleteTransaction = useCallback(async (transactionId: string) => {
     setTransactions(prev => prev.filter(t => t.id !== transactionId));
-    try { await supabase.from('transactions').delete().eq('id', transactionId); } catch (e) { console.warn(e); }
+    await safeMutation({ table: 'transactions', op: 'delete', match: { id: transactionId } });
   }, []);
 
   // ---- Wallets ----
   const updateWalletBalance = useCallback(async (walletId: string, newBalance: number) => {
     setWallets(prev => prev.map(w => w.id === walletId ? { ...w, balance: newBalance } : w));
-    try { await supabase.from('wallets').update({ balance: newBalance }).eq('id', walletId); } catch (e) { console.warn(e); }
+    await safeMutation({ table: 'wallets', op: 'update', payload: { balance: newBalance }, match: { id: walletId } });
   }, []);
   const updateWallet = useCallback(async (walletId: string, updates: Partial<Wallet>) => {
     setWallets(prev => prev.map(w => w.id === walletId ? { ...w, ...updates } : w));

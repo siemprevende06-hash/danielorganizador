@@ -15,7 +15,9 @@ export interface DaySystem {
   streakMinutes: number;
   speedOptions: SpeedOption[];
   timeKey?: string;
-  getMinutes?: (data: SystemsData) => number;
+  countKey?: string;
+  countLabel?: string;
+  getMinutes?: (data: Pick<SystemsData, "timeData">) => number;
 }
 
 export interface DaySystemArea {
@@ -23,10 +25,11 @@ export interface DaySystemArea {
   name: string;
   kind: "central" | "estructural";
   cover: { type: "area" | "sub"; id: string };
+  systems: DaySystem[];
   riffle?: never;
 }
 
-export function systemActualMinutes(system: DaySystem, data: SystemsData): number {
+export function systemActualMinutes(system: DaySystem, data: Pick<SystemsData, "timeData">): number {
   if (system.getMinutes) return system.getMinutes(data);
   if (system.timeKey) return data.timeData?.[system.timeKey] ?? 0;
   return data.timeData?.[system.id] ?? 0;
@@ -120,6 +123,8 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
         cover: { type: "sub", id: "ajedrez" },
         streakMinutes: 5,
         speedOptions: HOBBY_SMALL,
+        countKey: "ajedrez",
+        countLabel: "partidas",
       },
       {
         id: "lectura",
@@ -154,7 +159,7 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
   },
   {
     id: "fuerza-mental",
-    name: "Fuerza Mental",
+    name: "Fuerza de Voluntad",
     kind: "estructural",
     cover: { type: "area", id: "fuerza-mental" },
     systems: [],
@@ -168,24 +173,138 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
   },
 ];
 
-// Tareas del Sostén agrupadas por área estructural
-export const SOSTEN_STRUCTURAL: Record<string, { id: string; name: string }[]> = {
-  salud: [
-    { id: "gym", name: "Gym" },
-    { id: "desayuno", name: "Desayuno" },
-    { id: "almuerzo", name: "Almuerzo" },
-    { id: "comida", name: "Comida" },
-    { id: "suplementos", name: "Suplementos" },
-    { id: "horario-regular", name: "Horario de Sueño" },
-  ],
-  "fuerza-mental": [
-    { id: "rutina-activacion", name: "Rutina de Activación" },
-    { id: "rutina-desactivacion", name: "Rutina de Desactivación" },
-    { id: "alistamiento-desayuno", name: "Alistamiento y Desayuno" },
-  ],
-  apariencia: [
-    { id: "skincare-manana", name: "Skin Care Mañana" },
-    { id: "skincare-noche", name: "Skin Care Noche" },
-    { id: "banarme-vestirme", name: "Bañarme y Vestirme" },
-  ],
-};
+// ---------- Sostén: áreas estructurales del día ----------
+export interface SostenHabit {
+  id: string;
+  name: string;
+  emoji: string;
+  cover?: { type: "area" | "sub"; id: string };
+  hasWater?: boolean;
+  hasMealPhoto?: boolean;
+  hasTime?: boolean;
+  isWorkout?: boolean;
+  isSleepSchedule?: boolean;
+  linkTo?: string;
+}
+
+export interface SostenSubarea {
+  id: string;
+  title: string;
+  emoji: string;
+  habits: SostenHabit[];
+}
+
+export interface SostenArea {
+  id: string;
+  subareas: SostenSubarea[];
+}
+
+// Sub-áreas del Sostén por área estructural:
+//  - Fuerza de Voluntad: Hábitos (página Hábitos) · Rutinas · Detox Dopamínico
+//  - Salud y Bienestar: Alimentación y Agua · Entrenamiento y Sueño
+//  - Apariencia: Skin Care · Higiene
+export const SOSTEN_AREAS: SostenArea[] = [
+  {
+    id: "fuerza-mental",
+    subareas: [
+      {
+        id: "habitos",
+        title: "Hábitos",
+        emoji: "🎯",
+        habits: [
+          { id: "habit-sueno", name: "Hábito: Horario de sueño", emoji: "🌙" },
+          { id: "habit-rutina-activacion", name: "Hábito: Activación", emoji: "⚡" },
+          { id: "habit-entrenamiento", name: "Hábito: Gym", emoji: "💪" },
+          { id: "habit-desayuno", name: "Hábito: Alistamiento y desayuno", emoji: "🍳" },
+          { id: "habit-skincare-am", name: "Hábito: Skin care AM", emoji: "☀️" },
+          { id: "habit-skincare-pm", name: "Hábito: Skin care PM", emoji: "🌙" },
+          { id: "habit-rutina-desactivacion", name: "Hábito: Desactivación", emoji: "🕯️" },
+          { id: "habit-alimentacion", name: "Hábito: Alimentación y agua", emoji: "💧" },
+          { id: "habit-finanzas", name: "Hábito: Control financiero", emoji: "💰" },
+          { id: "mini-nofap", name: "Mini: No FAP", emoji: "🚫" },
+          { id: "mini-nosocial", name: "Mini: No Redes Sociales +30min", emoji: "📵" },
+        ],
+      },
+      {
+        id: "rutinas",
+        title: "Rutinas",
+        emoji: "🔁",
+        habits: [
+          { id: "rutina-activacion", name: "Rutina de Activación", emoji: "⚡", linkTo: "/activation-routine" },
+          { id: "alistamiento-desayuno", name: "Alistamiento y Desayuno", emoji: "🍽️" },
+          { id: "rutina-desactivacion", name: "Rutina de Desactivación", emoji: "🕯️", linkTo: "/deactivation-routine" },
+        ],
+      },
+      {
+        id: "detox",
+        title: "Detox Dopamínico",
+        emoji: "🧘",
+        habits: [
+          { id: "no-videojuegos", name: "Videojuegos (máx 1h)", emoji: "🎮", hasTime: true },
+          { id: "no-porn", name: "No Porn", emoji: "🚫" },
+          { id: "no-fap", name: "No FAP", emoji: "🚫" },
+          { id: "redes-sociales", name: "Redes Sociales (máx 30 min)", emoji: "📵", hasTime: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: "salud",
+    subareas: [
+      {
+        id: "alimentacion-agua",
+        title: "Alimentación y Agua",
+        emoji: "🍽️",
+        habits: [
+          { id: "pre-entreno", name: "Pre-entreno", emoji: "⚡", hasWater: true, hasMealPhoto: true },
+          { id: "desayuno", name: "Desayuno", emoji: "🍳", hasWater: true, hasMealPhoto: true },
+          { id: "merienda-1", name: "Merienda 1", emoji: "🍎", hasWater: true, hasMealPhoto: true },
+          { id: "almuerzo", name: "Almuerzo", emoji: "🍲", hasWater: true, hasMealPhoto: true },
+          { id: "merienda-2", name: "Merienda 2", emoji: "🥪", hasWater: true, hasMealPhoto: true },
+          { id: "comida", name: "Comida", emoji: "🍛", hasWater: true, hasMealPhoto: true },
+          { id: "antes-dormir", name: "Antes de dormir", emoji: "🌙", hasWater: true, hasMealPhoto: true },
+          { id: "suplementos", name: "Suplementos", emoji: "💊" },
+        ],
+      },
+      {
+        id: "cuerpo-sueno",
+        title: "Entrenamiento y Sueño",
+        emoji: "💪",
+        habits: [
+          { id: "gym", name: "Gym", emoji: "💪", isWorkout: true },
+          { id: "horario-regular", name: "Horario Regular", emoji: "🛏️", isSleepSchedule: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: "apariencia",
+    subareas: [
+      {
+        id: "skincare",
+        title: "Skin Care",
+        emoji: "✨",
+        habits: [
+          { id: "skincare-manana", name: "Skin Care Mañana", emoji: "☀️" },
+          { id: "skincare-noche", name: "Skin Care Noche", emoji: "🌙" },
+        ],
+      },
+      {
+        id: "higiene",
+        title: "Higiene y Vestimenta",
+        emoji: "🛁",
+        habits: [
+          { id: "banarme-vestirme", name: "Bañarme y Vestirme", emoji: "👔" },
+        ],
+      },
+    ],
+  },
+];
+
+// Vista plana del Sostén (compat con estadísticas y consumidores previos)
+export const SOSTEN_STRUCTURAL: Record<string, { id: string; name: string }[]> = Object.fromEntries(
+  SOSTEN_AREAS.map(area => [
+    area.id,
+    area.subareas.flatMap(s => s.habits.map(h => ({ id: h.id, name: h.name }))),
+  ])
+);

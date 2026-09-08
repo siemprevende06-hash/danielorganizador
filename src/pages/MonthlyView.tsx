@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MonthlyTasks } from '@/components/monthly/MonthlyTasks';
 import { MonthlySystemsStats } from '@/components/systems/MonthlySystemsStats';
@@ -20,6 +21,7 @@ export default function MonthlyView() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [viewMode, setViewMode] = useState<PeriodViewMode>('esfuerzo');
+  const navigate = useNavigate();
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -53,6 +55,9 @@ export default function MonthlyView() {
             </p>
           </div>
           <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 text-xs rounded-full" onClick={() => navigate('/monthly-planning')}>
+              <Target className="w-4 h-4 mr-1" /> Planificación
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => navigateMonth('prev')}>
               <ChevronLeft className="w-4 h-4" />
             </Button>

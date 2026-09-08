@@ -1,8 +1,9 @@
 import { useState, useEffect, Component, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,7 @@ import {
   Brain, Globe, Code, Sword, Book,
   GraduationCap, FolderKanban, Briefcase, ListTodo,
   Clock, Timer, Heart, Crown, Trophy, Gamepad2,
-  Search, Plus
+  Search, Plus, CalendarRange
 } from "lucide-react";
 
 interface TrimestralPlan {
@@ -158,6 +159,7 @@ function TimeGoalRow({ label, actual, goal, color, icon }: { label: string; actu
 export default function TwelveWeekYear() {
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { streak: overallStreak } = useOverallSystemStreak();
   const [selectedQuarter, setSelectedQuarter] = useState(() => {
     const qp = parseInt(searchParams.get('q') || '', 10);
@@ -600,6 +602,11 @@ export default function TwelveWeekYear() {
             <p className="text-xs text-muted-foreground mt-0.5">
               {QUARTERS.find(q => q.id === selectedQuarter)?.name} · Semana {weekInQ}/12
             </p>
+          </div>
+          <div>
+            <Button variant="outline" size="sm" className="h-9 text-xs rounded-full" onClick={() => navigate('/trimestral-planning')}>
+              <CalendarRange className="w-4 h-4 mr-1" /> Planificación
+            </Button>
           </div>
         </div>
 

@@ -244,6 +244,21 @@ const ROUTINE_MAP: Record<RoutineType, RoutineBlock[]> = {
 
 const ROUTINE_TYPE_KEY = 'selectedRoutineType';
 const ROUTINE_BLOCKS_PREFIX = 'routineBlocks_';
+const ROUTINE_BLOCKS_VERSION_KEY = 'routineBlocksVersion';
+const ROUTINE_BLOCKS_VERSION = '2026-09-07-v1';
+
+const isBlocksVersionCurrent = (): boolean => {
+  try { return localStorage.getItem(ROUTINE_BLOCKS_VERSION_KEY) === ROUTINE_BLOCKS_VERSION; } catch { return false; }
+};
+
+const ensureBlocksVersion = (): void => {
+  if (isBlocksVersionCurrent()) return;
+  try {
+    // Re-sembrar la rutina de Disciplina con su nuevo horario (descarta bloques viejos guardados).
+    localStorage.removeItem(`${ROUTINE_BLOCKS_PREFIX}disciplina`);
+    localStorage.setItem(ROUTINE_BLOCKS_VERSION_KEY, ROUTINE_BLOCKS_VERSION);
+  } catch {}
+};
 
 export const parseTime = (timeStr: string): number => {
   const [hours, minutes] = timeStr.split(':').map(Number);
@@ -263,6 +278,7 @@ export const useRoutineBlocks = () => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    ensureBlocksVersion();
     const savedType = localStorage.getItem(ROUTINE_TYPE_KEY) as RoutineType | null;
     const type = savedType && ROUTINE_MAP[savedType] ? savedType : 'disciplina';
     setRoutineTypeState(type);
@@ -407,6 +423,7 @@ export const getRoutineInfoFromStorage = (): RoutineInfo | null => {
 };
 
 export const loadRoutineBlocksFromStorage = (type?: RoutineType): RoutineBlock[] => {
+  ensureBlocksVersion();
   const info = getRoutineInfoFromStorage();
   const routineType: RoutineType = type || info?.type || 'disciplina';
   const storageKey = `${ROUTINE_BLOCKS_PREFIX}${routineType}`;

@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { startOfWeek, endOfWeek, eachDayOfInterval, format, isToday, addWeeks, subWeeks, isBefore } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListChecks } from 'lucide-react';
 import { WeeklyTimeBreakdown } from '@/components/weekly/WeeklyTimeBreakdown';
 import { WeeklySystemsStats } from '@/components/systems/WeeklySystemsStats';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +25,7 @@ import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [viewMode, setViewMode] = useState<PeriodViewMode>('esfuerzo');
+  const navigate = useNavigate();
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
@@ -109,6 +111,9 @@ export default function WeeklyView() {
             </p>
           </div>
           <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 text-xs rounded-full" onClick={() => navigate('/weekly-planning')}>
+              <ListChecks className="w-4 h-4 mr-1" /> Planificación
+            </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
               <ChevronLeft className="w-4 h-4" />
             </Button>

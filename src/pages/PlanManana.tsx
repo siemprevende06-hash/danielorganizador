@@ -668,7 +668,7 @@ export default function PlanManana() {
                     <div key={area} className="flex items-center justify-between gap-2">
                       <span className="text-[10px] text-muted-foreground">{AREA_LABELS[area]}</span>
                       <MinutesGoalInput
-                        value={getDayGoalEffective(tomorrow, area)}
+                        value={getDayGoalEffective(targetDate, area)}
                         onApply={v => applyDayGoal(area, v)}
                         className="h-6 w-20 text-[10px]"
                       />
