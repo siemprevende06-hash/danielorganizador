@@ -63,7 +63,7 @@ const handleSave = async () => {
   };
 
   const bookItems = books.map(b => ({ id: b.id, title: b.title, subtitle: b.author || undefined }));
-  const songItems = songs.map(s => ({ id: s.id, title: s.title, subtitle: s.artist ? `${s.artist} ┬À ${s.instrument}` : s.instrument }));
+  const songItems = songs.map(s => ({ id: s.id, title: s.title, subtitle: s.artist ? `${s.artist} · ${s.instrument}` : s.instrument }));
   const projectItems = projects.map(p => ({ id: p.id, title: p.name }));
   const subjectItems = subjects.map(s => ({ id: s.id, title: s.name }));
   const topicItems = topics.map(t => ({ id: t.id, title: t.title, subtitle: t.subject_id || undefined }));
@@ -90,7 +90,7 @@ const handleSave = async () => {
             <Target className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Planificaci├│n Mensual</h1>
+            <h1 className="text-xl font-bold tracking-tight">Planificación Mensual</h1>
             <p className="text-sm text-muted-foreground">Organiza tu mes</p>
           </div>
         </div>

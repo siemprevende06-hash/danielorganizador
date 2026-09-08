@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format, startOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 import { syncMonthlyFromQuarter } from '@/lib/hierarchy';
@@ -122,6 +122,54 @@ export function useMonthlyPlan(month: Date) {
 
   const loadLocalData = useCallback(async () => {
     try {
+      const mStart = format(startOfMonth(month), 'yyyy-MM-dd');
+      const mEnd = format(endOfMonth(month), 'yyyy-MM-dd');
+      const [booksRes, songsRes, eventsRes] = await Promise.all([
+        supabase.from('reading_library').select('id, title, author, status').order('title'),
+        supabase.from('music_repertoire').select('id, title, artist, instrument, status').order('title'),
+        supabase.from('calendar_events').select('*')
+          .gte('event_date', mStart)
+          .lte('event_date', mEnd)
+          .order('event_date'),
+      ]);
+      if (booksRes.error) throw booksRes.error;
+      if (songsRes.error) throw songsRes.error;
+      if (eventsRes.error) throw eventsRes.error;
+      if (booksRes.data) setBooks(booksRes.data);
+      if (songsRes.data) setSongs(songsRes.data);
+      if (eventsRes.data) setEvents(eventsRes.data);
+
+      try {
+        const { data: projRows } = await supabase
+          .from('projects')
+          .select('id, title')
+          .order('created_at', { ascending: true });
+        if (projRows && projRows.length > 0) {
+          setProjects(projRows.map((p: { id: string; title: string }) => ({ id: p.id, name: p.title })));
+        }
+      } catch (e) { console.error('Error loading projects:', e); }
+
+      try {
+        const { data: subjRows } = await supabase
+          .from('university_subjects')
+          .select('id, name')
+          .order('name');
+        if (subjRows && subjRows.length > 0) {
+          setSubjects(subjRows.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })));
+        }
+      } catch (e) { console.error('Error loading subjects:', e); }
+
+      try {
+        const { data: topicRows } = await supabase
+          .from('subject_topics')
+          .select('id, subject_id, title')
+          .order('title');
+        if (topicRows && topicRows.length > 0) {
+          setTopics(topicRows);
+        }
+      } catch (e) { console.error('Error loading topics:', e); }
+    } catch (e) {
+      console.error('Error loading monthly data:', e);
       const storedBooks = localStorage.getItem('reading_library');
       if (storedBooks) setBooks(JSON.parse(storedBooks));
       const storedSongs = localStorage.getItem('music_repertoire');
@@ -141,8 +189,8 @@ export function useMonthlyPlan(month: Date) {
       if (storedTopics) setTopics(JSON.parse(storedTopics));
       const storedEvents = localStorage.getItem('calendar_events');
       if (storedEvents) setEvents(JSON.parse(storedEvents));
-    } catch {}
-  }, []);
+    }
+  }, [month]);
 
   useEffect(() => {
     fetchPlan();
