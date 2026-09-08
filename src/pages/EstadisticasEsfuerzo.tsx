@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { format, parseISO, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus, Utensils, MoonStar, Brain, ClipboardList, HeartPulse, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SOSTEN_STRUCTURAL } from '@/lib/daySystems';
 
@@ -30,6 +30,152 @@ const SOSTEN_GROUPS = [
   { label: 'Apariencia', habits: (SOSTEN_STRUCTURAL.apariencia || []).map(h => ({ id: h.id, label: SOSTEN_LABELS[h.id] || h.name })) },
 ];
 const ALL_SOSTEN_IDS = SOSTEN_GROUPS.flatMap(g => g.habits.map(h => h.id));
+
+// --- División de la cuadrícula Sostén en tablas temáticas ---
+const SOSTEN_NAME = (id: string) => {
+  for (const group of Object.values(SOSTEN_STRUCTURAL)) {
+    const hit = group.find(h => h.id === id);
+    if (hit) return hit.name;
+  }
+  return id;
+};
+const buildSostenTable = (ids: string[]) =>
+  ids.map(id => ({ id, label: SOSTEN_LABELS[id] || SOSTEN_NAME(id) }));
+
+const SOSTEN_TABLE_ALIMENTACION = buildSostenTable(['pre-entreno', 'desayuno', 'merienda-1', 'almuerzo', 'merienda-2', 'comida', 'antes-dormir', 'suplementos']);
+const SOSTEN_TABLE_SOBRANTES = buildSostenTable(['horario-regular', 'skincare-manana', 'skincare-noche', 'banarme-vestirme']);
+const SOSTEN_TABLE_FUERZA_MENTAL = buildSostenTable(['rutina-activacion', 'alistamiento-desayuno', 'rutina-desactivacion', 'no-videojuegos', 'no-porn', 'no-fap', 'redes-sociales']);
+const SOSTEN_TABLE_HABITOS = buildSostenTable(['habit-sueno', 'habit-rutina-activacion', 'habit-entrenamiento', 'habit-desayuno', 'habit-skincare-am', 'habit-skincare-pm', 'habit-rutina-desactivacion', 'habit-alimentacion', 'habit-finanzas', 'mini-nofap', 'mini-nosocial']);
+
+interface SostenDayRow {
+  tracking_date: string;
+  completions?: Record<string, boolean>;
+  skipped?: Record<string, boolean>;
+}
+
+function SostenTable({ icon, title, subtitle, habits, monthDays }: {
+  icon: ReactNode;
+  title: string;
+  subtitle?: string;
+  habits: { id: string; label: string }[];
+  monthDays: SostenDayRow[];
+}) {
+  return (
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
+      <CardContent className="p-0">
+        <div className="flex items-center gap-2 p-3 border-b border-border/30">
+          {icon}
+          <h3 className="text-sm font-bold">{title}</h3>
+          {subtitle && <span className="text-[10px] text-muted-foreground/70">{subtitle}</span>}
+          <span className="text-[10px] text-muted-foreground ml-auto">✅ hecho · ❌ no hice · — sin dato</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[10px]" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <tr className="bg-muted/20">
+                <th className="sticky left-0 bg-muted/20 text-left px-2 py-1.5 font-medium text-muted-foreground min-w-[56px] z-10 border border-border/20">Día</th>
+                {habits.map(h => (
+                  <th key={h.id} className="text-center px-1 py-1.5 font-medium text-muted-foreground min-w-[44px] border border-border/20">{h.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {monthDays.map((day, idx) => (
+                <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-950/50" : "bg-muted/5")}>
+                  <td className="sticky left-0 z-10 px-2 py-1 font-medium whitespace-nowrap border border-border/20" style={{ background: 'inherit' }}>
+                    {format(parseISO(day.tracking_date), 'EEE d', { locale: es })}
+                  </td>
+                  {habits.map(h => {
+                    const done = day.completions?.[h.id] === true;
+                    const skipped = day.skipped?.[h.id] === true;
+                    const noData = !done && !skipped;
+                    return (
+                      <td key={h.id} className={cn("text-center px-1 py-1 border border-border/20",
+                        done && "text-emerald-500",
+                        skipped && "text-red-400/80",
+                        noData && "text-muted-foreground/30"
+                      )}>
+                        {done ? '✅' : skipped ? '✗' : '—'}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              <tr className="bg-muted/20 font-bold text-[9px]">
+                <td className="sticky left-0 bg-muted/20 px-2 py-1.5 z-10 border border-border/20">Completados</td>
+                {habits.map(h => {
+                  const count = monthDays.filter(d => d.completions?.[h.id] === true).length;
+                  const pct = Math.round((count / Math.max(monthDays.length, 1)) * 100);
+                  return (
+                    <td key={h.id} className={cn("text-center px-1 py-1.5 border border-border/20", pct >= 80 ? "text-emerald-500" : pct >= 50 ? "text-amber-500" : "text-red-400")}>
+                      {count}<span className="text-muted-foreground">/{monthDays.length}</span>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function GymCalendar({ monthDays }: { monthDays: SostenDayRow[] }) {
+  const anchor = monthDays[0]?.tracking_date;
+  const year = anchor ? Number(anchor.slice(0, 4)) : new Date().getFullYear();
+  const month = anchor ? Number(anchor.slice(5, 7)) - 1 : new Date().getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+  const byDate = new Map(monthDays.map(d => [d.tracking_date, d]));
+  const cells: (Date | null)[] = Array.from({ length: firstWeekday }, () => null);
+  for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i));
+  while (cells.length % 7 !== 0) cells.push(null);
+  const gymDays = monthDays.filter(d => d.completions?.gym === true).length;
+
+  return (
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
+      <CardContent className="p-0">
+        <div className="flex items-center gap-2 p-3 border-b border-border/30">
+          <Dumbbell className="h-4 w-4 text-emerald-500" />
+          <h3 className="text-sm font-bold">Gym</h3>
+          <span className="text-[10px] text-muted-foreground/70">Vista calendario</span>
+          <span className="text-[10px] text-muted-foreground ml-auto">✅ entrené · ❌ no hice · · sin registro</span>
+        </div>
+        <div className="p-3">
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
+              <div key={d} className="text-center text-[9px] text-muted-foreground/70 font-medium">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((d, i) => {
+              if (!d) return <div key={`empty-${i}`} />;
+              const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              const row = byDate.get(key);
+              const done = row?.completions?.gym === true;
+              const skipped = row?.skipped?.gym === true;
+              return (
+                <div key={key} className={cn(
+                  "flex flex-col items-center justify-center rounded-lg border border-border/20 py-1.5 min-h-[44px]",
+                  done ? "bg-emerald-500/10 border-emerald-500/30" : skipped ? "bg-red-400/10 border-red-400/20" : "bg-muted/5"
+                )}>
+                  <span className="text-[9px] leading-none font-medium text-muted-foreground/70">{d.getDate()}</span>
+                  <span className={cn("text-[11px] leading-none mt-1", done ? "text-emerald-500" : skipped ? "text-red-400/80" : "text-muted-foreground/25")}>
+                    {done ? '✅' : skipped ? '✗' : '·'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2 tabular-nums">Entrenamientos: <span className="font-bold text-emerald-500">{gymDays}</span> de {monthDays.length} días registrados</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 const DAILY_TARGETS: Record<string, number> = {
   lectura: 20, musica: 30, ajedrez: 15, idiomas: 30, game: 15, 'entrenamiento-fisico': 45,
@@ -379,72 +525,51 @@ export default function EstadisticasEsfuerzo() {
             {/* ════════════════════════════════════════ */}
             {/* TABLA SOSTÉN */}
             {/* ════════════════════════════════════════ */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
-              <CardContent className="p-0">
-                <div className="flex items-center gap-2 p-3 border-b border-border/30">
-                  <Shield className="h-4 w-4 text-emerald-500" />
-                  <h2 className="text-sm font-bold">Sostén</h2>
-                  <span className="text-[10px] text-muted-foreground">✅ hecho · ❌ no hice · — sin dato</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[10px]" style={{ borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr className="bg-muted/20">
-                        <th className="sticky left-0 bg-muted/20 text-left px-2 py-1.5 font-medium text-muted-foreground min-w-[56px] z-10 border border-border/20">Día</th>
-                        {SOSTEN_GROUPS.map(g => (
-                          <th key={g.label} colSpan={g.habits.length} className="text-center px-1 py-1.5 font-medium text-muted-foreground/60 text-[9px] uppercase tracking-wider border border-border/20">
-                            {g.label}
-                          </th>
-                        ))}
-                      </tr>
-                      <tr className="bg-muted/10">
-                        <th className="sticky left-0 bg-muted/10 px-2 py-1 z-10 border border-border/20" />
-                        {SOSTEN_GROUPS.flatMap(g => g.habits).map(h => (
-                          <th key={h.id} className="text-center px-1 py-1 font-medium text-muted-foreground/80 min-w-[40px] border border-border/20">{h.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {monthDays.map((day, idx) => (
-                        <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-950/50" : "bg-muted/5")}>
-                          <td className="sticky left-0 z-10 px-2 py-1 font-medium whitespace-nowrap border border-border/20" style={{ background: 'inherit' }}>
-                            {format(parseISO(day.tracking_date), 'EEE d', { locale: es })}
-                          </td>
-                          {SOSTEN_GROUPS.flatMap(g => g.habits).map(h => {
-                            const done = day.completions?.[h.id] === true;
-                            const skipped = day.skipped?.[h.id] === true;
-                            const noData = !done && !skipped;
-                            return (
-                              <td key={h.id} className={cn("text-center px-1 py-1 border border-border/20",
-                                done && "text-emerald-500",
-                                skipped && "text-red-400/80",
-                                noData && "text-muted-foreground/30"
-                              )}>
-                                {done ? '✅' : skipped ? '✗' : '—'}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                      {/* Summary row */}
-                      <tr className="bg-muted/20 font-bold text-[9px]">
-                        <td className="sticky left-0 bg-muted/20 px-2 py-1.5 z-10 border border-border/20">Completados</td>
-                        {SOSTEN_GROUPS.flatMap(g => g.habits).map(h => {
-                          const count = monthDays.filter(d => d.completions?.[h.id] === true).length;
-                          const pct = Math.round((count / Math.max(monthDays.length, 1)) * 100);
-                          return (
-                            <td key={h.id} className={cn("text-center px-1 py-1.5 border border-border/20", pct >= 80 ? "text-emerald-500" : pct >= 50 ? "text-amber-500" : "text-red-400")}>
-                              {count}<span className="text-muted-foreground">/{monthDays.length}</span>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+
+            {/* --- Salud y Bienestar --- */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1 pt-1">
+                <HeartPulse className="h-4 w-4 text-emerald-500" />
+                <h2 className="text-sm font-bold">Salud y Bienestar — Sostén</h2>
+                <span className="text-[10px] text-muted-foreground ml-auto">✅ hecho · ❌ no hice · — sin dato</span>
+              </div>
+
+              <SostenTable
+                icon={<Utensils className="h-4 w-4 text-emerald-500" />}
+                title="Alimentación"
+                subtitle={`${SOSTEN_TABLE_ALIMENTACION.length} hábitos`}
+                habits={SOSTEN_TABLE_ALIMENTACION}
+                monthDays={monthDays}
+              />
+
+              <GymCalendar monthDays={monthDays} />
+
+              <SostenTable
+                icon={<MoonStar className="h-4 w-4 text-emerald-500" />}
+                title="Sobrantes"
+                subtitle="Sueño + apariencia"
+                habits={SOSTEN_TABLE_SOBRANTES}
+                monthDays={monthDays}
+              />
+            </div>
+
+            {/* --- Fuerza Mental --- */}
+            <SostenTable
+              icon={<Brain className="h-4 w-4 text-emerald-500" />}
+              title="Fuerza Mental"
+              subtitle="Rutinas + detox"
+              habits={SOSTEN_TABLE_FUERZA_MENTAL}
+              monthDays={monthDays}
+            />
+
+            {/* --- Hábitos (página Hábitos) --- */}
+            <SostenTable
+              icon={<ClipboardList className="h-4 w-4 text-emerald-500" />}
+              title="Hábitos"
+              subtitle="Página Hábitos"
+              habits={SOSTEN_TABLE_HABITOS}
+              monthDays={monthDays}
+            />
 
             {/* ════════════════════════════════════════ */}
             {/* TABLA MEJORA */}
