@@ -251,12 +251,17 @@ export const useFinance = () => {
         // --- Transactions ---
         if (!cancelled) {
           const txList = (txRes.data || []).map(transactionFromRow);
-          if (txList.length === 0) {
-            const cached = loadLocal<any[]>('finance_transactions', []);
-            if (cached.length > 0) setTransactions(cached.map((t: any) => ({ ...t, currency: t.currency === 'CUP' ? 'CUP' : 'USD', date: new Date(t.date) })));
-          } else {
-            setTransactions(txList);
-          }
+          const cached = loadLocal<any[]>('finance_transactions', [])
+            .map((t: any) => ({ ...t, currency: t.currency === 'CUP' ? 'CUP' : 'USD', date: new Date(t.date) }));
+          // Mezclamos lo que trae Supabase (fuente primaria) con el caché local.
+          // El caché local puede contener transacciones encoladas offline que aún
+          // no se han sincronizado a la base de datos. Si solo usáramos los datos
+          // de Supabase, esas transacciones desaparecerían de la vista de forma
+          // intermitente (hasta que la cola offline las sincroniza).
+          const mergedMap = new Map<string, Transaction>();
+          for (const t of txList) mergedMap.set(t.id, t);
+          for (const t of cached) if (!mergedMap.has(t.id)) mergedMap.set(t.id, t);
+          setTransactions(Array.from(mergedMap.values()));
         }
 
         // --- Loans ---
