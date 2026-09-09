@@ -172,7 +172,7 @@ export const useFinance = () => {
   const [distributionBags, setDistributionBags] = useState<DistributionBag[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
-  const [exchangeRate, setExchangeRateState] = useState<number>(() => loadLocal<number>('finance_rate', 360));
+  const [exchangeRate, setExchangeRateState] = useState<number>(360);
   const [isLoading, setIsLoading] = useState(true);
 
   // Cache to local whenever state changes
@@ -184,8 +184,6 @@ export const useFinance = () => {
   useEffect(() => { if (distributionBags.length > 0) saveLocal('finance_bags', distributionBags); }, [distributionBags]);
   useEffect(() => { if (debts.length > 0) saveLocal('finance_debts', debts); }, [debts]);
   useEffect(() => { if (financialGoals.length > 0) saveLocal('finance_goals', financialGoals); }, [financialGoals]);
-  useEffect(() => { saveLocal('finance_rate', exchangeRate); }, [exchangeRate]);
-
   const setExchangeRate = useCallback((rate: number) => {
     setExchangeRateState(rate);
     saveTextSection('finance_exchange_rate', rate);
