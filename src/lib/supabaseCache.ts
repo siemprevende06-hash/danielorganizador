@@ -67,9 +67,9 @@ export async function cachedMutation(
     }
 
     if (result?.error) {
-      const { enqueueMutation } = await import("./offlineQueue");
-      await enqueueMutation({ table, op, payload, match, onConflict });
-      return { queued: true, error: result.error };
+      // Error de aplicación (RLS, validación, etc.): es permanente, NO lo
+      // encolamos como si fuera un problema de conexión.
+      return { queued: false, error: result.error };
     }
 
     const { clearTableCache } = await import("./offlineCache");
@@ -77,9 +77,15 @@ export async function cachedMutation(
 
     return { queued: false, error: null };
   } catch (err: any) {
-    const { enqueueMutation } = await import("./offlineQueue");
-    await enqueueMutation({ table, op, payload, match, onConflict });
-    return { queued: true, error: err?.message || "Sin conexión" };
+    // Solo encolamos si es un problema real de red, no un error de la app.
+    const msg = err?.message || "";
+    const isNetwork = /Failed to fetch|NetworkError|Load failed|fetch failed|TypeError|abort/i.test(msg);
+    if (isNetwork) {
+      const { enqueueMutation } = await import("./offlineQueue");
+      await enqueueMutation({ table, op, payload, match, onConflict });
+      return { queued: true, error: "Sin conexión" };
+    }
+    return { queued: false, error: err?.message || "Error al guardar" };
   }
 }
 

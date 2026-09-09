@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import { flushQueue, getQueueSize } from "@/lib/offlineQueue";
-import { isOnline } from "@/lib/isOnline";
+import { isOnline, verifyOnline } from "@/lib/isOnline";
 import { WifiOff, RefreshCw, Wifi, CloudOff, Clock } from "lucide-react";
 
 interface OfflineContextValue {
@@ -61,11 +61,25 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     window.addEventListener("offline", onOffline);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
-    if (!navigator.onLine) document.body.classList.add("app-offline");
+    if (!navigator.onLine) {
+      // Falso negativo frecuente: verifica la conexión real a Supabase antes
+      // de marcar toda la app como offline.
+      verifyOnline().then((actual) => {
+        if (actual) {
+          setOnline(true);
+        } else {
+          setOnline(false);
+          document.body.classList.add("app-offline");
+        }
+      });
+    }
 
     const t = setInterval(refreshPending, 10000);
-    const healthCheck = setInterval(() => {
-      const actual = navigator.onLine;
+    const healthCheck = setInterval(async () => {
+      let actual = navigator.onLine;
+      // Si el navegador cree estar sin conexión, verificamos contra Supabase:
+      // `navigator.onLine` da falsos negativos (ahorro de batería, VPN, etc.).
+      if (!actual) actual = await verifyOnline();
       if (actual !== online) {
         setOnline(actual);
         document.body.classList.toggle("app-offline", !actual);

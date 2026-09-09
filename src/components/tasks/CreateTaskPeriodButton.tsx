@@ -71,6 +71,8 @@ export function CreateTaskPeriodButton({
     setSaving(true);
     try {
       const area = AREAS.find(a => a.id === areaId);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('Inicia sesión para crear tareas');
       const { error } = await supabase.from('tasks').insert({
         title: title.trim(),
         area_id: areaId,
@@ -79,7 +81,7 @@ export function CreateTaskPeriodButton({
         due_date: `${dueDate}T12:00:00`,
         completed: false,
         status: 'pendiente',
-        user_id: null,
+        user_id: user.id,
       });
       if (error) throw error;
 

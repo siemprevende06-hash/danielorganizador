@@ -29,35 +29,46 @@ export const enqueueMutation = async (m: Omit<QueuedMutation, "id" | "ts">) => {
   await writeQueue(q);
 };
 
-const runMutation = async (m: QueuedMutation): Promise<boolean> => {
+export type MutationResult = { ok: boolean; error?: any };
+
+const runMutation = async (m: QueuedMutation): Promise<MutationResult> => {
   try {
     // Cast to any: m.table is dynamic and not statically known to the typed client
     const builder: any = (supabase as any).from(m.table);
     if (m.op === "insert") {
       const { error } = await builder.insert(m.payload!);
-      return !error;
+      return error ? { ok: false, error } : { ok: true };
     }
     if (m.op === "upsert") {
       const { error } = await builder.upsert(m.payload!, m.onConflict ? { onConflict: m.onConflict } : undefined);
-      return !error;
+      return error ? { ok: false, error } : { ok: true };
     }
     if (m.op === "update") {
       let q: any = builder.update(m.payload!);
       Object.entries(m.match || {}).forEach(([k, v]) => { q = q.eq(k, v); });
       const { error } = await q;
-      return !error;
+      return error ? { ok: false, error } : { ok: true };
     }
     if (m.op === "delete") {
       let q: any = builder.delete();
       Object.entries(m.match || {}).forEach(([k, v]) => { q = q.eq(k, v); });
       const { error } = await q;
-      return !error;
+      return error ? { ok: false, error } : { ok: true };
     }
-    return false;
+    return { ok: false, error: { message: "Operación no soportada" } };
   } catch (e) {
-    console.warn("[offlineQueue] runMutation error:", e);
+    return { ok: false, error: e };
+  }
+};
+
+const isNetworkError = (e: any): boolean => {
+  // Los errores de Supabase (RLS, validación, etc.) llegan como { message, code, details }
+  // y NO deben contarse como "sin conexión". Solo se encolan los fallos de red reales.
+  if (e && typeof e === "object" && "code" in e && !("message" in e && typeof e.message === "string" && /Failed to fetch|NetworkError|Load failed|fetch failed/i.test(e.message))) {
     return false;
   }
+  const msg = e?.message || (typeof e === "string" ? e : "");
+  return /Failed to fetch|NetworkError|Load failed|fetch failed|TypeError|abort/i.test(msg);
 };
 
 export const flushQueue = async (): Promise<{ ok: number; failed: number }> => {
@@ -70,13 +81,18 @@ export const flushQueue = async (): Promise<{ ok: number; failed: number }> => {
   let ok = 0, failed = 0;
 
   for (const m of q) {
-    const success = await runMutation(m);
-    if (success) {
+    const r = await runMutation(m);
+    if (r.ok) {
       ok++;
       clearedTables.add(m.table);
+    } else if (isNetworkError(r.error)) {
+      failed++;
+      // Solo los fallos de red se reintentan; los errores de aplicación son
+      // permanentes y se descartan para no bloquear la cola para siempre.
+      remaining.push(m);
     } else {
       failed++;
-      remaining.push(m);
+      console.warn("[offlineQueue] Descartando mutación con error de aplicación:", r.error);
     }
   }
 
@@ -105,10 +121,15 @@ export const safeMutation = async (
     return { queued: true, error: null };
   }
   const dummy: QueuedMutation = { ...m, id: "tmp", ts: Date.now() };
-  const ok = await runMutation(dummy);
-  if (!ok) {
-    await enqueueMutation(m);
-    return { queued: true, error: "queued for retry" };
+  const r = await runMutation(dummy);
+  if (!r.ok) {
+    // Solo se encolan los fallos de red; los errores de aplicación son
+    // permanentes y no se resolverán "al reconectar".
+    if (isNetworkError(r.error)) {
+      await enqueueMutation(m);
+      return { queued: true, error: "Sin conexión" };
+    }
+    return { queued: false, error: r.error?.message || "Error al guardar" };
   }
   return { queued: false, error: null };
 };
