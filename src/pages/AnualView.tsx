@@ -7,6 +7,7 @@ import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { loadQuarterPlan, QUARTER_MONTH_KEYS } from '@/lib/hierarchy';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 
 const QUARTERS = [
   { id: 1, name: 'Q1', dates: 'Ene – Mar' },
@@ -40,7 +41,7 @@ export default function AnualView() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withPlan={false} />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
         </div>
 
         {/* Header */}
@@ -60,7 +61,7 @@ export default function AnualView() {
           </div>
         </div>
 
-        {viewMode === 'esfuerzo' ? (
+        {viewMode === 'plan' || viewMode === 'esfuerzo' ? (
           <>
         {/* Panel de control del año */}
         <PeriodControlSection scope="year" start={new Date(year, 0, 1)} end={new Date(year, 11, 31)} />
@@ -95,6 +96,13 @@ export default function AnualView() {
         {/* Secciones del Año (mismo diseño que 3 Meses) */}
         <PeriodSections scope="year" year={year} quarter={currentQuarter} />
           </>
+        ) : viewMode === 'sistemas' ? (
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold tracking-tight">Sistemas del año</h2>
+            <PeriodControlSection scope="year" start={new Date(year, 0, 1)} end={new Date(year, 11, 31)} />
+          </section>
+        ) : viewMode === 'autocritica' ? (
+          <AutocriticaSection />
         ) : (
           <ResultadosPlaceholder />
         )}

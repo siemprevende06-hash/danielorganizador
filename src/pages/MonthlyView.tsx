@@ -14,6 +14,7 @@ import { PeriodControlSection } from '@/components/control/PeriodControlSection'
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { ResultadosMes } from '@/components/resultados/ResultadosMes';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
+import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 
 export default function MonthlyView() {
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -41,7 +42,7 @@ export default function MonthlyView() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica />
         </div>
 
         {/* Header */}
@@ -109,6 +110,13 @@ export default function MonthlyView() {
               </Card>
             </section>
           </>
+        ) : viewMode === 'sistemas' ? (
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
+            <MonthlySystemsStats monthDate={currentMonth} />
+          </section>
+        ) : viewMode === 'autocritica' ? (
+          <AutocriticaSection />
         ) : (
           <ResultadosMes month={currentMonth} />
         )}

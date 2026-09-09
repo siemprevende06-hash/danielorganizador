@@ -14,6 +14,7 @@ import { PeriodControlSection } from '@/components/control/PeriodControlSection'
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { ResultadosTrimestre } from '@/components/resultados/ResultadosTrimestre';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
+import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -182,7 +183,7 @@ export default function TrimestralPlanningPage() {
   return (
     <div className="container mx-auto px-4 py-24 max-w-5xl">
       <div className="flex justify-center mb-6">
-        <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withPlan={false} />
+        <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica />
       </div>
 
       <header className="flex items-center justify-between mb-6">
@@ -222,7 +223,7 @@ export default function TrimestralPlanningPage() {
         description="Crea tareas por área con vencimiento en este trimestre."
       />
 
-      {viewMode === 'esfuerzo' ? (
+      {viewMode === 'plan' || viewMode === 'esfuerzo' ? (
           <>
         {/* Panel de control del trimestre */}
         <PeriodControlSection
@@ -613,6 +614,17 @@ export default function TrimestralPlanningPage() {
         </div>
       )}
           </>
+        ) : viewMode === 'sistemas' ? (
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold tracking-tight">Sistemas del trimestre</h2>
+            <PeriodControlSection
+              scope="quarter"
+              start={new Date(year, (quarter - 1) * 3, 1)}
+              end={new Date(year, quarter * 3, 0)}
+            />
+          </section>
+        ) : viewMode === 'autocritica' ? (
+          <AutocriticaSection />
         ) : (
           <ResultadosTrimestre quarter={quarter} year={year} />
         )}

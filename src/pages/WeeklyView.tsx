@@ -21,6 +21,7 @@ import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/cont
 import { PlanSemanal } from '@/components/plan/PlanSemanal';
 import { ResultadosSemana } from '@/components/resultados/ResultadosSemana';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
+import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 
 export default function WeeklyView() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -99,7 +100,7 @@ export default function WeeklyView() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica />
         </div>
 
         {/* Header */}
@@ -253,6 +254,15 @@ export default function WeeklyView() {
           </Card>
         </section>
           </>
+        ) : viewMode === 'sistemas' ? (
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
+            <div className="bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl p-4">
+              <WeeklySystemsStats weekStart={weekStart} />
+            </div>
+          </section>
+        ) : viewMode === 'autocritica' ? (
+          <AutocriticaSection />
         ) : (
           <ResultadosSemana weekStart={weekStart} />
         )}

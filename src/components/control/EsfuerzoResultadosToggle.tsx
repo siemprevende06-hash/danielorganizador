@@ -3,10 +3,10 @@ import { cn } from '@/lib/utils';
 export type PeriodViewMode = 'esfuerzo' | 'plan' | 'resultados' | 'sistemas' | 'autocritica';
 
 const OPTIONS: { id: PeriodViewMode; label: string }[] = [
-  { id: 'esfuerzo', label: 'Esfuerzo' },
   { id: 'plan', label: 'Plan' },
-  { id: 'resultados', label: 'Resultados' },
+  { id: 'esfuerzo', label: 'Esfuerzo' },
   { id: 'sistemas', label: 'Sistemas' },
+  { id: 'resultados', label: 'Resultados' },
   { id: 'autocritica', label: 'Autocrítica' },
 ];
 
