@@ -177,7 +177,7 @@ export default function TasksPage() {
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [parentTaskId, setParentTaskId] = useState<string>('');
+  const [parentTaskId, setParentTaskId] = useState<string>('none');
   const [selectedAreaId, setSelectedAreaId] = useState<string>('');
   const [selectedBlockId, setSelectedBlockId] = useState<string>('');
   
@@ -255,7 +255,7 @@ export default function TasksPage() {
   const resetForm = () => {
     setTitle(''); setDescription(''); setPriority('medium');
     setDueDate(''); setSelectedAreaId(''); setSelectedBlockId('');
-    setEstimatedMinutes(''); setRecurrence('none'); setTags([]); setTagInput(''); setParentTaskId('');
+    setEstimatedMinutes(''); setRecurrence('none'); setTags([]); setTagInput(''); setParentTaskId('none');
   };
 
   const addTag = () => {
@@ -290,7 +290,7 @@ export default function TasksPage() {
         estimated_minutes: validated.estimatedMinutes || null,
         recurrence: validated.recurrence,
         tags: tags.length > 0 ? tags : null,
-        parent_id: parentTaskId || null,
+        parent_id: parentTaskId && parentTaskId !== 'none' ? parentTaskId : null,
         user_id: null,
       };
       const { queued } = await cachedMutation("tasks", "insert", payload);
@@ -325,7 +325,7 @@ export default function TasksPage() {
         estimated_minutes: validated.estimatedMinutes || null,
         recurrence: validated.recurrence,
         tags: tags.length > 0 ? tags : null,
-        parent_id: parentTaskId || null,
+        parent_id: parentTaskId && parentTaskId !== 'none' ? parentTaskId : null,
       };
       const { queued } = await cachedMutation("tasks", "update", payload, { id: editingTask.id });
       if (queued) {
@@ -351,7 +351,7 @@ export default function TasksPage() {
     setSelectedAreaId(task.areaId || ''); setSelectedBlockId(task.routineBlockId || '');
     setEstimatedMinutes(task.estimatedMinutes ? String(task.estimatedMinutes) : '');
     setRecurrence(task.recurrence || 'none'); setTags(task.tags || []); setTagInput('');
-    setParentTaskId(task.parentId || '');
+    setParentTaskId(task.parentId || 'none');
     setIsEditDialogOpen(true);
   };
 
@@ -612,7 +612,7 @@ export default function TasksPage() {
         <Select value={parentTaskId} onValueChange={setParentTaskId}>
           <SelectTrigger className="mt-1"><SelectValue placeholder="Ninguna (tarea principal)" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Ninguna (tarea principal)</SelectItem>
+            <SelectItem value="none">Ninguna (tarea principal)</SelectItem>
             {tasks.filter(t => !t.completed && !t.parentId).map(t => (
               <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
             ))}

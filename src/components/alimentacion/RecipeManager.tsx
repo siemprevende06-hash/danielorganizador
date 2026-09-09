@@ -223,12 +223,12 @@ export function RecipeManager() {
                   <div key={i} className="flex flex-col gap-1">
                     <div className="flex gap-1">
                       <Select
-                        value={ing.product_id || ""}
+                        value={ing.product_id || "none"}
                         onValueChange={v => {
-                          const p = v ? products.find(pr => pr.id === v) : null;
+                          const p = v && v !== "none" ? products.find(pr => pr.id === v) : null;
                           setIngredients(ingredients.map((x, j) => j === i ? {
                             ...x,
-                            product_id: v || null,
+                            product_id: v && v !== "none" ? v : null,
                             name: p?.name || x.name,
                             unit: p?.unit || x.unit || "g",
                             quantity_for_recipe: x.quantity_for_recipe || x.quantity || null,
@@ -239,7 +239,7 @@ export function RecipeManager() {
                           <SelectValue placeholder="Buscar producto..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Sin producto</SelectItem>
+                          <SelectItem value="none">Sin producto</SelectItem>
                           {products.filter(p => !ingredients.some((x, j) => j !== i && x.product_id === p.id)).map(p => (
                             <SelectItem key={p.id} value={p.id}>
                               {p.name} {p.current_stock > 0 ? `(stock: ${p.current_stock} ${p.unit})` : ""}

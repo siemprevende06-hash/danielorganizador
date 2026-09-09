@@ -88,7 +88,7 @@ export function SubjectDetailCard({
   const [taskDueDate, setTaskDueDate] = useState('');
   const [taskType, setTaskType] = useState<'delivery' | 'study'>('delivery');
   const [taskMinutes, setTaskMinutes] = useState('30');
-  const [taskTopicId, setTaskTopicId] = useState('');
+  const [taskTopicId, setTaskTopicId] = useState('none');
 
   // Assign to routine block dialog
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -145,7 +145,7 @@ export function SubjectDetailCard({
       due_date: taskDueDate || undefined,
       task_type: taskType,
       estimated_minutes: taskType === 'study' ? parseInt(taskMinutes) || 30 : undefined,
-      topic_id: taskTopicId || undefined
+      topic_id: taskTopicId && taskTopicId !== 'none' ? taskTopicId : undefined
     });
     if (success) {
       setTaskTitle('');
@@ -153,7 +153,7 @@ export function SubjectDetailCard({
       setTaskDueDate('');
       setTaskType('delivery');
       setTaskMinutes('30');
-      setTaskTopicId('');
+      setTaskTopicId('none');
       setIsTaskDialogOpen(false);
     }
   };
@@ -500,7 +500,7 @@ export function SubjectDetailCard({
                           <SelectValue placeholder="Seleccionar tema..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Ninguno</SelectItem>
+                          <SelectItem value="none">Ninguno</SelectItem>
                           {subject.topics.map(topic => (
                             <SelectItem key={topic.id} value={topic.id}>{topic.title}</SelectItem>
                           ))}
