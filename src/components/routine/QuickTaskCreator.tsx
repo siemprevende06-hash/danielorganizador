@@ -42,8 +42,6 @@ export function QuickTaskCreator({ selectedDate, onTaskCreated }: QuickTaskCreat
     try {
       const area = AREAS.find(a => a.id === areaId);
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error('Inicia sesión para crear tareas');
 
       const { error } = await supabase
         .from('tasks')
@@ -55,7 +53,6 @@ export function QuickTaskCreator({ selectedDate, onTaskCreated }: QuickTaskCreat
           due_date: `${dateStr}T12:00:00`,
           completed: false,
           status: 'pendiente',
-          user_id: user.id
         });
 
       if (error) throw error;

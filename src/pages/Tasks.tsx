@@ -281,11 +281,6 @@ export default function TasksPage() {
         estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : undefined,
         recurrence,
       });
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({ variant: "destructive", title: "Inicia sesión para crear tareas" });
-        return;
-      }
       const payload = {
         title: validated.title, description: validated.description || null,
         status: 'pendiente', priority: validated.priority,
@@ -296,7 +291,6 @@ export default function TasksPage() {
         recurrence: validated.recurrence,
         tags: tags.length > 0 ? tags : null,
         parent_id: parentTaskId && parentTaskId !== 'none' ? parentTaskId : null,
-        user_id: user.id,
       };
       const { queued, error } = await cachedMutation("tasks", "insert", payload);
       if (queued) {
@@ -381,26 +375,21 @@ export default function TasksPage() {
         t.recurrence === task.recurrence && t.dueDate?.toISOString().slice(0, 10) === nextDue?.slice(0, 10)
       );
       if (nextDue && !exists) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast({ title: 'No se pudo programar la próxima tarea: inicia sesión', variant: 'destructive' });
+        const { queued: nextQueued, error: nextError } = await cachedMutation("tasks", "insert", {
+          title: task.title, description: task.description || null,
+          priority: task.priority || 'medium', due_date: nextDue, completed: false,
+          status: 'pendiente', source: 'general',
+          area_id: task.areaId || null, routine_block_id: task.routineBlockId || null,
+          estimated_minutes: task.estimatedMinutes || null, recurrence: task.recurrence,
+          tags: task.tags && task.tags.length > 0 ? task.tags : null,
+          parent_id: task.parentId || null,
+        });
+        if (nextQueued) {
+          toast({ title: 'Recurrencia programada (offline) — se sincronizará al reconectar' });
+        } else if (nextError) {
+          toast({ variant: "destructive", title: "No se pudo programar la próxima tarea", description: nextError?.message || "Error desconocido" });
         } else {
-          const { queued: nextQueued, error: nextError } = await cachedMutation("tasks", "insert", {
-            title: task.title, description: task.description || null,
-            priority: task.priority || 'medium', due_date: nextDue, completed: false,
-            status: 'pendiente', source: 'general',
-            area_id: task.areaId || null, routine_block_id: task.routineBlockId || null,
-            estimated_minutes: task.estimatedMinutes || null, recurrence: task.recurrence,
-            tags: task.tags && task.tags.length > 0 ? task.tags : null,
-            parent_id: task.parentId || null, user_id: user.id,
-          });
-          if (nextQueued) {
-            toast({ title: 'Recurrencia programada (offline) — se sincronizará al reconectar' });
-          } else if (nextError) {
-            toast({ variant: "destructive", title: "No se pudo programar la próxima tarea", description: nextError?.message || "Error desconocido" });
-          } else {
-            toast({ title: 'Recurrencia: se programó la próxima tarea' });
-          }
+          toast({ title: 'Recurrencia: se programó la próxima tarea' });
         }
       }
     }
