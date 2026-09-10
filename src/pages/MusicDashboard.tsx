@@ -41,10 +41,14 @@ export default function MusicDashboard() {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `song-${songId}-${Date.now()}.${fileExt}`;
-      const { error } = await supabase.storage.from('user-images').upload(`songs/${fileName}`, file);
+      const filePath = `songs/${fileName}`;
+      const { error } = await supabase.storage.from('user-images').upload(filePath, file);
       if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from('user-images').getPublicUrl(`songs/${fileName}`);
-      await updateSong(songId, { cover_image_url: publicUrl });
+      const { data: signData, error: signError } = await supabase.storage
+        .from('user-images')
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+      if (signError) throw signError;
+      await updateSong(songId, { cover_image_url: signData.signedUrl });
       toast({ title: 'Portada actualizada ✓' });
     } catch (e: any) {
       console.error(e);

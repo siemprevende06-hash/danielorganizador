@@ -1,18 +1,22 @@
 import {
   ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
-import { endOfMonth } from 'date-fns';
 import {
   useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER,
 } from '@/hooks/useResultadosPeriodo';
 import { Badge } from '@/components/ui/badge';
 import {
   ResultadoColumnas, GrupoResultados, AreaRowCols, ResumenGeneral, CheckItem, ResultRow,
-  StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, AREA_COLORS, BookCloud, SongCloud,
+  StagesBar, BigNumber, TaskPlanList, MinutesRow, AreaEmpty, PlanDelMes, AREA_COLORS,
   UniversityPlan, UniversityObjetivos, EntPlan, EntObjetivos, ProyectosPlan, ProyectosObjetivos, OtherTasksList,
 } from './shared';
-import { CreateTaskPeriodButton } from '@/components/tasks/CreateTaskPeriodButton';
 import { useAreaCovers, coverKey } from '@/hooks/useAreaCovers';
+
+const AREA_BAR: Record<string, string> = {
+  universidad: '#3b82f6', emprendimiento: '#a855f7', proyectos: '#f59e0b',
+  lectura: '#06b6d4', musica: '#ec4899', ajedrez: '#334155',
+  game: '#f43f5e', idiomas: '#10b981', gym: '#ef4444', general: '#94a3b8',
+};
 
 const AREA_COVER_FALLBACK: Record<string, string> = {
   universidad: 'profesional',
@@ -26,12 +30,6 @@ const AREA_COVER_FALLBACK: Record<string, string> = {
   gym: 'salud',
 };
 
-const AREA_BAR: Record<string, string> = {
-  universidad: '#3b82f6', emprendimiento: '#a855f7', proyectos: '#f59e0b',
-  lectura: '#06b6d4', musica: '#ec4899', ajedrez: '#334155',
-  game: '#f43f5e', idiomas: '#10b981', gym: '#ef4444', general: '#94a3b8',
-};
-
 function LoadingSkeleton() {
   return (
     <div className="space-y-4">
@@ -41,9 +39,10 @@ function LoadingSkeleton() {
   );
 }
 
-export function ResultadosMes({ month }: { month: Date }) {
-  const monthEnd = endOfMonth(month);
-  const { data } = useResultadosPeriodo(month, monthEnd);
+export function ResultadosAnual({ year }: { year: number }) {
+  const start = new Date(year, 0, 1);
+  const end = new Date(year, 11, 31);
+  const { data } = useResultadosPeriodo(start, end);
   const r = data ?? EMPTY_RESULTADO;
   const { covers } = useAreaCovers();
   const coverFor = (key: string) =>
@@ -66,7 +65,7 @@ export function ResultadosMes({ month }: { month: Date }) {
     <div className="space-y-5">
       <ResumenGeneral
         score={r.score}
-        subtitle={`Mes · ${r.score}%`}
+        subtitle={`Año · ${r.score}%`}
         badges={badges}
         stats={[
           ['Tareas', r.globalTotal > 0 ? `${pct}%` : '—'],
@@ -76,11 +75,10 @@ export function ResultadosMes({ month }: { month: Date }) {
         ]}
       />
 
-      {/* Tiempo por área */}
       {hoursByArea.length > 0 && (
         <div className="rounded-2xl bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm p-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Horas del mes</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Horas del año</p>
             <Badge variant="outline" className="text-[10px]">{Math.round(totalMin / 60)}h invertidas</Badge>
           </div>
           <div className="h-40">
@@ -100,9 +98,7 @@ export function ResultadosMes({ month }: { month: Date }) {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <CreateTaskPeriodButton start={month} end={monthEnd} periodLabel={"Este mes"} defaultDate={month} />
-      </div>
+      <PlanDelMes books={r.books} songs={r.songs} />
 
       <ResultadoColumnas>
         <GrupoResultados label="Prioridades">
@@ -133,7 +129,7 @@ export function ResultadosMes({ month }: { month: Date }) {
                 <EntObjetivos data={r.entrepreneurships.businesses} />
                 <MinutesRow area={r.byArea.emprendimiento} />
                 <ResultRow label="Tareas completadas" value={`${r.byArea.emprendimiento.done}/${r.byArea.emprendimiento.total}`} ok={r.byArea.emprendimiento.total > 0 && r.byArea.emprendimiento.done === r.byArea.emprendimiento.total} />
-                {r.ingreso.amount > 0 && <ResultRow label="Ingresos del mes" value={`$${r.ingreso.amount}`} ok />}
+                {r.ingreso.amount > 0 && <ResultRow label="Ingresos del año" value={`$${r.ingreso.amount}`} ok />}
                 {r.byArea.emprendimiento.total === 0 && r.ingreso.count === 0 && <AreaEmpty />}
               </div>
             }
@@ -177,7 +173,7 @@ export function ResultadosMes({ month }: { month: Date }) {
             cover={coverFor('gym')}
             plan={
               <ul className="space-y-1.5">
-                <CheckItem done={r.workoutMin > 0}>Entrenamientos del mes</CheckItem>
+                <CheckItem done={r.workoutMin > 0}>Entrenamientos del año</CheckItem>
                 <CheckItem>Registrar pesos</CheckItem>
               </ul>
             }
@@ -200,43 +196,22 @@ export function ResultadosMes({ month }: { month: Date }) {
             color={AREA_COLORS.lectura}
             cover={coverFor('lectura')}
             plan={
-              <>
-                {r.books.length > 0 && (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Libros del plan</p>
-                    <BookCloud books={r.books} />
-                  </div>
-                )}
-                <ul className="space-y-1.5">
-                  <CheckItem>Meta mensual de páginas</CheckItem>
-                  <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer {r.lectura.pagesGoal || 600} páginas en el mes</CheckItem>
-                </ul>
-              </>
+              <ul className="space-y-1.5">
+                <CheckItem>Meta anual de páginas</CheckItem>
+                <CheckItem done={r.lectura.pages >= r.lectura.pagesGoal && r.lectura.pages > 0}>Leer {r.lectura.pagesGoal || 6000} páginas</CheckItem>
+              </ul>
             }
             objetivo={
               <>
                 <BigNumber
                   value={String(r.lectura.pages)}
                   fraction={`/ ${r.lectura.pagesGoal || 0} pág`}
-                  label="páginas en el mes"
+                  label="páginas en el año"
                   badge={r.lectura.pagesGoal > 0 && r.lectura.pages >= r.lectura.pagesGoal ? 'Meta ✓' : undefined}
                   accent="text-cyan-600"
                   progress={r.lectura.pagesGoal > 0 ? (r.lectura.pages / r.lectura.pagesGoal) * 100 : 0}
                 />
-                {r.lectura.perDay.length > 0 && (
-                  <div className="h-20">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={r.lectura.perDay} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
-                        <XAxis dataKey="d" tick={{ fontSize: 8 }} axisLine={false} tickLine={false} interval={2} />
-                        <YAxis tick={{ fontSize: 8 }} axisLine={false} tickLine={false} width={28} />
-                        <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12 }}
-                          formatter={(v: any) => [`${v} pág`, 'Leídas']} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
-                        <Bar dataKey="pag" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                <MinutesRow area={{ minutes: r.lectura.minutes, goalMinutes: 0 }} label="Minutos de lectura" />
                 {r.lectura.sessions === 0 && <AreaEmpty />}
               </>
             }
@@ -248,28 +223,20 @@ export function ResultadosMes({ month }: { month: Date }) {
             color={AREA_COLORS.musica}
             cover={coverFor('musica')}
             plan={
-              <>
-                {r.songs.length > 0 && (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Canciones del plan</p>
-                    <SongCloud songs={r.songs} />
-                  </div>
-                )}
-                <ul className="space-y-1.5">
-                  <CheckItem done={r.musica.minutes > 0}>Práctica mensual</CheckItem>
-                  <CheckItem>Escalas diarias</CheckItem>
-                </ul>
-              </>
+              <ul className="space-y-1.5">
+                <CheckItem done={r.musica.minutes > 0}>Práctica anual</CheckItem>
+                <CheckItem>Escalas diarias</CheckItem>
+              </ul>
             }
             objetivo={
               <>
                 <BigNumber
                   value={`${r.musica.minutes}`}
                   fraction="min"
-                  label="práctica en el mes"
+                  label="práctica en el año"
                   badge={r.musica.songs > 0 ? `${r.musica.songs} piezas` : undefined}
                   accent="text-pink-600"
-                  progress={r.musica.minutes > 0 ? Math.min(r.musica.minutes / 2, 100) : 0}
+                  progress={r.musica.minutes > 0 ? Math.min(r.musica.minutes, 3600) * (100 / 3600) : 0}
                 />
                 {r.musica.sessions === 0 && <AreaEmpty />}
               </>
@@ -283,7 +250,7 @@ export function ResultadosMes({ month }: { month: Date }) {
             cover={coverFor('ajedrez')}
             plan={
               <ul className="space-y-1.5">
-                <CheckItem done={r.ajedrez.games > 0}>Partidas del mes</CheckItem>
+                <CheckItem done={r.ajedrez.games > 0}>Partidas del año</CheckItem>
                 <CheckItem>Tácticas 15 min/día</CheckItem>
               </ul>
             }
@@ -304,7 +271,7 @@ export function ResultadosMes({ month }: { month: Date }) {
             cover={coverFor('game')}
             plan={
               <ul className="space-y-1.5">
-                <CheckItem>Interacciones del mes</CheckItem>
+                <CheckItem>Interacciones del año</CheckItem>
                 <CheckItem done={r.game.citas > 0}>Citas</CheckItem>
               </ul>
             }

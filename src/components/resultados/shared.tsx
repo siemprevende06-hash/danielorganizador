@@ -424,13 +424,23 @@ export function SongCloud({ songs }: { songs: PlanSong[] }) {
     return <p className="text-[10px] text-muted-foreground italic">Sin canciones del plan para este período</p>;
   }
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {songs.map(s => (
-        <Badge key={s.id} variant="outline" className="text-[10px] gap-1 py-1 max-w-full">
-          <Music className="w-3 h-3 text-pink-500 shrink-0" />
-          <span className="truncate max-w-[130px]">{s.title}</span>
-          <span className="text-[8px] text-muted-foreground">· {s.practiceMinutes}m</span>
-        </Badge>
+        <div key={s.id} className={cn('flex items-center gap-2 rounded-xl border p-1.5 pr-2.5 max-w-[220px]', s.status === 'mastered' ? 'border-emerald-300/60 bg-emerald-50/40 dark:bg-emerald-950/20' : 'border-border/50 bg-muted/20')}>
+          {s.cover_image_url ? (
+            <img src={s.cover_image_url} alt={s.title} className="w-8 h-8 rounded-md object-cover shrink-0 border border-border/40" />
+          ) : (
+            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-pink-500/30 to-rose-500/30 flex items-center justify-center shrink-0">
+              <Music className="w-4 h-4 text-pink-600" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold leading-tight break-words">{s.title}</p>
+            <p className="text-[8px] text-muted-foreground truncate">
+              {s.practiceMinutes}m · {s.instrument}
+            </p>
+          </div>
+        </div>
       ))}
     </div>
   );

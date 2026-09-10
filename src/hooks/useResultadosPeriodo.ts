@@ -60,6 +60,7 @@ export interface PlanSong {
   instrument: string;
   practiceMinutes: number;
   status: string | null;
+  cover_image_url: string | null;
 }
 
 export interface PlanTaskItem {
@@ -189,7 +190,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('eventos_sociales').select('*').gte('fecha', startStr).lte('fecha', endStr),
         supabase.from('entrepreneurship_income').select('*').gte('income_date', startStr).lte('income_date', endStr),
         supabase.from('reading_library').select('id, title, author, cover_image_url, status, pages_total, pages_read'),
-        supabase.from('music_repertoire').select('id, title, artist, instrument, status, practice_minutes'),
+        supabase.from('music_repertoire').select('id, title, artist, instrument, status, practice_minutes, cover_image_url'),
         supabase.from('projects').select('*'),
         supabase.from('university_subjects').select('id, name'),
         supabase.from('entrepreneurships').select('id, name'),
@@ -421,6 +422,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
           instrument: s.instrument,
           practiceMinutes: s.practice_minutes || 0,
           status: s.status,
+          cover_image_url: s.cover_image_url || null,
         })) as PlanSong[];
 
       const byArea = emptyAreaResult();
