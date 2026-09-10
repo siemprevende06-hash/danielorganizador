@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.finance-ai]
 verify_jwt = false
+
+[functions.gym-coach]
+verify_jwt = false

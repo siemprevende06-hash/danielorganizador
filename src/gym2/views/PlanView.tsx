@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Sparkles, ChevronRight, Moon, ClipboardList } from "lucide-react";
 import { useGym } from "../store";
 import { DAYN, uid, exCount } from "../lib/format";
-import { dayAssignSheet, loadStarterPlan } from "../components/sheets";
+import { dayAssignSheet, loadStarterPlan, loadDanielPlan } from "../components/sheets";
 import { Glyph } from "../lib/glyphs";
 import { type Routine } from "../lib/types";
 
@@ -91,7 +91,7 @@ export default function PlanView({ onEdit }: { onEdit: (id: string) => void }) {
             <br />
             Crea una o carga el plan inicial.
           </p>
-          <div className="mt-3 px-6">
+          <div className="mt-3 flex flex-col gap-2">
             <Button
               className="w-full"
               onClick={() => {
@@ -99,7 +99,17 @@ export default function PlanView({ onEdit }: { onEdit: (id: string) => void }) {
                 toast("Plan inicial cargado");
               }}
             >
-              <Sparkles className="h-4 w-4" /> Cargar plan inicial (Push / Pull / Legs)
+              <Sparkles className="h-4 w-4" /> Plan inicial (Push / Pull / Legs)
+            </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => {
+                loadDanielPlan();
+                toast("Plan DUP de Daniel cargado");
+              }}
+            >
+              <Sparkles className="h-4 w-4" /> Plan DUP Daniel (Torso & Piernas)
             </Button>
           </div>
         </div>

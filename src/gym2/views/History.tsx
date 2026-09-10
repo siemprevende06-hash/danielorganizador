@@ -2,21 +2,71 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CalendarX2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useGym } from "../store";
-import { MONTHS } from "../lib/format";
+import { MONTHS, DAYS, todayISO } from "../lib/format";
 import { workoutDetailSheet, WorkoutRow } from "../components/sheets";
+import { cn } from "@/lib/utils";
+import type { Workout } from "../lib/types";
 
-const weeksOfMonth = (y: number, m: number) => {
-  const weeks: { ws: number; we: number }[] = [];
-  const month = new Date(y, m, 1);
-  const lastD = new Date(y, m + 1, 0).getDate();
-  for (let d = 1; d <= lastD; d += 7) {
-    const ws = d;
-    let we = d + 6;
-    if (we > lastD) we = lastD;
-    weeks.push({ ws, we });
-  }
-  return weeks;
-};
+/** Grilla de calendario del mes: cada día entrenado se resalta y al tocar abre el detalle. */
+function MonthCalendar({ mm, monthWorkouts }: { mm: string; monthWorkouts: Workout[] }) {
+  const S = useGym().S;
+  const [y, m] = mm.split("-").map(Number);
+  const firstDow = new Date(y, m - 1, 1).getDay();
+  const lastD = new Date(y, m, 0).getDate();
+  const today = todayISO();
+  const byDay = useMemo(() => {
+    const map: Record<string, { id: string }[]> = {};
+    monthWorkouts.forEach((w) => {
+      (map[w.d] = map[w.d] || []).push(w);
+    });
+    return map;
+  }, [monthWorkouts]);
+  const cells: (number | null)[] = [
+    ...Array.from({ length: firstDow }, () => null),
+    ...Array.from({ length: lastD }, (_, i) => i + 1),
+  ];
+  return (
+    <div className="mb-3 rounded-2xl border bg-card p-3 shadow-sm">
+      <div className="mb-1 grid grid-cols-7 text-center text-[10px] font-semibold uppercase text-muted-foreground">
+        {DAYS.map((d, i) => (
+          <div key={i} className="py-0.5">
+            {d}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((day, i) => {
+          if (day === null) return <div key={i} />;
+          const iso = `${mm}-${String(day).padStart(2, "0")}`;
+          const ws = byDay[iso];
+          const done = !!ws && ws.length > 0;
+          const isToday = iso === today;
+          return (
+            <button
+              key={i}
+              type="button"
+              disabled={!done}
+              onClick={() => {
+                const w = S.workouts.find((x) => x.id === (ws && ws[0]?.id));
+                if (w) workoutDetailSheet(w);
+              }}
+              className={cn(
+                "flex flex-col items-center gap-0.5 rounded-lg py-1.5 text-sm font-medium transition-colors",
+                done
+                  ? "bg-primary/15 text-primary hover:bg-primary/25"
+                  : "text-muted-foreground hover:bg-accent",
+                isToday && "ring-1 ring-primary"
+              )}
+            >
+              <span>{day}</span>
+              {done && <span className="h-1 w-1 rounded-full bg-primary" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function History() {
   const S = useGym().S;
@@ -34,9 +84,6 @@ export default function History() {
         .sort((a, b) => (a.d < b.d ? 1 : -1)),
     [S.workouts, mm]
   );
-
-  const weeks = weeksOfMonth(y, m);
-  const fill = (d: number) => String(d).padStart(2, "0");
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-4xl lg:px-6">
@@ -68,23 +115,7 @@ export default function History() {
         </div>
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {weeks.map((wk, i) => {
-          const count = monthWorkouts.filter(
-            (w) =>
-              w.d >= `${mm}-${fill(wk.ws)}` &&
-              w.d <= `${mm}-${fill(wk.we)}`
-          ).length;
-          return (
-            <span
-              key={i}
-              className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-            >
-              Semana {i + 1}: {count}
-            </span>
-          );
-        })}
-      </div>
+      <MonthCalendar mm={mm} monthWorkouts={monthWorkouts} />
 
       {monthWorkouts.length ? (
         <div className="divide-y divide-border rounded-2xl border bg-card">

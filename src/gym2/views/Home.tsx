@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Settings2,
@@ -31,6 +31,7 @@ import {
   calendarSheet,
   startFlow,
   loadStarterPlan,
+  loadDanielPlan,
   bwDeltaColor,
   bodiesSheet,
   settingsSheet,
@@ -39,10 +40,15 @@ import { Chart } from "../components/Chart";
 import { BODY_METRICS, lastBodyM } from "../lib/history";
 import { Glyph } from "../lib/glyphs";
 import { cn } from "@/lib/utils";
+import { syncRestDays } from "../lib/dailySync";
 
 export default function Home({ onGo }: { onGo: (tab: string) => void }) {
   const S = useGym().S;
   const [weekOffset, setWeekOffset] = useState(0);
+
+  useEffect(() => {
+    if (S.routines.length > 0) syncRestDays(S);
+  }, []);
 
   const today = new Date();
   const routine = effectiveRoutine(S, todayISO());
@@ -186,10 +192,14 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
             <Sparkles className="h-5 w-5 text-primary" /> ¡Bienvenido!
           </div>
           <p className="mt-1 mb-3 text-sm text-muted-foreground">
-            Organiza tu semana para empezar — o carga un plan Push / Pull / Legs listo para usar.
+            Organiza tu semana para empezar — o carga un plan listo para usar.
           </p>
-          <Button className="w-full" onClick={loadStarterPlan}>
-            <Sparkles className="h-4 w-4" /> Cargar plan inicial (PPL)
+          <Button className="w-full" onClick={loadDanielPlan}>
+            <Sparkles className="h-4 w-4" /> Cargar plan DUP Daniel (Torso & Piernas)
+          </Button>
+          <div className="h-1.5" />
+          <Button variant="outline" className="w-full" onClick={loadStarterPlan}>
+            <Sparkles className="h-4 w-4" /> Plan inicial (Push / Pull / Legs)
           </Button>
           <div className="h-1.5" />
           <Button variant="outline" className="w-full" onClick={() => onGo("plan")}>

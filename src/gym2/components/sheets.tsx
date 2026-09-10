@@ -8,6 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { getGym, useGym } from "../store";
 import { getUI } from "./SheetStack";
+import { markGymDayInDaily, syncRestDays } from "../lib/dailySync";
 import { Stepper } from "./Stepper";
 import { ExerciseIcon } from "./Media";
 import { MuscleMap } from "./MuscleMap";
@@ -64,7 +65,7 @@ import {
 } from "../lib/progression";
 import { loadOfWorkouts } from "../lib/muscles";
 import { beep } from "../lib/sound";
-import { starterRoutines } from "../lib/starter";
+import { starterRoutines, danielRoutines } from "../lib/starter";
 import { Glyph, glyphOf, GLYPH_GROUPS } from "../lib/glyphs";
 import { MONTHS_LONG, fmtDur } from "../lib/format";
 import { BODY_METRICS, lastBodyM } from "../lib/history";
@@ -173,6 +174,20 @@ export function loadStarterPlan() {
     st.week[5] = legs.id;
   });
   notify("Plan inicial cargado — Lu Push · Mi Pull · Vi Legs");
+}
+
+/** Carga la rutina DUP de Daniel: Lunes/Martes/Jueves/Viernes con progresión automática. */
+export function loadDanielPlan() {
+  const [lun, mar, jue, vie] = danielRoutines();
+  update((st) => {
+    st.routines.push(lun, mar, jue, vie);
+    st.week[1] = lun.id; // Lunes — Torso Fuerza
+    st.week[2] = mar.id; // Martes — Piernas Hipertrofia
+    st.week[4] = jue.id; // Jueves — Torso Hipertrofia
+    st.week[5] = vie.id; // Viernes — Piernas Fuerza
+  });
+  syncRestDays(S());
+  notify("Plan DUP cargado — Lu Torso F · Ma Piernas H · Ju Torso H · Vi Piernas F");
 }
 
 /* ============================ target weight colour ============================ */
@@ -2144,5 +2159,7 @@ function doFinishWorkout() {
   beep(st.sound, 880, 0.15);
   beep(st.sound, 1100, 0.15, 0.18);
   beep(st.sound, 1320, 0.3, 0.36);
+  const mins = Math.max(1, Math.round((w.end - w.start) / 60000));
+  markGymDayInDaily(mins);
   ui().open((close) => <FinishSummary w={w} />, { kind: "center", locked: true });
 }
