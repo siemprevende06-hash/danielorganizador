@@ -190,6 +190,22 @@ export function useSystemsTracking(targetDate?: Date) {
         console.warn("[syncToAreaStats] error for", areaId, err)
       }
     }
+
+    // Sync workout_duration (gym) to daily_area_stats
+    if (newData.workoutDuration > 0 || newData.completions["entrenamiento-fisico"]) {
+      try {
+        await supabase.from("daily_area_stats").upsert({
+          area_id: "gym",
+          stat_date: forDate,
+          time_spent_minutes: newData.workoutDuration,
+          time_goal_minutes: DEFAULT_TIME_GOALS["gym"] ?? 60,
+          completed: !!newData.completions["entrenamiento-fisico"],
+          completed_at: newData.completions["entrenamiento-fisico"] ? new Date().toISOString() : null,
+        }, { onConflict: "area_id,stat_date" })
+      } catch (err) {
+        console.warn("[syncToAreaStats] error syncing gym", err)
+      }
+    }
   }, [])
 
   // Save to DB (debounced) — upsert por fecha para poder guardar días anteriores

@@ -94,7 +94,7 @@ export function MonthlyReviewStats({ monthDate }: Props) {
   const waterPct = pct(data.waterCompletions, data.waterTotal);
   const focusGoal = data.activeDays * 120;
   const focusPct = pct(data.totalFocusMinutes, focusGoal);
-  const workoutGoal = data.activeDays * 45;
+  const workoutGoal = data.activeDays * 60;
   const workoutPct = pct(data.totalWorkoutMinutes, workoutGoal);
   const totalTime = Object.values(data.timeData).reduce((a, b) => a + b, 0);
   const timePct = totalTime > 0 ? Math.min(100, Math.round(totalTime / (data.activeDays * 480) * 100)) : 0;

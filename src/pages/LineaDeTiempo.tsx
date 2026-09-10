@@ -81,7 +81,7 @@ export default function LineaDeTiempo() {
   const { lists, tasks, isLoading: listsLoading } = usePersonalLists();
   const { habitHistory, isLoading: habitLoading } = useHabitHistory();
 
-  const hoyMinutos = data.timeData || {};
+  const hoyMinutos = { ...(data.timeData || {}), gym: data.workoutDuration || 0 };
   const { rows: procesoRows, loading: matrizLoading } = useProcesosMatriz(hoyMinutos as Record<string, number>);
 
   const today = new Date();

@@ -64,7 +64,7 @@ function computeScore(sysRes: any, routineRes: any, miniRes: any) {
   const gymDone = completions["entrenamiento-fisico"]
   if (gymDone) {
     const gymMin = timeData["entrenamiento-fisico"]
-    const gymGoal = 45
+    const gymGoal = 60
     acumPcts.push(Math.min(100, Math.round(((gymMin || 0) / gymGoal) * 100)))
   }
 

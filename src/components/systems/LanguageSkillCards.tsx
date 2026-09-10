@@ -48,7 +48,7 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
   useEffect(() => { setLocalTime(currentTime); }, [currentTime]);
 
   const minTime = 15;
-  const maxTime = 60;
+  const maxTime = 30;
   const timeRatio = Math.max(0, Math.min(1, (localTime - minTime) / (maxTime - minTime)));
   const timeColor = localTime >= maxTime
     ? "ring-green-500/60"

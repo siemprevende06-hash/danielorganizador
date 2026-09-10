@@ -7,7 +7,7 @@ const SOSTEN_IDS = [
 ];
 
 const MEJORA_GOALS: Record<string, number> = {
-  lectura: 20, musica: 30, ajedrez: 15, game: 15, idiomas: 30, "entrenamiento-fisico": 45,
+  lectura: 20, musica: 30, ajedrez: 15, game: 15, idiomas: 30, "entrenamiento-fisico": 60,
 };
 
 const TOTAL_WORK_BLOCKS = 21;

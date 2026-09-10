@@ -29,7 +29,7 @@ const PILLAR_CONFIG = [
   { id: "universidad", name: "Universidad", icon: "🎓", timeKey: "universidad", timeGoal: 120, taskSources: ["university"] },
   { id: "emprendimiento", name: "Emprendimiento", icon: "💼", timeKey: "emprendimiento", timeGoal: 60, taskSources: ["entrepreneurship"] },
   { id: "proyectos", name: "Proyectos", icon: "🚀", timeKey: "proyectos", timeGoal: 60, taskSources: ["project"] },
-  { id: "gym", name: "Gym", icon: "💪", timeKey: null, timeGoal: 45, taskSources: [] },
+  { id: "gym", name: "Gym", icon: "💪", timeKey: null, timeGoal: 60, taskSources: [] },
   { id: "idiomas", name: "Idiomas", icon: "🌍", timeKey: "idiomas", timeGoal: 60, taskSources: ["idiomas"] },
 ];
 

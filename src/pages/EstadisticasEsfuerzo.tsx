@@ -132,7 +132,9 @@ function GymCalendar({ monthDays }: { monthDays: SostenDayRow[] }) {
   const cells: (Date | null)[] = Array.from({ length: firstWeekday }, () => null);
   for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i));
   while (cells.length % 7 !== 0) cells.push(null);
-  const gymDays = monthDays.filter(d => d.completions?.gym === true).length;
+  const isGymDone = (row: any) => row?.completions?.['gym'] === true || row?.completions?.['entrenamiento-fisico'] === true;
+  const isGymSkipped = (row: any) => row?.skipped?.['gym'] === true || row?.skipped?.['entrenamiento-fisico'] === true;
+  const gymDays = monthDays.filter(d => isGymDone(d)).length;
 
   return (
     <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
@@ -155,8 +157,8 @@ function GymCalendar({ monthDays }: { monthDays: SostenDayRow[] }) {
               if (!d) return <div key={`empty-${i}`} />;
               const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
               const row = byDate.get(key);
-              const done = row?.completions?.gym === true;
-              const skipped = row?.skipped?.gym === true;
+              const done = isGymDone(row);
+              const skipped = isGymSkipped(row);
               return (
                 <div key={key} className={cn(
                   "flex flex-col items-center justify-center rounded-lg border border-border/20 py-1.5 min-h-[44px]",
@@ -178,7 +180,7 @@ function GymCalendar({ monthDays }: { monthDays: SostenDayRow[] }) {
 }
 
 const DAILY_TARGETS: Record<string, number> = {
-  lectura: 20, musica: 30, ajedrez: 15, idiomas: 30, game: 15, 'entrenamiento-fisico': 45,
+  lectura: 20, musica: 30, ajedrez: 15, idiomas: 30, game: 15, 'entrenamiento-fisico': 60,
 };
 
 // ---------- Mejora ----------

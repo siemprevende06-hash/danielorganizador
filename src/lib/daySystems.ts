@@ -61,8 +61,8 @@ const HOBBY_LARGE: SpeedOption[] = [
 ];
 
 const HOBBY_SMALL: SpeedOption[] = [
-  { id: "minimo", label: "Mín", minutes: 10 },
-  { id: "maximo", label: "Máx", minutes: 20 },
+  { id: "minimo", label: "Mín", minutes: 15 },
+  { id: "maximo", label: "Máx", minutes: 30 },
   { id: "extra", label: "Extra", minutes: 60 },
 ];
 

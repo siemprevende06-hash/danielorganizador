@@ -35,7 +35,7 @@ const FOCUS_AREA_IDS = ["universidad", "emprendimiento", "proyectos", "tareas"];
 const TIME_GOALS: Record<string, number> = {
   lectura: 30, musica: 30, ajedrez: 15, game: 30,
   universidad: 120, emprendimiento: 60, proyectos: 60, tareas: 60,
-  idiomas: 60, gym: 45,
+  idiomas: 60, gym: 60,
 };
 
 const WATER_HABIT_IDS = ["pre-entreno", "desayuno", "merienda-1", "almuerzo", "merienda-2", "comida", "antes-dormir"];
@@ -145,7 +145,7 @@ export function DailyStatsOverview({
     const goal = TIME_GOALS[id] || 30;
     return goal > 0 ? Math.min(100, Math.round((spent / goal) * 100)) : 0;
   });
-  if (workoutDuration > 0) mejoraPcts.push(Math.min(100, Math.round((workoutDuration / 45) * 100)));
+  if (workoutDuration > 0) mejoraPcts.push(Math.min(100, Math.round((workoutDuration / (TIME_GOALS.gym || 60)) * 100)));
   const mejoraScore = hasSystemsData && mejoraPcts.length > 0
     ? Math.round(mejoraPcts.reduce((a, b) => a + b, 0) / mejoraPcts.length)
     : pct(tasksCompleted + habitsCompleted, tasksTotal + habitsTotal);
@@ -225,7 +225,7 @@ export function DailyStatsOverview({
               pct={pct(habitsCompleted, habitsTotal)} color="green" minThreshold={habitsTotal * 0.6} maxThreshold={habitsTotal} />
             <StatCard icon={Droplets} label="Agua" value={waterCount} suffix={`/${waterTotal}`}
               pct={pct(waterCount, waterTotal)} color="blue" minThreshold={Math.round(waterTotal * 0.6)} maxThreshold={waterTotal} />
-            <TimeStatCard icon={Dumbbell} label="Ejercicio" spent={workoutDuration} goal={45} />
+            <TimeStatCard icon={Dumbbell} label="Ejercicio" spent={workoutDuration} goal={TIME_GOALS.gym || 60} />
             <StatCard icon={Moon} label="Sueño" value={sleepHours !== null ? `${sleepHours}h` : '—'} suffix=""
               pct={sleepHours ? Math.min(100, Math.round(sleepHours / 8 * 100)) : 0} color="indigo" />
             <StatCard icon={Timer} label="Bloques" value={doneBlocks || blocksCompleted} suffix={`/${totalBlocksSys || blocksTotal}`}

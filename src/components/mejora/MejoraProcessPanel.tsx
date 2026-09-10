@@ -87,7 +87,7 @@ export function MejoraProcessPanel({ todayMinutes, anchorDate, children }: Props
         <AreaDetail area={selected} todayMinutes={todayMinutes} anchor={anchor} history={history} areaStats={areaStats} onBack={() => setSelected(null)} />
       ) : (
         <>
-          <MejoraOverview anchor={anchor} history={history} areaStats={areaStats} />
+          <MejoraOverview anchor={anchor} history={history} areaStats={areaStats} todayMinutes={todayMinutes} />
           {children}
         </>
       )}
@@ -682,7 +682,7 @@ function AreaDetail({ area, todayMinutes, anchor, history, areaStats, onBack }: 
 
 // ============ Resumen de mejora/ esfuerzo (vista general, con todos los datos del esfuerzo) ============
 
-function MejoraOverview({ anchor, history, areaStats }: { anchor: Date; history: any[] | null; areaStats: any[] | null }) {
+function MejoraOverview({ anchor, history, areaStats, todayMinutes }: { anchor: Date; history: any[] | null; areaStats: any[] | null; todayMinutes?: Record<MejoraAreaId, number> }) {
   const anchorStr = format(anchor, 'yyyy-MM-dd');
   const isTodayAnchor = anchorStr === format(new Date(), 'yyyy-MM-dd');
 
@@ -694,13 +694,17 @@ function MejoraOverview({ anchor, history, areaStats }: { anchor: Date; history:
       const key = format(d, 'yyyy-MM-dd');
       const row = history.find((r) => r.tracking_date === key);
       let total = 0;
-      if (row) MEJORA_AREAS.forEach((a) => { total += getAreaMinutes(row, a.id); });
+      MEJORA_AREAS.forEach((a) => {
+        const dbMin = row ? getAreaMinutes(row, a.id) : 0;
+        const liveMin = (isTodayAnchor && todayMinutes) ? (todayMinutes[a.id] || 0) : 0;
+        total += Math.max(dbMin, liveMin);
+      });
       const focus = (areaStats || []).filter((s) => s.stat_date === key && ['universidad', 'emprendimiento', 'proyectos'].includes(s.area_id)).reduce((acc, s) => acc + (Number(s.time_spent_minutes) || 0), 0);
       const pages = (areaStats || []).filter((s) => s.stat_date === key && s.area_id === 'lectura').reduce((acc, s) => acc + (Number(s.pages_done) || 0), 0);
       arr.push({ date: key, total, focus, pages });
     }
     return arr;
-  }, [history, areaStats, anchorStr]);
+  }, [history, areaStats, anchorStr, isTodayAnchor, todayMinutes]);
 
   const stats = useMemo(() => {
     if (!daily) return null;
