@@ -1,7 +1,9 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { BookOpen, Trash2, Send, Sparkles, Clock, PenLine } from 'lucide-react';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { CoachChat, PendingPrompt } from '@/components/coach/CoachChat';
+import { BookOpen, Brain, Trash2, Send, Sparkles, Clock, PenLine } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -14,8 +16,21 @@ export default function JournalingPage() {
   const [currentEntry, setCurrentEntry] = useState('');
   const [saving, setSaving] = useState(false);
   const [streak, setStreak] = useState(0);
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState<PendingPrompt | null>(null);
+  const promptId = useRef(0);
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const openCoach = (reflection?: string) => {
+    if (reflection?.trim()) {
+      const text = `Esta es mi reflexión de hoy:\n"${reflection.trim()}"\n\nDame tu opinión honesta sobre ella: qué te dice de cómo me siento, qué vale la pena celebrar y sugiéreme una reflexión o acción concreta. Conversemos sobre lo que te parezca importante.`;
+      setPendingPrompt({ id: ++promptId.current, text });
+    } else {
+      setPendingPrompt(null);
+    }
+    setCoachOpen(true);
+  };
 
   useEffect(() => {
     if (entries.length > 0) {
@@ -41,6 +56,20 @@ export default function JournalingPage() {
       setCurrentEntry('');
       toast({ title: 'Entrada guardada', description: 'Tu reflexión ha sido guardada.' });
       textareaRef.current?.focus();
+    }
+    setSaving(false);
+  };
+
+  const handleAskOpinion = async () => {
+    if (!currentEntry.trim()) return;
+    setSaving(true);
+    const result = await addEntry(currentEntry);
+    if (result) {
+      setCurrentEntry('');
+      toast({ title: 'Entrada guardada', description: 'Tu reflexión ha sido guardada.' });
+      openCoach(result.content);
+    } else {
+      toast({ title: 'No se pudo guardar', description: 'Intenta de nuevo o escribe menos texto.' });
     }
     setSaving(false);
   };
@@ -80,6 +109,9 @@ export default function JournalingPage() {
             <h1 className="text-2xl font-bold tracking-tight">Diario</h1>
             <p className="text-xs text-muted-foreground mt-0.5 capitalize">{todayStr}</p>
           </div>
+          <Button variant="outline" size="sm" className="rounded-full gap-1.5" onClick={() => openCoach()}>
+            <Brain className="h-3.5 w-3.5" /> Coach IA
+          </Button>
         </div>
 
         {/* Stats row */}
@@ -120,10 +152,16 @@ export default function JournalingPage() {
               <span className="text-[10px] text-muted-foreground">
                 {currentEntry.length > 0 ? `${currentEntry.split(/\s+/).filter(Boolean).length} palabras · Cmd+Enter para guardar` : 'Escribe algo...'}
               </span>
-              <Button onClick={handleSaveEntry} disabled={!currentEntry.trim() || saving}
-                className="rounded-full h-8 text-xs gap-1.5">
-                <Send className="h-3.5 w-3.5" /> {saving ? 'Guardando...' : 'Guardar'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleAskOpinion} disabled={!currentEntry.trim() || saving} variant="outline"
+                  className="rounded-full h-8 text-xs gap-1.5">
+                  <Brain className="h-3.5 w-3.5" /> Opinión IA
+                </Button>
+                <Button onClick={handleSaveEntry} disabled={!currentEntry.trim() || saving}
+                  className="rounded-full h-8 text-xs gap-1.5">
+                  <Send className="h-3.5 w-3.5" /> {saving ? 'Guardando...' : 'Guardar'}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -163,9 +201,14 @@ export default function JournalingPage() {
                             {format(entryDate, 'HH:mm')}
                           </span>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => handleDeleteEntry(entry.id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => openCoach(entry.content)}>
+                            <Brain className="h-3.5 w-3.5 text-primary" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => handleDeleteEntry(entry.id)}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
                         {entry.content}
@@ -178,6 +221,23 @@ export default function JournalingPage() {
           )}
         </div>
       </div>
+
+      <Sheet open={coachOpen} onOpenChange={setCoachOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <div className="px-4 py-3 border-b flex items-center gap-2 pr-12">
+            <div className="p-1.5 rounded-lg bg-foreground text-background">
+              <Brain className="w-4 h-4" />
+            </div>
+            <div>
+              <SheetTitle className="text-base leading-tight">Coach IA</SheetTitle>
+              <SheetDescription className="text-xs">Opina sobre tu reflexión y conversa contigo</SheetDescription>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 p-4">
+            <CoachChat pendingPrompt={pendingPrompt} emptyText="Pide la opinión del Coach IA sobre tu reflexión o escribe directamente." />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
