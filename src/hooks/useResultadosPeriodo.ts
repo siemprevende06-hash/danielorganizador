@@ -69,6 +69,8 @@ export interface PlanTaskItem {
   completed: boolean;
   task_type?: string;
   dueShort?: string | null;
+  entrepreneurship_id?: string | null;
+  project_id?: string;
 }
 
 export interface UniversitySubjectResult {
@@ -268,6 +270,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         completed: !!t.completed,
         task_type: t.task_type || (t._ent ? 'normal' : undefined),
         dueShort: t.due_date ? format(new Date(t.due_date), 'd MMM') : null,
+        entrepreneurship_id: t.entrepreneurship_id || null,
       });
 
       // --- Universidad: asignaturas activas ---
@@ -352,7 +355,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         return {
           id: p.id,
           name: p.title,
-          tasks: pts.map(t => ({ id: t.id, title: t.title, completed: !!t.completed, task_type: 'project' })),
+          tasks: pts.map(t => ({ id: t.id, title: t.title, completed: !!t.completed, task_type: 'project', project_id: p.id })),
           done,
           total,
           cover: p.cover_image || null,

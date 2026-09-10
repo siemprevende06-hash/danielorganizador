@@ -2,6 +2,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle2, Circle, BookOpen, Music, Target, ClipboardList } from 'lucide-react';
 import type { PlanBook, PlanSong, UniversitySubjectResult, BusinessResult, ProjectResult } from '@/hooks/useResultadosPeriodo';
 
@@ -362,7 +365,43 @@ export function BigNumber({ value, fraction, label, badge, accent, progress = 71
   );
 }
 
+export function useToggleResultTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (t: any) => {
+      const next = !t.completed;
+      if (t.task_type === 'project' && t.project_id) {
+        const { data: proj, error: readErr } = await supabase
+          .from('projects')
+          .select('tasks')
+          .eq('id', t.project_id)
+          .maybeSingle();
+        if (readErr) throw readErr;
+        const tasks = (proj?.tasks || []).map((x: any) =>
+          x.id === t.id ? { ...x, completed: next } : x
+        );
+        const { error } = await supabase.from('projects').update({ tasks }).eq('id', t.project_id);
+        if (error) throw error;
+      } else {
+        const table = t.entrepreneurship_id ? 'entrepreneurship_tasks' : 'tasks';
+        const { error } = await supabase
+          .from(table)
+          .update({ completed: next })
+          .eq('id', t.id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      ['resultados', 'periodAreaTasks', 'weeklyTasks', 'monthlyTasks', 'weeklyData', 'monthlyData', 'dailyPlanData'].forEach(key =>
+        queryClient.invalidateQueries({ queryKey: [key] })
+      );
+    },
+    onError: (e: any) => toast.error(e?.message || 'No se pudo actualizar la tarea'),
+  });
+}
+
 export function TaskPlanList({ area }: { area: { tasks: any[] } }) {
+  const toggleTask = useToggleResultTask();
   if (!area.tasks || area.tasks.length === 0) {
     return <p className="text-[10px] text-muted-foreground italic">Sin tareas planificadas</p>;
   }
@@ -370,7 +409,11 @@ export function TaskPlanList({ area }: { area: { tasks: any[] } }) {
     <ul className="space-y-1.5">
       {area.tasks.map((t: any) => (
         <li key={t.id}>
-          <div className="flex items-start gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => toggleTask.mutate(t)}
+            className="w-full flex items-start gap-2 text-xs text-left rounded-md -mx-1 px-1 py-0.5 hover:bg-muted/40 transition-colors"
+          >
             {t.completed
               ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
               : <Circle className="h-3.5 w-3.5 text-muted-foreground/40 mt-0.5 shrink-0" />}
@@ -385,7 +428,7 @@ export function TaskPlanList({ area }: { area: { tasks: any[] } }) {
                 )}
               </div>
             </div>
-          </div>
+          </button>
         </li>
       ))}
     </ul>
