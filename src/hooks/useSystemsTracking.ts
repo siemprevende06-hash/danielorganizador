@@ -1,8 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
 import { getCubaDate } from "@/lib/cubaTime";
+
+// Queries que reflejan datos de hábitos/sistemas y deben refrescarse al guardar.
+const INDICATOR_QUERY_KEYS = [
+  "resultados",
+  "resultadosPeriodo",
+  "periodAreaTasks",
+  "weeklyData",
+  "monthlyData",
+  "weeklyTasks",
+  "monthlyTasks",
+  "weeklySystemsTime",
+  "weeklyAreaStatsTime",
+  "monthlySystemsTime",
+  "monthlyAreaStatsTime",
+];
 
 const DEFAULT_TIME_GOALS: Record<string, number> = {
   universidad: 120, emprendimiento: 60, proyectos: 60,
@@ -77,6 +93,7 @@ const DEFAULT_DATA: SystemsData = {
 };
 
 export function useSystemsTracking(targetDate?: Date) {
+  const queryClient = useQueryClient();
   const [data, setData] = useState<SystemsData>(DEFAULT_DATA);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(() => dateKeyOf(targetDate));
@@ -117,7 +134,9 @@ export function useSystemsTracking(targetDate?: Date) {
       const dateKey = currentDate;
 
       const buildData = (row: any) => ({
-        completions: (row.completions as Record<string, boolean>) || {},
+        completions: Object.fromEntries(
+          Object.entries((row.completions as Record<string, boolean>) || {}).filter(([k]) => !k.startsWith("streak:"))
+        ) as Record<string, boolean>,
         timeData: (row.time_data as Record<string, number>) || {},
         countData: (row.count_data as Record<string, number>) || {},
         waterData: (row.water_data as Record<string, boolean>) || {},
@@ -233,8 +252,14 @@ export function useSystemsTracking(targetDate?: Date) {
         .upsert(payload, { onConflict: "tracking_date" });
     } catch {}  // offline
 
-    syncToAreaStats(newData, forDate)
-  }, [syncToAreaStats]);
+    await syncToAreaStats(newData, forDate);
+
+    try {
+      INDICATOR_QUERY_KEYS.forEach(k =>
+        queryClient.invalidateQueries({ queryKey: [k] })
+      );
+    } catch {}  // sin QueryClient contexto no debería ocurrir
+  }, [syncToAreaStats, queryClient]);
 
   // Debounced save
   useEffect(() => {
