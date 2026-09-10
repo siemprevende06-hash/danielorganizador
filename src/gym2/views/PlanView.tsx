@@ -11,7 +11,7 @@ export default function PlanView({ onEdit }: { onEdit: (id: string) => void }) {
   const { S, update } = useGym();
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-32">
+    <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-4xl lg:px-6">
       <div className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight">Plan</h1>
         <div className="text-sm text-muted-foreground">Tu rutina semanal</div>

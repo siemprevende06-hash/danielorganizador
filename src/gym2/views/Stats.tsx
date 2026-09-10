@@ -12,7 +12,7 @@ import { bwSheet, goalSheet, bwDeltaColor, Segmented } from "../components/sheet
 import { Chart, type ChartPoint } from "../components/Chart";
 import { Heatmap } from "../components/Heatmap";
 import { MuscleMap, MuscleMapLegend } from "../components/MuscleMap";
-import { exOr } from "../lib/exercises";
+import { exOr, esName } from "../lib/exercises";
 import type { GymState } from "../lib/types";
 
 export default function Stats() {
@@ -76,7 +76,7 @@ export default function Stats() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-32">
+    <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-5xl lg:px-6">
       <div className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight">Estadísticas</h1>
         <div className="text-sm text-muted-foreground">Cómo va tu progreso</div>
@@ -89,156 +89,158 @@ export default function Stats() {
         />
       </div>
 
-      {/* peso corporal */}
-      <div className="mb-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-bold">Peso corporal</h2>
-          <div className="flex gap-1.5">
-            <Button size="sm" variant="ghost" className={S.targetW ? "text-yellow-500" : ""} onClick={goalSheet}>
-              <Target className="h-3.5 w-3.5" /> {S.targetW ? fmtNum(S.targetW) : "Objetivo"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => bwSheet()}>
-              <Plus className="h-3.5 w-3.5" /> Registrar
-            </Button>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {/* peso corporal */}
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-bold">Peso corporal</h2>
+            <div className="flex gap-1.5">
+              <Button size="sm" variant="ghost" className={S.targetW ? "text-yellow-500" : ""} onClick={goalSheet}>
+                <Target className="h-3.5 w-3.5" /> {S.targetW ? fmtNum(S.targetW) : "Objetivo"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => bwSheet()}>
+                <Plus className="h-3.5 w-3.5" /> Registrar
+              </Button>
+            </div>
           </div>
-        </div>
-        {bw ? (
-          <>
-            <div className="flex items-baseline gap-2">
-              <div className="text-3xl font-bold tracking-tight">
-                {fmtNum(bw.w)} <span className="text-base font-normal text-muted-foreground">{S.unit}</span>
+          {bw ? (
+            <>
+              <div className="flex items-baseline gap-2">
+                <div className="text-3xl font-bold tracking-tight">
+                  {fmtNum(bw.w)} <span className="text-base font-normal text-muted-foreground">{S.unit}</span>
+                </div>
+                {!!delta && (
+                  <span className={cn("flex items-center gap-0.5 text-sm font-medium", bwDeltaColor(delta, bw.w))}>
+                    {delta > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                    {fmtNum(Math.abs(delta))}
+                  </span>
+                )}
               </div>
-              {!!delta && (
-                <span className={cn("flex items-center gap-0.5 text-sm font-medium", bwDeltaColor(delta, bw.w))}>
-                  {delta > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                  {fmtNum(Math.abs(delta))}
-                </span>
-              )}
-            </div>
-            <div className="mt-2">
-              <Chart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} />
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">Sin registros aún.</p>
-        )}
-      </div>
-
-      {/* volumen */}
-      <div className="mb-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-bold">Volumen semanal</h2>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-            {wkCount} {wkCount === 1 ? "entreno" : "entrenos"}
-          </span>
+              <div className="mt-2">
+                <Chart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} />
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sin registros aún.</p>
+          )}
         </div>
-        <Chart points={volPoints} h={140} unit={S.unit} color="#0ea5e9" />
-      </div>
 
-      {/* heatmap */}
-      <div className="mb-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-bold">Consistencia</h2>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Flame className="h-3.5 w-3.5 text-orange-500" /> últimos 12 meses
-          </span>
-        </div>
-        <Heatmap S={S} />
-      </div>
-
-      {/* músculos */}
-      <div className="mb-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <h2 className="mb-1 text-sm font-bold">Músculos trabajados</h2>
-        <p className="mb-2 text-xs text-muted-foreground">Carga de este periodo según-series</p>
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {rank.worked.map((m) => (
-            <span key={m} className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium">
-              {MUSCLE_NAME[m]}
+        {/* volumen */}
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-bold">Volumen semanal</h2>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+              {wkCount} {wkCount === 1 ? "entreno" : "entrenos"}
             </span>
-          ))}
+          </div>
+          <Chart points={volPoints} h={140} unit={S.unit} color="#0ea5e9" />
         </div>
-        <MuscleMap load={load} className="mx-auto" />
-        <MuscleMapLegend />
-      </div>
 
-      {/* 1RM */}
-      <div className="mb-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <h2 className="mb-1 text-sm font-bold">Máximo estimado (1RM)</h2>
-        {selEx ? (
-          <>
-            <div className="mb-2 flex items-center justify-between">
-              <div className="capitalize">{exOr(selEx).n}</div>
-              {bestPoint && (
-                <div className="text-xs text-muted-foreground">
-                  {fmtNum(bestPoint.y)} {S.unit}
+        {/* heatmap */}
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-bold">Consistencia</h2>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Flame className="h-3.5 w-3.5 text-orange-500" /> últimos 12 meses
+            </span>
+          </div>
+          <Heatmap S={S} />
+        </div>
+
+        {/* músculos */}
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <h2 className="mb-1 text-sm font-bold">Músculos trabajados</h2>
+          <p className="mb-2 text-xs text-muted-foreground">Carga de este periodo según-series</p>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {rank.worked.map((m) => (
+              <span key={m} className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium">
+                {MUSCLE_NAME[m]}
+              </span>
+            ))}
+          </div>
+          <MuscleMap load={load} className="mx-auto" />
+          <MuscleMapLegend />
+        </div>
+
+        {/* 1RM */}
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <h2 className="mb-1 text-sm font-bold">Máximo estimado (1RM)</h2>
+          {selEx ? (
+            <>
+              <div className="mb-2 flex items-center justify-between">
+                <div className="capitalize">{esName(selEx)}</div>
+                {bestPoint && (
+                  <div className="text-xs text-muted-foreground">
+                    {fmtNum(bestPoint.y)} {S.unit}
+                  </div>
+                )}
+              </div>
+              <Chart points={selPoints} h={130} unit={S.unit} color="#8b5cf6" />
+              {strong.length > 1 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {strong.slice(0, 8).map((x) => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize transition-colors",
+                        selEx === x.id ? "border-primary bg-primary text-primary-foreground" : "bg-card text-muted-foreground"
+                      )}
+                      onClick={() => setSel(x.id)}
+                    >
+                      {esName(x.id)} {fmtNum(x.b1!.est)}
+                    </button>
+                  ))}
                 </div>
               )}
-            </div>
-            <Chart points={selPoints} h={130} unit={S.unit} color="#8b5cf6" />
-            {strong.length > 1 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {strong.slice(0, 8).map((x) => (
-                  <button
-                    key={x.id}
-                    type="button"
-                    className={cn(
-                      "rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize transition-colors",
-                      selEx === x.id ? "border-primary bg-primary text-primary-foreground" : "bg-card text-muted-foreground"
-                    )}
-                    onClick={() => setSel(x.id)}
-                  >
-                    {exOr(x.id).n} {fmtNum(x.b1!.est)}
-                  </button>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Registra series con peso en este periodo para estimar tu 1RM.
+            </p>
+          )}
+        </div>
+
+        {/* esfuerzo */}
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-sm font-bold">Esfuerzo</h2>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase text-muted-foreground">
+              {scaleName(scale)}
+            </span>
+          </div>
+          {hasEffort(S) ? (
+            <>
+              <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                <StatBox label="Series" value={String(effort.done)} />
+                <StatBox label="Registradas" value={String(effort.rated)} />
+                <StatBox label="Media RIR" value={effort.avg == null ? "–" : fmtNum(effort.avg)} />
+              </div>
+              <div className="mb-1 flex items-end gap-1" style={{ height: 48 }}>
+                {hist.map((b, i) => (
+                  <div
+                    key={b.rir}
+                    className={cn("flex-1 rounded-t", b.tail ? "bg-primary/25" : "bg-primary/60")}
+                    style={{ height: (b.pct || 0) * 48 + 3 }}
+                    title={b.rir + " RIR · " + b.n + " series"}
+                  />
                 ))}
               </div>
-            )}
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Registra series con peso en este periodo para estimar tu 1RM.
-          </p>
-        )}
-      </div>
-
-      {/* esfuerzo */}
-      <div className="rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-sm font-bold">Esfuerzo</h2>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase text-muted-foreground">
-            {scaleName(scale)}
-          </span>
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>0 RIR (duro)</span>
+                <span>10+ RIR (fácil)</span>
+              </div>
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="h-3 w-3 bg-primary/60" /> suave
+                <span className="ml-1 h-3 w-3 bg-primary/25" /> más de {BUCKETS} RIR
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Registra el esfuerzo (RIR/RPE) en las series para ver la dificultad de tu entrenamiento.
+            </p>
+          )}
         </div>
-        {hasEffort(S) ? (
-          <>
-            <div className="mb-3 grid grid-cols-3 gap-2 text-center">
-              <StatBox label="Series" value={String(effort.done)} />
-              <StatBox label="Registradas" value={String(effort.rated)} />
-              <StatBox label="Media RIR" value={effort.avg == null ? "–" : fmtNum(effort.avg)} />
-            </div>
-            <div className="mb-1 flex items-end gap-1" style={{ height: 48 }}>
-              {hist.map((b, i) => (
-                <div
-                  key={b.rir}
-                  className={cn("flex-1 rounded-t", b.tail ? "bg-primary/25" : "bg-primary/60")}
-                  style={{ height: (b.pct || 0) * 48 + 3 }}
-                  title={b.rir + " RIR · " + b.n + " series"}
-                />
-              ))}
-            </div>
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>0 RIR (duro)</span>
-              <span>10+ RIR (fácil)</span>
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="h-3 w-3 bg-primary/60" /> suave
-              <span className="ml-1 h-3 w-3 bg-primary/25" /> más de {BUCKETS} RIR
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Registra el esfuerzo (RIR/RPE) en las series para ver la dificultad de tu entrenamiento.
-          </p>
-        )}
       </div>
     </div>
   );

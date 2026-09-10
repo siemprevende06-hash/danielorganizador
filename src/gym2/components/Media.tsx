@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { esName } from "../lib/exercises";
 import type { AnyExercise } from "../lib/exercises";
 
 const tint: Record<string, string> = {
@@ -21,7 +22,7 @@ export function ExerciseIcon({
   ex: { n?: string; bp?: string } | null;
   className?: string;
 }) {
-  const name = ex?.n || "?";
+  const name = ex?.n ? esName(ex as AnyExercise) || ex.n : "?";
   const initials = name
     .split(" ")
     .slice(0, 2)

@@ -3,9 +3,10 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Plus, Crown, Search } from "lucide-react";
 import { useGym } from "../store";
-import { allExercises, isCardio, BODYPARTS, equipmentOf, type Ex } from "../lib/exercises";
+import { allExercises, isCardio, BODYPARTS, equipmentOf, esName, type Ex } from "../lib/exercises";
 import { bestWeightFor } from "../lib/history";
 import { best1RM } from "../lib/onerm";
+import { eqEs, bpEs, tgEs } from "../lib/uiEs";
 import {
   exerciseDetailSheet,
   addToRoutineSheet,
@@ -33,6 +34,7 @@ export default function Library() {
     if (ql) {
       if (
         ex.n.toLowerCase().replace(/-/g, " ").indexOf(ql) === -1 &&
+        esName(ex).toLowerCase().indexOf(ql) === -1 &&
         (ex.tg || "").indexOf(ql) === -1 &&
         (ex.eq || "").indexOf(ql) === -1
       )
@@ -42,7 +44,7 @@ export default function Library() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-32">
+    <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-5xl lg:px-6">
       <div className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight">Ejercicios</h1>
         <div className="text-sm text-muted-foreground">
@@ -73,7 +75,7 @@ export default function Library() {
             )}
             onClick={() => setEq(eq === e ? null : e)}
           >
-            {e}
+            {eqEs(e)}
           </button>
         ))}
       </div>
@@ -90,26 +92,26 @@ export default function Library() {
             )}
             onClick={() => setBp(bp === b ? null : b)}
           >
-            {b}
+            {bpEs(b)}
           </button>
         ))}
       </div>
 
-      <div className="divide-y divide-border rounded-2xl border bg-card">
+      <div className="divide-y divide-border rounded-2xl border bg-card lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-px lg:bg-transparent lg:border-0 lg:rounded-none">
         {fl.map((ex) => {
           const best = bestWeightFor(S, ex.id!);
           const pr = best > 0 && best1RM(S, ex.id!) != null;
           return (
             <div
               key={ex.id}
-              className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/60"
+              className="flex cursor-pointer items-center gap-3 bg-card px-3 py-2.5 transition-colors hover:bg-accent/60 rounded-2xl lg:rounded-xl"
               onClick={() => exerciseDetailSheet(ex)}
             >
               <ExerciseIcon ex={ex} />
               <div className="min-w-0 grow">
-                <div className="truncate text-sm font-semibold capitalize">{ex.n}</div>
+                <div className="truncate text-sm font-semibold capitalize">{esName(ex)}</div>
                 <div className="truncate text-[11px] text-muted-foreground">
-                  {ex.tg} · {ex.bp} · {isCardio(ex.id) ? "cardio" : ex.eq || "—"}
+                  {tgEs(ex.tg)} · {bpEs(ex.bp)} · {isCardio(ex.id) ? "cardio" : eqEs(ex.eq) || "—"}
                 </div>
               </div>
               {pr && (
@@ -120,7 +122,7 @@ export default function Library() {
               <button
                 type="button"
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-primary hover:bg-primary/10"
-                aria-label={"Añadir " + ex.n}
+                aria-label={"Añadir " + esName(ex)}
                 onClick={(e) => {
                   e.stopPropagation();
                   addToRoutineSheet(ex);

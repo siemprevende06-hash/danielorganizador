@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import { useGym, getGym } from "../store";
 import { useUI, getUI } from "../components/SheetStack";
-import { exOr } from "../lib/exercises";
+import { exOr, esName } from "../lib/exercises";
+import { tgEs, eqEs, bpEs } from "../lib/uiEs";
 import {
   effectiveRoutine,
   lastEntryFor,
@@ -63,7 +64,7 @@ function StartChooser({ onGo }: { onGo: (tab: string) => void }) {
   const todayOvr = S.dayPlan[todayISO()] !== undefined;
   const others = S.routines.filter((r) => r !== todayR);
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-32">
+    <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-2xl lg:px-6">
       <div className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight">Empezar entrenamiento</h1>
         <div className="text-sm text-muted-foreground capitalize">
@@ -320,7 +321,7 @@ function ExerciseBlock({
     <>
       <ExerciseIcon ex={ex} />
       <div className="mb-1.5 flex items-center justify-between">
-        <div className="text-lg font-bold capitalize leading-tight tracking-tight">{ex.n}</div>
+        <div className="text-lg font-bold capitalize leading-tight tracking-tight">{esName(ex)}</div>
         <button
           type="button"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent"
@@ -343,12 +344,12 @@ function ExerciseBlock({
         )}
         {(ex.tg || ex.bp) && (
           <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-            {ex.tg || ex.bp}
+            {tgEs(ex.tg) || bpEs(ex.bp)}
           </span>
         )}
         {ex.eq && (
           <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-            {ex.eq}
+            {eqEs(ex.eq)}
           </span>
         )}
         {best > 0 && (
@@ -483,7 +484,7 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
 
   const startTimed = (idx: number, i: number) => {
     const e = A.entries[idx];
-    getUI().startWork(e.sets[i].sec || 45, exOr(e.id).n, (elapsed) => {
+    getUI().startWork(e.sets[i].sec || 45, esName(e.id), (elapsed) => {
       mutEntry(idx, (en) => {
         en.sets[i].sec = elapsed;
       });
@@ -530,7 +531,7 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-32">
+    <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-2xl lg:px-6">
       <div className="mb-1 flex items-center justify-between">
         <button
           type="button"

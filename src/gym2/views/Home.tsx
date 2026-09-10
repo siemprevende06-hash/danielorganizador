@@ -104,7 +104,7 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-32">
+    <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-4xl lg:px-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">GYM 2.0</h1>
@@ -195,81 +195,83 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
         </div>
       )}
 
-      <div className="mt-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-bold">Peso corporal</h2>
-          <div className="flex gap-1.5">
-            <Button
-              size="sm"
-              variant="ghost"
-              className={S.targetW ? "text-yellow-500" : ""}
-              onClick={goalSheet}
-            >
-              <Target className="h-3.5 w-3.5" /> {S.targetW ? fmtNum(S.targetW) : "Objetivo"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => bwSheet()}>
-              <Plus className="h-3.5 w-3.5" /> Registrar
-            </Button>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-bold">Peso corporal</h2>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                className={S.targetW ? "text-yellow-500" : ""}
+                onClick={goalSheet}
+              >
+                <Target className="h-3.5 w-3.5" /> {S.targetW ? fmtNum(S.targetW) : "Objetivo"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => bwSheet()}>
+                <Plus className="h-3.5 w-3.5" /> Registrar
+              </Button>
+            </div>
           </div>
-        </div>
-        {bw ? (
-          <>
-            <div className="flex items-baseline gap-2">
-              <div className="text-3xl font-bold tracking-tight">
-                {fmtNum(bw.w)} <span className="text-base font-normal text-muted-foreground">{S.unit}</span>
+          {bw ? (
+            <>
+              <div className="flex items-baseline gap-2">
+                <div className="text-3xl font-bold tracking-tight">
+                  {fmtNum(bw.w)} <span className="text-base font-normal text-muted-foreground">{S.unit}</span>
+                </div>
+                {!!delta && (
+                  <span className={cn("flex items-center gap-0.5 text-sm font-medium", bwDeltaColor(delta, bw.w))}>
+                    {delta > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                    {fmtNum(Math.abs(delta))}
+                  </span>
+                )}
+                <span className="ml-auto text-xs text-muted-foreground">{fmtDate(bw.d, true)}</span>
               </div>
-              {!!delta && (
-                <span className={cn("flex items-center gap-0.5 text-sm font-medium", bwDeltaColor(delta, bw.w))}>
-                  {delta > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                  {fmtNum(Math.abs(delta))}
-                </span>
+              {S.targetW && (
+                <div className="mt-1 flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500">
+                  <Target className="h-3.5 w-3.5" />
+                  <span>
+                    Objetivo {fmtNum(S.targetW)} {S.unit} ·{" "}
+                    {Math.abs(S.targetW - bw.w) < 0.05
+                      ? "¡alcanzado!"
+                      : (S.targetW > bw.w ? "subir " : "bajar ") +
+                        fmtNum(Math.abs(S.targetW - bw.w)) +
+                        " " +
+                        S.unit}
+                  </span>
+                </div>
               )}
-              <span className="ml-auto text-xs text-muted-foreground">{fmtDate(bw.d, true)}</span>
-            </div>
-            {S.targetW && (
-              <div className="mt-1 flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500">
-                <Target className="h-3.5 w-3.5" />
-                <span>
-                  Objetivo {fmtNum(S.targetW)} {S.unit} ·{" "}
-                  {Math.abs(S.targetW - bw.w) < 0.05
-                    ? "¡alcanzado!"
-                    : (S.targetW > bw.w ? "subir " : "bajar ") +
-                      fmtNum(Math.abs(S.targetW - bw.w)) +
-                      " " +
-                      S.unit}
-                </span>
+              <div className="mt-2">
+                <Chart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} />
               </div>
-            )}
-            <div className="mt-2">
-              <Chart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} />
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Sin registros aún — registra tu peso para empezar la curva. También se pide antes de cada
-            entrenamiento.
-          </p>
-        )}
-      </div>
-
-      <div
-        className="mt-3 flex cursor-pointer items-center justify-between rounded-2xl border bg-card p-4 shadow-sm"
-        onClick={() => calendarSheet()}
-      >
-        <div>
-          <div className="flex items-center gap-2 text-lg font-bold">
-            <Flame className="h-5 w-5 text-orange-500" />
-            <span>
-              Racha de {streakWeeks(S)} {streakWeeks(S) === 1 ? "semana" : "semanas"}
-            </span>
-          </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
-            {wThisWeek}
-            {plannedPerWeek ? " / " + plannedPerWeek : ""} esta semana · {S.workouts.length}{" "}
-            {S.workouts.length === 1 ? "entrenamiento" : "entrenamientos"} en total
-          </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Sin registros aún — registra tu peso para empezar la curva. También se pide antes de cada
+              entrenamiento.
+            </p>
+          )}
         </div>
-        <CalendarDays className="h-5 w-5 text-muted-foreground" />
+
+        <div
+          className="flex cursor-pointer items-center justify-between rounded-2xl border bg-card p-4 shadow-sm"
+          onClick={() => calendarSheet()}
+        >
+          <div>
+            <div className="flex items-center gap-2 text-lg font-bold">
+              <Flame className="h-5 w-5 text-orange-500" />
+              <span>
+                Racha de {streakWeeks(S)} {streakWeeks(S) === 1 ? "semana" : "semanas"}
+              </span>
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {wThisWeek}
+              {plannedPerWeek ? " / " + plannedPerWeek : ""} esta semana · {S.workouts.length}{" "}
+              {S.workouts.length === 1 ? "entrenamiento" : "entrenamientos"} en total
+            </div>
+          </div>
+          <CalendarDays className="h-5 w-5 text-muted-foreground" />
+        </div>
       </div>
     </div>
   );

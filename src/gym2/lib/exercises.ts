@@ -1,4 +1,5 @@
 import { EXDB, type Ex } from "./exercises-data";
+import { ES_NAMES } from "./esNames";
 import type { CustomEx, GymState } from "./types";
 
 export { EXDB };
@@ -55,3 +56,10 @@ export const exOr = (id: string): Ex & { missing?: boolean } =>
     st: [],
     missing: true,
   };
+
+export const esName = (idOrEx: string | AnyExercise | null | undefined): string => {
+  const ex = typeof idOrEx === "string" ? EXIDX[idOrEx] : idOrEx;
+  if (!ex) return "";
+  const id = typeof idOrEx === "string" ? idOrEx : ex.id;
+  return ES_NAMES[id] || (ex as Ex).n;
+};

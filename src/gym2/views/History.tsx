@@ -39,7 +39,7 @@ export default function History() {
   const fill = (d: number) => String(d).padStart(2, "0");
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-32">
+    <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-4xl lg:px-6">
       <div className="mb-1 flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Historial</h1>
         <div className="flex items-center gap-1">

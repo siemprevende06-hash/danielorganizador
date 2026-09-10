@@ -6,7 +6,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { buildDemoState } from "./lib/demoSeed";
 import { registerCustom } from "./lib/exercises";
 import type { GymState } from "./lib/types";
 
@@ -35,9 +34,9 @@ function loadState(): GymState {
     const raw = localStorage.getItem(KEY);
     if (raw) return Object.assign(clone(DEF), JSON.parse(raw));
   } catch {
-    /* fall through to demo seed */
+    /* fall through to empty state */
   }
-  return Object.assign(clone(DEF), buildDemoState());
+  return clone(DEF);
 }
 
 export interface GymStore {
@@ -91,7 +90,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
       },
       resetDemo() {
         setS(() => {
-          const n = Object.assign(clone(DEF), buildDemoState());
+          const n = clone(DEF);
           n._ts = Date.now();
           return n;
         });

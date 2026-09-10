@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useGym } from "../store";
 import { uid } from "../lib/format";
-import { exOr } from "../lib/exercises";
+import { exOr, esName } from "../lib/exercises";
 import { supersetUnits, cleanupSg, exLine } from "../lib/history";
 import { POLICIES_FOR, POLICY_NAME, POLICY_DESC } from "../lib/progression";
 import { loadOfRoutine, rankOf, MUSCLE_NAME } from "../lib/muscles";
@@ -86,7 +86,7 @@ export default function RoutineEditView({
     });
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pb-32">
+    <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-4xl lg:px-6">
       <div className="mb-3 flex items-center gap-2">
         <Button
           variant="ghost"
@@ -235,7 +235,7 @@ export default function RoutineEditView({
                     )
                   }
                 >
-                  <div className="truncate text-sm font-semibold">{ex.n}</div>
+                  <div className="truncate text-sm font-semibold">{esName(ex)}</div>
                   <div className="truncate text-[11px] text-muted-foreground">
                     {sg && <span className="mr-1 font-semibold text-primary">{sg} ·</span>}
                     {exLine({ ...c, id: ex.id }, S.unit)}

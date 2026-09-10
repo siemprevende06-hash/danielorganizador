@@ -18,6 +18,7 @@ import {
   equipmentOf,
   isCardio,
   isBodyweightEq,
+  esName,
   type AnyExercise,
   type Ex,
 } from "../lib/exercises";
@@ -698,7 +699,7 @@ function PickerContent({ onPick }: { onPick: (ex: AnyExercise) => void }) {
           <div key={e.id} className={rowCls()} onClick={() => onPick(e)}>
             <ExerciseIcon ex={e} />
             <div className="grow">
-              <div className="text-sm font-semibold capitalize">{e.n}</div>
+              <div className="text-sm font-semibold capitalize">{esName(e)}</div>
               <div className="text-xs capitalize text-muted-foreground">
                 {(e.tg || e.bp)} · {e.eq}
               </div>
@@ -1040,7 +1041,7 @@ function ExConfigContent({
   const cfgrow = "grid grid-cols-3 gap-3";
   return (
     <div>
-      <h3 className="text-lg font-bold capitalize">{ex.n}</h3>
+      <h3 className="text-lg font-bold capitalize">{esName(ex)}</h3>
       <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
         {cardio && <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-medium text-emerald-500">Cardio</span>}
         <span className="rounded-full bg-muted px-2 py-0.5">{ex.tg || ex.bp}</span>
@@ -1217,7 +1218,7 @@ export function addToRoutineSheet(ex: AnyExercise) {
           const r = isNew
             ? S().routines[S().routines.length - 1]
             : st.routines.find((x) => x.id === rid);
-          notify("«" + ex.n + "» añadido a " + (r ? r.name : "la rutina"));
+          notify("«" + esName(ex) + "» añadido a " + (r ? r.name : "la rutina"));
         },
         null,
         isNew ? null : st.routines.find((x) => x.id === rid)
@@ -1225,7 +1226,7 @@ export function addToRoutineSheet(ex: AnyExercise) {
     };
     return (
       <div>
-        <h3 className="text-lg font-bold capitalize">Añadir «{ex.n}»</h3>
+        <h3 className="text-lg font-bold capitalize">Añadir «{esName(ex)}»</h3>
         <p className="mb-3 text-xs text-muted-foreground">
           Elige la rutina: series, reps y peso vienen después.
         </p>
@@ -1322,7 +1323,7 @@ export function exerciseDetailSheet(ex: AnyExercise) {
     };
     return (
       <div>
-        <h3 className="text-lg font-bold capitalize">{ex.n}</h3>
+        <h3 className="text-lg font-bold capitalize">{esName(ex)}</h3>
         <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
           <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary capitalize">
             {ex.bp}
@@ -1520,7 +1521,7 @@ export function workoutDetailSheet(w: Workout) {
             {ex && <ExerciseIcon ex={ex} />}
             <div className="grow">
               <div className="text-sm font-semibold capitalize">
-                {ex ? ex.n : e.n || e.id}
+                {ex ? esName(ex) : (e.n || e.id)}
                 {w.prs && w.prs.includes(e.id) && (
                   <span className="ml-1 rounded-full bg-yellow-500/15 px-1.5 text-[10px] font-bold text-yellow-500">
                     PR
@@ -1801,7 +1802,7 @@ function TopWeightContent({
   };
   return (
     <div>
-      <h3 className="text-lg font-bold">{ex.n} hecho</h3>
+      <h3 className="text-lg font-bold">{esName(ex)} hecho</h3>
       <p className="mt-1 text-xs text-muted-foreground">
         Confirma el peso con el que trabajaste — el mayor se vuelve la referencia la
         próxima vez.
@@ -1903,7 +1904,7 @@ function FinishSummary({ w }: { w: Workout }) {
         <div className="mt-3 space-y-1 text-left">
           {w.prs!.map((id) => (
             <div key={id} className="text-sm font-medium capitalize text-primary">
-              🏆 Nuevo PR: {(EXIDX[id] || {}).n || id}
+              🏆 Nuevo PR: {esName(id) || id}
             </div>
           ))}
         </div>
