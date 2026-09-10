@@ -315,16 +315,16 @@ export const Navigation = () => {
   return (
     <>
       {/* Mobile top bar */}
-      <header className="fixed top-0 left-0 right-0 z-40 h-12 border-b bg-background flex items-center justify-between px-4 lg:hidden"
+      <header className="fixed top-0 left-0 right-0 z-40 h-12 border-b bg-background flex items-center justify-between px-3 sm:px-4 lg:hidden"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setIsOpen(true)} className="p-1 -ml-1 rounded-md hover:bg-accent">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <button onClick={() => setIsOpen(true)} className="p-1 -ml-1 shrink-0 rounded-md hover:bg-accent">
             <Menu className="h-5 w-5" />
           </button>
-          {pageIcon && <span className="text-base leading-none">{pageIcon}</span>}
-          <span className="font-medium text-sm">{currentPage}</span>
+          {pageIcon && <span className="shrink-0 text-base leading-none">{pageIcon}</span>}
+          <span className="truncate font-medium text-sm">{currentPage}</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
           <PageCoverMenu currentName={currentPage} />
           <button
             onClick={() => (window as any).__pwaCheckForUpdates?.()}

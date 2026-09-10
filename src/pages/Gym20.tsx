@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { GymProvider, useGym } from "../gym2/store";
 import { UIProvider } from "../gym2/components/SheetStack";
+import { useSidebar } from "@/contexts/SidebarContext";
 import { RestTimer } from "../gym2/components/RestTimer";
 import Home from "../gym2/views/Home";
 import WorkoutView from "../gym2/views/WorkoutView";
@@ -53,7 +54,7 @@ function SyncIndicator() {
   if (!sync.syncing && online) return null;
 
   return (
-    <div className="fixed top-3 right-3 z-[9999]">
+    <div className="fixed top-14 right-3 z-[9999] lg:top-3">
       {!online ? (
         <div className="flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-medium text-red-600 shadow-sm dark:border-red-800 dark:bg-red-950 dark:text-red-400">
           <WifiOff className="h-3 w-3" />
@@ -72,6 +73,7 @@ function SyncIndicator() {
 function GymApp() {
   const [tab, setTab] = useState("home");
   const [planRoutine, setPlanRoutine] = useState<string | null>(null);
+  const { collapsed } = useSidebar();
 
   const onGo = (t: string) => {
     setTab(t);
@@ -95,20 +97,25 @@ function GymApp() {
       </main>
 
       {/* bottom nav — always visible, only covers content area */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur">
+      <nav
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur",
+          collapsed ? "lg:left-14" : "lg:left-56"
+        )}
+      >
         <div className="mx-auto flex w-full">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] font-medium transition-colors",
+                "flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] font-medium transition-colors",
                 tab === t.id ? "text-primary" : "text-muted-foreground hover:text-foreground"
               )}
               onClick={() => onGo(t.id)}
             >
-              <t.icon className="h-5 w-5" />
-              {t.label}
+              <t.icon className="h-5 w-5 shrink-0" />
+              <span className="max-w-full truncate whitespace-nowrap">{t.label}</span>
             </button>
           ))}
         </div>

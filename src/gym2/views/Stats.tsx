@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ArrowUp, ArrowDown, Plus, Target, Flame } from "lucide-react";
+import { ArrowUp, ArrowDown, Plus, Target, Flame, Ruler } from "lucide-react";
 import { useGym } from "../store";
 import { fmtNum } from "../lib/format";
-import { lastBW } from "../lib/history";
+import { lastBW, BODY_METRICS, type BodyMetricKey } from "../lib/history";
 import { best1RM, bestSetOf } from "../lib/onerm";
 import { loadOfWorkouts, rankOf, MUSCLE_NAME } from "../lib/muscles";
 import { hasEffort, effortSummary, effortHistogram, BUCKETS, scaleName, displayScale } from "../lib/effort";
-import { bwSheet, goalSheet, bwDeltaColor, Segmented } from "../components/sheets";
+import { bwSheet, goalSheet, bodiesSheet, bwDeltaColor, Segmented } from "../components/sheets";
 import { Chart, type ChartPoint } from "../components/Chart";
 import { Heatmap } from "../components/Heatmap";
 import { MuscleMap, MuscleMapLegend } from "../components/MuscleMap";
@@ -69,6 +69,18 @@ export default function Stats() {
   const hist = effortHistogram(S, days);
   const scale = displayScale(S);
 
+  const mPoints: Record<string, ChartPoint[]> = {};
+  BODY_METRICS.forEach((m) => {
+    mPoints[m.key] = S.bodyM
+      .filter((b) => b[m.key] != null && b[m.key]! > 0)
+      .map((b) => ({ t: b.t || new Date(b.d).getTime(), y: b[m.key]!, d: b.d }));
+  });
+  const [mSel, setMSel] = useState<BodyMetricKey | null>(null);
+  const tracked = BODY_METRICS.filter((m) => mPoints[m.key].length > 0);
+  const curM: BodyMetricKey =
+    (tracked.some((m) => m.key === mSel) && mSel) || (tracked[0] && tracked[0].key) || "chest";
+  const curColor = BODY_METRICS.find((m) => m.key === curM)!.color;
+
   const periodOpts: { value: "4" | "12" | "24"; label: string }[] = [
     { value: "4", label: "4 sem" },
     { value: "12", label: "3 meses" },
@@ -122,6 +134,71 @@ export default function Stats() {
             </>
           ) : (
             <p className="text-sm text-muted-foreground">Sin registros aún.</p>
+          )}
+        </div>
+
+        {/* medidas corporales */}
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold">
+              <Ruler className="h-3.5 w-3.5 text-muted-foreground" /> Medidas corporales
+            </h2>
+            <Button size="sm" variant="outline" onClick={() => bodiesSheet()}>
+              <Plus className="h-3.5 w-3.5" /> Registrar
+            </Button>
+          </div>
+          {tracked.length > 0 ? (
+            <>
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {tracked.map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    className={cn(
+                      "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize transition-colors",
+                      curM === m.key
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "bg-card text-muted-foreground"
+                    )}
+                    onClick={() => setMSel(m.key)}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: curM === m.key ? "currentColor" : m.color }}
+                    />
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                {BODY_METRICS.filter((m) => mPoints[m.key].length > 0).map((m) => {
+                  const last = mPoints[m.key][mPoints[m.key].length - 1];
+                  const prev = mPoints[m.key][mPoints[m.key].length - 2];
+                  const d = prev ? last.y - prev.y : null;
+                  return (
+                    <span key={m.key} className="text-xs text-muted-foreground">
+                      {m.label} <b className="font-semibold text-foreground">{fmtNum(last.y)} cm</b>
+                      {d != null && d !== 0 && (
+                        <span
+                          className={cn(
+                            "ml-0.5 font-medium",
+                            d > 0 ? "text-primary" : "text-destructive"
+                          )}
+                        >
+                          {d > 0 ? "↑" : "↓"}
+                          {fmtNum(Math.abs(d))}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+              <Chart points={mPoints[curM]} h={140} unit="cm" color={curColor} />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Registra pecho, cintura, cadera, brazo o muslo (cm) y verás la evolución aquí.
+            </p>
           )}
         </div>
 

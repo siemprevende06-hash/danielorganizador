@@ -67,7 +67,15 @@ import { beep } from "../lib/sound";
 import { starterRoutines } from "../lib/starter";
 import { Glyph, glyphOf, GLYPH_GROUPS } from "../lib/glyphs";
 import { MONTHS_LONG, fmtDur } from "../lib/format";
-import type { CustomEx, ExConfig, Routine, Workout } from "../lib/types";
+import { BODY_METRICS, lastBodyM } from "../lib/history";
+import type {
+  BodyMEntry,
+  CustomEx,
+  Entry,
+  ExConfig,
+  Routine,
+  Workout,
+} from "../lib/types";
 
 const S = () => getGym().S;
 const update = (mut: (s: ReturnType<typeof S>) => void) => getGym().update(mut);
@@ -479,6 +487,100 @@ function GoalContent({ close }: { close: () => void }) {
 }
 export const goalSheet = () => ui().open((close) => <GoalContent close={close} />);
 
+/* ============================ body measurements (cm) ============================ */
+export const bodiesSheet = () => ui().open((close) => <BodiesContent close={close} />);
+
+function BodiesContent({ close }: { close: () => void }) {
+  const st = useGym().S;
+  const last = lastBodyM(st);
+  const [vals, setVals] = useState<Record<string, number>>(() => {
+    const o: Record<string, number> = {};
+    BODY_METRICS.forEach((m) => {
+      o[m.key] = last && last[m.key] ? last[m.key]! : 0;
+    });
+    return o;
+  });
+  const save = () => {
+    const data: Partial<BodyMEntry> = { d: todayISO(), t: Date.now() };
+    BODY_METRICS.forEach((m) => {
+      const v = Math.round((vals[m.key] || 0) * 10) / 10;
+      if (v > 0) data[m.key] = v;
+    });
+    update((s) => {
+      const iso = todayISO();
+      const ex = s.bodyM.find((b) => b.d === iso);
+      if (ex) Object.assign(ex, data);
+      else s.bodyM.push(data as BodyMEntry);
+      s.bodyM.sort((a, b) => (a.d < b.d ? -1 : 1));
+    });
+    close();
+    notify("Medidas guardadas");
+  };
+  const recent = [...st.bodyM].reverse().slice(0, 3);
+  const delEntry = (d: string) =>
+    update((s) => {
+      s.bodyM = s.bodyM.filter((b) => b.d !== d);
+    });
+  return (
+    <div>
+      <h3 className="text-lg font-bold">Medidas corporales</h3>
+      <p className="mt-1 mb-3 text-xs text-muted-foreground">
+        Cinta métrica en centímetros: apunta las zonas que mides y verás la evolución en Estadísticas.
+      </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {BODY_METRICS.map((m) => (
+          <Stepper
+            key={m.key}
+            label={m.label + " (cm)"}
+            value={vals[m.key]}
+            step={0.5}
+            min={0}
+            max={300}
+            onChange={(v) => setVals((p) => ({ ...p, [m.key]: v }))}
+          />
+        ))}
+      </div>
+      <div className="h-3" />
+      <Button className="w-full" onClick={save}>
+        Guardar medidas
+      </Button>
+      {recent.length > 0 && (
+        <>
+          <h4 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Registros recientes
+          </h4>
+          {recent.map((b) => (
+            <div
+              key={b.d}
+              className="flex items-center justify-between border-b border-border py-2 text-sm"
+            >
+              <span className="shrink-0 text-muted-foreground">{fmtDate(b.d, true)}</span>
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="truncate text-xs">
+                  {BODY_METRICS.filter((m) => b[m.key]).map((m) => (
+                    <span key={m.key} className="mr-2">
+                      {m.label} {fmtNum(b[m.key]!)} cm
+                    </span>
+                  ))}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 shrink-0 p-0 text-destructive"
+                  onClick={() => delEntry(b.d)}
+                  aria-label="borrar"
+                >
+                  🗑
+                </Button>
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ============================ settings ============================ */
 export const settingsSheet = () =>
   ui().open((close) => (
@@ -491,6 +593,38 @@ export const settingsSheet = () =>
     </div>
   ));
 
+const KG_LB = 2.2046226218;
+const round1 = (x: number) => Math.round(x * 10) / 10;
+
+function convertWeights(s: ReturnType<typeof S>, to: "kg" | "lb") {
+  const k = to === "lb" ? KG_LB : 1 / KG_LB;
+  (s.bodyweight || []).forEach((b) => (b.w = round1(b.w * k)));
+  if (s.targetW != null) s.targetW = round1(s.targetW * k);
+  Object.values(s.exWeights || {}).forEach((e) => (e.w = round1(e.w * k)));
+  (s.routines || []).forEach((r) =>
+    (r.ex || []).forEach((e) => {
+      if (e.weight && e.weight > 0) e.weight = round1(e.weight * k);
+    })
+  );
+  const convEntries = (es: Entry[]) =>
+    es.forEach((e) => {
+      if (e.topW != null && e.topW > 0) e.topW = round1(e.topW * k);
+      if (e.target && e.target.weight && e.target.weight > 0)
+        e.target.weight = round1(e.target.weight * k);
+      e.sets.forEach((s2) => {
+        if (s2.w != null && s2.w > 0) s2.w = round1(s2.w * k);
+      });
+    });
+  (s.workouts || []).forEach((w) => {
+    if (w.bw != null && w.bw > 0) w.bw = round1(w.bw * k);
+    convEntries(w.entries);
+  });
+  if (s.active) {
+    if (s.active.bw != null && s.active.bw > 0) s.active.bw = round1(s.active.bw * k);
+    convEntries(s.active.entries);
+  }
+}
+
 function SettingsContent({ close }: { close: () => void }) {
   const st = useGym().S;
   const eff = st.showRir ? "rir" : st.effort || "none";
@@ -500,9 +634,18 @@ function SettingsContent({ close }: { close: () => void }) {
         <div className="mb-1 text-sm font-medium">Unidad de peso</div>
         <Segmented
           value={st.unit}
-          onChange={(v) => update((s) => { s.unit = v as "kg" | "lb"; })}
+          onChange={(v) => {
+            if (st.unit === v) return;
+            update((s) => {
+              convertWeights(s, v as "kg" | "lb");
+              s.unit = v as "kg" | "lb";
+            });
+          }}
           options={[{ value: "kg", label: "kg" }, { value: "lb", label: "lb" }]}
         />
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Al cambiar de unidad todos tus registros se convierten automáticamente.
+        </p>
       </div>
       <div>
         <div className="mb-1 text-sm font-medium">

@@ -20,6 +20,7 @@ export const DEF: GymState = {
   sound: true,
   targetW: null,
   bodyweight: [],
+  bodyM: [],
   routines: [],
   week: {},
   dayPlan: {},
@@ -98,6 +99,12 @@ export function GymProvider({ children }: { children: ReactNode }) {
             const remoteBW = new Set((merged.bodyweight || []).map((b: { d: string }) => b.d));
             for (const bw of local.bodyweight || []) {
               if (!remoteBW.has(bw.d)) merged.bodyweight.push(bw);
+            }
+            // Keep local body measurements not in remote
+            merged.bodyM = merged.bodyM || [];
+            const remoteM = new Set(merged.bodyM.map((m: { d: string }) => m.d));
+            for (const bm of local.bodyM || []) {
+              if (!remoteM.has(bm.d)) merged.bodyM.push(bm);
             }
             // Keep local workouts not in remote
             const remoteIDs = new Set((merged.workouts || []).map((w: { id: string }) => w.id));

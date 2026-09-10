@@ -32,9 +32,11 @@ import {
   startFlow,
   loadStarterPlan,
   bwDeltaColor,
+  bodiesSheet,
   settingsSheet,
 } from "../components/sheets";
 import { Chart } from "../components/Chart";
+import { BODY_METRICS, lastBodyM } from "../lib/history";
 import { Glyph } from "../lib/glyphs";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +50,7 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
   const bw = lastBW(S);
   const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null;
   const delta = bw && prevBW ? bw.w - prevBW.w : null;
+  const bodyM = lastBodyM(S);
 
   const monday = new Date(today);
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7) + weekOffset * 7);
@@ -249,6 +252,32 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
             <p className="text-sm text-muted-foreground">
               Sin registros aún — registra tu peso para empezar la curva. También se pide antes de cada
               entrenamiento.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-bold">Medidas corporales</h2>
+            <Button size="sm" variant="outline" onClick={() => bodiesSheet()}>
+              <Plus className="h-3.5 w-3.5" /> Registrar
+            </Button>
+          </div>
+          {bodyM && BODY_METRICS.some((m) => bodyM[m.key] && bodyM[m.key]! > 0) ? (
+            <div className="flex flex-wrap gap-1.5">
+              {BODY_METRICS.map((m) => {
+                const v = bodyM[m.key];
+                return v != null && v > 0 ? (
+                  <span key={m.key} className="rounded-md bg-muted px-2 py-0.5 text-xs">
+                    <span className="text-muted-foreground">{m.label} </span>
+                    <b className="font-semibold">{fmtNum(v)} cm</b>
+                  </span>
+                ) : null;
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Registra pecho, cintura, brazo… en cm para seguir tu evolución.
             </p>
           )}
         </div>

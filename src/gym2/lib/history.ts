@@ -263,3 +263,16 @@ export function streakWeeks(S: GymState) {
   }
   return streak;
 }
+
+export const BODY_METRICS = [
+  { key: "chest", label: "Pecho", color: "#30d158" },
+  { key: "waist", label: "Cintura", color: "#0a84ff" },
+  { key: "hip", label: "Cadera", color: "#ff9f0a" },
+  { key: "arm", label: "Brazo", color: "#bf5af2" },
+  { key: "thigh", label: "Muslo", color: "#ff375f" },
+] as const;
+
+export type BodyMetricKey = (typeof BODY_METRICS)[number]["key"];
+
+export const lastBodyM = (S: GymState) =>
+  S.bodyM.length ? S.bodyM[S.bodyM.length - 1] : null;

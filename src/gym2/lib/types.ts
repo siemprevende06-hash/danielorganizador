@@ -88,6 +88,16 @@ export interface BWEntry {
   t: number;
 }
 
+export interface BodyMEntry {
+  d: string;
+  t: number;
+  chest?: number;
+  waist?: number;
+  hip?: number;
+  arm?: number;
+  thigh?: number;
+}
+
 export interface ExWeight {
   w: number;
   d: string;
@@ -99,6 +109,7 @@ export interface GymState {
   sound: boolean;
   targetW: number | null;
   bodyweight: BWEntry[];
+  bodyM: BodyMEntry[];
   routines: Routine[];
   week: Record<number, string>;
   dayPlan: Record<string, string>;
