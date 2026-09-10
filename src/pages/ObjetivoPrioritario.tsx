@@ -9,6 +9,7 @@ import { usePersonalLists, type PersonalList, type PersonalListTask } from '@/ho
 import { useAreaCovers, coverKey } from '@/hooks/useAreaCovers';
 import { AreaCover, getCoverGradient } from '@/components/areas/AreaCover';
 import { SubAreaCard } from '@/components/areas/SubAreaCard';
+import { SistemasSection } from '@/components/objetivo/SistemasSection';
 import type { Timeframe } from '@/contexts/TimeframeContext';
 import { POINT_B_AREAS } from '@/data/pointB2027';
 import {
@@ -17,7 +18,7 @@ import {
 import danielFlaco from '@/assets/daniel-flaco.jpg';
 import danielFuerte from '@/assets/daniel-fuerte.jpg';
 
-type Version = 'actual' | 'comodidad';
+type Version = 'actual' | 'comodidad' | 'sistemas';
 
 const LIST_AREA_MAP: Record<string, string> = {
   salud_bienestar: 'salud',
@@ -408,7 +409,7 @@ const ObjetivoPrioritario = () => {
           </h1>
           <div className="flex items-center justify-center gap-2">
             <div className="inline-flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border/50">
-              {(['actual', 'comodidad'] as Version[]).map(v => (
+              {(['actual', 'comodidad', 'sistemas'] as Version[]).map(v => (
                 <button
                   key={v}
                   type="button"
@@ -418,13 +419,17 @@ const ObjetivoPrioritario = () => {
                     version === v ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {v === 'actual' ? 'Versión Actual' : 'Versión Comodidad'}
+                  {v === 'actual' ? 'Versión Actual' : v === 'comodidad' ? 'Versión Comodidad' : 'Sistemas'}
                 </button>
               ))}
             </div>
           </div>
         </div>
 
+        {version === 'sistemas' ? (
+          <SistemasSection />
+        ) : (
+        <>
         {version === 'actual' && (
           <div className="flex items-center justify-center">
             <div className="inline-flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border/50">
@@ -593,6 +598,8 @@ const ObjetivoPrioritario = () => {
             <PhotoTimeline photos={dailyPhotos} />
           </CardContent>
         </Card>
+        </>
+        )}
       </div>
     </div>
   );
