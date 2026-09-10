@@ -1475,6 +1475,33 @@ export type Database = {
         }
         Relationships: []
       }
+      gym20_data: {
+        Row: {
+          created_at: string
+          id: string
+          state: Json
+          updated_at: number
+          user_id: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          state?: Json
+          updated_at?: number
+          user_id?: string | null
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          state?: Json
+          updated_at?: number
+          user_id?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       habit_history: {
         Row: {
           completed_dates: Json | null

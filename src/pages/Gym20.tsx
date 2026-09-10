@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   Home as HomeIcon,
@@ -7,8 +7,10 @@ import {
   Search,
   BarChart3,
   History as HistoryIcon,
+  RefreshCw,
+  WifiOff,
 } from "lucide-react";
-import { GymProvider } from "../gym2/store";
+import { GymProvider, useGym } from "../gym2/store";
 import { UIProvider } from "../gym2/components/SheetStack";
 import { RestTimer } from "../gym2/components/RestTimer";
 import Home from "../gym2/views/Home";
@@ -31,6 +33,41 @@ const TABS: {
   { id: "stats", label: "Estadísticas", icon: BarChart3 },
   { id: "history", label: "Historial", icon: HistoryIcon },
 ];
+
+function SyncIndicator() {
+  const { sync } = useGym();
+  const [online, setOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
+
+  if (!sync.syncing && online && !sync.lastSyncAt) return null;
+  if (!sync.syncing && online) return null;
+
+  return (
+    <div className="fixed top-3 right-3 z-[9999]">
+      {!online ? (
+        <div className="flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-medium text-red-600 shadow-sm dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+          <WifiOff className="h-3 w-3" />
+          <span>Offline — datos guardados local</span>
+        </div>
+      ) : sync.syncing ? (
+        <div className="flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-medium text-blue-600 shadow-sm dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400">
+          <RefreshCw className="h-3 w-3 animate-spin" />
+          <span>Sincronizando…</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function GymApp() {
   const [tab, setTab] = useState("home");
@@ -86,6 +123,7 @@ export default function Gym20() {
       <UIProvider>
         <GymApp />
         <RestTimer />
+        <SyncIndicator />
       </UIProvider>
     </GymProvider>
   );
