@@ -624,7 +624,7 @@ export default function TrimestralPlanningPage() {
             />
           </section>
         ) : viewMode === 'autocritica' ? (
-          <AutocriticaSection />
+          <AutocriticaSection start={new Date(year, (quarter - 1) * 3, 1)} end={new Date(year, quarter * 3, 0)} scope="quarter" />
         ) : (
           <ResultadosTrimestre quarter={quarter} year={year} />
         )}

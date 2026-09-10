@@ -102,7 +102,7 @@ export default function AnualView() {
             <PeriodControlSection scope="year" start={new Date(year, 0, 1)} end={new Date(year, 11, 31)} />
           </section>
         ) : viewMode === 'autocritica' ? (
-          <AutocriticaSection />
+          <AutocriticaSection start={new Date(year, 0, 1)} end={new Date(year, 11, 31)} scope="year" />
         ) : (
           <ResultadosPlaceholder />
         )}

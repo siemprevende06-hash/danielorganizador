@@ -25,8 +25,8 @@ function CompareRow({ label, current, previous }: { label: string; current: numb
   );
 }
 
-export function WeekComparisonCard() {
-  const { thisWeek, lastWeek, loading } = useWeekComparison();
+export function WeekComparisonCard({ anchorDate }: { anchorDate?: Date }) {
+  const { thisWeek, lastWeek, loading } = useWeekComparison(anchorDate);
 
   if (loading) return <Skeleton className="h-36 w-full" />;
 

@@ -62,6 +62,7 @@ import VisionPage from "./pages/VisionPage";
 import AntiVisionPage from "./pages/AntiVisionPage";
 import Alimentacion from "./pages/Alimentacion";
 import Gym from "./pages/Gym";
+import Gym20 from "./pages/Gym20";
 import Chess from "./pages/Chess";
 import ShoppingList from "./pages/ShoppingList";
 import Grocery from "./pages/Grocery";
@@ -173,6 +174,7 @@ function AppContent() {
         <Route path="/periodic-review" element={<PeriodicReview />} />
         <Route path="/alimentacion" element={<Alimentacion />} />
         <Route path="/gym" element={<Gym />} />
+        <Route path="/gym-2-0" element={<Gym20 />} />
         <Route path="/chess" element={<Chess />} />
         <Route path="/grocery" element={<Grocery />} />
         <Route path="/shopping-list" element={<ShoppingList />} />

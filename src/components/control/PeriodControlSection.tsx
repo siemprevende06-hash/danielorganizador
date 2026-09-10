@@ -99,20 +99,24 @@ function PeriodSostenRing({ item, done, days }: { item: { id: string; label: str
   );
 }
 
-export function PeriodControlSection({ scope, start, end, title }: {
+export function PeriodControlSection({ scope, start, end, title, rows: rowsProp, areaRows: areaRowsProp }: {
   scope: PeriodScope;
   start: Date;
   end: Date;
   title?: string;
+  /** Pre-cargados desde el query principal para evitar fetch duplicados */
+  rows?: any[];
+  areaRows?: any[];
 }) {
   const startKey = format(start, 'yyyy-MM-dd');
   const endKey = format(end, 'yyyy-MM-dd');
 
-  const [rows, setRows] = useState<DailyRow[]>([]);
-  const [areaRows, setAreaRows] = useState<AreaRow[]>([]);
+  const [fetchedRows, setFetchedRows] = useState<DailyRow[]>([]);
+  const [fetchedAreaRows, setFetchedAreaRows] = useState<AreaRow[]>([]);
   const unit = useTimeUnit();
 
   useEffect(() => {
+    if (rowsProp) return;
     let alive = true;
     (async () => {
       try {
@@ -121,17 +125,18 @@ export function PeriodControlSection({ scope, start, end, title }: {
           .select('tracking_date, completions, time_data, workout_duration')
           .gte('tracking_date', startKey)
           .lte('tracking_date', endKey);
-        if (alive && data) setRows(data as DailyRow[]);
+        if (alive && data) setFetchedRows(data as DailyRow[]);
       } catch {
-        if (alive) setRows([]);
+        if (alive) setFetchedRows([]);
       }
     })();
     return () => { alive = false; };
-  }, [startKey, endKey]);
+  }, [startKey, endKey, rowsProp]);
 
   // daily_area_stats recibe también minutos de lectura/ajedrez/idiomas/gym que
   // no pasan por daily_systems_tracking; se combinan sin duplicar (max).
   useEffect(() => {
+    if (areaRowsProp) return;
     let alive = true;
     (async () => {
       try {
@@ -140,13 +145,16 @@ export function PeriodControlSection({ scope, start, end, title }: {
           .select('area_id, stat_date, time_spent_minutes')
           .gte('stat_date', startKey)
           .lte('stat_date', endKey);
-        if (alive && data) setAreaRows(data as AreaRow[]);
+        if (alive && data) setFetchedAreaRows(data as AreaRow[]);
       } catch {
-        if (alive) setAreaRows([]);
+        if (alive) setFetchedAreaRows([]);
       }
     })();
     return () => { alive = false; };
-  }, [startKey, endKey]);
+  }, [startKey, endKey, areaRowsProp]);
+
+  const rows = rowsProp ?? fetchedRows;
+  const areaRows = areaRowsProp ?? fetchedAreaRows;
 
   const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
   const elapsedDays = useMemo(() => {

@@ -73,46 +73,46 @@ export function DailyReadingIndicator({ dailyPagesGoal = 0, dailyMinutesGoal = 3
 
   return (
     <Card className={cn("border-l-4", onTrack ? "border-l-green-500" : "border-l-amber-500")}>
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-semibold uppercase tracking-wide">Lectura de hoy</span>
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold uppercase tracking-wide">Lectura de hoy</span>
           </div>
-          <Badge variant={onTrack ? "default" : "secondary"} className="text-xs">
-            <Flame className="w-3 h-3 mr-1" />
+          <Badge variant={onTrack ? "default" : "secondary"} className="text-[10px] px-2 py-0.5">
+            <Flame className="w-3 h-3 mr-0.5" />
             {minutesToday} / {dailyMinutesGoal} min
           </Badge>
         </div>
 
-        <Progress value={pct} className="h-2" />
+        <Progress value={pct} className="h-1.5" />
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-muted/50 p-2 text-center">
-            <p className="text-lg font-bold leading-none">{pages.today}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">pág hoy</p>
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="rounded-lg bg-muted/50 p-1.5 text-center">
+            <p className="text-sm font-bold leading-none">{pages.today}</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5">pág hoy</p>
           </div>
-          <div className="rounded-xl bg-muted/50 p-2 text-center">
-            <p className="text-lg font-bold leading-none">{pages.week}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">pág semana</p>
+          <div className="rounded-lg bg-muted/50 p-1.5 text-center">
+            <p className="text-sm font-bold leading-none">{pages.week}</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5">pág semana</p>
           </div>
-          <div className="rounded-xl bg-muted/50 p-2 text-center">
-            <p className="text-lg font-bold leading-none">{pages.month}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">pág mes</p>
+          <div className="rounded-lg bg-muted/50 p-1.5 text-center">
+            <p className="text-sm font-bold leading-none">{pages.month}</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5">pág mes</p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
           {dailyPagesGoal > 0 ? (
             <span className="flex items-center gap-1">
-              <BookOpen className="w-3 h-3" /> Meta sugerida: {dailyPagesGoal} pág/día
+              <BookOpen className="w-3 h-3" /> Meta: {dailyPagesGoal} pág/día
             </span>
           ) : <span />}
           <span>{onTrack ? "Meta cumplida ✓" : `${dailyMinutesGoal - minutesToday} min restantes`}</span>
         </div>
 
-        <div className="pt-1">
-          <WeekStreakBar habitId="lectura" todayValue={minutesToday} maxThreshold={dailyMinutesGoal} compact />
+        <div>
+          <WeekStreakBar habitId="lectura" todayValue={minutesToday} maxThreshold={dailyMinutesGoal} compact hideStreak />
         </div>
 
         <div className="pt-1 border-t border-border/40">

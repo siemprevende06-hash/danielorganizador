@@ -99,17 +99,17 @@ export function ReadingTrendChart() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <TrendingUp className="w-3.5 h-3.5" /> Tendencia de lectura
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <TrendingUp className="w-3 h-3" /> Tendencia
         </span>
-        <div className="flex rounded-lg border bg-muted/40 p-0.5">
+        <div className="flex rounded-md border bg-muted/40 p-0.5">
           {SCOPE_OPTIONS.map(opt => (
             <button
               key={opt.id}
               onClick={() => setScope(opt.id)}
               className={cn(
-                "px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors",
+                "px-1.5 py-0.5 text-[9px] font-medium rounded transition-colors",
                 scope === opt.id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -120,11 +120,11 @@ export function ReadingTrendChart() {
       </div>
 
       {total === 0 && !loading ? (
-        <p className="text-xs text-muted-foreground py-6 text-center">
+        <p className="text-[11px] text-muted-foreground py-3 text-center">
           Aún no hay páginas registradas para mostrar la tendencia
         </p>
       ) : (
-        <ResponsiveContainer width="100%" height={180}>
+        <ResponsiveContainer width="100%" height={110}>
           <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 9 }} interval={scope === "day" ? 1 : 0} tickLine={false} axisLine={false} />

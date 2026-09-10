@@ -116,7 +116,7 @@ export default function MonthlyView() {
             <MonthlySystemsStats monthDate={currentMonth} />
           </section>
         ) : viewMode === 'autocritica' ? (
-          <AutocriticaSection />
+          <AutocriticaSection start={monthStart} end={monthEnd} scope="month" />
         ) : (
           <ResultadosMes month={currentMonth} />
         )}

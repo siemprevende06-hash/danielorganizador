@@ -18,14 +18,15 @@ export interface WeeklyObjective {
   updated_at: string;
 }
 
-export const useWeeklyObjectives = () => {
+export const useWeeklyObjectives = (weekStart?: string) => {
   const [objectives, setObjectives] = useState<WeeklyObjective[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const currentWeekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const currentWeekStart = weekStart ?? format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
   const fetchObjectives = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('weekly_objectives')
@@ -44,7 +45,8 @@ export const useWeeklyObjectives = () => {
 
   useEffect(() => {
     fetchObjectives();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentWeekStart]);
 
   const addObjective = async (objective: Omit<WeeklyObjective, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
     try {

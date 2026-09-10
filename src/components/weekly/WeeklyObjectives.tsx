@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useWeeklyObjectives, WeeklyObjective } from '@/hooks/useWeeklyObjectives';
 import { Plus, Target, TrendingUp } from 'lucide-react';
+import { format } from 'date-fns';
 
 const AREAS = [
   { id: 'universidad', label: 'Universidad', icon: '🎓' },
@@ -17,8 +18,13 @@ const AREAS = [
   { id: 'proyectos', label: 'Proyectos', icon: '🚀' },
 ];
 
-export const WeeklyObjectives = () => {
-  const { objectives, loading, addObjective, incrementProgress, getOverallProgress, currentWeekStart } = useWeeklyObjectives();
+export const WeeklyObjectives = ({ weekStartDate }: { weekStartDate?: Date | string }) => {
+  const weekKey = weekStartDate
+    ? typeof weekStartDate === 'string'
+      ? weekStartDate
+      : format(weekStartDate, 'yyyy-MM-dd')
+    : undefined;
+  const { objectives, loading, addObjective, incrementProgress, getOverallProgress, currentWeekStart } = useWeeklyObjectives(weekKey);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newObjective, setNewObjective] = useState({
     area: '',
@@ -66,7 +72,7 @@ export const WeeklyObjectives = () => {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
             <Target className="w-4 h-4" />
-            🎯 Objetivos de Esta Semana
+            🎯 Objetivos de la Semana
           </CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="outline">

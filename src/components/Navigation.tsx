@@ -128,6 +128,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     items: [
       { path: '/alimentacion', label: 'Alimentación', icon: Utensils },
       { path: '/gym', label: 'Gimnasio', icon: Dumbbell },
+      { path: '/gym-2-0', label: 'GYM 2.0', icon: Dumbbell },
       { path: '/grocery', label: 'Despensa', icon: Package },
       { path: '/shopping-list', label: 'Lista Compra', icon: ShoppingCart },
       { path: '/mi-lista', label: 'Mi Lista', icon: ListChecks },

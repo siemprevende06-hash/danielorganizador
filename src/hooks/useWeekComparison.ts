@@ -9,16 +9,18 @@ interface WeekData {
   habitsCompleted: number;
 }
 
-export function useWeekComparison() {
+export function useWeekComparison(anchorDate?: Date) {
   const [thisWeek, setThisWeek] = useState<WeekData>({ tasksCompleted: 0, focusMinutes: 0, blocksCompleted: 0, habitsCompleted: 0 });
   const [lastWeek, setLastWeek] = useState<WeekData>({ tasksCompleted: 0, focusMinutes: 0, blocksCompleted: 0, habitsCompleted: 0 });
   const [loading, setLoading] = useState(true);
 
+  const base = anchorDate ? startOfWeek(anchorDate, { weekStartsOn: 1 }) : startOfWeek(new Date(), { weekStartsOn: 1 });
+  const thisStart = format(base, 'yyyy-MM-dd');
+  const lastStart = format(startOfWeek(subWeeks(base, 1), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
   useEffect(() => {
     async function fetch() {
-      const now = new Date();
-      const thisStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      const lastStart = format(startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      setLoading(true);
       const lastEnd = thisStart;
 
       // This week tasks
@@ -55,7 +57,8 @@ export function useWeekComparison() {
       setLoading(false);
     }
     fetch();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thisStart, lastStart]);
 
   return { thisWeek, lastWeek, loading };
 }

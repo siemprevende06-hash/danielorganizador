@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { GripVertical, GraduationCap, Briefcase, FolderKanban, ListTodo, Check, Loader2 } from 'lucide-react';
+import { GripVertical, GraduationCap, Briefcase, FolderKanban, ListTodo, Check, Loader2, Plus, X, Move } from 'lucide-react';
 
 interface WeekTask {
   id: string;
@@ -83,8 +88,33 @@ export function PlanSemanal({ weekDays, tasks, queryKeyPrefix }: {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const [doneId, setDoneId] = useState<string | null>(null);
+  const [addingDay, setAddingDay] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState('');
+  const [creatingTask, setCreatingTask] = useState<string | null>(null);
 
   const dayStr = (d: Date) => format(d, 'yyyy-MM-dd');
+
+  const addTask = async (day: string) => {
+    const clean = newTitle.trim();
+    if (!clean) return;
+    setCreatingTask(day);
+    const { error } = await supabase.from('tasks').insert({
+      title: clean,
+      source: 'general',
+      area_id: 'general',
+      priority: 'medium',
+      completed: false,
+      due_date: `${day}T12:00:00`,
+    });
+    setCreatingTask(null);
+    if (error) {
+      console.error('Error al crear tarea:', error.message);
+      return;
+    }
+    setNewTitle('');
+    setAddingDay(null);
+    queryClient.invalidateQueries({ queryKey: [queryKeyPrefix] });
+  };
 
   const moveTask = async (taskId: string, targetDay: string, targetArea: AreaKey | null) => {
     setMoving(true);
@@ -165,7 +195,33 @@ export function PlanSemanal({ weekDays, tasks, queryKeyPrefix }: {
                   <p className={cn('text-base font-bold leading-tight', isToday(day) && 'text-primary')}>{format(day, 'd MMM')}</p>
                 </div>
                 <RingProgress done={done} total={dayTasks.length} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground/50 hover:text-foreground"
+                  title={addingDay === ds ? 'Cancelar' : 'Añadir tarea a este día'}
+                  onClick={() => { setAddingDay(addingDay === ds ? null : ds); setNewTitle(''); }}
+                >
+                  {addingDay === ds ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                </Button>
               </div>
+
+              {/* Añadir tarea rápida */}
+              {addingDay === ds && (
+                <div className="flex items-center gap-1.5 p-2 border-b border-muted/60 bg-primary/5">
+                  <Input
+                    autoFocus
+                    placeholder="Nueva tarea…"
+                    value={newTitle}
+                    onChange={e => setNewTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addTask(ds); if (e.key === 'Escape') setAddingDay(null); }}
+                    className="h-7 text-xs flex-1"
+                  />
+                  <Button size="icon" className="h-7 w-7 shrink-0" onClick={() => addTask(ds)} disabled={!newTitle.trim()} title="Guardar tarea">
+                    {creatingTask === ds ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              )}
 
               {/* Secciones por área */}
               <div className="flex-1 divide-y divide-muted/40 overflow-y-auto overscroll-contain no-scrollbar max-h-[520px]">
@@ -228,7 +284,50 @@ export function PlanSemanal({ weekDays, tasks, queryKeyPrefix }: {
                                     <Badge variant="outline" className={cn('text-[8px] px-1 py-0 h-3.5 mt-1', prio.badge)}>{prio.label}</Badge>
                                   )}
                                 </div>
-                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 mt-0.5" />
+                                <div className="flex flex-col items-center gap-0.5 shrink-0">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 p-0 text-muted-foreground/40 hover:text-muted-foreground"
+                                        title="Mover tarea"
+                                      >
+                                        <Move className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48 max-h-[320px] overflow-y-auto">
+                                      <DropdownMenuLabel className="text-[10px] uppercase">Mover a día</DropdownMenuLabel>
+                                      {weekDays.map(d => {
+                                        const targetDs = dayStr(d);
+                                        return (
+                                          <DropdownMenuItem
+                                            key={targetDs}
+                                            disabled={targetDs === ds}
+                                            onClick={() => moveTask(t.id, targetDs, null)}
+                                            className="text-xs"
+                                          >
+                                            {format(d, 'EEE d', { locale: es })}{isToday(d) ? ' · Hoy' : ''}
+                                          </DropdownMenuItem>
+                                        );
+                                      })}
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuLabel className="text-[10px] uppercase">Cambiar área</DropdownMenuLabel>
+                                      {SECTIONS.map(s => (
+                                        <DropdownMenuItem
+                                          key={s.key}
+                                          disabled={areaOf(t) === s.key}
+                                          onClick={() => moveTask(t.id, ds, s.key)}
+                                          className="text-xs"
+                                        >
+                                          {s.icon}
+                                          <span className="ml-1.5">{s.label}</span>
+                                        </DropdownMenuItem>
+                                      ))}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                </div>
                               </div>
                             );
                           })}

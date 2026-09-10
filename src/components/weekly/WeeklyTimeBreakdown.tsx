@@ -39,16 +39,24 @@ const FOCUS_AREA_IDS = ['universidad', 'emprendimiento', 'proyectos'];
 interface WeeklyTimeBreakdownProps {
   weekStart: Date;
   weekEnd: Date;
+  /** Pre-cargados desde el query principal para evitar fetch duplicados */
+  weekDays?: Date[];
+  systemsData?: any[];
+  areaStatsData?: any[];
 }
 
-export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownProps) {
-  const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart, weekEnd]);
+export function WeeklyTimeBreakdown({ weekStart, weekEnd, weekDays: weekDaysProp, systemsData: systemsProp, areaStatsData: areaStatsProp }: WeeklyTimeBreakdownProps) {
+  const weekDays = useMemo(
+    () => weekDaysProp ?? eachDayOfInterval({ start: weekStart, end: weekEnd }),
+    [weekDaysProp, weekStart, weekEnd]
+  );
 
   const startStr = format(weekStart, 'yyyy-MM-dd');
   const endStr = format(weekEnd, 'yyyy-MM-dd');
 
-  const { data: systemsData } = useQuery({
+  const { data: queriedSystems } = useQuery({
     queryKey: ['weeklySystemsTime', startStr],
+    enabled: !systemsProp,
     queryFn: async () => {
       const { data } = await supabase
         .from('daily_systems_tracking')
@@ -59,8 +67,9 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
     },
   });
 
-  const { data: areaStatsData } = useQuery({
+  const { data: queriedAreaStats } = useQuery({
     queryKey: ['weeklyAreaStatsTime', startStr],
+    enabled: !areaStatsProp,
     queryFn: async () => {
       const { data } = await supabase
         .from('daily_area_stats')
@@ -70,6 +79,9 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
       return data || [];
     },
   });
+
+  const systemsData = systemsProp ?? queriedSystems;
+  const areaStatsData = areaStatsProp ?? queriedAreaStats;
 
   // Distribución de minutos por día y por área — mismas fuentes que la página Esfuerzo
   const dayBreakdown = useMemo(() => {
@@ -120,8 +132,6 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
   const totalFocusMinutes = dayBreakdown.reduce((s, d) => s + d.totalMin, 0);
   const totalFocusHours = Math.round((totalFocusMinutes / 60) * 10) / 10;
   const focusPct = Math.round((totalFocusMinutes / (TOTAL_WEEK_HOURS * 60)) * 100);
-
-  const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
   return (
     <div className="space-y-4">
@@ -187,12 +197,12 @@ export function WeeklyTimeBreakdown({ weekStart, weekEnd }: WeeklyTimeBreakdownP
             Minutos de foco por día
           </h3>
           <div className="space-y-2">
-            {dayBreakdown.map((d, i) => {
+            {dayBreakdown.map((d) => {
               const pct = totalFocusMinutes > 0 ? Math.round((d.totalMin / totalFocusMinutes) * 100) : 0;
               const daySegments = Object.entries(d.byArea);
               return (
-                <div key={i} className="flex items-center gap-3">
-                  <span className="w-8 text-[10px] font-medium text-muted-foreground text-right">{dayNames[i]}</span>
+                <div key={d.day.toISOString()} className="flex items-center gap-3">
+                  <span className="w-8 text-[10px] font-medium text-muted-foreground text-right">{format(d.day, 'EEE', { locale: es })}</span>
                   <div className="flex-1 h-6 bg-muted/50 rounded-full overflow-hidden relative">
                     <div
                       className="absolute inset-y-0 left-0 flex overflow-hidden rounded-full transition-all"
