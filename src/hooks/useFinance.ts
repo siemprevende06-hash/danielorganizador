@@ -44,6 +44,13 @@ function loadLocal<T>(key: string, fallback: T): T {
   } catch { return fallback; }
 }
 
+function mergeById<T extends { id: string }>(primary: T[], local: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of primary) map.set(item.id, item);
+  for (const item of local) if (!map.has(item.id)) map.set(item.id, item);
+  return Array.from(map.values());
+}
+
 // --- text_sections generic KV helpers ---
 async function loadTextSection<T>(key: string, fallback: T): Promise<T> {
   try {
@@ -51,9 +58,10 @@ async function loadTextSection<T>(key: string, fallback: T): Promise<T> {
       .from('text_sections')
       .select('content')
       .eq('section_key', key)
-      .maybeSingle();
-    if (data && data.content !== null && data.content !== undefined) {
-      return data.content as unknown as T;
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    if (data && data.length > 0 && data[0] && data[0].content !== null && data[0].content !== undefined) {
+      return data[0].content as unknown as T;
     }
   } catch {}
   return fallback;
@@ -64,9 +72,9 @@ async function saveTextSection(key: string, value: any) {
       .from('text_sections')
       .select('id')
       .eq('section_key', key)
-      .maybeSingle();
-    if (existing) {
-      await supabase.from('text_sections').update({ content: value as any, updated_at: new Date().toISOString() }).eq('id', existing.id);
+      .limit(1);
+    if (existing && existing.length > 0) {
+      await supabase.from('text_sections').update({ content: value as any, updated_at: new Date().toISOString() }).eq('id', existing[0].id);
     } else {
       await supabase.from('text_sections').insert({ section_key: key, content: value as any });
     }
@@ -177,13 +185,13 @@ export const useFinance = () => {
 
   // Cache to local whenever state changes
   useEffect(() => {
-    if (wallets.length > 0) saveLocal('finance_wallets', wallets.map(w => ({ id: w.id, name: w.name, balance: w.balance, iconName: iconToString(w.icon), currency: w.currency })));
+    saveLocal('finance_wallets', wallets.map(w => ({ id: w.id, name: w.name, balance: w.balance, iconName: iconToString(w.icon), currency: w.currency })));
   }, [wallets]);
-  useEffect(() => { if (transactions.length > 0) saveLocal('finance_transactions', transactions); }, [transactions]);
-  useEffect(() => { if (loans.length > 0) saveLocal('finance_loans', loans); }, [loans]);
-  useEffect(() => { if (distributionBags.length > 0) saveLocal('finance_bags', distributionBags); }, [distributionBags]);
-  useEffect(() => { if (debts.length > 0) saveLocal('finance_debts', debts); }, [debts]);
-  useEffect(() => { if (financialGoals.length > 0) saveLocal('finance_goals', financialGoals); }, [financialGoals]);
+  useEffect(() => { saveLocal('finance_transactions', transactions); }, [transactions]);
+  useEffect(() => { saveLocal('finance_loans', loans); }, [loans]);
+  useEffect(() => { saveLocal('finance_bags', distributionBags); }, [distributionBags]);
+  useEffect(() => { saveLocal('finance_debts', debts); }, [debts]);
+  useEffect(() => { saveLocal('finance_goals', financialGoals); }, [financialGoals]);
   const setExchangeRate = useCallback((rate: number) => {
     setExchangeRateState(rate);
     saveTextSection('finance_exchange_rate', rate);
@@ -234,79 +242,65 @@ export const useFinance = () => {
 
         // --- Wallets ---
         let walletsList: Wallet[] = (walletsRes.data || []).map(walletFromRow);
-        if (walletsList.length === 0) {
-          const cached = loadLocal<any[]>('finance_wallets', []);
-          if (cached.length > 0) {
-            walletsList = cached.map((w: any) => ({ ...w, currency: w.currency === 'USD' ? 'USD' : 'CUP', icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) }));
-          } else {
-            const seeded = initialWallets.map(w => ({ ...w, id: genId() }));
-            try { await supabase.from('wallets').insert(seeded.map(w => ({ id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon), currency: w.currency }))); } catch {}
-            walletsList = seeded;
-          }
+        const walletsCached = loadLocal<any[]>('finance_wallets', [])
+          .map((w: any) => ({ ...w, currency: w.currency === 'USD' ? 'USD' : 'CUP', icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) }));
+        if (walletsList.length === 0 && walletsCached.length === 0) {
+          const seeded = initialWallets.map(w => ({ ...w, id: genId() }));
+          try { await supabase.from('wallets').insert(seeded.map(w => ({ id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon), currency: w.currency }))); } catch {}
+          walletsList = seeded;
+        } else {
+          walletsList = mergeById(walletsList, walletsCached);
         }
         if (!cancelled) setWallets(walletsList);
 
         // --- Transactions ---
         if (!cancelled) {
           const txList = (txRes.data || []).map(transactionFromRow);
-          const cached = loadLocal<any[]>('finance_transactions', [])
+          const txCached = loadLocal<any[]>('finance_transactions', [])
             .map((t: any) => ({ ...t, currency: t.currency === 'CUP' ? 'CUP' : 'USD', date: new Date(t.date) }));
-          // Mezclamos lo que trae Supabase (fuente primaria) con el caché local.
-          // El caché local puede contener transacciones encoladas offline que aún
-          // no se han sincronizado a la base de datos. Si solo usáramos los datos
-          // de Supabase, esas transacciones desaparecerían de la vista de forma
-          // intermitente (hasta que la cola offline las sincroniza).
-          const mergedMap = new Map<string, Transaction>();
-          for (const t of txList) mergedMap.set(t.id, t);
-          for (const t of cached) if (!mergedMap.has(t.id)) mergedMap.set(t.id, t);
-          setTransactions(Array.from(mergedMap.values()));
+          setTransactions(mergeById(txList, txCached));
         }
 
         // --- Loans ---
         if (!cancelled) {
           const loansList = (loansRes.data || []).map(loanFromRow);
-          if (loansList.length === 0) {
-            const cached = loadLocal<any[]>('finance_loans', []);
-            if (cached.length > 0) setLoans(cached.map((l: any) => ({ ...l, date: new Date(l.date) })));
-          } else {
-            setLoans(loansList);
-          }
+          const loansCached = loadLocal<any[]>('finance_loans', [])
+            .map((l: any) => ({ ...l, date: new Date(l.date) }));
+          setLoans(mergeById(loansList, loansCached));
         }
 
         // --- Distribution Bags ---
         if (!cancelled) {
           let bagsList: DistributionBag[] = (bagsRes.data || []).map(bagFromRow);
-          if (bagsList.length === 0) {
-            const cached = loadLocal<DistributionBag[]>('finance_bags', []);
-            if (cached.length > 0) {
-              bagsList = cached;
-            } else {
-              const seeded = defaultDistributionBags.map(b => ({ ...b, id: genId(), balance: 0 }));
-              try { await supabase.from('distribution_bags').insert(seeded.map(bagToRow)); } catch {}
-              bagsList = seeded;
-            }
+          const bagsCached = loadLocal<DistributionBag[]>('finance_bags', []);
+          if (bagsList.length === 0 && bagsCached.length === 0) {
+            const seeded = defaultDistributionBags.map(b => ({ ...b, id: genId(), balance: 0 }));
+            try { await supabase.from('distribution_bags').insert(seeded.map(bagToRow)); } catch {}
+            bagsList = seeded;
+          } else {
+            bagsList = mergeById(bagsList, bagsCached);
           }
           setDistributionBags(bagsList);
         }
 
         // --- Debts (text_sections) ---
         if (!cancelled) {
-          if (debtsData && Array.isArray(debtsData) && debtsData.length > 0) {
-            setDebts(debtsData.map((d: any) => ({ ...d, date: new Date(d.date), dueDate: d.dueDate ? new Date(d.dueDate) : undefined })));
-          } else {
-            const cached = loadLocal<any[]>('finance_debts', []);
-            if (cached.length > 0) setDebts(cached.map((d: any) => ({ ...d, date: new Date(d.date), dueDate: d.dueDate ? new Date(d.dueDate) : undefined })));
-          }
+          const debtsList = (debtsData && Array.isArray(debtsData))
+            ? debtsData.map((d: any) => ({ ...d, date: new Date(d.date), dueDate: d.dueDate ? new Date(d.dueDate) : undefined }))
+            : [];
+          const debtsCached = loadLocal<any[]>('finance_debts', [])
+            .map((d: any) => ({ ...d, date: new Date(d.date), dueDate: d.dueDate ? new Date(d.dueDate) : undefined }));
+          setDebts(mergeById(debtsList, debtsCached));
         }
 
         // --- Financial Goals (text_sections) ---
         if (!cancelled) {
-          if (goalsData && Array.isArray(goalsData) && goalsData.length > 0) {
-            setFinancialGoals(goalsData.map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })));
-          } else {
-            const cached = loadLocal<any[]>('finance_goals', []);
-            if (cached.length > 0) setFinancialGoals(cached.map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) })));
-          }
+          const goalsList = (goalsData && Array.isArray(goalsData))
+            ? goalsData.map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) }))
+            : [];
+          const goalsCached = loadLocal<any[]>('finance_goals', [])
+            .map((g: any) => ({ ...g, createdAt: new Date(g.createdAt) }));
+          setFinancialGoals(mergeById(goalsList, goalsCached));
         }
 
         if (typeof rateData === 'number') setExchangeRateState(rateData);
@@ -332,6 +326,14 @@ export const useFinance = () => {
     setTransactions(prev => prev.filter(t => t.id !== transactionId));
     await safeMutation({ table: 'transactions', op: 'delete', match: { id: transactionId } });
   }, []);
+  const markTransactionsDistributed = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setTransactions(prev => prev.map(t => ids.includes(t.id) ? { ...t, distributed: true } : t));
+    for (const id of ids) {
+      const { queued } = await safeMutation({ table: 'transactions', op: 'update', payload: { distributed: true }, match: { id } });
+      if (queued) console.warn('[useFinance] Marcado de distribuido encolado para reintento offline.');
+    }
+  }, []);
 
   // ---- Wallets ----
   const updateWalletBalance = useCallback(async (walletId: string, newBalance: number) => {
@@ -340,28 +342,33 @@ export const useFinance = () => {
   }, []);
   const updateWallet = useCallback(async (walletId: string, updates: Partial<Wallet>) => {
     setWallets(prev => prev.map(w => w.id === walletId ? { ...w, ...updates } : w));
-    try { await supabase.from('wallets').update(walletToRow(updates)).eq('id', walletId); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'wallets', op: 'update', payload: walletToRow(updates), match: { id: walletId } });
+    if (queued) console.warn('[useFinance] Billetera encolada para reintento offline.');
   }, []);
   const addWallet = useCallback(async (wallet: Wallet) => {
     setWallets(prev => [...prev, wallet]);
-    try { await supabase.from('wallets').insert(walletToRow(wallet)); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'wallets', op: 'insert', payload: walletToRow(wallet) });
+    if (queued) console.warn('[useFinance] Billetera encolada para reintento offline.');
     return wallet;
   }, []);
   const deleteWallet = useCallback(async (walletId: string) => {
     setWallets(prev => prev.filter(w => w.id !== walletId));
-    try { await supabase.from('wallets').delete().eq('id', walletId); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'wallets', op: 'delete', match: { id: walletId } });
+    if (queued) console.warn('[useFinance] Borrado de billetera encolado para reintento offline.');
   }, []);
 
   // ---- Loans ----
   const addLoan = useCallback(async (loan: Omit<Loan, 'id'>) => {
     const newLoan: Loan = { ...loan, id: genId() };
     setLoans(prev => [newLoan, ...prev]);
-    try { await supabase.from('loans').insert(loanToRow(newLoan)); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'loans', op: 'insert', payload: loanToRow(newLoan) });
+    if (queued) console.warn('[useFinance] Préstamo encolado para reintento offline.');
     return newLoan;
   }, []);
   const updateLoan = useCallback(async (loanId: string, updates: Partial<Loan>) => {
     setLoans(prev => prev.map(l => l.id === loanId ? { ...l, ...updates } : l));
-    try { await supabase.from('loans').update(loanToRow(updates)).eq('id', loanId); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'loans', op: 'update', payload: loanToRow(updates), match: { id: loanId } });
+    if (queued) console.warn('[useFinance] Préstamo encolado para reintento offline.');
   }, []);
 
   // ---- Debts (text_sections) ----
@@ -384,16 +391,19 @@ export const useFinance = () => {
   const addDistributionBag = useCallback(async (bag: Omit<DistributionBag, 'id'>) => {
     const newBag: DistributionBag = { ...bag, id: genId() };
     setDistributionBags(prev => [...prev, newBag]);
-    try { await supabase.from('distribution_bags').insert(bagToRow(newBag)); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'distribution_bags', op: 'insert', payload: bagToRow(newBag) });
+    if (queued) console.warn('[useFinance] Bolsa de distribución encolada para reintento offline.');
     return newBag;
   }, []);
   const updateDistributionBag = useCallback(async (bagId: string, updates: Partial<DistributionBag>) => {
     setDistributionBags(prev => prev.map(b => b.id === bagId ? { ...b, ...updates } : b));
-    try { await supabase.from('distribution_bags').update(bagToRow(updates)).eq('id', bagId); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'distribution_bags', op: 'update', payload: bagToRow(updates), match: { id: bagId } });
+    if (queued) console.warn('[useFinance] Bolsa de distribución encolada para reintento offline.');
   }, []);
   const deleteDistributionBag = useCallback(async (bagId: string) => {
     setDistributionBags(prev => prev.filter(b => b.id !== bagId));
-    try { await supabase.from('distribution_bags').delete().eq('id', bagId); } catch (e) { console.warn(e); }
+    const { queued } = await safeMutation({ table: 'distribution_bags', op: 'delete', match: { id: bagId } });
+    if (queued) console.warn('[useFinance] Borrado de bolsa de distribución encolado para reintento offline.');
   }, []);
 
   // ---- Financial Goals (text_sections) ----
@@ -446,6 +456,7 @@ export const useFinance = () => {
     setDistributionBags: setDistributionBagsState,
     addTransaction,
     deleteTransaction,
+    markTransactionsDistributed,
     updateWalletBalance,
     updateWallet,
     addWallet,

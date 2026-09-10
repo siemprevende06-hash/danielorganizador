@@ -195,8 +195,8 @@ function BudgetCategoryForm({
 export default function Finance() {
   const {
     wallets, transactions, loans, debts, distributionBags, financialGoals, exchangeRate,
-    setExchangeRate, isLoading, setWallets, setTransactions, setLoans,
-    setDebts, setDistributionBags, addTransaction, deleteTransaction,
+    setExchangeRate, isLoading, addTransaction, deleteTransaction,
+    markTransactionsDistributed,
     updateWalletBalance, updateWallet, addWallet, deleteWallet, addLoan, updateLoan,
     addDebt, updateDebt, deleteDebt, addDistributionBag,
     updateDistributionBag, deleteDistributionBag,
@@ -588,8 +588,8 @@ export default function Finance() {
 
   const onWalletSubmit = async (data: z.infer<typeof walletSchema>) => {
     if (!walletToEdit) return;
-    await updateWallet(walletToEdit.id, { balance: data.balance, currency: data.currency });
-    toast({ title: "Billetera actualizada", description: `${walletToEdit.name}: ${data.balance} ${data.currency}` });
+    await updateWallet(walletToEdit.id, { name: data.name, balance: data.balance, currency: data.currency });
+    toast({ title: "Billetera actualizada", description: `${data.name}: ${data.balance} ${data.currency}` });
     setIsWalletDialogOpen(false);
     setWalletToEdit(null);
   };
@@ -623,7 +623,7 @@ export default function Finance() {
 
   const handleConfirmDistribution = async () => {
     const ids = undistributedIncomes.map(t => t.id);
-    setTransactions(prev => prev.map(t => ids.includes(t.id) ? { ...t, distributed: true } : t));
+    await markTransactionsDistributed(ids);
     toast({ title: "Ingresos distribuidos", description: `${undistributedIncomes.length} ingreso(s) marcados como distribuidos` });
     setIsDistributeIncomeDialogOpen(false);
   };
