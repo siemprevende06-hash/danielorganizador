@@ -179,6 +179,7 @@ export default function PlanManana() {
   const allAreas = useMemo(() => flattenAreas(lifeAreas), []);
 
   const [saving, setSaving] = useState(false);
+  const [prevPlanSnapshot, setPrevPlanSnapshot] = useState<{ selectedTasks: string[]; blockAssignments: Record<string, string[]> } | null>(null);
   const [languageChoice, setLanguageChoice] = useState<string>("ingles");
   const [musicInstrument, setMusicInstrument] = useState<string>("piano");
 
@@ -241,7 +242,9 @@ export default function PlanManana() {
         const rest = { ...assignments };
         delete rest["_unassigned"];
         setBlockAssignments(rest);
-        setSelectedTasks(new Set(Object.values(assignments).flat()));
+        const allTaskIds = Object.values(assignments).flat();
+        setSelectedTasks(new Set(allTaskIds));
+        setPrevPlanSnapshot({ selectedTasks: allTaskIds, blockAssignments: rest });
         if (plan.routine_type && validTypes.includes(plan.routine_type as RoutineType)) {
           setRoutineType(plan.routine_type as RoutineType);
         }
@@ -255,9 +258,11 @@ export default function PlanManana() {
         }
       } else {
         resetDefaults();
+        setPrevPlanSnapshot(null);
       }
     } catch {
       resetDefaults();
+      setPrevPlanSnapshot(null);
     }
   };
 
@@ -398,6 +403,21 @@ export default function PlanManana() {
     return 'general';
   };
 
+  const syncTaskDueDates = async (taskIds: string[], dateStr: string | null) => {
+    if (taskIds.length === 0) return;
+    const entreTaskIds = new Set(entreTasks.map(t => t.id));
+    const entreIds = taskIds.filter(id => entreTaskIds.has(id));
+    const regularIds = taskIds.filter(id => !entreTaskIds.has(id));
+    const ops: Promise<unknown>[] = [];
+    if (entreIds.length > 0) {
+      ops.push(supabase.from('entrepreneurship_tasks').update({ due_date: dateStr }).in('id', entreIds));
+    }
+    if (regularIds.length > 0) {
+      ops.push(supabase.from('tasks').update({ due_date: dateStr }).in('id', regularIds));
+    }
+    await Promise.all(ops);
+  };
+
   const savePlan = async () => {
     setSaving(true);
     try {
@@ -407,6 +427,14 @@ export default function PlanManana() {
       if (unassignedInPlan.length > 0) {
         assignments["_unassigned"] = unassignedInPlan;
       }
+
+      const planTaskIds = [...selectedTasks];
+      const prevIds = prevPlanSnapshot?.selectedTasks || [];
+      const previouslyPlannedIds = new Set(prevIds);
+      const toAdd = planTaskIds.filter(id => !previouslyPlannedIds.has(id));
+      const toRemove = prevIds.filter(id => !selectedTasks.has(id));
+      await syncTaskDueDates(toAdd, targetStr);
+      await syncTaskDueDates(toRemove, null);
 
       const existing = await supabase.from("daily_plans").select("id").eq("plan_date", targetStr).maybeSingle();
       if (existing.data) {
@@ -433,6 +461,8 @@ export default function PlanManana() {
       localStorage.setItem(`planIntensity_${targetStr}`, JSON.stringify(systemIntensity));
       localStorage.setItem(`planLanguage_${targetStr}`, languageChoice);
       localStorage.setItem(`planInstrument_${targetStr}`, musicInstrument);
+
+      setPrevPlanSnapshot({ selectedTasks: [...selectedTasks], blockAssignments: { ...assignments } });
 
       toast.success(mode === 'hoy' ? "Plan para hoy guardado" : "Plan para mañana guardado");
     } catch { toast.error("Error al guardar"); }

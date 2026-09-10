@@ -1,46 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
-} from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { useAreaScores, AreaScore } from '@/hooks/useAreaScores';
+import { useAreaScores, type AreaScore } from '@/hooks/useAreaScores';
 import { usePhysicalTracking } from '@/hooks/usePhysicalTracking';
 import { useImageUpload } from '@/hooks/useImageUpload';
-import { usePersonalLists } from '@/hooks/usePersonalLists';
+import { usePersonalLists, type PersonalList, type PersonalListTask } from '@/hooks/usePersonalLists';
+import { useAreaCovers, coverKey } from '@/hooks/useAreaCovers';
+import { AreaCover, getCoverGradient } from '@/components/areas/AreaCover';
+import { SubAreaCard } from '@/components/areas/SubAreaCard';
 import type { Timeframe } from '@/contexts/TimeframeContext';
+import { POINT_B_AREAS } from '@/data/pointB2027';
 import {
-  HeartPulse, Brain, Sparkles, Briefcase, BookOpen, Users, Heart, Gamepad2,
-  Camera, Target, Timer, Trophy, DollarSign
+  Camera, Target, Timer, Trophy, CheckCircle2, Circle, ListChecks
 } from 'lucide-react';
 import danielFlaco from '@/assets/daniel-flaco.jpg';
 import danielFuerte from '@/assets/daniel-fuerte.jpg';
 
 type Version = 'actual' | 'comodidad';
-
-const AREA_COLORS: Record<string, { bar: string; text: string; bg: string }> = {
-  salud: { bar: 'bg-gradient-to-r from-emerald-500 to-green-400', text: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-  'fuerza-mental': { bar: 'bg-gradient-to-r from-violet-500 to-purple-400', text: 'text-violet-500', bg: 'bg-violet-500/10' },
-  apariencia: { bar: 'bg-gradient-to-r from-rose-500 to-pink-400', text: 'text-rose-500', bg: 'bg-rose-500/10' },
-  profesional: { bar: 'bg-gradient-to-r from-sky-500 to-blue-400', text: 'text-sky-500', bg: 'bg-sky-500/10' },
-  desarrollo: { bar: 'bg-gradient-to-r from-amber-500 to-yellow-400', text: 'text-amber-500', bg: 'bg-amber-500/10' },
-  familia: { bar: 'bg-gradient-to-r from-orange-500 to-amber-400', text: 'text-orange-500', bg: 'bg-orange-500/10' },
-  amor: { bar: 'bg-gradient-to-r from-red-500 to-rose-400', text: 'text-red-500', bg: 'bg-red-500/10' },
-  ocio: { bar: 'bg-gradient-to-r from-cyan-500 to-teal-400', text: 'text-cyan-500', bg: 'bg-cyan-500/10' },
-  finanzas: { bar: 'bg-gradient-to-r from-yellow-500 to-lime-400', text: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-};
-
-const AREA_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  salud: HeartPulse,
-  'fuerza-mental': Brain,
-  apariencia: Sparkles,
-  profesional: Briefcase,
-  desarrollo: BookOpen,
-  familia: Users,
-  amor: Heart,
-  ocio: Gamepad2,
-  finanzas: DollarSign,
-};
 
 const LIST_AREA_MAP: Record<string, string> = {
   salud_bienestar: 'salud',
@@ -59,203 +36,6 @@ const TIMEFRAMES: { id: Timeframe; label: string }[] = [
   { id: 'week', label: 'Semana' },
   { id: 'month', label: 'Mes' },
 ];
-
-function StatBar({ value, color }: { value: number; color: string }) {
-  return (
-    <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
-      <div
-        className={cn("h-full rounded-full transition-all duration-700", color)}
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-      />
-    </div>
-  );
-}
-
-function AreaScoreRow({ label, icon: Icon, value, color }: {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  value: number;
-  color: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      <span className="text-xs text-muted-foreground w-20 shrink-0">{label}</span>
-      <StatBar value={value} color={color} />
-      <span className="text-xs font-bold w-9 text-right shrink-0">{value}%</span>
-    </div>
-  );
-}
-
-function AreaDetailDialog({ open, onOpenChange, area, color, Icon, listProgress }: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  area: AreaScore;
-  color: { bar: string; text: string; bg: string };
-  Icon: React.ComponentType<{ className?: string }>;
-  listProgress?: { lists: number; done: number; total: number };
-}) {
-  return (
-    <DialogContent className="w-[94vw] max-w-4xl h-[90vh] flex flex-col gap-4 overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-3 text-xl font-bold">
-          <span className={cn("p-2 rounded-xl", color.bg, color.text)}>
-            <Icon className="h-6 w-6" />
-          </span>
-          {area.label}
-        </DialogTitle>
-        <DialogDescription className="hidden" />
-      </DialogHeader>
-
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="rounded-xl border bg-muted/30 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium flex items-center gap-2">
-                <Timer className="h-4 w-4 text-muted-foreground" />
-                Esfuerzo
-              </span>
-              <span className="text-3xl font-extrabold">{area.esfuerzo}%</span>
-            </div>
-            <StatBar value={area.esfuerzo} color={color.bar} />
-          </div>
-          <div className="rounded-xl border bg-muted/30 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-muted-foreground" />
-                Resultados
-              </span>
-              <span className="text-3xl font-extrabold">{area.resultados}%</span>
-            </div>
-            <StatBar value={area.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
-          </div>
-        </div>
-
-        <div>
-          <p className="text-sm font-semibold mb-3">Desglose por sub-área</p>
-          <div className="space-y-3">
-            {area.sub.length === 0 && (
-              <p className="text-sm text-muted-foreground">Aún no hay sub-áreas con datos.</p>
-            )}
-            {area.sub.map((sub) => (
-              <div key={sub.id} className="rounded-lg border p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">{sub.label}</span>
-                  <span className="text-xs text-muted-foreground">
-                    Esf {sub.esfuerzo}% · Res {sub.resultados}%
-                    {sub.minutes > 0 && ` · ${sub.minutes} min`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <StatBar value={sub.esfuerzo} color={color.bar} />
-                  </div>
-                  <div className="flex-1">
-                    <StatBar value={sub.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {listProgress && listProgress.total > 0 && (
-          <div className="rounded-lg border p-3 flex items-center justify-between">
-            <span className="text-sm font-medium flex items-center gap-2">
-              <Target className="h-4 w-4 text-muted-foreground" />
-              Tus listas
-            </span>
-            <span className="text-sm font-semibold">
-              {listProgress.done}/{listProgress.total} tareas en {listProgress.lists} lista{listProgress.lists !== 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
-      </div>
-    </DialogContent>
-  );
-}
-
-function AreaCard({ area, listProgress, compact }: {
-  area: AreaScore;
-  listProgress?: { lists: number; done: number; total: number };
-  compact?: boolean;
-}) {
-  const color = AREA_COLORS[area.id] || AREA_COLORS.salud;
-  const Icon = AREA_ICONS[area.id] || Target;
-  const visibleSubs = area.sub.slice(0, 4);
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <div
-        onClick={() => setOpen(true)}
-        className="cursor-pointer transition-transform duration-150 hover:scale-[1.02] active:scale-[0.98]"
-      >
-        {compact ? (
-          <Card className="h-full overflow-hidden">
-            <CardHeader className="px-3 pt-2.5 pb-1">
-              <CardTitle className="flex items-center gap-1.5 text-xs font-semibold">
-                <span className={cn("p-1 rounded-md", color.bg, color.text)}>
-                  <Icon className="h-3 w-3" />
-                </span>
-                <span className="truncate">{area.label}</span>
-                <span className="ml-auto text-[9px] text-muted-foreground shrink-0">Ver detalle</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 pb-2.5 pt-1 space-y-1">
-              <AreaScoreRow label="Esfuerzo" icon={Timer} value={area.esfuerzo} color={color.bar} />
-              <AreaScoreRow label="Resultado" icon={Trophy} value={area.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
-              {area.sub.length > 0 && (
-                <p className="text-[9px] text-muted-foreground truncate pt-0.5">
-                  {area.sub.slice(0, 3).map(s => s.label).join(' · ')}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="h-full overflow-hidden">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <span className={cn("p-1.5 rounded-lg", color.bg, color.text)}>
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="truncate">{area.label}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              <div className="space-y-2">
-                <AreaScoreRow label="Esfuerzo" icon={Timer} value={area.esfuerzo} color={color.bar} />
-                <AreaScoreRow label="Resultados" icon={Trophy} value={area.resultados} color="bg-gradient-to-r from-green-500 to-lime-400" />
-              </div>
-              <div className="space-y-1.5 pt-2 border-t">
-                {visibleSubs.map((sub) => (
-                  <div key={sub.id} className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-muted-foreground truncate">{sub.label}</span>
-                    <span className="text-[11px] font-semibold shrink-0">
-                      {sub.esfuerzo}% / {sub.resultados}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {listProgress && listProgress.total > 0 && (
-                <div className="pt-2 border-t flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <Target className="h-3 w-3" />
-                    Tus listas
-                  </span>
-                  <span className="text-[11px] font-semibold">
-                    {listProgress.done}/{listProgress.total} tareas · {listProgress.lists} lista{listProgress.lists !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
-      <AreaDetailDialog open={open} onOpenChange={setOpen} area={area} color={color} Icon={Icon} listProgress={listProgress} />
-    </Dialog>
-  );
-}
 
 function PhotoCard({ version, latestPhoto, startPhotoUrl, targetPhotoUrl, onUpload }: {
   version: Version;
@@ -326,6 +106,192 @@ function PhotoTimeline({ photos }: { photos: { url: string; date: string }[] }) 
   );
 }
 
+function ActualAreaCard({
+  area, coverUrl, getSubCover, uploading, onUploadCover, busySubId, onSubUploadCover, listProgress,
+}: {
+  area: AreaScore;
+  coverUrl: string | null;
+  getSubCover: (id: string) => string | null | undefined;
+  uploading: boolean;
+  onUploadCover: (file: File) => void;
+  busySubId: string | null;
+  onSubUploadCover: (id: string, file: File) => void;
+  listProgress?: { lists: number; done: number; total: number };
+}) {
+  const gradient = getCoverGradient(area.id);
+  const pointBArea = POINT_B_AREAS.find(a => a.id === area.id);
+
+  return (
+    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+      <AreaCover
+        cover={coverUrl}
+        gradient={gradient}
+        label={area.label}
+        icon={pointBArea?.icon}
+        showCamera
+        uploading={uploading}
+        onUpload={onUploadCover}
+        className="h-28"
+      />
+      <CardContent className="p-4 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border bg-muted/30 p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <Timer className="h-3 w-3" />
+              Esfuerzo
+            </div>
+            <span className="text-2xl font-extrabold">{area.esfuerzo}%</span>
+          </div>
+          <div className="rounded-xl border bg-muted/30 p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <Trophy className="h-3 w-3" />
+              Resultados
+            </div>
+            <span className="text-2xl font-extrabold">{area.resultados}%</span>
+          </div>
+        </div>
+
+        {area.sub.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sub-áreas</p>
+            <div className="space-y-2">
+              {area.sub.map(sub => (
+                <SubAreaCard
+                  key={sub.id}
+                  data={sub}
+                  getCover={getSubCover}
+                  showCamera
+                  getUploading={(id) => busySubId === coverKey('sub', id)}
+                  onUploadCover={onSubUploadCover}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {listProgress && listProgress.total > 0 && (
+          <div className="rounded-lg border p-3 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <ListChecks className="h-3.5 w-3.5" />
+              Tus listas
+            </span>
+            <span className="text-xs font-semibold">
+              {listProgress.done}/{listProgress.total} tareas · {listProgress.lists} lista{listProgress.lists !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ComodidadAreaCard({
+  area, lists, tasks,
+}: {
+  area: AreaScore;
+  lists: PersonalList[];
+  tasks: PersonalListTask[];
+}) {
+  const gradient = getCoverGradient(area.id);
+  const pointBArea = POINT_B_AREAS.find(a => a.id === area.id);
+  const areaLists = lists.filter(l => LIST_AREA_MAP[l.area_id] === area.id);
+
+  return (
+    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+      <AreaCover
+        gradient={gradient}
+        label={area.label}
+        icon={pointBArea?.icon}
+        className="h-28"
+      />
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
+            PUNTO DE REFERENCIA
+          </span>
+        </div>
+
+        {areaLists.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              Crea listas en "Mi Lista Personal" para ver tus metas aquí
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {areaLists.map(list => {
+              const listTasks = tasks.filter(t => t.list_id === list.id);
+              const roots = listTasks.filter(t => !t.parent_id);
+              const done = roots.filter(t => t.completed).length;
+              const pct = roots.length ? Math.round((done / roots.length) * 100) : 0;
+
+              return (
+                <Card key={list.id} className="overflow-hidden">
+                  {list.cover_image_url ? (
+                    <img
+                      src={list.cover_image_url}
+                      alt={`Portada de ${list.title}`}
+                      loading="lazy"
+                      className="h-16 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-16 w-full bg-muted flex items-center justify-center">
+                      <ListChecks className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <CardContent className="p-3 space-y-2">
+                    <div>
+                      <h4 className="font-semibold text-sm leading-tight truncate">{list.title}</h4>
+                      {list.sub_area && (
+                        <p className="text-[10px] text-muted-foreground">{list.sub_area}</p>
+                      )}
+                    </div>
+
+                    {list.description && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">{list.description}</p>
+                    )}
+
+                    {roots.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>{done}/{roots.length} tareas</span>
+                          <span className="font-semibold">{pct}%</span>
+                        </div>
+                        <Progress value={pct} className="h-1.5" />
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      {roots.slice(0, 4).map(t => (
+                        <div key={t.id} className="flex items-center gap-1.5">
+                          {t.completed
+                            ? <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                            : <Circle className="h-3 w-3 text-muted-foreground shrink-0" />}
+                          <span className={cn(
+                            'text-[11px] truncate',
+                            t.completed && 'line-through text-muted-foreground'
+                          )}>
+                            {t.title}
+                          </span>
+                        </div>
+                      ))}
+                      {roots.length > 4 && (
+                        <p className="text-[10px] text-muted-foreground pl-4.5">
+                          +{roots.length - 4} más
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 const ObjetivoPrioritario = () => {
   const [version, setVersion] = useState<Version>('actual');
   const [timeframe, setTimeframe] = useState<Timeframe>('week');
@@ -341,6 +307,8 @@ const ObjetivoPrioritario = () => {
   const { scores, loading: scoresLoading } = useAreaScores(timeframe, 'esfuerzo');
   const { uploadImage, uploading } = useImageUpload();
   const { lists, tasks } = usePersonalLists();
+  const { covers, saveCover } = useAreaCovers();
+  const [busyCover, setBusyCover] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -417,15 +385,18 @@ const ObjetivoPrioritario = () => {
     e.target.value = '';
   };
 
-  const emptyArea: AreaScore = {
-    id: '',
-    label: '—',
-    icon: '❓',
-    group: '',
-    esfuerzo: 0,
-    resultados: 0,
-    sub: [],
+  const handleUploadCover = async (type: 'area' | 'sub', id: string, file: File) => {
+    const key = coverKey(type, id);
+    setBusyCover(key);
+    try {
+      const url = await uploadImage(file, 'area-covers');
+      if (url) await saveCover(type, id, url);
+    } finally {
+      setBusyCover(null);
+    }
   };
+
+  const getSubCover = (id: string) => covers[coverKey('sub', id)] ?? null;
 
   return (
     <div className="min-h-screen pt-20 pb-8 px-4">
@@ -454,38 +425,74 @@ const ObjetivoPrioritario = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-center">
-          <div className="inline-flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border/50">
-            {TIMEFRAMES.map(t => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTimeframe(t.id)}
-                className={cn(
-                  "px-4 py-1 rounded-full text-xs font-semibold transition-all",
-                  timeframe === t.id ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
+        {version === 'actual' && (
+          <div className="flex items-center justify-center">
+            <div className="inline-flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border/50">
+              {TIMEFRAMES.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTimeframe(t.id)}
+                  className={cn(
+                    "px-4 py-1 rounded-full text-xs font-semibold transition-all",
+                    timeframe === t.id ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {(!scoresLoading && coreAreas.length > 0) ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {coreAreas.map(area => (
-                <AreaCard key={area.id} area={area} listProgress={listProgress[area.id]} />
-              ))}
+              {coreAreas.map(area =>
+                version === 'actual' ? (
+                  <ActualAreaCard
+                    key={area.id}
+                    area={area}
+                    coverUrl={covers[coverKey('area', area.id)] ?? null}
+                    getSubCover={getSubCover}
+                    uploading={busyCover === coverKey('area', area.id)}
+                    onUploadCover={(file) => handleUploadCover('area', area.id, file)}
+                    busySubId={busyCover}
+                    onSubUploadCover={(id, file) => handleUploadCover('sub', id, file)}
+                    listProgress={listProgress[area.id]}
+                  />
+                ) : (
+                  <ComodidadAreaCard
+                    key={area.id}
+                    area={area}
+                    lists={lists}
+                    tasks={tasks}
+                  />
+                )
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
               <div className="flex flex-col">
                 {sideLeft ? (
-                  <AreaCard area={sideLeft} listProgress={listProgress[sideLeft.id]} />
+                  version === 'actual' ? (
+                    <ActualAreaCard
+                      area={sideLeft}
+                      coverUrl={covers[coverKey('area', sideLeft.id)] ?? null}
+                      getSubCover={getSubCover}
+                      uploading={busyCover === coverKey('area', sideLeft.id)}
+                      onUploadCover={(file) => handleUploadCover('area', sideLeft.id, file)}
+                      busySubId={busyCover}
+                      onSubUploadCover={(id, file) => handleUploadCover('sub', id, file)}
+                      listProgress={listProgress[sideLeft.id]}
+                    />
+                  ) : (
+                    <ComodidadAreaCard area={sideLeft} lists={lists} tasks={tasks} />
+                  )
                 ) : (
-                  <AreaCard area={emptyArea} />
+                  <Card className="h-full flex items-center justify-center p-8">
+                    <p className="text-sm text-muted-foreground">Sin datos</p>
+                  </Card>
                 )}
               </div>
 
@@ -499,25 +506,74 @@ const ObjetivoPrioritario = () => {
                 />
 
                 {financeArea ? (
-                  <AreaCard compact area={financeArea} listProgress={listProgress['finanzas']} />
+                  version === 'actual' ? (
+                    <ActualAreaCard
+                      area={financeArea}
+                      coverUrl={covers[coverKey('area', financeArea.id)] ?? null}
+                      getSubCover={getSubCover}
+                      uploading={busyCover === coverKey('area', financeArea.id)}
+                      onUploadCover={(file) => handleUploadCover('area', financeArea.id, file)}
+                      busySubId={busyCover}
+                      onSubUploadCover={(id, file) => handleUploadCover('sub', id, file)}
+                      listProgress={listProgress['finanzas']}
+                    />
+                  ) : (
+                    <ComodidadAreaCard area={financeArea} lists={lists} tasks={tasks} />
+                  )
                 ) : (
-                  <AreaCard compact area={emptyArea} />
+                  <Card className="h-full flex items-center justify-center p-8">
+                    <p className="text-sm text-muted-foreground">Sin datos</p>
+                  </Card>
                 )}
               </div>
 
               <div className="flex flex-col">
                 {sideRight ? (
-                  <AreaCard area={sideRight} listProgress={listProgress[sideRight.id]} />
+                  version === 'actual' ? (
+                    <ActualAreaCard
+                      area={sideRight}
+                      coverUrl={covers[coverKey('area', sideRight.id)] ?? null}
+                      getSubCover={getSubCover}
+                      uploading={busyCover === coverKey('area', sideRight.id)}
+                      onUploadCover={(file) => handleUploadCover('area', sideRight.id, file)}
+                      busySubId={busyCover}
+                      onSubUploadCover={(id, file) => handleUploadCover('sub', id, file)}
+                      listProgress={listProgress[sideRight.id]}
+                    />
+                  ) : (
+                    <ComodidadAreaCard area={sideRight} lists={lists} tasks={tasks} />
+                  )
                 ) : (
-                  <AreaCard area={emptyArea} />
+                  <Card className="h-full flex items-center justify-center p-8">
+                    <p className="text-sm text-muted-foreground">Sin datos</p>
+                  </Card>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {socialAreas.map(area => (
-                <AreaCard key={area.id} area={area} listProgress={listProgress[area.id]} />
-              ))}
+              {socialAreas.map(area =>
+                version === 'actual' ? (
+                  <ActualAreaCard
+                    key={area.id}
+                    area={area}
+                    coverUrl={covers[coverKey('area', area.id)] ?? null}
+                    getSubCover={getSubCover}
+                    uploading={busyCover === coverKey('area', area.id)}
+                    onUploadCover={(file) => handleUploadCover('area', area.id, file)}
+                    busySubId={busyCover}
+                    onSubUploadCover={(id, file) => handleUploadCover('sub', id, file)}
+                    listProgress={listProgress[area.id]}
+                  />
+                ) : (
+                  <ComodidadAreaCard
+                    key={area.id}
+                    area={area}
+                    lists={lists}
+                    tasks={tasks}
+                  />
+                )
+              )}
             </div>
           </>
         ) : (
