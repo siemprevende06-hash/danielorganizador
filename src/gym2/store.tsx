@@ -78,7 +78,10 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
   const didPull = useRef(false);
 
-  // On mount: pull from Supabase if we have internet. Merge: remote wins if newer.
+  // On mount: pull from Supabase if we have internet. Merge: the newest snapshot
+  // (by timestamp) sets the base, and todo aquello que el otro lado tenga y el
+  // base no (colecciones por id/fecha y claves de plan) se conserva para no
+  // perder nada creado mientras estabas offline.
   useEffect(() => {
     if (didPull.current) return;
     didPull.current = true;
@@ -88,30 +91,67 @@ export function GymProvider({ children }: { children: ReactNode }) {
         setSync((p) => ({ ...p, syncing: true }));
         const remote = await pullState();
         if (remote && remote.state) {
-          // Merge strategy: remote wins, but keep local active workouts and unsent data
           setS((local) => {
-            const merged = clone(remote.state);
-            // Preserve local active workout (user might be mid-workout offline)
+            const remoteState = remote.state;
+            const localTs = local._ts || 0;
+            const remoteTs = remote.updatedAt || 0;
+            const useRemote = remoteTs >= localTs;
+            const merged = useRemote ? clone(remoteState) : clone(local);
+            const other = useRemote ? local : remoteState;
+
+            // Colecciones por id: une lo que falte del otro lado, sin duplicar.
+            function unionById<T extends { id: string }>(
+              dest: T[] | undefined,
+              src: T[] | undefined
+            ): T[] {
+              dest = dest || [];
+              const seen = new Set(dest.map((x) => x.id));
+              for (const x of src || []) {
+                if (!seen.has(x.id)) {
+                  dest.push(x);
+                  seen.add(x.id);
+                }
+              }
+              return dest;
+            }
+            merged.routines = unionById(merged.routines, other.routines);
+            merged.customEx = unionById(merged.customEx, other.customEx);
+
+            // Colecciones por fecha: peso, medidas y entrenamientos.
+            function unionByDate<T extends { d: string }>(
+              dest: T[] | undefined,
+              src: T[] | undefined
+            ): T[] {
+              dest = dest || [];
+              const seen = new Set(dest.map((x) => x.d));
+              for (const x of src || []) {
+                if (!seen.has(x.d)) {
+                  dest.push(x);
+                  seen.add(x.d);
+                }
+              }
+              return dest;
+            }
+            merged.bodyweight = unionByDate(merged.bodyweight, other.bodyweight);
+            merged.bodyM = unionByDate(merged.bodyM, other.bodyM);
+            merged.workouts = unionById(merged.workouts, other.workouts) as GymState["workouts"];
+            merged.workouts.sort(
+              (a: { d: string }, b: { d: string }) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0)
+            );
+
+            // Maps de plan: la base manda en conflictos, pero no se descartan
+            // claves que solo existan en el otro lado.
+            merged.week = {
+              ...(other.week || {}),
+              ...(merged.week || {}),
+            } as unknown as Record<number, string>;
+            merged.dayPlan = { ...(other.dayPlan || {}), ...(merged.dayPlan || {}) };
+            merged.exWeights = { ...(other.exWeights || {}), ...(merged.exWeights || {}) };
+
+            // No descartar un entrenamiento activo local.
             if (local.active && !merged.active) {
-              merged.active = local.active;
+              merged.active = local.active as GymState["active"];
             }
-            // Keep local bodyweight entries not in remote
-            const remoteBW = new Set((merged.bodyweight || []).map((b: { d: string }) => b.d));
-            for (const bw of local.bodyweight || []) {
-              if (!remoteBW.has(bw.d)) merged.bodyweight.push(bw);
-            }
-            // Keep local body measurements not in remote
-            merged.bodyM = merged.bodyM || [];
-            const remoteM = new Set(merged.bodyM.map((m: { d: string }) => m.d));
-            for (const bm of local.bodyM || []) {
-              if (!remoteM.has(bm.d)) merged.bodyM.push(bm);
-            }
-            // Keep local workouts not in remote
-            const remoteIDs = new Set((merged.workouts || []).map((w: { id: string }) => w.id));
-            for (const w of local.workouts || []) {
-              if (!remoteIDs.has(w.id)) merged.workouts.push(w);
-            }
-            merged.workouts.sort((a: { d: string }, b: { d: string }) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
             merged._ts = Date.now();
             return merged;
           });
@@ -145,6 +185,24 @@ export function GymProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
+  }, [S]);
+
+  // Al cerrar/ocultar la página, empuja inmediatamente los cambios pendientes
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") {
+        forcePush(S);
+      }
+    };
+    const onPageHide = () => {
+      forcePush(S);
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onPageHide);
+    };
   }, [S]);
 
   const api = useMemo<GymStore>(
