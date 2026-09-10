@@ -31,31 +31,52 @@ export const enqueueMutation = async (m: Omit<QueuedMutation, "id" | "ts">) => {
 
 export type MutationResult = { ok: boolean; error?: any };
 
+// Misma protección que en supabaseCache: si PostgREST reporta una columna
+// inexistente (migración pendiente en la base), reintentamos sin esa columna.
+const missingColumnFromError = (error: any, payload?: Record<string, any>): string | null => {
+  if (!error || !payload) return null;
+  const msg = typeof error.message === "string" ? error.message : "";
+  if (!/does not exist|schema cache/i.test(msg)) return null;
+  const m1 = msg.match(/column\s+([a-zA-Z0-9_."]+)\s+does not exist/i);
+  const m2 = msg.match(/could not find the\s+['"]([a-zA-Z0-9_]+)['"]\s+column/i);
+  const raw = m1?.[1] || m2?.[1] || null;
+  if (!raw) return null;
+  const col = raw.replace(/"/g, "").split(".").pop()!;
+  return col in payload ? col : null;
+};
+
+const buildQuery = (
+  builder: any,
+  op: QueuedMutation["op"],
+  payload: Record<string, any>,
+  match?: Record<string, any>,
+  onConflict?: string
+): any => {
+  if (op === "insert") return builder.insert(payload);
+  if (op === "upsert") return builder.upsert(payload, onConflict ? { onConflict } : undefined);
+  let q: any = op === "delete" ? builder.delete() : builder.update(payload);
+  Object.entries(match || {}).forEach(([k, v]) => { q = q.eq(k, v); });
+  return q;
+};
+
 const runMutation = async (m: QueuedMutation): Promise<MutationResult> => {
   try {
     // Cast to any: m.table is dynamic and not statically known to the typed client
     const builder: any = (supabase as any).from(m.table);
-    if (m.op === "insert") {
-      const { error } = await builder.insert(m.payload!);
-      return error ? { ok: false, error } : { ok: true };
-    }
-    if (m.op === "upsert") {
-      const { error } = await builder.upsert(m.payload!, m.onConflict ? { onConflict: m.onConflict } : undefined);
-      return error ? { ok: false, error } : { ok: true };
-    }
-    if (m.op === "update") {
-      let q: any = builder.update(m.payload!);
-      Object.entries(m.match || {}).forEach(([k, v]) => { q = q.eq(k, v); });
-      const { error } = await q;
-      return error ? { ok: false, error } : { ok: true };
-    }
+    const payload = m.payload || {};
+
     if (m.op === "delete") {
-      let q: any = builder.delete();
-      Object.entries(m.match || {}).forEach(([k, v]) => { q = q.eq(k, v); });
-      const { error } = await q;
+      const { error } = await buildQuery(builder, m.op, payload, m.match);
       return error ? { ok: false, error } : { ok: true };
     }
-    return { ok: false, error: { message: "Operación no soportada" } };
+
+    let result = await buildQuery(builder, m.op, payload, m.match, m.onConflict);
+    const stripCol = result?.error ? missingColumnFromError(result.error, payload) : null;
+    if (stripCol) {
+      const { [stripCol]: _dropped, ...strippedPayload } = payload;
+      result = await buildQuery(builder, m.op, strippedPayload, m.match, m.onConflict);
+    }
+    return result?.error ? { ok: false, error: result.error } : { ok: true };
   } catch (e) {
     return { ok: false, error: e };
   }
