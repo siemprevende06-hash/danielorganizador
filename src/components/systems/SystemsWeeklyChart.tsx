@@ -48,7 +48,7 @@ export function SystemsWeeklyChart() {
   // Build daily completion data
   const dailyData = history.map(row => {
     const completions = (row.completions || {}) as Record<string, boolean>;
-    const completed = Object.values(completions).filter(Boolean).length;
+    const completed = Object.entries(completions).filter(([k]) => !k.startsWith("streak:")).filter(([, v]) => v).length;
     const percent = TOTAL_HABITS > 0 ? Math.round((completed / TOTAL_HABITS) * 100) : 0;
     const day = new Date(row.tracking_date + "T12:00:00");
     const label = day.toLocaleDateString("es", { weekday: "short", day: "numeric" });

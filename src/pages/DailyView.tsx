@@ -103,8 +103,6 @@ const MEJORA_GROUPS: SystemGroup[] = [
   },
 ];
 
-const ALL_GROUPS = [...SOSTEN_GROUPS, ...MEJORA_GROUPS];
-
 const ROUTINE_ICONS: Record<RoutineType, React.ReactNode> = {
   disciplina: <Flame className="h-4 w-4" />,
   normal: <Scale className="h-4 w-4" />,
@@ -192,8 +190,13 @@ export default function DailyView() {
   }, [planRoutineType, setRoutineType]);
 
   const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten'>('tasks');
-  const completedHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.filter(h => data.completions?.[h.id]).length, 0);
-  const totalHabitsAll = ALL_GROUPS.reduce((sum, g) => sum + g.habits.length, 0);
+
+  const SOSTEN_HABIT_IDS = SOSTEN_GROUPS.flatMap(g => g.habits.map(h => h.id));
+  const MEJORA_HABIT_IDS = ['lectura', 'musica', 'ajedrez', 'entrenamiento-fisico', 'italiano', 'ingles'];
+  const completedSosten = SOSTEN_HABIT_IDS.filter(id => data.completions?.[id]).length;
+  const totalSosten = SOSTEN_HABIT_IDS.length;
+  const completedMejora = MEJORA_HABIT_IDS.filter(id => data.completions?.[id]).length;
+  const totalMejora = MEJORA_HABIT_IDS.length;
   const mejoraMinutes = (data.timeData?.lectura || 0) + (data.timeData?.musica || 0) + (data.timeData?.ajedrez || 0) + (data.workoutDuration || 0);
   const sostenMinutes = Object.entries(data.timeData || {}).filter(([k]) => !['lectura', 'musica', 'ajedrez'].includes(k)).reduce((s, [, v]) => s + v, 0);
   const todayMinutes: Record<MejoraAreaId, number> = {
@@ -209,11 +212,14 @@ export default function DailyView() {
     emprendimiento: data.timeData?.emprendimiento || 0,
     proyectos: data.timeData?.proyectos || 0,
   };
+  const plannedTasksTotal = useMemo(() => tasks.filter(t => plannedTaskIds.has(t.id)), [tasks, plannedTaskIds]);
+  const plannedTasksDone = plannedTasksTotal.filter(t => t.completed).length;
+  const plannedPct = plannedTasksTotal.length > 0 ? Math.round((plannedTasksDone / plannedTasksTotal.length) * 100) : 0;
   const SECTIONS = [
-    { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: data.workoutDuration || 0 },
-    { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedTasks.length > 0 ? Math.round(plannedTasks.filter(t => t.completed).length / plannedTasks.length * 100) : 0, time: 0 },
-    { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: mejoraMinutes },
-    { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" />, pct: totalHabitsAll > 0 ? Math.round((completedHabitsAll / totalHabitsAll) * 100) : 0, time: sostenMinutes },
+    { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" />, pct: plannedPct, time: data.workoutDuration || 0 },
+    { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedPct, time: 0 },
+    { id: 'mejora' as const, label: 'Mejora', icon: <TrendingUp className="h-4 w-4" />, pct: totalMejora > 0 ? Math.round((completedMejora / totalMejora) * 100) : 0, time: mejoraMinutes },
+    { id: 'sosten' as const, label: 'Sostén', icon: <Shield className="h-4 w-4" />, pct: totalSosten > 0 ? Math.round((completedSosten / totalSosten) * 100) : 0, time: sostenMinutes },
   ];
 
   if (loading) {
@@ -359,7 +365,7 @@ export default function DailyView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold">Progreso del Día</p>
-                  <p className="text-[10px] text-muted-foreground">{plannedTasks.length} tareas · {data.workoutDuration || 0} min ejercicio</p>
+                  <p className="text-[10px] text-muted-foreground">{plannedTasksTotal.length} tareas · {plannedTasksDone} hechas · {data.workoutDuration || 0} min ejercicio</p>
                 </div>
               </CardContent>
             </Card>
@@ -461,7 +467,7 @@ export default function DailyView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold">Hoy</p>
-                  <p className="text-[10px] text-muted-foreground">{completedHabitsAll}/{totalHabitsAll} hábitos · {sostenMinutes} min</p>
+                  <p className="text-[10px] text-muted-foreground">{completedSosten}/{totalSosten} hábitos · {sostenMinutes} min</p>
                 </div>
               </CardContent>
             </Card>
@@ -499,7 +505,7 @@ export default function DailyView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold">Hoy</p>
-                  <p className="text-[10px] text-muted-foreground">{completedHabitsAll}/{totalHabitsAll} hábitos · {mejoraMinutes} min invertidos</p>
+                  <p className="text-[10px] text-muted-foreground">{completedMejora}/{totalMejora} hábitos · {mejoraMinutes} min invertidos</p>
                 </div>
               </CardContent>
             </Card>

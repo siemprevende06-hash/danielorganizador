@@ -8,6 +8,7 @@ import {
   TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Wallet
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -46,6 +47,7 @@ interface Transaction {
 
 export function TaskAccordion() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const today = format(new Date(), 'yyyy-MM-dd');
   const [loading, setLoading] = useState(true);
   const [universityTasks, setUniversityTasks] = useState<Task[]>([]);
@@ -136,6 +138,10 @@ export function TaskAccordion() {
   const toggleTask = async (taskId: string, source: string, currentCompleted: boolean) => {
     const table = source === 'entrepreneurship' ? 'entrepreneurship_tasks' : 'tasks';
     await supabase.from(table).update({ completed: !currentCompleted }).eq('id', taskId);
+
+    for (const key of ['resultados', 'resultadosPeriodo', 'periodAreaTasks', 'weeklyData', 'monthlyData', 'weeklyTasks', 'monthlyTasks', 'dailyPlanData', 'tasks']) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
 
     if (source === 'university') {
       setUniversityTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !currentCompleted } : t));

@@ -108,12 +108,14 @@ export function useWeeklyReview(referenceDate?: Date) {
 
       trackingRows.forEach((row: any) => {
         const completions = (row.completions || {}) as Record<string, boolean>;
-        Object.entries(completions).forEach(([habitId, done]) => {
-          allUniqueHabits.add(habitId);
-          if (done) {
-            habitCompletions[habitId] = (habitCompletions[habitId] || 0) + 1;
-          }
-        });
+        Object.entries(completions)
+          .filter(([habitId]) => !habitId.startsWith("streak:"))
+          .forEach(([habitId, done]) => {
+            allUniqueHabits.add(habitId);
+            if (done) {
+              habitCompletions[habitId] = (habitCompletions[habitId] || 0) + 1;
+            }
+          });
       });
 
       const activeDays = trackingRows.length;
@@ -158,7 +160,7 @@ export function useWeeklyReview(referenceDate?: Date) {
         const review = reviews.find((r: any) => r.review_date === dayStr);
         const tracking = trackingRows.find((r: any) => r.tracking_date === dayStr);
         const completions = (tracking?.completions || {}) as Record<string, boolean>;
-        const dayHabits = Object.values(completions).filter(Boolean).length;
+        const dayHabits = Object.entries(completions).filter(([k]) => !k.startsWith("streak:")).filter(([, v]) => v).length;
         const dayTasks = allTasks.filter((t: any) => {
           const dateStr = t.due_date?.split("T")[0] || t.due_date;
           return dateStr === dayStr && t.completed;

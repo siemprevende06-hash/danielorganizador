@@ -72,7 +72,7 @@ function parseDay(row: RawRow): DayStats {
   const waterData = (row.water_data || {}) as Record<string, boolean>;
   const blockCompletions = (row.block_completions || {}) as Record<string, boolean>;
 
-  const entries = Object.entries(completions);
+  const entries = Object.entries(completions).filter(([k]) => !k.startsWith("streak:"));
   const totalHabits = entries.length;
   const habitsDone = entries.filter(([, v]) => v).length;
   const completionPct = totalHabits > 0 ? Math.round((habitsDone / totalHabits) * 100) : 0;

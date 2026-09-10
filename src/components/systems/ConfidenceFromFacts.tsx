@@ -65,7 +65,7 @@ export function ConfidenceFromFacts({ totalHabits }: { totalHabits: number }) {
 
       sortedRows.forEach(r => {
         const completions = r.completions || {};
-        const completed = Object.values(completions).filter(Boolean).length;
+        const completed = Object.entries(completions).filter(([k]) => !k.startsWith("streak:")).filter(([, v]) => v).length;
         const dayPct = totalHabits > 0 ? (completed / totalHabits) * 100 : 0;
         totalCompletions += completed;
 

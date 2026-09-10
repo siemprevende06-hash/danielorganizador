@@ -437,22 +437,41 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         byArea[a].tasks.push(t);
       });
 
+      // Minutos por área deduplicados: daily_systems_tracking.time_data y daily_area_stats
+      // provienen del mismo registro (syncToAreaStats), así que por fecha y clave cruda tomamos el máximo.
+      const byDayRawMin = new Map<string, Map<string, number>>();
+      const addRawMinutes = (date: string, raw: string | null | undefined, minutes: number) => {
+        if (!date || !raw || !minutes) return;
+        let day = byDayRawMin.get(date);
+        if (!day) { day = new Map(); byDayRawMin.set(date, day); }
+        day.set(raw, Math.max(day.get(raw) || 0, minutes));
+      };
+
       areaStats.forEach((s: any) => {
         const a = normalizeArea(s.area_id);
-        byArea[a].minutes += s.time_spent_minutes || 0;
         byArea[a].goalMinutes += s.time_goal_minutes || 0;
+        addRawMinutes(s.stat_date, s.area_id, s.time_spent_minutes || 0);
       });
 
       systems.forEach((s: any) => {
+        const day = s.tracking_date;
         const td = s.time_data || {};
         for (const [k, v] of Object.entries(td)) {
-          const a = normalizeArea(k);
-          byArea[a].minutes += Number(v) || 0;
+          addRawMinutes(day, k, Number(v) || 0);
         }
+        addRawMinutes(day, 'gym', s.workout_duration || 0);
+      });
+
+      byDayRawMin.forEach(day => {
+        day.forEach((minutes, raw) => {
+          byArea[normalizeArea(raw)].minutes += minutes;
+        });
       });
 
       const systemsDone = systems.reduce((acc: number, s: any) => acc + Object.values(s.completions || {}).filter(v => v === true).length, 0);
-      const systemsTotal = systems.length > 0 ? Math.max(...systems.map((s: any) => Object.keys(s.completions || {}).length)) : 0;
+      const systemsTotal = systems.length > 0
+        ? Math.max(...systems.map((s: any) => Object.keys(s.completions || {}).filter(k => !k.startsWith('streak:')).length))
+        : 0;
       const systemsMin = systems.reduce((a: number, s: any) => a + (Object.values(s.time_data || {}) as any[]).reduce((x: number, v: any) => x + (Number(v) || 0), 0), 0);
       const workoutMin = systems.reduce((a: number, s: any) => a + (s.workout_duration || 0), 0);
       const focusMin = focus.reduce((a: number, f: any) => a + (f.duration_minutes || 0), 0);

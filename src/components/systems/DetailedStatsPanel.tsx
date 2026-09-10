@@ -58,7 +58,7 @@ export function DetailedStatsPanel({ totalHabits }: { totalHabits: number }) {
   const summarize = (subset: DayRow[]) => {
     if (subset.length === 0) return { avg: 0, totalMin: 0, water: 0, workout: 0, best: 0, worst: 0, days: 0 };
     const dayPercents = subset.map(r => {
-      const done = Object.values(r.completions).filter(Boolean).length;
+      const done = Object.entries(r.completions).filter(([k]) => !k.startsWith("streak:")).filter(([, v]) => v).length;
       return totalHabits > 0 ? Math.round((done / totalHabits) * 100) : 0;
     });
     const totalMin = subset.reduce((s, r) => s + Object.values(r.time_data).reduce((a, b) => a + b, 0), 0);
