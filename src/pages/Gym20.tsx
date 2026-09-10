@@ -96,14 +96,14 @@ function GymApp() {
         {tab === "history" && <History />}
       </main>
 
-      {/* bottom nav — always visible, only covers content area */}
+      {/* bottom nav — always visible, pegado al panel lateral */}
       <nav
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur",
+          "fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur transition-all duration-200",
           collapsed ? "lg:left-14" : "lg:left-56"
         )}
       >
-        <div className="mx-auto flex w-full">
+        <div className="mx-auto flex w-full" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {TABS.map((t) => (
             <button
               key={t.id}
