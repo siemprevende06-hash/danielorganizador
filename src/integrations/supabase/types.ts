@@ -3483,12 +3483,15 @@ export type Database = {
           due_date: string | null
           estimated_minutes: number | null
           id: string
+          parent_id: string | null
           priority: string | null
+          recurrence: string | null
           routine_block_id: string | null
           source: string
           source_id: string | null
           start_date: string | null
           status: string
+          tags: string[] | null
           task_type: string | null
           title: string
           topic_id: string | null
@@ -3503,12 +3506,15 @@ export type Database = {
           due_date?: string | null
           estimated_minutes?: number | null
           id?: string
+          parent_id?: string | null
           priority?: string | null
+          recurrence?: string | null
           routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
           status?: string
+          tags?: string[] | null
           task_type?: string | null
           title: string
           topic_id?: string | null
@@ -3523,19 +3529,30 @@ export type Database = {
           due_date?: string | null
           estimated_minutes?: number | null
           id?: string
+          parent_id?: string | null
           priority?: string | null
+          recurrence?: string | null
           routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
           status?: string
+          tags?: string[] | null
           task_type?: string | null
           title?: string
           topic_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tasks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       text_sections: {
         Row: {

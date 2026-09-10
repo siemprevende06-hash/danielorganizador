@@ -20,7 +20,7 @@ import {
   TrendingUp, BarChart3, Layers, ChevronRight, Repeat, Tags as TagsIcon, Timer
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format, isToday, isTomorrow, isPast, isThisWeek, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, isPast, isThisWeek, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { cachedQuery, cachedMutation, clearCacheForTable } from '@/lib/supabaseCache';
@@ -28,6 +28,7 @@ import { z } from 'zod';
 import { lifeAreas, centralAreas } from '@/lib/data';
 import { flattenAreas } from '@/lib/utils';
 import { BlockSelector } from '@/components/BlockSelector';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useRoutineBlocks } from '@/hooks/useRoutineBlocks';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
@@ -555,7 +556,12 @@ export default function TasksPage() {
         </div>
         <div>
           <Label className="text-sm font-medium">Fecha límite</Label>
-          <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="mt-1" />
+          <DatePicker
+            value={dueDate ? parseISO(dueDate) : undefined}
+            onChange={(date) => setDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
+            placeholder="Seleccionar fecha"
+            className="mt-1"
+          />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
