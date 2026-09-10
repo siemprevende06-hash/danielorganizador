@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useReadingLibrary, Book } from '@/hooks/useReadingLibrary';
 import { supabase } from '@/integrations/supabase/client';
-import { BookOpen, Plus, Star, BookMarked, Library, Trash2, Upload, Calendar, ChevronRight, Clock, TrendingUp, TrendingDown, Edit2, LayoutGrid, List, GalleryHorizontal, StickyNote, X } from 'lucide-react';
+import { BookOpen, Plus, Star, BookMarked, Library, Trash2, Upload, Calendar, ChevronRight, Clock, TrendingUp, TrendingDown, Edit2, LayoutGrid, List, GalleryHorizontal, StickyNote, X, PencilLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, addMonths, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DailyReadingIndicator } from '@/components/reading/DailyReadingIndicator';
+import { BookContent } from '@/components/reading/BookContent';
 
 export default function ReadingLibrary() {
   const {
@@ -30,6 +31,7 @@ export default function ReadingLibrary() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
   const [editingNotes, setEditingNotes] = useState('');
+  const [contentEditing, setContentEditing] = useState(false);
   const [searchCompleted, setSearchCompleted] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'rating' | 'title'>('recent');
   const [newBook, setNewBook] = useState({
@@ -44,6 +46,11 @@ export default function ReadingLibrary() {
     };
     loadSettings();
   }, []);
+
+  // Reset editor state when opening a different book
+  useEffect(() => {
+    setContentEditing(false);
+  }, [selectedBook?.id]);
 
   const handleImageUpload = async (file: File, bookId?: string) => {
     const fileExt = file.name.split('.').pop();
@@ -607,28 +614,52 @@ export default function ReadingLibrary() {
                         )}
                       </div>
 
-                      {/* Notes / Summary - fills remaining space */}
+                      {/* Contenido del libro: resumen/enseñanzas + acciones prácticas */}
                       <div className="flex-1 flex flex-col min-h-0">
-                        <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5 mb-2 shrink-0">
-                          <StickyNote className="w-4 h-4" /> Notas / Resumen del libro
-                        </label>
-                        <Textarea
-                          value={editingNotes}
-                          onChange={(e) => setEditingNotes(e.target.value)}
-                          placeholder="Escribe tus notas, resumen, citas favoritas, lecciones aprendidas..."
-                          className="flex-1 resize-none min-h-0"
-                        />
-                        <div className="flex justify-end mt-2 shrink-0">
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              updateBook(selectedBook.id, { notes: editingNotes });
-                              setSelectedBook({...selectedBook, notes: editingNotes});
-                            }}
-                          >
-                            Guardar notas
-                          </Button>
+                        <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
+                          <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                            <StickyNote className="w-4 h-4" /> Contenido del libro
+                          </label>
+                          {!contentEditing && (
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setContentEditing(true)}>
+                              <PencilLine className="w-3 h-3 mr-1.5" /> Editar contenido
+                            </Button>
+                          )}
                         </div>
+
+                        {contentEditing ? (
+                          <>
+                            <Textarea
+                              value={editingNotes}
+                              onChange={(e) => setEditingNotes(e.target.value)}
+                              placeholder="Contenido en Markdown: resumen extenso, enseñanzas y luego la sección «## 🎯 Acciones prácticas» con las acciones."
+                              className="flex-1 resize-none min-h-0 text-sm"
+                            />
+                            <div className="flex justify-end gap-2 mt-2 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => { setEditingNotes(selectedBook.notes || ''); setContentEditing(false); }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  updateBook(selectedBook.id, { notes: editingNotes });
+                                  setSelectedBook({ ...selectedBook, notes: editingNotes });
+                                  setContentEditing(false);
+                                }}
+                              >
+                                Guardar contenido
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex-1 overflow-y-auto min-h-0 pr-1">
+                            <BookContent notes={selectedBook.notes} />
+                          </div>
+                        )}
                       </div>
                     </div>
 
