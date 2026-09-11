@@ -134,6 +134,13 @@ export function GymProvider({ children }: { children: ReactNode }) {
             }
             merged.bodyweight = unionByDate(merged.bodyweight, other.bodyweight);
             merged.bodyM = unionByDate(merged.bodyM, other.bodyM);
+            // Mantener cronológico para que "último peso/medida" sea el real.
+            merged.bodyweight.sort((a, b) =>
+              a.d === b.d ? a.t - b.t : a.d < b.d ? -1 : 1
+            );
+            merged.bodyM.sort((a, b) =>
+              a.d === b.d ? a.t - b.t : a.d < b.d ? -1 : 1
+            );
             merged.workouts = unionById(merged.workouts, other.workouts) as GymState["workouts"];
             merged.workouts.sort(
               (a: { d: string }, b: { d: string }) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0)

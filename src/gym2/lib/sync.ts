@@ -117,11 +117,20 @@ export async function pullState(): Promise<{ state: GymState; version: number; u
   if (!isOnline()) return null;
   try {
     const meta = loadMeta();
-    const query = supabase
+    let params = supabase
       .from(TABLE as never)
-      .select("id, state, version, updated_at")
-      .order("version", { ascending: false })
-      .limit(1);
+      .select("id, state, version, updated_at");
+
+    // Si hay sesión, solo trae los datos de ese usuario (evita mezclar los
+    // de otros dispositivos/cuentas en la web móvil).
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (auth?.user?.id) params = params.eq("user_id", auth.user.id);
+    } catch {
+      /* anónimo — sin filtro por usuario */
+    }
+
+    const query = params.order("updated_at", { ascending: false }).limit(1);
 
     const { data, error } = (await query) as {
       data: Array<{
@@ -137,8 +146,8 @@ export async function pullState(): Promise<{ state: GymState; version: number; u
     const row = data[0];
     if (!row || !row.state) return null;
 
-    // If we have a local version and it's >= remote, skip
-    if (meta && meta.version >= (row.version || 0)) return null;
+    // Si ya tenemos localmente un estado tan o más reciente, no sobreescribir.
+    if (meta && meta.updatedAt >= (row.updated_at || 0)) return null;
 
     // Update local meta
     saveMeta({ id: row.id, version: row.version || 0, updatedAt: row.updated_at || Date.now() });
