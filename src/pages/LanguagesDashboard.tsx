@@ -10,7 +10,7 @@ import { LanguagePracticeTimerCard } from '@/components/languages/LanguagePracti
 import { LanguageResourcesCard } from '@/components/languages/LanguageResourcesCard';
 import { LanguageStatsTab } from '@/components/languages/LanguageStatsTab';
 import { LanguageTipCard } from '@/components/languages/LanguageTipCard';
-import { VocabularyPanel } from '@/components/languages/VocabularyPanel';
+import VocabularyPanel from '@/components/languages/VocabularyPanel';
 import { LANGUAGE_SKILLS, type LanguageSkillId } from '@/components/languages/skills';
 
 export default function LanguagesDashboard() {
