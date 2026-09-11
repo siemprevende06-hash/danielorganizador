@@ -390,10 +390,8 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
-          end_time: string | null
           event_date: string
           id: string
-          start_time: string | null
           title: string
           updated_at: string
           user_id: string | null
@@ -402,10 +400,8 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
-          end_time?: string | null
           event_date: string
           id?: string
-          start_time?: string | null
           title: string
           updated_at?: string
           user_id?: string | null
@@ -414,10 +410,8 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
-          end_time?: string | null
           event_date?: string
           id?: string
-          start_time?: string | null
           title?: string
           updated_at?: string
           user_id?: string | null
@@ -1472,33 +1466,6 @@ export type Database = {
           unit?: string
           updated_at?: string
           user_id?: string | null
-        }
-        Relationships: []
-      }
-      gym20_data: {
-        Row: {
-          created_at: string
-          id: string
-          state: Json
-          updated_at: number
-          user_id: string | null
-          version: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          state?: Json
-          updated_at?: number
-          user_id?: string | null
-          version?: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          state?: Json
-          updated_at?: number
-          user_id?: string | null
-          version?: number
         }
         Relationships: []
       }
@@ -2750,7 +2717,6 @@ export type Database = {
       reading_library: {
         Row: {
           author: string | null
-          bilingual_txt: string | null
           cover_image_url: string | null
           created_at: string | null
           finish_date: string | null
@@ -2768,7 +2734,6 @@ export type Database = {
         }
         Insert: {
           author?: string | null
-          bilingual_txt?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           finish_date?: string | null
@@ -2786,7 +2751,6 @@ export type Database = {
         }
         Update: {
           author?: string | null
-          bilingual_txt?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           finish_date?: string | null
@@ -2801,54 +2765,6 @@ export type Database = {
           title?: string
           updated_at?: string | null
           user_id?: string | null
-        }
-        Relationships: []
-      }
-      user_vocabulary: {
-        Row: {
-          book_id: string | null
-          book_title: string | null
-          context_en: string | null
-          context_es: string | null
-          created_at: string | null
-          id: string
-          language: string | null
-          review_count: number | null
-          status: string | null
-          translation: string | null
-          updated_at: string | null
-          user_id: string | null
-          word: string
-        }
-        Insert: {
-          book_id?: string | null
-          book_title?: string | null
-          context_en?: string | null
-          context_es?: string | null
-          created_at?: string | null
-          id?: string
-          language?: string | null
-          review_count?: number | null
-          status?: string | null
-          translation?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-          word: string
-        }
-        Update: {
-          book_id?: string | null
-          book_title?: string | null
-          context_en?: string | null
-          context_es?: string | null
-          created_at?: string | null
-          id?: string
-          language?: string | null
-          review_count?: number | null
-          status?: string | null
-          translation?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-          word?: string
         }
         Relationships: []
       }
@@ -3561,15 +3477,12 @@ export type Database = {
           due_date: string | null
           estimated_minutes: number | null
           id: string
-          parent_id: string | null
           priority: string | null
-          recurrence: string | null
           routine_block_id: string | null
           source: string
           source_id: string | null
           start_date: string | null
           status: string
-          tags: string[] | null
           task_type: string | null
           title: string
           topic_id: string | null
@@ -3584,15 +3497,12 @@ export type Database = {
           due_date?: string | null
           estimated_minutes?: number | null
           id?: string
-          parent_id?: string | null
           priority?: string | null
-          recurrence?: string | null
           routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
           status?: string
-          tags?: string[] | null
           task_type?: string | null
           title: string
           topic_id?: string | null
@@ -3607,30 +3517,19 @@ export type Database = {
           due_date?: string | null
           estimated_minutes?: number | null
           id?: string
-          parent_id?: string | null
           priority?: string | null
-          recurrence?: string | null
           routine_block_id?: string | null
           source?: string
           source_id?: string | null
           start_date?: string | null
           status?: string
-          tags?: string[] | null
           task_type?: string | null
           title?: string
           topic_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       text_sections: {
         Row: {
