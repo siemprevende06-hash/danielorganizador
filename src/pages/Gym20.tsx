@@ -7,6 +7,7 @@ import {
   Search,
   BarChart3,
   History as HistoryIcon,
+  Bot,
   RefreshCw,
   WifiOff,
 } from "lucide-react";
@@ -21,6 +22,7 @@ import RoutineEditView from "../gym2/views/RoutineEditView";
 import Library from "../gym2/views/Library";
 import Stats from "../gym2/views/Stats";
 import History from "../gym2/views/History";
+import AiCoach from "../gym2/views/AiCoach";
 
 const TABS: {
   id: string;
@@ -33,6 +35,7 @@ const TABS: {
   { id: "library", label: "Ejercicios", icon: Search },
   { id: "stats", label: "Estadísticas", icon: BarChart3 },
   { id: "history", label: "Historial", icon: HistoryIcon },
+  { id: "coach", label: "Coach IA", icon: Bot },
 ];
 
 function SyncIndicator() {
@@ -94,6 +97,7 @@ function GymApp() {
         {tab === "library" && <Library />}
         {tab === "stats" && <Stats />}
         {tab === "history" && <History />}
+        {tab === "coach" && <AiCoach />}
       </main>
 
       {/* bottom nav — always visible, pegado al panel lateral */}
