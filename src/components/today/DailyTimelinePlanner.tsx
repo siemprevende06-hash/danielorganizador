@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -98,40 +98,6 @@ function formatHour(time: string) {
 function parseMinutes(time: string) {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
-}
-
-function eventsOverlapBlock(event: CalendarEvent, blockStart: string, blockEnd: string) {
-  if (event.start_time && event.end_time) {
-    const eStart = parseMinutes(event.start_time);
-    const eEnd = parseMinutes(event.end_time);
-    const bStart = parseMinutes(blockStart);
-    const bEnd = parseMinutes(blockEnd);
-    return eStart < bEnd && eEnd > bStart;
-  }
-  // All-day event: show on first block only
-  return false;
-}
-
-function isFirstOverlappingBlock(
-  event: CalendarEvent,
-  blockStart: string,
-  blockEnd: string,
-  allBlocks: RoutineBlock[],
-): boolean {
-  if (!event.start_time || !event.end_time) return false;
-  const eStart = parseMinutes(event.start_time);
-  for (const block of allBlocks) {
-    const bStart = parseMinutes(block.startTime);
-    const bEnd = parseMinutes(block.endTime);
-    if (eStart >= bStart && eStart < bEnd) {
-      return block.startTime === blockStart;
-    }
-  }
-  // Event starts before first block → show on first block
-  if (allBlocks.length > 0) {
-    return blockStart === allBlocks[0].startTime;
-  }
-  return false;
 }
 
 const SOURCE_STYLES: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -271,6 +237,69 @@ export function DailyTimelinePlanner({
   const allDayEvents = events.filter(e => !e.start_time || !e.end_time);
   const timedEvents = events.filter(e => e.start_time && e.end_time);
 
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [blockRects, setBlockRects] = useState<{ blockId: string; top: number; left: number; right: number; height: number }[]>([]);
+
+  const measureBlocks = useCallback(() => {
+    const container = timelineRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const items = Array.from(container.querySelectorAll<HTMLElement>('[data-block-landmark]'));
+    const rects = items
+      .filter(el => el.dataset.blockId)
+      .map(el => {
+        const r = el.getBoundingClientRect();
+        return {
+          blockId: el.dataset.blockId!,
+          top: r.top - containerRect.top,
+          left: r.left - containerRect.left,
+          right: containerRect.right - r.right,
+          height: r.height,
+        };
+      });
+    setBlockRects(rects);
+  }, []);
+
+  useLayoutEffect(() => {
+    measureBlocks();
+    if (typeof ResizeObserver !== 'undefined' && timelineRef.current) {
+      const ro = new ResizeObserver(() => {
+        requestAnimationFrame(measureBlocks);
+      });
+      ro.observe(timelineRef.current);
+      const blocksEl = timelineRef.current.querySelector('[data-blocks-root]');
+      if (blocksEl) ro.observe(blocksEl);
+      return () => ro.disconnect();
+    }
+  }, [measureBlocks, blocks, tasksByBlock]);
+
+  const minuteToY = useCallback((minutes: number) => {
+    if (blockRects.length === 0 || sortedBlocks.length === 0) return 0;
+    for (let i = 0; i < sortedBlocks.length; i++) {
+      const block = sortedBlocks[i];
+      const rect = blockRects.find(r => r.blockId === block.id);
+      if (!rect) continue;
+      const bStart = parseTime(block.startTime);
+      const bEnd = parseTime(block.endTime);
+      if (minutes >= bStart && minutes <= bEnd) {
+        const pct = (minutes - bStart) / Math.max(bEnd - bStart, 1);
+        return rect.top + Math.max(0, Math.min(1, pct)) * rect.height;
+      }
+      if (minutes < bStart) {
+        return rect.top;
+      }
+    }
+    const lastBlock = sortedBlocks[sortedBlocks.length - 1];
+    const lastRect = blockRects.find(r => r.blockId === lastBlock.id);
+    return lastRect ? lastRect.top + lastRect.height : 0;
+  }, [blockRects, sortedBlocks]);
+
+  const timelineBottom = blockRects.length > 0
+    ? Math.max(...blockRects.map(r => r.top + r.height))
+    : 0;
+  const eventColLeft = blockRects.length > 0 ? blockRects[0].left : 48;
+  const eventColRight = blockRects.length > 0 ? blockRects[0].right : 12;
+
   return (
     <Card className="p-3 md:p-4">
       <div className="flex items-center justify-between mb-3">
@@ -302,7 +331,7 @@ export function DailyTimelinePlanner({
         </div>
       )}
 
-      <div className="relative space-y-1">
+      <div ref={timelineRef} data-blocks-root className="relative space-y-1">
         {sortedBlocks.map((block, index) => {
           const blockId = block.id;
           const startM = parseTime(block.startTime);
@@ -333,15 +362,12 @@ export function DailyTimelinePlanner({
                   {formatTime(block.startTime)}
                 </div>
 
-                {(() => {
-                  const blockEvents = timedEvents.filter(e =>
-                    eventsOverlapBlock(e, block.startTime, block.endTime) &&
-                    isFirstOverlappingBlock(e, block.startTime, block.endTime, sortedBlocks)
-                  );
-                  return (
-                <div className={cn(
-                  "flex-1 border-l-[3px] rounded-lg border transition-all relative",
-                  colors.border,
+                <div
+                  data-block-landmark
+                  data-block-id={blockId}
+                  className={cn(
+                    "flex-1 border-l-[3px] rounded-lg border transition-all relative",
+                    colors.border,
                   completed && "opacity-70",
                   isCurrent && "ring-2 ring-primary shadow-md",
                   isDragOver && "ring-2 ring-primary/60 bg-primary/10 scale-[1.01]",
@@ -437,33 +463,6 @@ export function DailyTimelinePlanner({
                       </div>
                     )}
 
-                    {/* Timed events on top of the block, without hiding the template */}
-                    {blockEvents.length > 0 && (
-                      <div className="mt-1.5 ml-6 space-y-1">
-                        {blockEvents.map(ev => {
-                          const ec = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.default;
-                          return (
-                            <div
-                              key={ev.id}
-                              className={cn("flex items-center gap-1.5 px-2 py-1 rounded-md border-l-2", ec.bg, ec.border)}
-                              title={`${ev.title}${ev.start_time ? ` (${formatHour(ev.start_time)} - ${formatHour(ev.end_time!)})` : ''}`}
-                            >
-                              <Clock className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
-                              <span className="text-[9px] font-bold truncate leading-tight flex-1">{ev.title}</span>
-                              {ev.start_time && (
-                                <span className="text-[8px] text-muted-foreground font-mono shrink-0">
-                                  {formatHour(ev.start_time)} – {formatHour(ev.end_time!)}
-                                </span>
-                              )}
-                              <span className={cn("text-[7px] font-medium shrink-0", ec.text)}>
-                                {EVENT_CATEGORY_NAMES[ev.category] || ev.category}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
                     {/* Tasks */}
                     {tasks.length > 0 && (
                       <div className="mt-1.5 ml-6 space-y-0.5">
@@ -499,12 +498,49 @@ export function DailyTimelinePlanner({
                     <div className="h-0.5 bg-primary rounded-full" />
                   )}
                 </div>
-                  );
-                })()}
               </div>
             </div>
           );
         })}
+
+        {timedEvents.length > 0 && blockRects.length > 0 && (
+          <div
+            className="absolute z-30 pointer-events-none overflow-visible"
+            style={{ top: 0, bottom: 0, left: eventColLeft, right: eventColRight }}
+          >
+            {timedEvents.map(ev => {
+              const eStart = parseMinutes(ev.start_time!);
+              const eEnd = parseMinutes(ev.end_time!);
+              const y0 = minuteToY(eStart);
+              const y1 = minuteToY(eEnd);
+              if (y1 <= 0 || y0 >= timelineBottom) return null;
+              const top = Math.min(y0, y1);
+              const height = Math.max(y1 - y0, 18);
+              const ec = EVENT_CATEGORY_COLORS[ev.category] || EVENT_CATEGORY_COLORS.default;
+              return (
+                <div
+                  key={ev.id}
+                  className={cn("absolute rounded-md border-l-2 overflow-hidden", ec.bg, ec.border)}
+                  style={{ top, height, left: 0, right: 0 }}
+                  title={`${ev.title} (${formatHour(ev.start_time!)} - ${formatHour(ev.end_time!)})`}
+                >
+                  <div className="flex items-center gap-1.5 px-2 py-1">
+                    <Clock className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+                    <span className="text-[9px] font-bold truncate leading-tight flex-1">{ev.title}</span>
+                    {height >= 30 && (
+                      <span className="text-[8px] text-muted-foreground font-mono shrink-0">
+                        {formatHour(ev.start_time!)} – {formatHour(ev.end_time!)}
+                      </span>
+                    )}
+                    <span className={cn("text-[7px] font-medium shrink-0", ec.text)}>
+                      {EVENT_CATEGORY_NAMES[ev.category] || ev.category}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="mt-2 flex items-center gap-1.5 text-[9px] text-muted-foreground flex-wrap">
