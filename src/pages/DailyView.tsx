@@ -600,7 +600,7 @@ export default function DailyView() {
 
           </>
         ) : viewMode === 'autocritica' ? (
-          <AutocriticaSection start={selectedDate} end={selectedDate} scope="day" />
+          <AutocriticaSection start={selectedDate} end={selectedDate} scope="day" planGoals={planGoals} />
         ) : viewMode === 'sistemas' ? (
           <DaySystemsSection
             completions={data.completions}

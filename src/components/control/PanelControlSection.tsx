@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Gauge } from 'lucide-react';
-import { getDayGoalEffective, getIdiomasGoalWithDefault } from '@/lib/hierarchy';
+import { getDayGoalEffective, getIdiomasGoal } from '@/lib/hierarchy';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,20 +82,21 @@ export function minutesOfToday(timeData: Record<string, number>, workoutDuration
 export function goalOfToday(today: Date, id: string, planGoals?: Record<string, number> | null): number {
   if (planGoals) {
     if (id === 'idiomas') {
-      const g = getIdiomasGoalWithDefault(today, planGoals);
+      const g = getIdiomasGoal(today, planGoals);
       if (g > 0) return g;
     } else if ((planGoals[id] || 0) > 0) {
       return planGoals[id]!;
     }
   }
+  const g = getDayGoalEffective(today, id);
+  if (g > 0) return g;
   const fixed = dailyEffortMax(today, id);
   if (fixed != null) return fixed;
   if (id === 'idiomas') {
-    const g = getDayGoalEffective(today, 'italiano') + getDayGoalEffective(today, 'ingles');
-    return g > 0 ? g : (DEFAULT_GOALS.idiomas || 0);
+    const gi = getDayGoalEffective(today, 'italiano') + getDayGoalEffective(today, 'ingles');
+    return gi > 0 ? gi : (DEFAULT_GOALS.idiomas || 0);
   }
-  const g = getDayGoalEffective(today, id);
-  return g > 0 ? g : (DEFAULT_GOALS[id] || 30);
+  return DEFAULT_GOALS[id] || 30;
 }
 
 export function computePanelSummary(timeData: Record<string, number>, workoutDuration: number, today = new Date(), planGoals?: Record<string, number> | null) {

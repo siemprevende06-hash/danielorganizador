@@ -7,9 +7,10 @@ import { Progress } from '@/components/ui/progress';
 import { Activity, Gauge, Save, Scale, Target, Layers, TrendingUp, CalendarCheck, CheckCircle2, Timer, BookOpen, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
-import { useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER } from '@/hooks/useResultadosPeriodo';
+import { useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER, type AreaKey } from '@/hooks/useResultadosPeriodo';
 import { useDailyReview } from '@/hooks/useDailyReview';
 import { usePeriodicReview, type ReviewType } from '@/hooks/usePeriodicReview';
+import { getDayGoalEffective } from '@/lib/hierarchy';
 import { ReflectionForm } from '@/components/self-review/ReflectionForm';
 import { OverallRating } from '@/components/self-review/OverallRating';
 import { cn } from '@/lib/utils';
@@ -73,6 +74,7 @@ interface AutocriticaSectionProps {
   start?: Date;
   end?: Date;
   scope?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  planGoals?: Record<string, number> | null;
 }
 
 function ScoreRing({ value, color, size = 140, thickness = 13 }: { value: number; color: string; size?: number; thickness?: number }) {
@@ -104,7 +106,7 @@ function ScoreRing({ value, color, size = 140, thickness = 13 }: { value: number
   );
 }
 
-export function AutocriticaSection({ start: startProp, end: endProp, scope = 'week' }: AutocriticaSectionProps) {
+export function AutocriticaSection({ start: startProp, end: endProp, scope = 'week', planGoals }: AutocriticaSectionProps) {
   const ref = startProp ?? new Date();
   const start = startProp ?? ref;
   const end = endProp ?? ref;
@@ -134,11 +136,28 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
     });
   };
 
+  // Meta (plan) por área: para el día se usa el objetivo configurado en la
+  // planificación (planGoals guardado o jerarquía de metas) en lugar de los
+  // time_goal_minutes de daily_area_stats, que pueden quedar desactualizados.
+  const dayGoalForArea = (k: AreaKey): number => {
+    if (!isDay) return r.byArea[k].goalMinutes || 0;
+    let g = 0;
+    if (k === 'idiomas') {
+      if (planGoals) g = (planGoals.italiano || 0) + (planGoals.ingles || 0);
+      if (g <= 0) g = getDayGoalEffective(start, 'italiano') + getDayGoalEffective(start, 'ingles');
+    } else if (planGoals && (planGoals[k] || 0) > 0) {
+      g = planGoals[k]!;
+    } else {
+      g = getDayGoalEffective(start, k);
+    }
+    return g > 0 ? g : (r.byArea[k].goalMinutes || 0);
+  };
+
   const rows = AREA_ORDER
     .map((k) => ({
       key: k,
       label: AREA_LABELS[k] || k,
-      plan: r.byArea[k].goalMinutes || 0,
+      plan: dayGoalForArea(k),
       real: r.byArea[k].minutes || 0,
       done: r.byArea[k].done || 0,
       total: r.byArea[k].total || 0,
@@ -160,7 +179,9 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
     const v = list.filter((x): x is number => x != null);
     return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null;
   };
-  const esfuerzoPct = avgPct([minPct, sysPct]);
+  // Esfuerzo = % de minutos realizados vs planificados (misma lógica que el
+  // Panel de control). Los sistemas solo se usan como respaldo cuando no hay plan de minutos.
+  const esfuerzoPct = minPct ?? sysPct;
   const resultadosPct = avgPct([taskPct, bookPct, pagePct]);
   const scorePct = avgPct([esfuerzoPct, resultadosPct]) ?? 0;
   const verdict = verdictGlobal(scorePct);
