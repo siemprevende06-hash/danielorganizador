@@ -112,9 +112,26 @@ function eventsOverlapBlock(event: CalendarEvent, blockStart: string, blockEnd: 
   return false;
 }
 
-function isFirstBlockOfDay(event: CalendarEvent, blocks: RoutineBlock[], blockIndex: number) {
-  if (event.start_time && event.end_time) return true;
-  return blockIndex === 0;
+function isFirstOverlappingBlock(
+  event: CalendarEvent,
+  blockStart: string,
+  blockEnd: string,
+  allBlocks: RoutineBlock[],
+): boolean {
+  if (!event.start_time || !event.end_time) return false;
+  const eStart = parseMinutes(event.start_time);
+  for (const block of allBlocks) {
+    const bStart = parseMinutes(block.startTime);
+    const bEnd = parseMinutes(block.endTime);
+    if (eStart >= bStart && eStart < bEnd) {
+      return block.startTime === blockStart;
+    }
+  }
+  // Event starts before first block → show on first block
+  if (allBlocks.length > 0) {
+    return blockStart === allBlocks[0].startTime;
+  }
+  return false;
 }
 
 const SOURCE_STYLES: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -317,7 +334,10 @@ export function DailyTimelinePlanner({
                 </div>
 
                 {(() => {
-                  const blockEvents = timedEvents.filter(e => eventsOverlapBlock(e, block.startTime, block.endTime));
+                  const blockEvents = timedEvents.filter(e =>
+                    eventsOverlapBlock(e, block.startTime, block.endTime) &&
+                    isFirstOverlappingBlock(e, block.startTime, block.endTime, sortedBlocks)
+                  );
                   return (
                 <div className={cn(
                   "flex-1 border-l-[3px] rounded-lg border transition-all relative",
