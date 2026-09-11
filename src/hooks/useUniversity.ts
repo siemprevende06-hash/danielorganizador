@@ -22,6 +22,11 @@ export interface PartialExam {
   topics: string[];
 }
 
+export interface TaskStudySessions {
+  count: number;
+  minutes: number;
+}
+
 export interface SubjectTask {
   id: string;
   title: string;
@@ -31,6 +36,7 @@ export interface SubjectTask {
   task_type: 'delivery' | 'study';
   estimated_minutes?: number;
   topic_id?: string;
+  studySessions?: TaskStudySessions;
 }
 
 export interface Subject {
@@ -98,15 +104,35 @@ export function useUniversity() {
     try {
       setLoading(true);
 
-      const [subjectsRes, topicsRes, partialsRes, partialTopicsRes, tasksRes] = await Promise.all([
+      const [subjectsRes, topicsRes, partialsRes, partialTopicsRes, tasksRes, focusRes] = await Promise.all([
         supabase.from('university_subjects').select('*').order('created_at', { ascending: false }),
         supabase.from('subject_topics').select('*').order('order_index', { ascending: true }),
         supabase.from('partial_exams').select('*').order('exam_date', { ascending: true }),
         supabase.from('partial_exam_topics').select('*'),
         supabase.from('tasks').select('*').eq('source', 'university'),
+        supabase.from('focus_sessions').select('task_id, task_ids, duration_minutes'),
       ]);
 
       if (subjectsRes.error) throw subjectsRes.error;
+
+      // Agrupar sesiones de estudio por tarea (una tarea puede acumular varias sesiones)
+      const taskIdToSession = new Map<string, { count: number; minutes: number }>();
+      const addSessionTo = (id: string | null | undefined, minutes: number) => {
+        if (!id) return;
+        const cur = taskIdToSession.get(id) || { count: 0, minutes: 0 };
+        if (minutes > 0) {
+          cur.count += 1;
+          cur.minutes += minutes;
+        }
+        taskIdToSession.set(id, cur);
+      };
+      (focusRes.data || []).forEach((s: any) => {
+        const minutes = s.duration_minutes || 0;
+        addSessionTo(s.task_id, minutes);
+        if (Array.isArray(s.task_ids)) {
+          (s.task_ids as string[]).forEach((id: string) => addSessionTo(id, minutes));
+        }
+      });
 
       const subjectsWithData: Subject[] = (subjectsRes.data || []).map(subject => ({
         id: subject.id,
@@ -144,16 +170,20 @@ export function useUniversity() {
           })),
         tasks: (tasksRes.data || [])
           .filter(t => t.source_id === subject.id)
-          .map(t => ({
-            id: t.id,
-            title: t.title,
-            description: t.description || '',
-            completed: t.completed || false,
-            due_date: t.due_date || undefined,
-            task_type: (t.task_type === 'study' ? 'study' : 'delivery') as 'delivery' | 'study',
-            estimated_minutes: t.estimated_minutes,
-            topic_id: t.topic_id
-          }))
+          .map(t => {
+            const sessions = taskIdToSession.get(t.id);
+            return {
+              id: t.id,
+              title: t.title,
+              description: t.description || '',
+              completed: t.completed || false,
+              due_date: t.due_date || undefined,
+              task_type: (t.task_type === 'study' ? 'study' : 'delivery') as 'delivery' | 'study',
+              estimated_minutes: t.estimated_minutes,
+              topic_id: t.topic_id,
+              studySessions: sessions || { count: 0, minutes: 0 },
+            };
+          })
       }));
 
       setSubjects(subjectsWithData);

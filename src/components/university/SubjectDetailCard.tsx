@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,13 +12,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   BadgeCheck, BookOpen, ChevronDown, ChevronRight, PlusCircle, Trash2, 
   Clock, FileText, Play, Calendar, Target, GraduationCap,
-  Pencil, CheckCircle2
+  Pencil, CheckCircle2, AlarmClock
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Subject, SubjectTopic, PartialExam, SubjectTask } from '@/hooks/useUniversity';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AssignTaskToBlockDialog } from './AssignTaskToBlockDialog';
+import { SubjectCover } from './SubjectCover';
 
 interface SubjectDetailCardProps {
   subject: Subject;
@@ -43,6 +45,10 @@ interface SubjectDetailCardProps {
   }) => Promise<boolean>;
   onToggleTask: (taskId: string) => Promise<boolean>;
   onDeleteTask: (taskId: string) => Promise<boolean>;
+  cover?: string | null;
+  uploadingCover?: boolean;
+  onUploadCover?: (file: File) => void;
+  onRemoveCover?: () => void;
 }
 
 export function SubjectDetailCard({
@@ -56,7 +62,11 @@ export function SubjectDetailCard({
   onDeletePartialExam,
   onAddTask,
   onToggleTask,
-  onDeleteTask
+  onDeleteTask,
+  cover,
+  uploadingCover,
+  onUploadCover,
+  onRemoveCover,
 }: SubjectDetailCardProps) {
   const navigate = useNavigate();
   const [isTopicsOpen, setIsTopicsOpen] = useState(false);
@@ -172,8 +182,19 @@ export function SubjectDetailCard({
   };
 
   return (
-    <Card className="border-l-4 border-l-primary">
-      <CardHeader className="pb-3">
+    <Card className="border-l-4 border-l-primary overflow-hidden rounded-2xl">
+      {onUploadCover && (
+        <SubjectCover
+          subjectId={subject.id}
+          label={subject.name}
+          cover={cover}
+          uploading={uploadingCover}
+          onUpload={onUploadCover}
+          onRemove={onRemoveCover}
+          className="h-32"
+        />
+      )}
+      <CardHeader className="pb-3 pt-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -565,6 +586,9 @@ export function SubjectDetailCard({
                 <p className="text-xs font-semibold text-muted-foreground uppercase">Tiempos de Estudio</p>
                 {studyTasks.map(task => {
                   const relatedTopic = subject.topics.find(t => t.id === task.topic_id);
+                  const sessions = task.studySessions || { count: 0, minutes: 0 };
+                  const target = task.estimated_minutes || 0;
+                  const pct = target > 0 ? Math.min(100, Math.round((sessions.minutes / target) * 100)) : 0;
                   return (
                     <div key={task.id} className="flex items-start gap-2 p-2 bg-blue-500/10 rounded-md border border-blue-500/20">
                       <Checkbox 
@@ -576,7 +600,7 @@ export function SubjectDetailCard({
                         <p className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
                           {task.title}
                         </p>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {task.estimated_minutes && (
                             <Badge variant="secondary" className="text-xs">
                               <Clock className="h-3 w-3 mr-1" />
@@ -586,7 +610,19 @@ export function SubjectDetailCard({
                           {relatedTopic && (
                             <Badge variant="outline" className="text-xs">{relatedTopic.title}</Badge>
                           )}
+                          {sessions.count > 0 && (
+                            <Badge className="text-xs bg-blue-600">
+                              <AlarmClock className="h-3 w-3 mr-1" />
+                              {sessions.count} sesión{sessions.count > 1 ? 'es' : ''} · {sessions.minutes}m
+                            </Badge>
+                          )}
                         </div>
+                        {target > 0 && !task.completed && (
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <Progress value={pct} className="h-1 flex-1 bg-blue-500/20" />
+                            <span className="text-[10px] text-muted-foreground tabular-nums">{sessions.minutes}/{target}m</span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         {!task.completed && (

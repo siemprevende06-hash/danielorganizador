@@ -73,14 +73,29 @@ export interface PlanTaskItem {
   project_id?: string;
 }
 
+export interface UniversityStudyTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  sessions: number;
+  minutes: number;
+  estimatedMinutes: number | null;
+  topicId?: string;
+  topicTitle?: string;
+  blockId?: string;
+  blockTitle?: string;
+}
+
 export interface UniversitySubjectResult {
   id: string;
   name: string;
+  cover: string | null;
   topics: { id: string; title: string }[];
   tasks: PlanTaskItem[];
   deliveries: PlanTaskItem[];
   exams: { id: string; title: string; date: string | null; done: boolean }[];
   partials: { id: string; title: string; date: string | null; done: boolean }[];
+  studyTasks: UniversityStudyTask[];
 }
 
 export interface BusinessResult {
@@ -108,7 +123,7 @@ export interface ResultadoPeriodo {
   byArea: Record<AreaKey, AreaResult>;
   books: PlanBook[];
   songs: PlanSong[];
-  university: { subjects: UniversitySubjectResult[]; otherTasks: any[] };
+  university: { subjects: UniversitySubjectResult[]; otherTasks: any[]; study: { sessions: number; minutes: number } };
   entrepreneurships: { businesses: BusinessResult[]; otherTasks: any[] };
   projects: { list: ProjectResult[]; otherTasks: any[] };
   globalDone: number;
@@ -142,7 +157,7 @@ export const EMPTY_RESULTADO: ResultadoPeriodo = {
   byArea: emptyAreaResult(),
   books: [],
   songs: [],
-  university: { subjects: [], otherTasks: [] },
+  university: { subjects: [], otherTasks: [], study: { sessions: 0, minutes: 0 } },
   entrepreneurships: { businesses: [], otherTasks: [] },
   projects: { list: [], otherTasks: [] },
   globalDone: 0,
@@ -176,7 +191,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         citasRes, intimidadRes, eventosRes, ingresoRes,
         libraryRes, repertoireRes, projectsRes, subjectsRes, entregasRes,
         examsRes, partialsRes, topicRes, goalsRes, entPendingRes, subjPendingRes,
-        planRes,
+        planRes, blocksRes, areaCoversRes, allUniTasksRes,
       ] = await Promise.all([
         supabase.from('tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
         supabase.from('entrepreneurship_tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
@@ -204,6 +219,9 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('entrepreneurship_tasks').select('*').eq('completed', false),
         supabase.from('tasks').select('*').eq('source', 'university').eq('completed', false),
         supabase.from('daily_plans').select('plan_date, notes').gte('plan_date', startStr).lte('plan_date', endStr),
+        supabase.from('routine_blocks').select('block_id, title'),
+        supabase.from('area_covers').select('id, type, url'),
+        supabase.from('tasks').select('*').eq('source', 'university'),
       ]);
 
       const areaStats = areaStatsRes.data || [];
@@ -214,6 +232,46 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const chess = chessRes.data || [];
       const logs = logsRes.data || [];
       const focus = focusRes.data || [];
+      const blockTitleById = new Map<string, string>((blocksRes.data || []).map((b: any) => [b.block_id, b.title]));
+      const subCoverBySubject = new Map<string, string>(
+        (areaCoversRes.data || [])
+          .filter((c: any) => c.type === 'sub')
+          .map((c: any) => [c.id, c.url])
+      );
+
+      // Sesiones de estudio por tarea dentro del período (una tarea acumula varias sesiones)
+      const sessionByTask = new Map<string, { count: number; minutes: number }>();
+      const addSession = (id: string | null | undefined, minutes: number) => {
+        if (!id) return;
+        if (!minutes) return;
+        const cur = sessionByTask.get(id) || { count: 0, minutes: 0 };
+        cur.count += 1;
+        cur.minutes += minutes;
+        sessionByTask.set(id, cur);
+      };
+      focus.forEach((f: any) => {
+        const minutes = f.duration_minutes || 0;
+        addSession(f.task_id, minutes);
+        if (Array.isArray(f.task_ids)) {
+          (f.task_ids as string[]).forEach((id: string) => addSession(id, minutes));
+        }
+      });
+
+      // Asignación a bloques (deep work) por fecha desde el plan del día guardado en localStorage
+      const blockForTaskByDate = new Map<string, Map<string, string>>();
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateKey = format(d, 'yyyy-MM-dd');
+        const raw = localStorage.getItem(`dailyPlanTasks_${dateKey}`);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          const dayMap = new Map<string, string>();
+          (parsed.tasks || []).forEach((t: any) => {
+            if (t.routine_block_id) dayMap.set(t.id, t.routine_block_id);
+          });
+          blockForTaskByDate.set(dateKey, dayMap);
+        } catch {}
+      }
       const citas = citasRes.data || [];
       const intimidad = intimidadRes.data || [];
       const eventos = eventosRes.data || [];
@@ -296,12 +354,54 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const examsRows = (examsRes.data || []).filter((e: any) => activeSubjects.includes(e.subject_id) && dateInPeriod(e.exam_date));
       const partialsRows = (partialsRes.data || []).filter((p: any) => activeSubjects.includes(p.subject_id) && dateInPeriod(p.exam_date));
       const topicRows = (topicRes.data || []).filter((t: any) => activeSubjects.includes(t.subject_id));
+      const topicTitleById = new Map(topicRows.map(t => [t.id, t.title]));
+
+      // Todas las tareas universitarias (para poder mostrar sesiones acumuladas incluso de
+      // tareas ya completadas o sin fecha dentro del período)
+      const allUniRows = allUniTasksRes.data || [];
+      const uniTaskById = new Map<string, any>(allUniRows.map(t => [t.id, t]));
+      const visibleUniTaskIds = new Set<string>();
+      Object.values(subjectTaskMap).forEach(list => list.forEach(t => visibleUniTaskIds.add(t.id)));
+      allUniRows.forEach(t => { if (sessionByTask.has(t.id)) visibleUniTaskIds.add(t.id); });
+      const extraStudyIdsBySubject: Record<string, string[]> = {};
+      allUniRows.forEach(t => {
+        if (t.task_type !== 'study' || !visibleUniTaskIds.has(t.id)) return;
+        if (!t.source_id || !activeSubjects.includes(t.source_id)) return;
+        (extraStudyIdsBySubject[t.source_id] = extraStudyIdsBySubject[t.source_id] || []).push(t.id);
+      });
+
       const universitySubjects: UniversitySubjectResult[] = activeSubjects.map(id => {
         const ts = subjectTaskMap[id] || [];
         const subjTasks = ts.map(toPlanItem);
+        const planStudyIds = ts.filter(t => t.task_type === 'study').map(t => t.id);
+        const studyRowIds = [...new Set([...planStudyIds, ...(extraStudyIdsBySubject[id] || [])])];
+        const studyTasks: UniversityStudyTask[] = studyRowIds.map(rawId => {
+          const t = (subjectTaskMap[id] || []).find((x: any) => x.id === rawId) || uniTaskById.get(rawId);
+          if (!t) return null;
+          const sess = sessionByTask.get(t.id) || { count: 0, minutes: 0 };
+          let blockId: string | undefined;
+          blockForTaskByDate.forEach(dayMap => {
+            if (!blockId && dayMap.has(t.id)) blockId = dayMap.get(t.id);
+          });
+          let blockTitle: string | undefined;
+          if (blockId) blockTitle = blockTitleById.get(blockId) || 'Bloque';
+          return {
+            id: t.id,
+            title: t.title,
+            completed: !!t.completed,
+            sessions: sess.count,
+            minutes: sess.minutes,
+            estimatedMinutes: t.estimated_minutes ?? null,
+            topicId: t.topic_id ?? undefined,
+            topicTitle: t.topic_id ? topicTitleById.get(t.topic_id) : undefined,
+            blockId,
+            blockTitle,
+          };
+        }).filter((x: UniversityStudyTask | null): x is UniversityStudyTask => x !== null);
         const items: UniversitySubjectResult = {
           id,
           name: subjMap.get(id) || 'Asignatura',
+          cover: subCoverBySubject.get(id) || null,
           topics: topicRows.filter(t => t.subject_id === id).map(t => ({ id: t.id, title: t.title })),
           tasks: subjTasks,
           deliveries: subjTasks.filter(t => t.task_type !== 'study'),
@@ -317,9 +417,17 @@ export function useResultadosPeriodo(start: Date, end: Date) {
             date: p.exam_date,
             done: p.grade != null || p.status === 'completed',
           })),
+          studyTasks,
         };
         return items;
       });
+      const uniStudySessions = universitySubjects.reduce((acc, subj) => {
+        subj.studyTasks.forEach(st => {
+          acc.sessions += st.sessions;
+          acc.minutes += st.minutes;
+        });
+        return acc;
+      }, { sessions: 0, minutes: 0 });
       const uniOther = tasks.filter((t: any) =>
         normalizeArea(t.area_id || t.source || t.area) === 'universidad' && t.source !== 'university'
       );
@@ -594,7 +702,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         byArea,
         books,
         songs: songsPlan,
-        university: { subjects: universitySubjects, otherTasks: uniOther },
+        university: { subjects: universitySubjects, otherTasks: uniOther, study: uniStudySessions },
         entrepreneurships: { businesses: businessList, otherTasks: entOther },
         projects: { list: projectList, otherTasks: projOther },
         globalDone: tasks.filter((t: any) => t.completed).length,

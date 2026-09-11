@@ -262,6 +262,30 @@ export function getDayGoalSum(date: Date): number {
 }
 
 // ---------------------------------------------------------------------------
+// Idiomas = italiano + inglés (un solo indicador en el plan/esfuerzo diario).
+// ---------------------------------------------------------------------------
+/** Meta diaria por defecto de idiomas por día de la semana (índice Date.getDay(): 0=Domingo...6=Sábado) */
+export const IDIOMAS_DAILY_DEFAULT = [20, 20, 120, 20, 20, 120, 20];
+
+/** Meta de idiomas efectiva (italiano + inglés) del día, respetando el plan guardado. */
+export function getIdiomasGoal(date: Date, planGoals?: Record<string, number> | null): number {
+  if (planGoals) {
+    const g = (planGoals.italiano || 0) + (planGoals.ingles || 0);
+    if (g > 0) return g;
+  }
+  const hi = getDayGoalEffective(date, 'italiano') + getDayGoalEffective(date, 'ingles');
+  if (hi > 0) return hi;
+  return 0;
+}
+
+/** Igual que getIdiomasGoal pero aplica la precarga por día (martes/viernes = 120) si no hay meta configurada. */
+export function getIdiomasGoalWithDefault(date: Date, planGoals?: Record<string, number> | null): number {
+  const g = getIdiomasGoal(date, planGoals);
+  if (g > 0) return g;
+  return IDIOMAS_DAILY_DEFAULT[date.getDay()] ?? 20;
+}
+
+// ---------------------------------------------------------------------------
 // Limpieza de overrides dentro de un rango
 // ---------------------------------------------------------------------------
 function clearOverridesForMonth(quarter: number, year: number, monthIdx: number, area: string) {

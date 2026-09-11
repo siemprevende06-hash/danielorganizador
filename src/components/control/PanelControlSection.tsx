@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Gauge } from 'lucide-react';
-import { getDayGoalEffective } from '@/lib/hierarchy';
+import { getDayGoalEffective, getIdiomasGoalWithDefault } from '@/lib/hierarchy';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,7 +79,15 @@ export function minutesOfToday(timeData: Record<string, number>, workoutDuration
   return timeData[id] || 0;
 }
 
-export function goalOfToday(today: Date, id: string): number {
+export function goalOfToday(today: Date, id: string, planGoals?: Record<string, number> | null): number {
+  if (planGoals) {
+    if (id === 'idiomas') {
+      const g = getIdiomasGoalWithDefault(today, planGoals);
+      if (g > 0) return g;
+    } else if ((planGoals[id] || 0) > 0) {
+      return planGoals[id]!;
+    }
+  }
   const fixed = dailyEffortMax(today, id);
   if (fixed != null) return fixed;
   if (id === 'idiomas') {
@@ -90,9 +98,9 @@ export function goalOfToday(today: Date, id: string): number {
   return g > 0 ? g : (DEFAULT_GOALS[id] || 30);
 }
 
-export function computePanelSummary(timeData: Record<string, number>, workoutDuration: number, today = new Date()) {
+export function computePanelSummary(timeData: Record<string, number>, workoutDuration: number, today = new Date(), planGoals?: Record<string, number> | null) {
   const minutes = ALL_TIMER_ITEMS.reduce((s, it) => s + minutesOfToday(timeData, workoutDuration, it.id), 0);
-  const goal = ALL_TIMER_ITEMS.reduce((s, it) => s + goalOfToday(today, it.id), 0);
+  const goal = ALL_TIMER_ITEMS.reduce((s, it) => s + goalOfToday(today, it.id, planGoals), 0);
   return { minutes, goal, pct: goal > 0 ? Math.min(100, Math.round((minutes / goal) * 100)) : 0 };
 }
 
@@ -167,9 +175,10 @@ export interface PanelControlSectionProps {
   completions?: Record<string, boolean>;
   workoutDuration?: number;
   date?: Date;
+  planGoals?: Record<string, number> | null;
 }
 
-export function PanelControlSection({ timeData = {}, completions = {}, workoutDuration = 0, date }: PanelControlSectionProps) {
+export function PanelControlSection({ timeData = {}, completions = {}, workoutDuration = 0, date, planGoals }: PanelControlSectionProps) {
   const today = date || new Date();
   const dateKey = format(today, 'yyyy-MM-dd');
 
@@ -201,9 +210,9 @@ export function PanelControlSection({ timeData = {}, completions = {}, workoutDu
 
   const summary = useMemo(() => {
     const minutes = ALL_TIMER_ITEMS.reduce((s, it) => s + mergedMinutes(it.id), 0);
-    const goal = ALL_TIMER_ITEMS.reduce((s, it) => s + goalOfToday(today, it.id), 0);
+    const goal = ALL_TIMER_ITEMS.reduce((s, it) => s + goalOfToday(today, it.id, planGoals), 0);
     return { minutes, goal, pct: goal > 0 ? Math.min(100, Math.round((minutes / goal) * 100)) : 0 };
-  }, [timeData, workoutDuration, areaMinutes, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timeData, workoutDuration, areaMinutes, today, planGoals]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -225,7 +234,7 @@ export function PanelControlSection({ timeData = {}, completions = {}, workoutDu
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Prioridades</h3>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {PRIORITIES.map(it => {
-            const g = goalOfToday(today, it.id);
+            const g = goalOfToday(today, it.id, planGoals);
             return (
               <TimerRingCard key={it.id} item={it} minutes={mergedMinutes(it.id)} min={Math.round(g / 2)} max={g} />
             );

@@ -19,7 +19,7 @@ const taskSchema = z.object({
 interface AddSubjectTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  subjects: { id: string; name: string }[];
+  subjects: { id: string; name: string; topics?: { id: string; title: string }[] }[];
   onSubmit: (data: {
     subject_id: string;
     title: string;
@@ -27,6 +27,7 @@ interface AddSubjectTaskDialogProps {
     due_date?: string;
     task_type: 'delivery' | 'study';
     estimated_minutes?: number;
+    topic_id?: string;
   }) => Promise<boolean>;
 }
 
@@ -37,6 +38,7 @@ export function AddSubjectTaskDialog({ open, onOpenChange, subjects, onSubmit }:
   const [dueDate, setDueDate] = useState('');
   const [taskType, setTaskType] = useState<'delivery' | 'study'>('delivery');
   const [minutes, setMinutes] = useState('30');
+  const [topicId, setTopicId] = useState('none');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -62,7 +64,8 @@ export function AddSubjectTaskDialog({ open, onOpenChange, subjects, onSubmit }:
         description: validated.description,
         due_date: validated.due_date,
         task_type: validated.task_type,
-        estimated_minutes: validated.estimated_minutes
+        estimated_minutes: validated.estimated_minutes,
+        topic_id: topicId && topicId !== 'none' ? topicId : undefined
       });
 
       if (success) {
@@ -89,7 +92,10 @@ export function AddSubjectTaskDialog({ open, onOpenChange, subjects, onSubmit }:
     setDueDate('');
     setTaskType('delivery');
     setMinutes('30');
+    setTopicId('none');
   };
+
+  const selectedSubject = subjects.find(s => s.id === subjectId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -160,6 +166,23 @@ export function AddSubjectTaskDialog({ open, onOpenChange, subjects, onSubmit }:
               </div>
             )}
           </div>
+
+          {selectedSubject && selectedSubject.topics && selectedSubject.topics.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="taskTopic">Tema Relacionado (opcional)</Label>
+              <Select value={topicId} onValueChange={setTopicId}>
+                <SelectTrigger id="taskTopic">
+                  <SelectValue placeholder="Seleccionar tema..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Ninguno</SelectItem>
+                  {selectedSubject.topics.map(tp => (
+                    <SelectItem key={tp.id} value={tp.id}>{tp.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -9,10 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   PlusCircle, GraduationCap, BookOpen, Clock, Target,
-  Calendar, AlertTriangle, CheckCircle2, Play, BarChart3, Award
+  Calendar, AlertTriangle, CheckCircle2, Play, BarChart3, Award, AlarmClock, CalendarClock, Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUniversity } from '@/hooks/useUniversity';
+import { useUniversity, type SubjectTask } from '@/hooks/useUniversity';
 import { useExams, Exam } from '@/hooks/useExams';
 import { ExamCard } from '@/components/university/ExamCard';
 import { AddExamDialog } from '@/components/university/AddExamDialog';
@@ -26,10 +26,14 @@ import { ExamCalendar } from '@/components/university/ExamCalendar';
 import { AcademicAnalytics } from '@/components/university/AcademicAnalytics';
 import { UniversityDashboard } from '@/components/university/UniversityDashboard';
 import { RoutineBlockSchedule } from '@/components/university/RoutineBlockSchedule';
+import { AssignTaskToBlockDialog } from '@/components/university/AssignTaskToBlockDialog';
+import { useAreaCovers, coverKey } from '@/hooks/useAreaCovers';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useActiveSelections } from '@/hooks/useActiveSelections';
+import { cn } from '@/lib/utils';
 import { z } from 'zod';
 
 const subjectSchema = z.object({
@@ -38,6 +42,12 @@ const subjectSchema = z.object({
   professor: z.string().max(100).optional(),
   schedule: z.string().max(200).optional()
 });
+
+interface AssignTarget {
+  id: string;
+  title: string;
+  subjectName: string;
+}
 
 export default function UniversityPage() {
   const navigate = useNavigate();
@@ -51,6 +61,8 @@ export default function UniversityPage() {
   } = useUniversity();
 
   const { exams, createExam, updateExamProgress, deleteExam } = useExams();
+  const { covers, saveCover, removeCover } = useAreaCovers();
+  const { uploadImage, deleteImage } = useImageUpload();
 
   const [isSubjectDialogOpen, setIsSubjectDialogOpen] = useState(false);
   const [subjectName, setSubjectName] = useState('');
@@ -65,6 +77,10 @@ export default function UniversityPage() {
   const [currentExam, setCurrentExam] = useState<Exam | null>(null);
   const [examSubjectId, setExamSubjectId] = useState('');
   const [examSubjectName, setExamSubjectName] = useState('');
+
+  const [uploadingSubjectId, setUploadingSubjectId] = useState<string | null>(null);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
 
   const [todayStudyMinutes, setTodayStudyMinutes] = useState(0);
   const [studyByDay, setStudyByDay] = useState<{ day: string; minutes: number }[]>([]);
@@ -85,6 +101,38 @@ export default function UniversityPage() {
     const days = differenceInDays(parseISO(p.exam_date), new Date());
     return days >= 0 && days <= 14;
   });
+
+  const studyMeta = useMemo(() => {
+    const studyTasks = totalTasks.filter(t => t.task_type === 'study');
+    const sessions = studyTasks.reduce((acc, t) => acc + (t.studySessions?.count || 0), 0);
+    const minutes = studyTasks.reduce((acc, t) => acc + (t.studySessions?.minutes || 0), 0);
+    const target = studyTasks.reduce((acc, t) => acc + (t.estimated_minutes || 0), 0);
+    const byTask: Record<string, { count: number; minutes: number }> = {};
+    studyTasks.forEach(t => {
+      if (t.studySessions && t.studySessions.count > 0) byTask[t.id] = t.studySessions;
+    });
+    return { sessions, minutes, target, byTask };
+  }, [subjects]);
+
+  const coverFor = useMemo(() => (id: string) => covers[coverKey('sub', id)] || null, [covers]);
+
+  const handleUploadCover = async (subjectId: string, file: File) => {
+    setUploadingSubjectId(subjectId);
+    try {
+      const url = await uploadImage(file, 'subject-covers');
+      if (url) await saveCover('sub', subjectId, url);
+    } finally {
+      setUploadingSubjectId(null);
+    }
+  };
+
+  const handleRemoveCover = async (subjectId: string) => {
+    const cover = covers[coverKey('sub', subjectId)];
+    if (cover) {
+      try { await deleteImage(cover); } catch {}
+    }
+    removeCover('sub', subjectId);
+  };
 
   const handleCreateSubject = async () => {
     try {
@@ -118,6 +166,17 @@ export default function UniversityPage() {
     navigate(`/focus?taskId=${taskId}&title=${encodeURIComponent(title)}&area=universidad`);
   };
 
+  const openAssign = (task: SubjectTask, subjectName: string) => {
+    setAssignTarget({ id: task.id, title: task.title, subjectName });
+    setAssignDialogOpen(true);
+  };
+
+  const subjectTasks = useMemo(() => {
+    const map = new Map<string, string>();
+    subjects.forEach(s => s.tasks.forEach(t => map.set(t.id, s.name)));
+    return map;
+  }, [subjects]);
+
   const selectedSubject = selectedSubjectId
     ? currentSemesterSubjects.find(s => s.id === selectedSubjectId) || null
     : null;
@@ -130,127 +189,79 @@ export default function UniversityPage() {
     );
   }
 
+  const semesterLabel = `${settings.current_semester}° Semestre · ${settings.current_year}° Año`;
+
+  const sortByDue = (a: SubjectTask, b: SubjectTask) => {
+    if (!a.due_date) return 1;
+    if (!b.due_date) return -1;
+    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+  };
+
+  const subjectFor = (task: SubjectTask) => subjects.find(s => s.tasks.some(t => t.id === task.id));
+
   return (
     <div className="container mx-auto px-4 py-24 space-y-6 max-w-6xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <header>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <GraduationCap className="h-8 w-8 text-primary" />
-            Universidad
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {settings.current_year}° Año · {settings.current_semester}° Semestre
-          </p>
-        </header>
-        <div className="flex gap-2 flex-wrap">
-          <UniversitySettings
-            currentYear={settings.current_year}
-            currentSemester={settings.current_semester}
-            academicSchedule={settings.academic_schedule}
-            onSave={updateSettings}
-          />
-          <Dialog open={isSubjectDialogOpen} onOpenChange={setIsSubjectDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nueva Asignatura
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Crear Nueva Asignatura</DialogTitle>
-                <DialogDescription>
-                  Agrega una asignatura al {settings.current_semester}° semestre de {settings.current_year}° año
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Nombre *</label>
-                  <Input value={subjectName} onChange={(e) => setSubjectName(e.target.value)} placeholder="Ej: Cálculo I" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium">Código</label>
-                    <Input value={subjectCode} onChange={(e) => setSubjectCode(e.target.value)} placeholder="MAT-101" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Profesor</label>
-                    <Input value={professor} onChange={(e) => setProfessor(e.target.value)} placeholder="Nombre del profesor" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Horario</label>
-                  <Textarea value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder="Lunes y Miércoles 8:00-10:00" rows={2} />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreateSubject}>Crear Asignatura</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-indigo-600 text-white p-6 sm:p-8 shadow-lg">
+        <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-10 h-64 w-64 rounded-full bg-blue-300/20 blur-2xl" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <header>
+            <Badge className="bg-white/20 text-white border-white/30 mb-3">
+              <Sparkles className="h-3 w-3 mr-1" />
+              {semesterLabel}
+            </Badge>
+            <h1 className="text-3xl sm:text-4xl font-extrabold flex items-center gap-3">
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/15 backdrop-blur">
+                <GraduationCap className="h-6 w-6" />
+              </span>
+              Universidad
+            </h1>
+            <p className="text-white/80 text-sm mt-2 max-w-md">
+              Calcula tus parciales, planifica el estudio por temas y encaja tus bloques de foco.
+            </p>
+          </header>
+          <div className="flex gap-2 flex-wrap">
+            <UniversitySettings
+              currentYear={settings.current_year}
+              currentSemester={settings.current_semester}
+              academicSchedule={settings.academic_schedule}
+              onSave={updateSettings}
+            />
+            <Button size="sm" variant="secondary" className="bg-white text-primary hover:bg-white/90" onClick={() => setIsSubjectDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nueva Asignatura
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Quick Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <Card>
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-              <BookOpen className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-xl font-bold leading-none">{currentSemesterSubjects.length}</p>
-              <p className="text-[10px] text-muted-foreground">Asignaturas</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 bg-yellow-500/10 rounded-lg shrink-0">
-              <Target className="h-4 w-4 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-xl font-bold leading-none">{pendingDeliveryTasks.length}</p>
-              <p className="text-[10px] text-muted-foreground">Entregas</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
-              <Clock className="h-4 w-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xl font-bold leading-none">{todayStudyMinutes}</p>
-              <p className="text-[10px] text-muted-foreground">Min Hoy</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 bg-destructive/10 rounded-lg shrink-0">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            </div>
-            <div>
-              <p className="text-xl font-bold leading-none">{upcomingPartials.length}</p>
-              <p className="text-[10px] text-muted-foreground">Próximos</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="col-span-2 sm:col-span-1">
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="p-2 bg-green-500/10 rounded-lg shrink-0">
-              <Award className="h-4 w-4 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xl font-bold leading-none">
-                {overallGPA !== null ? overallGPA.toFixed(1) : '—'}
-              </p>
-              <p className="text-[10px] text-muted-foreground">Promedio</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-500 text-white p-3 shadow-sm">
+          <p className="text-2xl font-extrabold leading-none">{currentSemesterSubjects.length}</p>
+          <p className="text-[10px] text-white/80 mt-1 flex items-center gap-1"><BookOpen className="h-3 w-3" /> Asignaturas</p>
+        </div>
+        <div className="rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white p-3 shadow-sm">
+          <p className="text-2xl font-extrabold leading-none">{pendingDeliveryTasks.length}</p>
+          <p className="text-[10px] text-white/80 mt-1 flex items-center gap-1"><Target className="h-3 w-3" /> Entregas pendientes</p>
+        </div>
+        <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-sky-500 text-white p-3 shadow-sm">
+          <p className="text-2xl font-extrabold leading-none">{todayStudyMinutes}m</p>
+          <p className="text-[10px] text-white/80 mt-1 flex items-center gap-1"><Clock className="h-3 w-3" /> Estudio hoy</p>
+        </div>
+        <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white p-3 shadow-sm">
+          <p className="text-2xl font-extrabold leading-none">{studyMeta.sessions}</p>
+          <p className="text-[10px] text-white/80 mt-1 flex items-center gap-1"><AlarmClock className="h-3 w-3" /> Sesiones acumuladas</p>
+        </div>
+        <div className="rounded-2xl bg-gradient-to-br from-rose-500 to-red-500 text-white p-3 shadow-sm">
+          <p className="text-2xl font-extrabold leading-none">{upcomingPartials.length}</p>
+          <p className="text-[10px] text-white/80 mt-1 flex items-center gap-1"><CalendarClock className="h-3 w-3" /> Próximos (14d)</p>
+        </div>
+        <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-green-500 text-white p-3 shadow-sm">
+          <p className="text-2xl font-extrabold leading-none">{overallGPA !== null ? overallGPA.toFixed(1) : '—'}</p>
+          <p className="text-[10px] text-white/80 mt-1 flex items-center gap-1"><Award className="h-3 w-3" /> Promedio</p>
+        </div>
       </div>
 
       {/* Main Tabs */}
@@ -293,6 +304,10 @@ export default function UniversityPage() {
                           isActive={activeSubjectIds.includes(subject.id)}
                           onToggleActive={() => toggleActiveSubject(subject.id)}
                           onToggleApproved={() => toggleApproved(subject.id)}
+                          cover={coverFor(subject.id)}
+                          uploadingCover={uploadingSubjectId === subject.id}
+                          onUploadCover={(file) => handleUploadCover(subject.id, file)}
+                          onRemoveCover={() => handleRemoveCover(subject.id)}
                         />
                       );
                     })}
@@ -325,14 +340,10 @@ export default function UniversityPage() {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {pendingDeliveryTasks
-                      .sort((a, b) => {
-                        if (!a.due_date) return 1;
-                        if (!b.due_date) return -1;
-                        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-                      })
+                      .sort(sortByDue)
                       .slice(0, 5)
                       .map(task => {
-                        const subject = subjects.find(s => s.tasks.some(t => t.id === task.id));
+                        const subject = subjectFor(task);
                         const daysLeft = task.due_date ? differenceInDays(parseISO(task.due_date), new Date()) : null;
 
                         return (
@@ -357,6 +368,10 @@ export default function UniversityPage() {
                                 onClick={() => goToFocusWithTask(task.id, task.title)}>
                                 <Play className="h-3 w-3 mr-1" />Focus
                               </Button>
+                              <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Asignar a bloque de hoy"
+                                onClick={() => openAssign(task, subject?.name || 'Universidad')}>
+                                <CalendarClock className="h-3 w-3" />
+                              </Button>
                               <Button size="sm" variant="outline" className="h-7 w-7 p-0"
                                 onClick={() => toggleTask(task.id)}>
                                 <CheckCircle2 className="h-3 w-3" />
@@ -378,7 +393,7 @@ export default function UniversityPage() {
 
           {/* Routine Block Schedule */}
           <div className="mt-6">
-            <RoutineBlockSchedule />
+            <RoutineBlockSchedule studySessionsByTask={studyMeta.byTask} />
           </div>
         </TabsContent>
 
@@ -401,6 +416,10 @@ export default function UniversityPage() {
                 onAddTask={addTask}
                 onToggleTask={toggleTask}
                 onDeleteTask={deleteTask}
+                cover={coverFor(selectedSubject.id)}
+                uploadingCover={uploadingSubjectId === selectedSubject.id}
+                onUploadCover={(file) => handleUploadCover(selectedSubject.id, file)}
+                onRemoveCover={() => handleRemoveCover(selectedSubject.id)}
               />
             </div>
           ) : (
@@ -420,6 +439,10 @@ export default function UniversityPage() {
                     onAddTask={addTask}
                     onToggleTask={toggleTask}
                     onDeleteTask={deleteTask}
+                    cover={coverFor(subject.id)}
+                    uploadingCover={uploadingSubjectId === subject.id}
+                    onUploadCover={(file) => handleUploadCover(subject.id, file)}
+                    onRemoveCover={() => handleRemoveCover(subject.id)}
                   />
                 ))
               ) : (
@@ -463,21 +486,17 @@ export default function UniversityPage() {
                 {pendingDeliveryTasks.length > 0 ? (
                   <div className="space-y-2">
                     {pendingDeliveryTasks
-                      .sort((a, b) => {
-                        if (!a.due_date) return 1;
-                        if (!b.due_date) return -1;
-                        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-                      })
+                      .sort(sortByDue)
                       .map(task => {
-                        const subject = subjects.find(s => s.tasks.some(t => t.id === task.id));
                         const daysLeft = task.due_date ? differenceInDays(parseISO(task.due_date), new Date()) : null;
+                        const subj = subjectFor(task);
 
                         return (
                           <div key={task.id} className="flex items-center gap-3 p-2.5 bg-accent/50 rounded-lg">
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{task.title}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <Badge variant="outline" className="text-[10px]">{subject?.name}</Badge>
+                                <Badge variant="outline" className="text-[10px]">{subj?.name}</Badge>
                                 {task.due_date && (
                                   <span className={`text-[10px] ${
                                     daysLeft !== null && daysLeft <= 1 ? 'text-destructive' :
@@ -495,6 +514,10 @@ export default function UniversityPage() {
                               <Button size="sm" className="h-7 text-xs"
                                 onClick={() => goToFocusWithTask(task.id, task.title)}>
                                 <Play className="h-3 w-3 mr-1" />Focus
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Asignar a Deep Work"
+                                onClick={() => openAssign(task, subj?.name || 'Universidad')}>
+                                <CalendarClock className="h-3 w-3" />
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 w-7 p-0"
                                 onClick={() => toggleTask(task.id)}>
@@ -520,7 +543,9 @@ export default function UniversityPage() {
                       <Clock className="h-4 w-4" />
                       Sesiones de Estudio
                     </CardTitle>
-                    <CardDescription>{pendingStudyTasks.length} pendientes</CardDescription>
+                    <CardDescription>
+                      {pendingStudyTasks.length} pendientes · {studyMeta.sessions} sesiones acumuladas
+                    </CardDescription>
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold">{todayStudyMinutes}</p>
@@ -531,28 +556,57 @@ export default function UniversityPage() {
               <CardContent>
                 {pendingStudyTasks.length > 0 ? (
                   <div className="space-y-2">
-                    {pendingStudyTasks.map(task => {
-                      const subject = subjects.find(s => s.tasks.some(t => t.id === task.id));
-                      return (
-                        <div key={task.id} className="flex items-center gap-3 p-2.5 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{task.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="outline" className="text-[10px]">{subject?.name}</Badge>
-                              {task.estimated_minutes && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  <Clock className="h-2.5 w-2.5 inline mr-0.5" />{task.estimated_minutes} min
-                                </span>
-                              )}
+                    {pendingStudyTasks
+                      .sort((a, b) => {
+                        const pa = a.studySessions?.minutes || 0;
+                        const pb = b.studySessions?.minutes || 0;
+                        const ta = a.estimated_minutes || 0;
+                        const tb = b.estimated_minutes || 0;
+                        return (pa / (ta || 1)) - (pb / (tb || 1));
+                      })
+                      .map(task => {
+                        const subj = subjectFor(task);
+                        const sessions = task.studySessions || { count: 0, minutes: 0 };
+                        const target = task.estimated_minutes || 0;
+                        const pct = target > 0 ? Math.min(100, Math.round((sessions.minutes / target) * 100)) : 0;
+                        return (
+                          <div key={task.id} className="p-2.5 bg-blue-500/10 rounded-lg border border-blue-500/20 space-y-1.5">
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{task.title}</p>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  <Badge variant="outline" className="text-[10px]">{subj?.name}</Badge>
+                                  <Badge className="text-[10px] bg-blue-600 py-0">
+                                    <AlarmClock className="h-2.5 w-2.5 mr-0.5" />
+                                    {sessions.count} ses · {sessions.minutes}m
+                                  </Badge>
+                                  {target > 0 && (
+                                    <span className="text-[10px] text-muted-foreground">meta {target}m</span>
+                                  )}
+                                </div>
+                              </div>
+                              <Button size="sm" className="h-7 text-xs shrink-0"
+                                onClick={() => goToFocusWithTask(task.id, task.title)}>
+                                <Play className="h-3 w-3 mr-1" />Focus
+                              </Button>
+                            </div>
+                            {target > 0 && (
+                              <Progress value={pct} className="h-1.5 bg-blue-500/20"
+                                indicatorClassName={cn(pct >= 100 && 'bg-blue-600')} />
+                            )}
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] shrink-0"
+                                onClick={() => openAssign(task, subj?.name || 'Universidad')}>
+                                <CalendarClock className="h-3 w-3 mr-1" />Deep Work
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px] shrink-0"
+                                onClick={() => toggleTask(task.id)}>
+                                <CheckCircle2 className="h-3 w-3 mr-1" />Completar
+                              </Button>
                             </div>
                           </div>
-                          <Button size="sm" className="h-7 text-xs shrink-0"
-                            onClick={() => goToFocusWithTask(task.id, task.title)}>
-                            <Play className="h-3 w-3 mr-1" />Focus
-                          </Button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 ) : (
                   <p className="text-center text-muted-foreground py-6 text-sm">Sin sesiones pendientes</p>
@@ -566,11 +620,19 @@ export default function UniversityPage() {
                       const studyTasks = subject.tasks.filter(t => t.task_type === 'study');
                       const done = studyTasks.filter(t => t.completed).length;
                       const progress = studyTasks.length > 0 ? (done / studyTasks.length) * 100 : 0;
+                      const subjMinutes = studyTasks.reduce((acc, t) => acc + (t.studySessions?.minutes || 0), 0);
                       return (
                         <div key={subject.id} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-medium">{subject.name}</span>
-                            <span className="text-muted-foreground">{done}/{studyTasks.length}</span>
+                            <span className="text-muted-foreground flex items-center gap-2">
+                              {subjMinutes > 0 && (
+                                <span className="flex items-center gap-0.5 text-blue-600">
+                                  <AlarmClock className="h-3 w-3" />{subjMinutes}m
+                                </span>
+                              )}
+                              {done}/{studyTasks.length}
+                            </span>
                           </div>
                           <Progress value={progress} className="h-1.5" />
                         </div>
@@ -652,8 +714,17 @@ export default function UniversityPage() {
       <AddSubjectTaskDialog
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
-        subjects={currentSemesterSubjects.map(s => ({ id: s.id, name: s.name }))}
+        subjects={currentSemesterSubjects.map(s => ({ id: s.id, name: s.name, topics: s.topics.map(t => ({ id: t.id, title: t.title })) }))}
         onSubmit={(data) => addTask(data.subject_id, data)}
+      />
+      <AssignTaskToBlockDialog
+        open={assignDialogOpen}
+        onOpenChange={setAssignDialogOpen}
+        task={assignTarget ? { ...assignTarget, source: 'university' } : null}
+        onAssigned={() => {
+          setAssignTarget(null);
+          window.dispatchEvent(new CustomEvent('taskAssignmentChanged'));
+        }}
       />
       {currentExam && (
         <UpdateExamProgressDialog

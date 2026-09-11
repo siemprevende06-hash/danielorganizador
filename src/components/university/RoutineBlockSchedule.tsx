@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
-import { Clock, GraduationCap, Briefcase, FolderKanban, Zap, Calendar, X, Loader2, BookOpen } from 'lucide-react';
+import { Clock, GraduationCap, Briefcase, FolderKanban, Zap, Calendar, X, Loader2, BookOpen, AlarmClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -37,9 +37,10 @@ const FOCUS_STYLE: Record<string, { label: string; color: string; bg: string; bo
 
 interface RoutineBlockScheduleProps {
   onTaskUnassigned?: () => void;
+  studySessionsByTask?: Record<string, { count: number; minutes: number }>;
 }
 
-export function RoutineBlockSchedule({ onTaskUnassigned }: RoutineBlockScheduleProps) {
+export function RoutineBlockSchedule({ onTaskUnassigned, studySessionsByTask }: RoutineBlockScheduleProps) {
   const [blocks, setBlocks] = useState<RoutineBlockData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<'today' | 'tomorrow'>('today');
@@ -218,26 +219,35 @@ export function RoutineBlockSchedule({ onTaskUnassigned }: RoutineBlockScheduleP
                       {/* Assigned tasks */}
                       {assignedTasks.length > 0 && (
                         <div className="space-y-1">
-                          {assignedTasks.map(task => (
-                            <div
-                              key={task.id}
-                              className="flex items-center gap-2 pl-2 py-1 rounded bg-background/80 border border-blue-500/20"
-                            >
-                              <BookOpen className="h-3 w-3 text-blue-600 shrink-0" />
-                              <span className="text-xs truncate flex-1">{task.title}</span>
-                              {task.sourceName && (
-                                <Badge variant="outline" className="text-[10px] px-1 py-0">{task.sourceName}</Badge>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 shrink-0"
-                                onClick={() => handleUnassign(task.id)}
+                          {assignedTasks.map(task => {
+                            const sessions = studySessionsByTask?.[task.id];
+                            return (
+                              <div
+                                key={task.id}
+                                className="flex items-center gap-2 pl-2 py-1 rounded bg-background/80 border border-blue-500/20"
                               >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
+                                <BookOpen className="h-3 w-3 text-blue-600 shrink-0" />
+                                <span className="text-xs truncate flex-1">{task.title}</span>
+                                {sessions && sessions.count > 0 && (
+                                  <span className="text-[10px] text-blue-600 shrink-0 flex items-center gap-0.5">
+                                    <AlarmClock className="h-3 w-3" />
+                                    {sessions.count} · {sessions.minutes}m
+                                  </span>
+                                )}
+                                {task.sourceName && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0">{task.sourceName}</Badge>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 shrink-0"
+                                  onClick={() => handleUnassign(task.id)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

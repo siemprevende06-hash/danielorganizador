@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle2, Circle, BookOpen, Music, Target, ClipboardList } from 'lucide-react';
+import { CheckCircle2, Circle, BookOpen, Music, Target, ClipboardList, AlarmClock, CalendarDays } from 'lucide-react';
 import type { PlanBook, PlanSong, UniversitySubjectResult, BusinessResult, ProjectResult } from '@/hooks/useResultadosPeriodo';
 
 export const AREA_COLORS: Record<string, string> = {
@@ -119,7 +119,7 @@ export function OtherTasksList({ tasks, label = 'Tareas de la página Tareas' }:
   );
 }
 
-/** Planificado de Universidad: asignaturas activas con sus temas y tareas */
+/** Planificado de Universidad: asignaturas activas con sus temas, tareas y bloques de deep work */
 export function UniversityPlan({ data }: { data: UniversitySubjectResult[] }) {
   if (data.length === 0) return <AreaEmpty>Activa asignaturas desde la página de Universidad</AreaEmpty>;
   return (
@@ -141,6 +141,22 @@ export function UniversityPlan({ data }: { data: UniversitySubjectResult[] }) {
             </ul>
           )}
           {subj.tasks.length > 0 && <TaskPlanList area={{ tasks: subj.tasks }} />}
+          {subj.studyTasks.some(t => t.blockTitle) && (
+            <div className="pt-1 border-t border-muted/50 space-y-1">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <CalendarDays className="h-2.5 w-2.5" /> Deep Work
+              </p>
+              {subj.studyTasks.filter(t => t.blockTitle).map(t => (
+                <div key={t.id} className="flex items-start gap-2 text-[10px] text-muted-foreground">
+                  <CalendarDays className="h-2.5 w-2.5 mt-0.5 shrink-0 text-indigo-500" />
+                  <div className="min-w-0">
+                    <span className="font-medium text-foreground">{t.title}</span>
+                    <span className="ml-1">→ {t.blockTitle}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {subj.topics.length === 0 && subj.tasks.length === 0 && (
             <p className="text-[10px] italic text-muted-foreground">Sin temas ni tareas</p>
           )}
@@ -150,32 +166,67 @@ export function UniversityPlan({ data }: { data: UniversitySubjectResult[] }) {
   );
 }
 
-/** Objetivos de Universidad: exámenes, parciales y entregas de las asignaturas activas */
+/** Objetivos de Universidad: exámenes, parciales, entregas y sesiones de estudio acumuladas */
 export function UniversityObjetivos({ data }: { data: UniversitySubjectResult[] }) {
   const blocks = data.flatMap(subj => [
     ...subj.exams.map(e => ({ key: `e-${e.id}`, subject: subj.name, title: e.title, done: e.done, kind: 'Examen', date: e.date })),
     ...subj.partials.map(p => ({ key: `p-${p.id}`, subject: subj.name, title: p.title, done: p.done, kind: 'Parcial', date: p.date })),
     ...subj.deliveries.map(d => ({ key: `d-${d.id}`, subject: subj.name, title: d.title, done: d.completed, kind: 'Entrega', date: d.dueShort })),
   ]);
-  if (blocks.length === 0) return <AreaEmpty>Sin exámenes ni entregas en el período</AreaEmpty>;
+  const hasStudy = data.some(s => s.studyTasks.some(t => t.sessions > 0));
+  const hasItems = blocks.length > 0 || hasStudy;
+  if (!hasItems) return <AreaEmpty>Sin exámenes ni entregas en el período</AreaEmpty>;
   return (
-    <ul className="space-y-1.5">
-      {blocks.map(b => (
-        <li key={b.key} className="flex items-start gap-2 text-xs">
-          {b.done
-            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
-            : <Circle className="h-3.5 w-3.5 text-muted-foreground/40 mt-0.5 shrink-0" />}
-          <div className="min-w-0 flex-1">
-            <p className={cn('break-words leading-snug', b.done && 'line-through opacity-60')}>{b.title}</p>
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">{b.subject}</Badge>
-              <Badge variant="outline" className={cn('text-[8px] px-1 py-0 h-3.5', b.kind === 'Entrega' && 'text-amber-600')}>{b.kind}</Badge>
-              {b.date && <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5">{String(b.date).slice(0, 10)}</Badge>}
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-3">
+      {hasStudy && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            <AlarmClock className="h-3 w-3 text-blue-500" /> Sesiones de estudio
+          </p>
+          {data.map(subj => subj.studyTasks.filter(t => t.sessions > 0).map(t => (
+            <li key={t.id} className="flex items-start gap-2 text-xs">
+              {t.completed ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+              ) : (
+                <Circle className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className={cn('leading-snug break-words', t.completed && 'line-through opacity-60')}>{t.title}</p>
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">{subj.name}</Badge>
+                  {t.topicTitle && <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5">{t.topicTitle}</Badge>}
+                  <Badge className="text-[8px] px-1 py-0 h-3.5 bg-blue-600">{t.sessions} ses · {t.minutes}m</Badge>
+                  {t.blockTitle && (
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 text-indigo-600 border-indigo-400/30">
+                      <CalendarDays className="h-2.5 w-2.5 mr-0.5" />{t.blockTitle}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </li>
+          )))}
+        </div>
+      )}
+      {blocks.length > 0 && (
+        <ul className="space-y-1.5">
+          {blocks.map(b => (
+            <li key={b.key} className="flex items-start gap-2 text-xs">
+              {b.done
+                ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                : <Circle className="h-3.5 w-3.5 text-muted-foreground/40 mt-0.5 shrink-0" />}
+              <div className="min-w-0 flex-1">
+                <p className={cn('break-words leading-snug', b.done && 'line-through opacity-60')}>{b.title}</p>
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">{b.subject}</Badge>
+                  <Badge variant="outline" className={cn('text-[8px] px-1 py-0 h-3.5', b.kind === 'Entrega' && 'text-amber-600')}>{b.kind}</Badge>
+                  {b.date && <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5">{String(b.date).slice(0, 10)}</Badge>}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

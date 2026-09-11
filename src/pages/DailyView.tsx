@@ -314,7 +314,7 @@ export default function DailyView() {
         ) : viewMode === 'esfuerzo' ? (
           <>
         {/* Panel de control del día */}
-        <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} date={selectedDate} />
+        <PanelControlSection timeData={data.timeData} completions={data.completions} workoutDuration={data.workoutDuration} date={selectedDate} planGoals={planGoals} />
 
         {/* Section tabs as cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
