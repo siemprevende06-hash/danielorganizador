@@ -168,7 +168,7 @@ function NumVal({
     return (
       <input
         autoFocus
-        className="h-8 w-14 rounded-md border bg-background text-center text-sm font-semibold tabular-nums outline-none ring-1 ring-ring"
+        className="h-8 w-12 rounded-md border bg-background text-center text-sm font-semibold tabular-nums outline-none ring-1 ring-ring sm:w-14"
         value={editing}
         onChange={(e) => setEditing(e.target.value)}
         onBlur={(e) => {
@@ -190,7 +190,7 @@ function NumVal({
     return (
       <button
         type="button"
-        className="h-8 min-w-14 rounded-md border bg-background text-sm font-semibold text-muted-foreground hover:bg-accent"
+        className="h-8 min-w-11 rounded-md border bg-background text-sm font-semibold text-muted-foreground hover:bg-accent sm:min-w-14"
         onClick={() => onCommit(null)}
       >
         —
@@ -200,7 +200,7 @@ function NumVal({
   return (
     <button
       type="button"
-      className="h-8 min-w-14 rounded-md border bg-background px-2 text-sm font-semibold tabular-nums hover:bg-accent"
+      className="h-8 min-w-11 rounded-md border bg-background px-1.5 text-sm font-semibold tabular-nums hover:bg-accent sm:min-w-14 sm:px-2"
       onClick={() => setEditing(display)}
     >
       {display}
@@ -288,34 +288,50 @@ function ExerciseBlock({
     const raw = ((s[col.f] as number) || 0) + dir * col.step;
     onField(i, col.f, Math.max(0, Math.round(raw * 100) / 100));
   };
-  const cell = (s: SetRec, i: number, col: Col, cls: string) => (
-    <div className={cn("flex items-center gap-1", cls)}>
-      <button
-        type="button"
-        className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
-        onClick={() => bump(s, i, col, -1)}
-        aria-label="Disminuir"
-      >
-        <Minus className="h-3.5 w-3.5" />
-      </button>
-      <NumVal
-        value={s[col.f] as number | null}
-        decimal={col.dec}
-        nullable={col.opt}
-        onCommit={(v) =>
-          onField(i, col.f, col.eff ? capEffort(col.eff, v) : v)
-        }
-      />
-      <button
-        type="button"
-        className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
-        onClick={() => bump(s, i, col, 1)}
-        aria-label="Aumentar"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
+  const cell = (s: SetRec, i: number, col: Col, cls: string) => {
+    if (col.eff)
+      return (
+        <div className={cn("flex items-center", cls)}>
+          <button
+            type="button"
+            className="flex h-8 min-w-11 items-center justify-center rounded-md border bg-background px-1 text-sm font-semibold tabular-nums hover:bg-accent sm:min-w-12 sm:px-1.5"
+            onClick={() => bump(s, i, col, 1)}
+            title="Toca para cambiar"
+            aria-label={col.hd}
+          >
+            {s[col.f] == null ? "–" : fmtNum(s[col.f] as number)}
+          </button>
+        </div>
+      );
+    return (
+      <div className={cn("flex items-center gap-1", cls)}>
+        <button
+          type="button"
+          className="flex h-8 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40 sm:w-7"
+          onClick={() => bump(s, i, col, -1)}
+          aria-label="Disminuir"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <NumVal
+          value={s[col.f] as number | null}
+          decimal={col.dec}
+          nullable={col.opt}
+          onCommit={(v) =>
+            onField(i, col.f, col.eff ? capEffort(col.eff, v) : v)
+          }
+        />
+        <button
+          type="button"
+          className="flex h-8 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40 sm:w-7"
+          onClick={() => bump(s, i, col, 1)}
+          aria-label="Aumentar"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -380,55 +396,57 @@ function ExerciseBlock({
         </div>
       )}
       <div className="mt-2 rounded-2xl border bg-card p-2 shadow-sm">
-        <div className="grid grid-cols-[2rem_1fr_1fr_auto] items-center gap-x-2 px-2 pb-1 text-[10px] font-semibold uppercase text-muted-foreground">
-          <span />
-          <span className={cn(compact && "text-[9px]")}>{col1.hd}</span>
-          {col2 && <span>{col2.hd}</span>}
-          <span className="w-7" />
-        </div>
-        {entry.sets.map((s, i) => {
-          return (
-            <div
-              key={i}
-              className={cn(
-                "flex items-center gap-2 rounded-xl px-2 py-1.5",
-                s.done && "opacity-50"
-              )}
-            >
-              <div className="w-4 text-center text-xs font-semibold text-muted-foreground">
-                {i + 1}
-              </div>
-              {cell(s, i, col1, "w grow")}
-              {col2 && cell(s, i, col2, "r grow")}
-              {col3 && cell(s, i, col3, "eff grow")}
-              {timed && (
+        <div className="overflow-x-auto">
+          <div className="grid grid-cols-[1.75rem_1fr_1fr_auto] items-center gap-x-2 px-2 pb-1 text-[10px] font-semibold uppercase text-muted-foreground sm:grid-cols-[2rem_1fr_1fr_auto]">
+            <span />
+            <span className={cn(compact && "text-[9px]")}>{col1.hd}</span>
+            {col2 && <span>{col2.hd}</span>}
+            <span className="w-8" />
+          </div>
+          {entry.sets.map((s, i) => {
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "flex items-center gap-1.5 px-2 py-1.5 sm:gap-2",
+                  s.done && "opacity-50"
+                )}
+              >
+                <div className="w-4 shrink-0 text-center text-xs font-semibold text-muted-foreground">
+                  {i + 1}
+                </div>
+                {cell(s, i, col1, "w grow")}
+                {col2 && cell(s, i, col2, "r grow")}
+                {col3 && cell(s, i, col3, "eff grow")}
+                {timed && (
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary disabled:opacity-40"
+                    aria-label="Empezar serie"
+                    disabled={!!s.done || !!work}
+                    onClick={() => onStartTimed(i)}
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary disabled:opacity-40"
-                  aria-label="Empezar serie"
-                  disabled={!!s.done || !!work}
-                  onClick={() => onStartTimed(i)}
+                  role="checkbox"
+                  aria-checked={!!s.done}
+                  className={cn(
+                    "ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                    s.done
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-transparent hover:bg-accent"
+                  )}
+                  onClick={() => onToggle(i)}
                 >
-                  <Play className="h-3.5 w-3.5" />
+                  <Check className="h-4 w-4" />
                 </button>
-              )}
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={!!s.done}
-                className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
-                  s.done
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border text-transparent hover:bg-accent"
-                )}
-                onClick={() => onToggle(i)}
-              >
-                <Check className="h-4 w-4" />
-              </button>
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
         <div className="mt-1 flex gap-2">
           <Button size="sm" variant="outline" disabled={entry.sets.length <= 1} onClick={onRemoveSet}>
             <Minus className="h-3.5 w-3.5" /> Quitar
