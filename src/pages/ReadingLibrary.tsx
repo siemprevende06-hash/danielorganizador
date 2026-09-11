@@ -16,7 +16,7 @@ import { format, startOfMonth, endOfMonth, addMonths, startOfWeek, endOfWeek, di
 import { es } from 'date-fns/locale';
 import { DailyReadingIndicator } from '@/components/reading/DailyReadingIndicator';
 import { BookContent } from '@/components/reading/BookContent';
-import BilingualReader from '@/components/reading/BilingualReader';
+import BilingualReader, { parseBilingualText } from '@/components/reading/BilingualReader';
 
 export default function ReadingLibrary() {
   const {
@@ -359,8 +359,9 @@ export default function ReadingLibrary() {
           {uploadBook && (
             <div className="space-y-4 pt-2">
               <p className="text-sm text-muted-foreground">
-                Sube el archivo <span className="font-medium text-foreground">.txt</span> de <span className="font-medium text-foreground">{uploadBook.title}</span>. Formato:
-                una línea en <span className="text-foreground font-medium">inglés</span> y la siguiente en <span className="text-foreground font-medium">español</span>, alternando.
+                Sube el archivo <span className="font-medium text-foreground">.txt</span> de <span className="font-medium text-foreground">{uploadBook.title}</span>. Formato recomendado (a prueba de desalineación):
+                cada par en 2 líneas: <span className="font-mono text-foreground font-medium">#EN frase en inglés</span> y debajo <span className="font-mono text-foreground font-medium">#ES su traducción</span>.
+                También acepta alternado (una línea EN y la siguiente ES).
               </p>
 
               <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-8 cursor-pointer hover:bg-muted/50 transition-colors">
@@ -379,12 +380,12 @@ export default function ReadingLibrary() {
                 <Textarea
                   value={txtDraft}
                   onChange={(e) => setTxtDraft(e.target.value)}
-                  placeholder={"This is the first sentence.\nEsta es la primera frase.\nAnd this is another line.\nY esta es otra línea."}
+                  placeholder={"#EN This is the first sentence.\n#ES Esta es la primera frase.\n#EN And this is another line.\n#ES Y esta es otra línea."}
                   className="mt-1 h-44 font-mono text-xs"
                 />
                 {txtDraft.trim() && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {txtDraft.trim().split(/\r?\n/).filter(l => l.trim()).length} líneas · {(Math.floor(txtDraft.trim().split(/\r?\n/).filter(l => l.trim()).length / 2))} pares EN/ES detectados
+                    {parseBilingualText(txtDraft).length} pares EN/ES detectados
                   </p>
                 )}
               </div>

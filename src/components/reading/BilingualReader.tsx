@@ -20,9 +20,34 @@ const STORAGE_POS_PREFIX = 'bil-reader-pos-';
 const isSeparator = (line: string) => /^[^\p{L}\p{N}]+$/u.test(line.trim()) && line.trim().length > 0;
 
 export function parseBilingualText(text: string): LinePair[] {
-  const raw = text.split(/\r?\n/);
+  if (!text) return [];
+
+  // Formato recomendado: pares #EN / #ES (a prueba de desalineación)
+  if (text.split(/\r?\n/).some(l => /^\s*#\s*(EN|ES)\b/i.test(l))) {
+    const pairs: LinePair[] = [];
+    let current: LinePair | null = null;
+    const lineRe = /^\s*#\s*(EN|ES)\s*[:.\-]?\s*(.*)$/i;
+    for (const raw of text.split(/\r?\n/)) {
+      const m = raw.match(lineRe);
+      if (m) {
+        if (m[1].toLowerCase() === 'en') {
+          if (current) pairs.push(current);
+          current = { en: m[2].trim(), es: '' };
+        } else {
+          if (!current) current = { en: '', es: '' };
+          current.es = m[2].trim();
+        }
+      } else if (current && raw.trim()) {
+        current.es = current.es ? `${current.es} ${raw.trim()}` : raw.trim();
+      }
+    }
+    if (current && (current.en || current.es)) pairs.push(current);
+    return pairs;
+  }
+
+  // Formato alternado (1 EN + 1 ES sin marcar)
   const lines: string[] = [];
-  for (const line of raw) {
+  for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trimEnd();
     if (!trimmed.trim() || isSeparator(line)) continue;
     lines.push(trimmed);
