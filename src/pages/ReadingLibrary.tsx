@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useReadingLibrary, Book } from '@/hooks/useReadingLibrary';
 import { supabase } from '@/integrations/supabase/client';
-import { BookOpen, Plus, Star, BookMarked, Library, Trash2, Upload, Calendar, ChevronRight, Clock, TrendingUp, TrendingDown, Edit2, LayoutGrid, List, GalleryHorizontal, StickyNote, X, PencilLine } from 'lucide-react';
+import { BookOpen, Plus, Star, BookMarked, Library, Trash2, Upload, Calendar, ChevronRight, Clock, TrendingUp, TrendingDown, Edit2, LayoutGrid, List, GalleryHorizontal, StickyNote, X, PencilLine, FileText, BookOpenCheck, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, addMonths, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DailyReadingIndicator } from '@/components/reading/DailyReadingIndicator';
 import { BookContent } from '@/components/reading/BookContent';
+import BilingualReader from '@/components/reading/BilingualReader';
 
 export default function ReadingLibrary() {
   const {
@@ -34,6 +35,10 @@ export default function ReadingLibrary() {
   const [contentEditing, setContentEditing] = useState(false);
   const [searchCompleted, setSearchCompleted] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'rating' | 'title'>('recent');
+  const [readerBook, setReaderBook] = useState<Book | null>(null);
+  const [uploadBook, setUploadBook] = useState<Book | null>(null);
+  const [txtDraft, setTxtDraft] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [newBook, setNewBook] = useState({
     title: '', author: '', pages_total: '', genre: '', cover_image_url: '', status: 'to_read' as string,
   });
@@ -137,6 +142,44 @@ export default function ReadingLibrary() {
     </div>
   );
 
+  const hasTxt = (b: Book) => !!b.bilingual_txt && b.bilingual_txt.trim().length > 0;
+
+  const openReader = (book: Book) => {
+    setReaderBook(book);
+  };
+
+  const handleReadClick = (book: Book) => {
+    if (hasTxt(book)) openReader(book);
+    else {
+      setUploadBook(book);
+      setTxtDraft('');
+    }
+  };
+
+  const handleFileSelect = async (file: File) => {
+    const text = await file.text();
+    setTxtDraft(text);
+  };
+
+  const saveUploadedTxt = async () => {
+    if (!uploadBook || !txtDraft.trim() || uploading) return;
+    setUploading(true);
+    await updateBook(uploadBook.id, { bilingual_txt: txtDraft });
+    const updated = { ...uploadBook, bilingual_txt: txtDraft };
+    setUploading(false);
+    setUploadBook(null);
+    setTxtDraft('');
+    openReader(updated);
+  };
+
+  const handleReaderProgress = (bookId: string, pairIndex: number, pairsCount: number) => {
+    const book = books.find(b => b.id === bookId);
+    if (!book || !book.pages_total || pairsCount <= 0) return;
+    const estimated = Math.max(1, Math.round(((pairIndex + 1) / pairsCount) * book.pages_total));
+    const next = Math.min(book.pages_total, Math.max(book.pages_read || 0, estimated));
+    if (next > (book.pages_read || 0)) updateProgress(bookId, next);
+  };
+
   const BookCard = ({ book }: { book: Book }) => {
     const progressPercent = book.pages_total ? Math.round((book.pages_read / book.pages_total) * 100) : 0;
     return (
@@ -168,12 +211,20 @@ export default function ReadingLibrary() {
             </div>
           )}
           {book.status === 'completed' && renderStars(book.rating, (r) => updateBook(book.id, { rating: r }))}
-          <div className="flex gap-1 pt-1">
+          {hasTxt(book) && (
+            <Badge variant="outline" className="text-[10px] text-emerald-600">
+              <BookOpenCheck className="w-3 h-3 mr-1" /> Bilingüe
+            </Badge>
+          )}
+          <div className="flex flex-wrap gap-1 pt-1">
+            <Button size="sm" variant={hasTxt(book) ? 'default' : 'secondary'} className="flex-1 text-xs h-7" onClick={() => handleReadClick(book)}>
+              <BookOpenCheck className="w-3 h-3 mr-1" /> Leer
+            </Button>
             {book.status === 'to_read' && (
               <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => startReading(book.id)}>Empezar</Button>
             )}
             {book.status === 'reading' && (
-              <Button size="sm" variant="default" className="flex-1 text-xs h-7" onClick={() => finishBook(book.id, 4)}>Terminar</Button>
+              <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => finishBook(book.id, 4)}>Terminar</Button>
             )}
             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEditDialog(book)}>
               <Edit2 className="w-3 h-3" />
@@ -297,6 +348,56 @@ export default function ReadingLibrary() {
         </DialogContent>
       </Dialog>
 
+      {/* Subir texto bilingüe (EN/ES) */}
+      <Dialog open={!!uploadBook} onOpenChange={(o) => { if (!o) { setUploadBook(null); setTxtDraft(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" /> Texto bilingüe
+            </DialogTitle>
+          </DialogHeader>
+          {uploadBook && (
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">
+                Sube el archivo <span className="font-medium text-foreground">.txt</span> de <span className="font-medium text-foreground">{uploadBook.title}</span>. Formato:
+                una línea en <span className="text-foreground font-medium">inglés</span> y la siguiente en <span className="text-foreground font-medium">español</span>, alternando.
+              </p>
+
+              <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-8 cursor-pointer hover:bg-muted/50 transition-colors">
+                <FileText className="w-8 h-8 text-muted-foreground" />
+                <span className="text-sm font-medium">Seleccionar archivo .txt</span>
+                <span className="text-xs text-muted-foreground">o pega el texto abajo</span>
+                <input type="file" accept=".txt,text/plain" className="hidden" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) await handleFileSelect(file);
+                  e.target.value = '';
+                }} />
+              </label>
+
+              <div>
+                <label className="text-sm font-medium">Texto bilingüe</label>
+                <Textarea
+                  value={txtDraft}
+                  onChange={(e) => setTxtDraft(e.target.value)}
+                  placeholder={"This is the first sentence.\nEsta es la primera frase.\nAnd this is another line.\nY esta es otra línea."}
+                  className="mt-1 h-44 font-mono text-xs"
+                />
+                {txtDraft.trim() && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {txtDraft.trim().split(/\r?\n/).filter(l => l.trim()).length} líneas · {(Math.floor(txtDraft.trim().split(/\r?\n/).filter(l => l.trim()).length / 2))} pares EN/ES detectados
+                  </p>
+                )}
+              </div>
+
+              <Button className="w-full" disabled={!txtDraft.trim() || uploading} onClick={saveUploadedTxt}>
+                {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <BookOpenCheck className="w-4 h-4 mr-2" />}
+                Guardar y abrir lector
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Indicador de lectura diaria */}
       <DailyReadingIndicator dailyPagesGoal={dailyPages} dailyMinutesGoal={30} />
 
@@ -374,6 +475,9 @@ export default function ReadingLibrary() {
                       <Input type="number" placeholder="Página actual" className="w-28 h-8 text-xs"
                         onBlur={(e) => { if (e.target.value) updateProgress(currentBook.id, parseInt(e.target.value)); }}
                       />
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => handleReadClick(currentBook)}>
+                        <BookOpenCheck className="w-3 h-3 mr-1" /> Leer
+                      </Button>
                       <Button size="sm" variant="default" onClick={() => finishBook(currentBook.id, 4)}>Terminé</Button>
                     </div>
                   </div>
@@ -776,6 +880,16 @@ export default function ReadingLibrary() {
           ))}
         </TabsContent>
       </Tabs>
+
+      {readerBook && (
+        <BilingualReader
+          key={readerBook.id}
+          book={readerBook}
+          open={!!readerBook}
+          onOpenChange={(o) => { if (!o) setReaderBook(null); }}
+          onSaveProgress={handleReaderProgress}
+        />
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ export interface Book {
   user_id: string | null;
   title: string;
   author: string | null;
+  bilingual_txt: string | null;
   cover_image_url: string | null;
   status: 'to_read' | 'reading' | 'completed';
   start_date: string | null;

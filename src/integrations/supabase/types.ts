@@ -2750,6 +2750,7 @@ export type Database = {
       reading_library: {
         Row: {
           author: string | null
+          bilingual_txt: string | null
           cover_image_url: string | null
           created_at: string | null
           finish_date: string | null
@@ -2767,6 +2768,7 @@ export type Database = {
         }
         Insert: {
           author?: string | null
+          bilingual_txt?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           finish_date?: string | null
@@ -2784,6 +2786,7 @@ export type Database = {
         }
         Update: {
           author?: string | null
+          bilingual_txt?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           finish_date?: string | null
@@ -2798,6 +2801,54 @@ export type Database = {
           title?: string
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_vocabulary: {
+        Row: {
+          book_id: string | null
+          book_title: string | null
+          context_en: string | null
+          context_es: string | null
+          created_at: string | null
+          id: string
+          language: string | null
+          review_count: number | null
+          status: string | null
+          translation: string | null
+          updated_at: string | null
+          user_id: string | null
+          word: string
+        }
+        Insert: {
+          book_id?: string | null
+          book_title?: string | null
+          context_en?: string | null
+          context_es?: string | null
+          created_at?: string | null
+          id?: string
+          language?: string | null
+          review_count?: number | null
+          status?: string | null
+          translation?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          word: string
+        }
+        Update: {
+          book_id?: string | null
+          book_title?: string | null
+          context_en?: string | null
+          context_es?: string | null
+          created_at?: string | null
+          id?: string
+          language?: string | null
+          review_count?: number | null
+          status?: string | null
+          translation?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          word?: string
         }
         Relationships: []
       }

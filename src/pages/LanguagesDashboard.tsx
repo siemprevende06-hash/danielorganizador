@@ -10,6 +10,7 @@ import { LanguagePracticeTimerCard } from '@/components/languages/LanguagePracti
 import { LanguageResourcesCard } from '@/components/languages/LanguageResourcesCard';
 import { LanguageStatsTab } from '@/components/languages/LanguageStatsTab';
 import { LanguageTipCard } from '@/components/languages/LanguageTipCard';
+import { VocabularyPanel } from '@/components/languages/VocabularyPanel';
 import { LANGUAGE_SKILLS, type LanguageSkillId } from '@/components/languages/skills';
 
 export default function LanguagesDashboard() {
@@ -99,7 +100,7 @@ export default function LanguagesDashboard() {
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="today" className="text-xs sm:text-sm">
               📝 Hoy
             </TabsTrigger>
@@ -108,6 +109,9 @@ export default function LanguagesDashboard() {
             </TabsTrigger>
             <TabsTrigger value="stats" className="text-xs sm:text-sm">
               📊 Stats
+            </TabsTrigger>
+            <TabsTrigger value="vocabulary" className="text-xs sm:text-sm">
+              📚 Vocabulario
             </TabsTrigger>
           </TabsList>
 
@@ -152,6 +156,10 @@ export default function LanguagesDashboard() {
             ) : (
               <LanguageStatsTab weeklyData={weeklyData} pieData={pieData} progress={progress} settings={settings} />
             )}
+          </TabsContent>
+
+          <TabsContent value="vocabulary" className="space-y-4">
+            <VocabularyPanel />
           </TabsContent>
         </Tabs>
       </div>
