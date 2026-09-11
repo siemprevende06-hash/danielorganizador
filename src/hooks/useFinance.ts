@@ -261,10 +261,18 @@ export const useFinance = () => {
           .map((w: any) => ({ ...w, currency: w.currency === 'USD' ? 'USD' : 'CUP', icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) }));
         if (walletsList.length === 0 && walletsCached.length === 0) {
           const seeded = initialWallets.map(w => ({ ...w, id: genId() }));
-          try { await supabase.from('wallets').insert(seeded.map(w => ({ id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon), currency: w.currency }))); } catch {}
+          for (const w of seeded) {
+            await safeMutation({ table: 'wallets', op: 'upsert', payload: { id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon), currency: w.currency }, onConflict: 'id' });
+          }
           walletsList = seeded;
         } else {
           walletsList = mergeById(walletsList, walletsCached);
+        }
+        const remoteWalletIds = new Set((walletsRes.data || []).map((r: any) => r.id));
+        for (const w of walletsList) {
+          if (!remoteWalletIds.has(w.id)) {
+            await safeMutation({ table: 'wallets', op: 'upsert', payload: { id: w.id, name: w.name, balance: w.balance, icon: iconToString(w.icon), currency: w.currency }, onConflict: 'id' });
+          }
         }
         if (!cancelled) setWallets(walletsList);
 
@@ -273,7 +281,14 @@ export const useFinance = () => {
           const txList = (txRes.data || []).map(transactionFromRow);
           const txCached = loadLocal<any[]>('finance_transactions', [])
             .map((t: any) => ({ ...t, currency: t.currency === 'CUP' ? 'CUP' : 'USD', date: new Date(t.date) }));
-          setTransactions(mergeById(txList, txCached));
+          const txMerged = mergeById(txList, txCached);
+          const remoteTxIds = new Set((txRes.data || []).map((r: any) => r.id));
+          for (const t of txMerged) {
+            if (!remoteTxIds.has(t.id)) {
+              await safeMutation({ table: 'transactions', op: 'upsert', payload: transactionToRow(t), onConflict: 'id' });
+            }
+          }
+          setTransactions(txMerged);
         }
 
         // --- Loans ---
@@ -281,7 +296,14 @@ export const useFinance = () => {
           const loansList = (loansRes.data || []).map(loanFromRow);
           const loansCached = loadLocal<any[]>('finance_loans', [])
             .map((l: any) => ({ ...l, date: new Date(l.date) }));
-          setLoans(mergeById(loansList, loansCached));
+          const loansMerged = mergeById(loansList, loansCached);
+          const remoteLoanIds = new Set((loansRes.data || []).map((r: any) => r.id));
+          for (const l of loansMerged) {
+            if (!remoteLoanIds.has(l.id)) {
+              await safeMutation({ table: 'loans', op: 'upsert', payload: loanToRow(l), onConflict: 'id' });
+            }
+          }
+          setLoans(loansMerged);
         }
 
         // --- Distribution Bags ---
@@ -290,10 +312,18 @@ export const useFinance = () => {
           const bagsCached = loadLocal<DistributionBag[]>('finance_bags', []);
           if (bagsList.length === 0 && bagsCached.length === 0) {
             const seeded = defaultDistributionBags.map(b => ({ ...b, id: genId(), balance: 0 }));
-            try { await supabase.from('distribution_bags').insert(seeded.map(bagToRow)); } catch {}
+            for (const b of seeded) {
+              await safeMutation({ table: 'distribution_bags', op: 'upsert', payload: bagToRow(b), onConflict: 'id' });
+            }
             bagsList = seeded;
           } else {
             bagsList = mergeById(bagsList, bagsCached);
+          }
+          const remoteBagIds = new Set((bagsRes.data || []).map((r: any) => r.id));
+          for (const b of bagsList) {
+            if (!remoteBagIds.has(b.id)) {
+              await safeMutation({ table: 'distribution_bags', op: 'upsert', payload: bagToRow(b), onConflict: 'id' });
+            }
           }
           setDistributionBags(bagsList);
         }
