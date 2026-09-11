@@ -210,7 +210,7 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-1.5 gap-y-1">
             <h2 className="text-sm font-bold">Peso corporal</h2>
             <div className="flex gap-1.5">
               <Button

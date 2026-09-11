@@ -113,7 +113,7 @@ function GymApp() {
               key={t.id}
               type="button"
               className={cn(
-                "flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] font-medium transition-colors",
+                "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1.5 text-[9px] font-medium transition-colors sm:text-[10px]",
                 tab === t.id ? "text-primary" : "text-muted-foreground hover:text-foreground"
               )}
               onClick={() => onGo(t.id)}

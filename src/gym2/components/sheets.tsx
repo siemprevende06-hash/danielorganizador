@@ -1263,7 +1263,7 @@ function ExConfigContent({
       onSave(out);
     }
   };
-  const cfgrow = "grid grid-cols-3 gap-3";
+  const cfgrow = "grid grid-cols-1 gap-3 sm:grid-cols-3";
   return (
     <div>
       <h3 className="text-lg font-bold capitalize">{esName(ex)}</h3>

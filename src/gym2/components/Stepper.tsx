@@ -43,7 +43,7 @@ export function Stepper({
   const display = decimal ? fmtNum(value) : String(Math.round(value || 0));
 
   const btn =
-    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40";
+    "flex h-9 w-8 shrink-0 items-center justify-center rounded-lg border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40 sm:w-9";
 
   return (
     <div className={cn("flex w-full flex-col gap-1", className)}>
@@ -65,7 +65,7 @@ export function Stepper({
         {editing !== null ? (
           <input
             autoFocus
-            className="h-9 w-14 rounded-lg border bg-background text-center text-sm font-semibold tabular-nums outline-none ring-1 ring-ring"
+            className="h-9 w-12 rounded-lg border bg-background text-center text-sm font-semibold tabular-nums outline-none ring-1 ring-ring sm:w-14"
             value={editing}
             onChange={(e) => setEditing(e.target.value)}
             onBlur={(e) => commit(e.target.value)}
@@ -77,7 +77,7 @@ export function Stepper({
         ) : (
           <button
             type="button"
-            className="h-9 min-w-14 grow rounded-lg border bg-background px-2 text-center text-sm font-semibold tabular-nums hover:bg-accent"
+            className="h-9 min-w-12 grow rounded-lg border bg-background px-1.5 text-center text-sm font-semibold tabular-nums hover:bg-accent sm:min-w-14 sm:px-2"
             onClick={() => setEditing(display)}
             title="Toca para editar"
           >
