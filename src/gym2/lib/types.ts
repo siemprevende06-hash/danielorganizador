@@ -94,7 +94,10 @@ export interface BodyMEntry {
   chest?: number;
   waist?: number;
   hip?: number;
-  arm?: number;
+  armL?: number;
+  armR?: number;
+  bicepFlex?: number;
+  bicepRelax?: number;
   thigh?: number;
 }
 
@@ -105,6 +108,7 @@ export interface ExWeight {
 
 export interface GymState {
   unit: "kg" | "lb";
+  bwUnit: "kg" | "lb";
   restSec: number;
   sound: boolean;
   targetW: number | null;

@@ -16,6 +16,7 @@ const KEY = "gym20_state_v1";
 
 export const DEF: GymState = {
   unit: "kg",
+  bwUnit: "kg",
   restSec: 90,
   sound: true,
   targetW: null,
@@ -36,7 +37,11 @@ const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
 function loadState(): GymState {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return Object.assign(clone(DEF), JSON.parse(raw));
+    if (raw) {
+      const parsed = Object.assign(clone(DEF), JSON.parse(raw));
+      if (!parsed.bwUnit) parsed.bwUnit = parsed.unit;
+      return parsed;
+    }
   } catch {
     /* fall through to empty state */
   }
@@ -98,6 +103,10 @@ export function GymProvider({ children }: { children: ReactNode }) {
             const useRemote = remoteTs >= localTs;
             const merged = useRemote ? clone(remoteState) : clone(local);
             const other = useRemote ? local : remoteState;
+
+            // Estados guardados antes de separar las unidades: mantenemos la
+            // unidad de ejercicios y para el peso corporal tomamos la misma.
+            if (!merged.bwUnit) merged.bwUnit = merged.unit || "kg";
 
             // Colecciones por id: une lo que falte del otro lado, sin duplicar.
             function unionById<T extends { id: string }>(

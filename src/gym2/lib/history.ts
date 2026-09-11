@@ -302,7 +302,10 @@ export const BODY_METRICS = [
   { key: "chest", label: "Pecho", color: "#30d158" },
   { key: "waist", label: "Cintura", color: "#0a84ff" },
   { key: "hip", label: "Cadera", color: "#ff9f0a" },
-  { key: "arm", label: "Brazo", color: "#bf5af2" },
+  { key: "armL", label: "Brazo izq.", color: "#bf5af2" },
+  { key: "armR", label: "Brazo der.", color: "#a855f7" },
+  { key: "bicepFlex", label: "Bíceps activo", color: "#e879f9" },
+  { key: "bicepRelax", label: "Bíceps relajado", color: "#f472b6" },
   { key: "thigh", label: "Muslo", color: "#ff375f" },
 ] as const;
 

@@ -352,7 +352,7 @@ function BwContent({
   close: () => void;
 }) {
   const st = S();
-  const unit = st.unit;
+  const unit = st.bwUnit;
   const bw = lastBW(st);
   const [v, setV] = useState(bw ? bw.w : 70);
   const save = () => {
@@ -456,7 +456,7 @@ function GoalContent({ close }: { close: () => void }) {
         Se dibuja como una línea en las gráficas de peso, y las subidas/bajadas se
         colorean según se acerquen a esa meta.
       </p>
-      <WeightInput value={v} setValue={setV} unit={st.unit} />
+      <WeightInput value={v} setValue={setV} unit={st.bwUnit} />
       <div className="h-3" />
       <Button
         className="w-full"
@@ -472,7 +472,7 @@ function GoalContent({ close }: { close: () => void }) {
           close();
           const b = lastBW(S());
           notify(
-            "Objetivo: " + fmtNum(n) + " " + st.unit +
+            "Objetivo: " + fmtNum(n) + " " + st.bwUnit +
               (b ? " (faltan " + fmtNum(Math.abs(n - b.w)) + ")" : "")
           );
         }}
@@ -611,10 +611,9 @@ export const settingsSheet = () =>
 const KG_LB = 2.2046226218;
 const round1 = (x: number) => Math.round(x * 10) / 10;
 
-function convertWeights(s: ReturnType<typeof S>, to: "kg" | "lb") {
+/** Convierte solo pesos de ejercicios: mancuernas, barras, rutinas, series y volumen. */
+function convertExerciseWeights(s: ReturnType<typeof S>, to: "kg" | "lb") {
   const k = to === "lb" ? KG_LB : 1 / KG_LB;
-  (s.bodyweight || []).forEach((b) => (b.w = round1(b.w * k)));
-  if (s.targetW != null) s.targetW = round1(s.targetW * k);
   Object.values(s.exWeights || {}).forEach((e) => (e.w = round1(e.w * k)));
   (s.routines || []).forEach((r) =>
     (r.ex || []).forEach((e) => {
@@ -630,14 +629,20 @@ function convertWeights(s: ReturnType<typeof S>, to: "kg" | "lb") {
         if (s2.w != null && s2.w > 0) s2.w = round1(s2.w * k);
       });
     });
+  (s.workouts || []).forEach((w) => convEntries(w.entries));
+  if (s.active) convEntries(s.active.entries);
+}
+
+/** Convierte solo peso corporal: pesajes, objetivo y el peso anotado en los entrenos. */
+function convertBwWeights(s: ReturnType<typeof S>, to: "kg" | "lb") {
+  const k = to === "lb" ? KG_LB : 1 / KG_LB;
+  (s.bodyweight || []).forEach((b) => (b.w = round1(b.w * k)));
+  if (s.targetW != null) s.targetW = round1(s.targetW * k);
   (s.workouts || []).forEach((w) => {
     if (w.bw != null && w.bw > 0) w.bw = round1(w.bw * k);
-    convEntries(w.entries);
   });
-  if (s.active) {
-    if (s.active.bw != null && s.active.bw > 0) s.active.bw = round1(s.active.bw * k);
-    convEntries(s.active.entries);
-  }
+  if (s.active && s.active.bw != null && s.active.bw > 0)
+    s.active.bw = round1(s.active.bw * k);
 }
 
 function SettingsContent({ close }: { close: () => void }) {
@@ -646,21 +651,59 @@ function SettingsContent({ close }: { close: () => void }) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="mb-1 text-sm font-medium">Unidad de peso</div>
+        <div className="mb-1 text-sm font-medium">Unidad de los ejercicios</div>
         <Segmented
           value={st.unit}
           onChange={(v) => {
             if (st.unit === v) return;
             update((s) => {
-              convertWeights(s, v as "kg" | "lb");
+              convertExerciseWeights(s, v as "kg" | "lb");
               s.unit = v as "kg" | "lb";
             });
           }}
           options={[{ value: "kg", label: "kg" }, { value: "lb", label: "lb" }]}
         />
         <p className="mt-1 text-[11px] text-muted-foreground">
-          Al cambiar de unidad todos tus registros se convierten automáticamente.
+          Pesos de mancuernas, barras, máquinas y tu objetivo de peso corporal se mantienen aparte.
         </p>
+      </div>
+      <div className="flex items-center justify-between rounded-xl border px-3 py-2.5">
+        <div>
+          <div className="text-sm font-medium">Peso corporal (switch)</div>
+          <div className="text-xs text-muted-foreground">
+            Unidad para tu peso y el objetivo:{" "}
+            <span className="font-semibold capitalize">{st.bwUnit}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "text-xs font-semibold",
+              st.bwUnit === "kg" ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            kg
+          </span>
+          <Switch
+            checked={st.bwUnit === "lb"}
+            onCheckedChange={(v) => {
+              const to = v ? "lb" : "kg";
+              if (st.bwUnit === to) return;
+              update((s) => {
+                convertBwWeights(s, to);
+                s.bwUnit = to;
+              });
+            }}
+          />
+          <span
+            className={cn(
+              "text-xs font-semibold",
+              st.bwUnit === "lb" ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            lb
+          </span>
+        </div>
       </div>
       <div>
         <div className="mb-1 text-sm font-medium">
@@ -700,6 +743,30 @@ function SettingsContent({ close }: { close: () => void }) {
           RIR = reps en reserva · RPE = escala 1–10. Se anota en cada serie de repeticiones.
         </p>
       </div>
+      <Button
+        variant="destructive"
+        className="w-full"
+        disabled={st.bodyweight.length === 0 && st.targetW == null}
+        onClick={() =>
+          confirmSheet({
+            title: "¿Borrar todos los pesajes?",
+            message:
+              "Se eliminarán todos los registros de peso corporal y el objetivo. Esta acción no se puede deshacer.",
+            confirmText: "Sí, borrar todo",
+            cancelText: "Cancelar",
+            danger: true,
+            onConfirm: () => {
+              update((s) => {
+                s.bodyweight = [];
+                s.targetW = null;
+              });
+              notify("Historial de peso borrado");
+            },
+          })
+        }
+      >
+        Borrar datos de peso
+      </Button>
       <Button className="w-full" onClick={close}>
         Hecho
       </Button>
@@ -1670,7 +1737,7 @@ export function workoutDetailSheet(w: Workout) {
     <div>
       <h3 className="text-lg font-bold">{w.name}</h3>
       <p className="mb-3 mt-1 text-xs text-muted-foreground">
-        {[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, S().unit), ...(w.bw ? [fmtNum(w.bw) + " " + S().unit] : [])].join(" · ")}
+        {[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, S().unit), ...(w.bw ? [fmtNum(w.bw) + " " + S().bwUnit] : [])].join(" · ")}
       </p>
       {w.entries.map((e, i) => {
         const ex = EXIDX[e.id];

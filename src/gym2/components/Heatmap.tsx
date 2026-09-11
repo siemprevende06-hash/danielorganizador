@@ -1,33 +1,38 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { fmtVol, isoOf, todayISO, MONTHS } from "../lib/format";
 import { cn } from "@/lib/utils";
-import type { GymState } from "../lib/types";
+import type { GymState, Workout } from "../lib/types";
 
-const CELL = ["bg-transparent", "bg-emerald-400/25", "bg-emerald-400/45", "bg-emerald-400/65", "bg-emerald-400/90"];
+const CELL = ["bg-muted/70", "bg-sky-400/30", "bg-sky-400/50", "bg-sky-400/70", "bg-sky-400/95"];
 
 export function Heatmap({
   S,
   onDay,
+  workouts,
 }: {
   S: GymState;
   onDay?: (iso: string) => void;
+  workouts?: Workout[];
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (wrapRef.current) wrapRef.current.scrollLeft = wrapRef.current.scrollWidth;
   }, []);
 
+  const src = workouts || S.workouts || [];
   const agg: Record<string, { n: number; vol: number; min: number }> = {};
-  S.workouts.forEach((w) => {
+  src.forEach((w) => {
     const a = (agg[w.d] = agg[w.d] || { n: 0, vol: 0, min: 0 });
     a.n++;
     a.vol += w.vol || 0;
     a.min += Math.max(0, Math.round(((w.end || w.start) - w.start) / 60000));
   });
+
   const mins = Object.values(agg)
     .map((a) => a.min)
     .filter((v) => v > 0)
     .sort((a, b) => a - b);
+  const trainedDays = Object.values(agg).filter((a) => a.n > 0).length;
   const q = (p: number) =>
     mins.length ? mins[Math.min(mins.length - 1, Math.floor(p * mins.length))] : 0;
   const t1 = q(0.25);
@@ -78,7 +83,7 @@ export function Heatmap({
             key +
             (a
               ? ` · ${a.n} entrenamiento${a.n === 1 ? "" : "s"} · ${a.min} min · ${fmtVol(a.vol, S.unit)}`
-              : "")
+              : " · sin entrenar")
           }
           onClick={a ? () => onDay && onDay(key) : undefined}
         />
@@ -90,6 +95,16 @@ export function Heatmap({
       </div>
     );
   }
+
+  const text1 = mins.length ? "1" : "–";
+  const txt = (x: number) => (mins.length ? String(Math.max(1, Math.ceil(x))) : "–");
+  const legendLabels = [
+    "Sin entrenar",
+    mins.length ? `${text1}–${txt(t1)} min` : "–",
+    mins.length ? `${txt(t1)}–${txt(t2)} min` : "–",
+    mins.length ? `${txt(t2)}–${txt(t3)} min` : "–",
+    mins.length ? `${txt(t3)}+ min` : "–",
+  ];
 
   return (
     <div className="space-y-2">
@@ -110,12 +125,17 @@ export function Heatmap({
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        Menos tiempo
-        {CELL.map((c) => (
-          <span key={c} className={cn("h-3 w-3 rounded-[3px]", c)} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+        {CELL.map((c, i) => (
+          <span key={c} className="flex items-center gap-1">
+            <span className={cn("h-2.5 w-2.5 rounded-[3px]", i === 0 ? "border border-border" : "", c)} />
+            {legendLabels[i]}
+          </span>
         ))}
-        Más tiempo
+      </div>
+      <div className="text-[10px] text-muted-foreground">
+        {trainedDays} {trainedDays === 1 ? "día entrenado" : "días entrenados"} ·{" "}
+        {mins.length ? `${txt(t1)}–${txt(t3)}+ min por día` : "aún sin entrenamientos"}
       </div>
     </div>
   );

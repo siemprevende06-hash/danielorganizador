@@ -230,7 +230,7 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
             <>
               <div className="flex items-baseline gap-2">
                 <div className="text-3xl font-bold tracking-tight">
-                  {fmtNum(bw.w)} <span className="text-base font-normal text-muted-foreground">{S.unit}</span>
+                  {fmtNum(bw.w)} <span className="text-base font-normal text-muted-foreground">{S.bwUnit}</span>
                 </div>
                 {!!delta && (
                   <span className={cn("flex items-center gap-0.5 text-sm font-medium", bwDeltaColor(delta, bw.w))}>
@@ -244,18 +244,18 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
                 <div className="mt-1 flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500">
                   <Target className="h-3.5 w-3.5" />
                   <span>
-                    Objetivo {fmtNum(S.targetW)} {S.unit} ·{" "}
+                    Objetivo {fmtNum(S.targetW)} {S.bwUnit} ·{" "}
                     {Math.abs(S.targetW - bw.w) < 0.05
                       ? "¡alcanzado!"
                       : (S.targetW > bw.w ? "subir " : "bajar ") +
                         fmtNum(Math.abs(S.targetW - bw.w)) +
                         " " +
-                        S.unit}
+                        S.bwUnit}
                   </span>
                 </div>
               )}
               <div className="mt-2">
-                <Chart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} />
+                <Chart points={bwPoints} h={130} unit={S.bwUnit} goal={S.targetW} color="#0a84ff" />
               </div>
             </>
           ) : (
