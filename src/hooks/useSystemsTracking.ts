@@ -171,6 +171,15 @@ export function useSystemsTracking(targetDate?: Date) {
 
   // Sync time_data + completions to daily_area_stats so the Wheel of Life sees real data
   const syncToAreaStats = useCallback(async (newData: SystemsData, forDate: string) => {
+    let existingGoals: Record<string, number> = {};
+    try {
+      const { data } = await supabase
+        .from("daily_area_stats")
+        .select("area_id, time_goal_minutes")
+        .eq("stat_date", forDate);
+      (data || []).forEach((r: any) => { existingGoals[r.area_id] = r.time_goal_minutes || 0; });
+    } catch {}
+
     const areaUpdates = new Map<string, { time_spent_minutes: number; completed: boolean; completed_at: string | null }>()
 
     for (const [id, minutes] of Object.entries(newData.timeData)) {
@@ -201,7 +210,7 @@ export function useSystemsTracking(targetDate?: Date) {
           area_id: areaId,
           stat_date: forDate,
           time_spent_minutes: vals.time_spent_minutes,
-          time_goal_minutes: DEFAULT_TIME_GOALS[areaId] ?? 30,
+          time_goal_minutes: existingGoals[areaId] ?? DEFAULT_TIME_GOALS[areaId] ?? 30,
           completed: vals.completed,
           completed_at: vals.completed_at,
         }, { onConflict: "area_id,stat_date" })
@@ -217,7 +226,7 @@ export function useSystemsTracking(targetDate?: Date) {
           area_id: "gym",
           stat_date: forDate,
           time_spent_minutes: newData.workoutDuration,
-          time_goal_minutes: DEFAULT_TIME_GOALS["gym"] ?? 60,
+          time_goal_minutes: existingGoals["gym"] ?? DEFAULT_TIME_GOALS["gym"] ?? 60,
           completed: !!newData.completions["entrenamiento-fisico"],
           completed_at: newData.completions["entrenamiento-fisico"] ? new Date().toISOString() : null,
         }, { onConflict: "area_id,stat_date" })

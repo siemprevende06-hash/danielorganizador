@@ -1,12 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, ListChecks, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package, RefreshCw, MapPin, Network, Clock, Milestone
+  Home, Gauge, CheckSquare, Calendar, DollarSign, Target, ListTodo, ListChecks, Eye, CalendarDays, CalendarRange, Goal, BookOpen, Briefcase, GraduationCap, Wrench, Bell, ChevronDown, CalendarCheck, Menu, Focus, LayoutList, BarChart3, ClipboardCheck, Compass, Settings, Brain, Utensils, Dumbbell, Crown, ShoppingCart, Wifi, WifiOff, CloudOff, Activity, PanelLeftClose, PanelLeft, Sparkles, Zap, Moon, Shirt, Heart, Sun, Flame, Users, LayoutDashboard, FileText, Star, Package, RefreshCw, MapPin, Network, Clock, Milestone, X
 } from 'lucide-react';
 
 const Timeline = Milestone;
 import {
   Sheet,
+  SheetClose,
   SheetContent,
 } from "@/components/ui/sheet";
 import { useState, useEffect } from 'react';
@@ -315,38 +316,45 @@ export const Navigation = () => {
   return (
     <>
       {/* Mobile top bar */}
-      <header className="fixed top-0 left-0 right-0 z-40 h-12 border-b bg-background flex items-center justify-between px-3 sm:px-4 lg:hidden"
+      <header className="fixed top-0 left-0 right-0 z-40 border-b bg-background lg:hidden"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <button onClick={() => setIsOpen(true)} className="p-1 -ml-1 shrink-0 rounded-md hover:bg-accent">
-            <Menu className="h-5 w-5" />
-          </button>
-          {pageIcon && <span className="shrink-0 text-base leading-none">{pageIcon}</span>}
-          <span className="truncate font-medium text-sm">{currentPage}</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <PageCoverMenu currentName={currentPage} />
-          <button
-            onClick={() => (window as any).__pwaCheckForUpdates?.()}
-            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            title="Buscar actualizaciones"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-          <ThemeToggle />
-          <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
+        <div className="flex h-12 items-center justify-between px-3 sm:px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <button onClick={() => setIsOpen(true)} className="p-1 -ml-1 shrink-0 rounded-md hover:bg-accent">
+              <Menu className="h-5 w-5" />
+            </button>
+            {pageIcon && <span className="shrink-0 text-base leading-none">{pageIcon}</span>}
+            <span className="truncate font-medium text-sm">{currentPage}</span>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <PageCoverMenu currentName={currentPage} />
+            <button
+              onClick={() => (window as any).__pwaCheckForUpdates?.()}
+              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              title="Buscar actualizaciones"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <ThemeToggle />
+            <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
+          </div>
         </div>
       </header>
 
       {/* Mobile Sheet */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent side="left" className="w-64 p-0 flex flex-col h-full max-h-screen bg-secondary">
-          <div className="h-12 flex items-center justify-between px-4 border-b shrink-0"
-            style={{ paddingTop: 'env(safe-area-inset-top)', marginTop: 0 }}>
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold">Segundo Cerebro</h1>
-            <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
-          </div>
+        <SheetContent side="left" hideClose className="w-64 p-0 gap-0 flex flex-col h-full max-h-screen bg-secondary">
+          <div className="flex items-center justify-between px-4 border-b shrink-0 pt-[env(safe-area-inset-top)]">
+            <div className="flex h-12 items-center gap-2 min-w-0">
+              <h1 className="text-sm font-semibold truncate">Segundo Cerebro</h1>
+              <OfflineBadge isOnline={isOnline} pendingMutations={pendingMutations} />
+            </div>
+            <div className="flex h-12 shrink-0 items-center gap-0.5">
+              <ThemeToggle />
+              <SheetClose className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-4 w-4" />
+              </SheetClose>
+            </div>
           </div>
           <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
             {sidebarGroups.map((group, gi) => (

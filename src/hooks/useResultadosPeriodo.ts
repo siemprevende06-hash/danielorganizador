@@ -176,6 +176,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         citasRes, intimidadRes, eventosRes, ingresoRes,
         libraryRes, repertoireRes, projectsRes, subjectsRes, entregasRes,
         examsRes, partialsRes, topicRes, goalsRes, entPendingRes, subjPendingRes,
+        planRes,
       ] = await Promise.all([
         supabase.from('tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
         supabase.from('entrepreneurship_tasks').select('*').gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
@@ -202,6 +203,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('entrepreneurship_goals').select('*'),
         supabase.from('entrepreneurship_tasks').select('*').eq('completed', false),
         supabase.from('tasks').select('*').eq('source', 'university').eq('completed', false),
+        supabase.from('daily_plans').select('plan_date, notes').gte('plan_date', startStr).lte('plan_date', endStr),
       ]);
 
       const areaStats = areaStatsRes.data || [];
@@ -447,10 +449,41 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         day.set(raw, Math.max(day.get(raw) || 0, minutes));
       };
 
+      // Metas de minutos por día/área: fuente principal daily_area_stats, con
+      // respaldo de las metas planificadas en daily_plans.notes.dayGoals.
+      const byDayGoal = new Map<string, Map<string, number>>();
       areaStats.forEach((s: any) => {
-        const a = normalizeArea(s.area_id);
-        byArea[a].goalMinutes += s.time_goal_minutes || 0;
-        addRawMinutes(s.stat_date, s.area_id, s.time_spent_minutes || 0);
+        const area = s.area_id || 'general';
+        let day = byDayGoal.get(s.stat_date);
+        if (!day) { day = new Map(); byDayGoal.set(s.stat_date, day); }
+        day.set(area, (day.get(area) || 0) + (s.time_goal_minutes || 0));
+        addRawMinutes(s.stat_date, area, s.time_spent_minutes || 0);
+      });
+
+      const planGoalsByDay = new Map<string, Map<string, number>>();
+      (planRes.data || []).forEach((p: any) => {
+        let parsed: any = null;
+        try { parsed = JSON.parse(p.notes || ''); } catch {}
+        const goals = parsed?.dayGoals;
+        if (!goals || typeof goals !== 'object') return;
+        let day = planGoalsByDay.get(p.plan_date);
+        if (!day) { day = new Map(); planGoalsByDay.set(p.plan_date, day); }
+        for (const [area, mins] of Object.entries(goals)) {
+          const g = Number(mins) || 0;
+          if (g > 0) day.set(area, Math.max(day.get(area) || 0, g));
+        }
+      });
+      planGoalsByDay.forEach((goals, date) => {
+        let day = byDayGoal.get(date);
+        if (!day) { day = new Map(); byDayGoal.set(date, day); }
+        goals.forEach((goal, area) => {
+          if ((day.get(area) || 0) === 0) day.set(area, goal);
+        });
+      });
+      byDayGoal.forEach(day => {
+        day.forEach((goal, area) => {
+          byArea[normalizeArea(area)].goalMinutes += goal;
+        });
       });
 
       systems.forEach((s: any) => {

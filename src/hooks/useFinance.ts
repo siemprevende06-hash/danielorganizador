@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from "sonner";
 import { supabase } from '@/integrations/supabase/client';
 import { safeMutation } from '@/lib/offlineQueue';
 import { wallets as initialWallets, defaultDistributionBags } from '@/lib/data';
@@ -49,6 +50,11 @@ function mergeById<T extends { id: string }>(primary: T[], local: T[]): T[] {
   for (const item of primary) map.set(item.id, item);
   for (const item of local) if (!map.has(item.id)) map.set(item.id, item);
   return Array.from(map.values());
+}
+
+function saveFeedback(label: string, res: { queued: boolean; error: any }) {
+  if (res.error) toast.error(`${label} no se pudo guardar: ${res.error}`);
+  else if (res.queued) toast.warning(`${label} guardado localmente · pendiente de sincronización`);
 }
 
 // --- text_sections generic KV helpers ---
@@ -318,8 +324,8 @@ export const useFinance = () => {
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id'>) => {
     const newTransaction: Transaction = { ...transaction, id: genId() };
     setTransactions(prev => [newTransaction, ...prev]);
-    const { queued } = await safeMutation({ table: 'transactions', op: 'insert', payload: transactionToRow(newTransaction) });
-    if (queued) console.warn('[useFinance] Transacción encolada para reintento offline.');
+    const res = await safeMutation({ table: 'transactions', op: 'insert', payload: transactionToRow(newTransaction) });
+    saveFeedback('Transacción', res);
     return newTransaction;
   }, []);
   const deleteTransaction = useCallback(async (transactionId: string) => {
@@ -330,45 +336,47 @@ export const useFinance = () => {
     if (ids.length === 0) return;
     setTransactions(prev => prev.map(t => ids.includes(t.id) ? { ...t, distributed: true } : t));
     for (const id of ids) {
-      const { queued } = await safeMutation({ table: 'transactions', op: 'update', payload: { distributed: true }, match: { id } });
-      if (queued) console.warn('[useFinance] Marcado de distribuido encolado para reintento offline.');
+      const res = await safeMutation({ table: 'transactions', op: 'update', payload: { distributed: true }, match: { id } });
+      saveFeedback('Ingresos distribuidos', res);
     }
   }, []);
 
   // ---- Wallets ----
   const updateWalletBalance = useCallback(async (walletId: string, newBalance: number) => {
     setWallets(prev => prev.map(w => w.id === walletId ? { ...w, balance: newBalance } : w));
-    await safeMutation({ table: 'wallets', op: 'update', payload: { balance: newBalance }, match: { id: walletId } });
+    const res = await safeMutation({ table: 'wallets', op: 'update', payload: { balance: newBalance }, match: { id: walletId } });
+    saveFeedback('Saldo de billetera', res);
   }, []);
   const updateWallet = useCallback(async (walletId: string, updates: Partial<Wallet>) => {
     setWallets(prev => prev.map(w => w.id === walletId ? { ...w, ...updates } : w));
-    const { queued } = await safeMutation({ table: 'wallets', op: 'update', payload: walletToRow(updates), match: { id: walletId } });
-    if (queued) console.warn('[useFinance] Billetera encolada para reintento offline.');
+    const label = updates.balance !== undefined && Object.keys(updates).length === 1 ? 'Saldo de billetera' : 'Billetera';
+    const res = await safeMutation({ table: 'wallets', op: 'update', payload: walletToRow(updates), match: { id: walletId } });
+    saveFeedback(label, res);
   }, []);
   const addWallet = useCallback(async (wallet: Wallet) => {
     setWallets(prev => [...prev, wallet]);
-    const { queued } = await safeMutation({ table: 'wallets', op: 'insert', payload: walletToRow(wallet) });
-    if (queued) console.warn('[useFinance] Billetera encolada para reintento offline.');
+    const res = await safeMutation({ table: 'wallets', op: 'insert', payload: walletToRow(wallet) });
+    saveFeedback('Billetera', res);
     return wallet;
   }, []);
   const deleteWallet = useCallback(async (walletId: string) => {
     setWallets(prev => prev.filter(w => w.id !== walletId));
-    const { queued } = await safeMutation({ table: 'wallets', op: 'delete', match: { id: walletId } });
-    if (queued) console.warn('[useFinance] Borrado de billetera encolado para reintento offline.');
+    const res = await safeMutation({ table: 'wallets', op: 'delete', match: { id: walletId } });
+    saveFeedback('Billetera eliminada', res);
   }, []);
 
   // ---- Loans ----
   const addLoan = useCallback(async (loan: Omit<Loan, 'id'>) => {
     const newLoan: Loan = { ...loan, id: genId() };
     setLoans(prev => [newLoan, ...prev]);
-    const { queued } = await safeMutation({ table: 'loans', op: 'insert', payload: loanToRow(newLoan) });
-    if (queued) console.warn('[useFinance] Préstamo encolado para reintento offline.');
+    const res = await safeMutation({ table: 'loans', op: 'insert', payload: loanToRow(newLoan) });
+    saveFeedback('Préstamo', res);
     return newLoan;
   }, []);
   const updateLoan = useCallback(async (loanId: string, updates: Partial<Loan>) => {
     setLoans(prev => prev.map(l => l.id === loanId ? { ...l, ...updates } : l));
-    const { queued } = await safeMutation({ table: 'loans', op: 'update', payload: loanToRow(updates), match: { id: loanId } });
-    if (queued) console.warn('[useFinance] Préstamo encolado para reintento offline.');
+    const res = await safeMutation({ table: 'loans', op: 'update', payload: loanToRow(updates), match: { id: loanId } });
+    saveFeedback('Préstamo', res);
   }, []);
 
   // ---- Debts (text_sections) ----
@@ -391,19 +399,19 @@ export const useFinance = () => {
   const addDistributionBag = useCallback(async (bag: Omit<DistributionBag, 'id'>) => {
     const newBag: DistributionBag = { ...bag, id: genId() };
     setDistributionBags(prev => [...prev, newBag]);
-    const { queued } = await safeMutation({ table: 'distribution_bags', op: 'insert', payload: bagToRow(newBag) });
-    if (queued) console.warn('[useFinance] Bolsa de distribución encolada para reintento offline.');
+    const res = await safeMutation({ table: 'distribution_bags', op: 'insert', payload: bagToRow(newBag) });
+    saveFeedback('Bolsa de distribución', res);
     return newBag;
   }, []);
   const updateDistributionBag = useCallback(async (bagId: string, updates: Partial<DistributionBag>) => {
     setDistributionBags(prev => prev.map(b => b.id === bagId ? { ...b, ...updates } : b));
-    const { queued } = await safeMutation({ table: 'distribution_bags', op: 'update', payload: bagToRow(updates), match: { id: bagId } });
-    if (queued) console.warn('[useFinance] Bolsa de distribución encolada para reintento offline.');
+    const res = await safeMutation({ table: 'distribution_bags', op: 'update', payload: bagToRow(updates), match: { id: bagId } });
+    saveFeedback('Bolsa de distribución', res);
   }, []);
   const deleteDistributionBag = useCallback(async (bagId: string) => {
     setDistributionBags(prev => prev.filter(b => b.id !== bagId));
-    const { queued } = await safeMutation({ table: 'distribution_bags', op: 'delete', match: { id: bagId } });
-    if (queued) console.warn('[useFinance] Borrado de bolsa de distribución encolado para reintento offline.');
+    const res = await safeMutation({ table: 'distribution_bags', op: 'delete', match: { id: bagId } });
+    saveFeedback('Bolsa de distribución eliminada', res);
   }, []);
 
   // ---- Financial Goals (text_sections) ----

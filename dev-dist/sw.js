@@ -90,18 +90,7 @@ define(['./workbox-06b39193'], (function (workbox) { 'use strict';
     allowlist: [/^\/$/],
     denylist: [/^\/~oauth/]
   }));
-  workbox.registerRoute(/^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/rest\/v1\/.*/i, new workbox.NetworkFirst({
-    "cacheName": "supabase-api",
-    "networkTimeoutSeconds": 3,
-    plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 500,
-      maxAgeSeconds: 604800
-    }), new workbox.CacheableResponsePlugin({
-      statuses: [0, 200]
-    }), new workbox.BackgroundSyncPlugin("supabase-sync", {
-      maxRetentionTime: 1440
-    })]
-  }), 'GET');
+  workbox.registerRoute(/^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/rest\/v1\/.*/i, new workbox.NetworkOnly(), 'GET');
   workbox.registerRoute(/^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/storage\/v1\/.*/i, new workbox.CacheFirst({
     "cacheName": "supabase-storage",
     plugins: [new workbox.ExpirationPlugin({

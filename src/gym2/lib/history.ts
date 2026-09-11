@@ -264,6 +264,40 @@ export function streakWeeks(S: GymState) {
   return streak;
 }
 
+/**
+ * Racha en días: cuenta los días de entrenamiento consecutivos que SÍ se
+ * completaron, sin romper por los días de descanso. Solo la rompe un día
+ * planificado (semana o día puntual) que se haya saltado. Si no hay plan,
+ * cuenta días seguidos entrenando.
+ */
+export function streakDays(S: GymState) {
+  if (!S.workouts.length) return 0;
+  const done = new Set(S.workouts.map((w) => w.d));
+  const hasPlan = Object.keys(S.week).length > 0 || Object.keys(S.dayPlan).length > 0;
+  let streak = 0;
+  const today = todayISO();
+  // Hoy solo cuenta si ya se entrenó (si toca hoy y aún no, no rompe la racha).
+  if (done.has(today) && effectiveRoutineId(S, today)) streak++;
+  const cur = new Date();
+  cur.setDate(cur.getDate() - 1);
+  for (let i = 0; i < 730; i++) {
+    const iso = isoOf(cur);
+    if (hasPlan) {
+      if (effectiveRoutineId(S, iso)) {
+        if (done.has(iso)) streak++;
+        else break;
+      }
+      // día de descanso: no suma ni rompe
+    } else if (done.has(iso)) {
+      streak++;
+    } else {
+      break;
+    }
+    cur.setDate(cur.getDate() - 1);
+  }
+  return streak;
+}
+
 export const BODY_METRICS = [
   { key: "chest", label: "Pecho", color: "#30d158" },
   { key: "waist", label: "Cintura", color: "#0a84ff" },

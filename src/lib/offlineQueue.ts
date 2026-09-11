@@ -59,6 +59,13 @@ const buildQuery = (
   return q;
 };
 
+const withTimeout = (p: Promise<any>, ms: number): Promise<any> => {
+  return Promise.race([
+    p,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("NetworkError: timeout abort")), ms)),
+  ]);
+};
+
 const runMutation = async (m: QueuedMutation): Promise<MutationResult> => {
   try {
     // Cast to any: m.table is dynamic and not statically known to the typed client
@@ -66,15 +73,15 @@ const runMutation = async (m: QueuedMutation): Promise<MutationResult> => {
     const payload = m.payload || {};
 
     if (m.op === "delete") {
-      const { error } = await buildQuery(builder, m.op, payload, m.match);
+      const { error } = await withTimeout(buildQuery(builder, m.op, payload, m.match), 15000);
       return error ? { ok: false, error } : { ok: true };
     }
 
-    let result = await buildQuery(builder, m.op, payload, m.match, m.onConflict);
+    let result = await withTimeout(buildQuery(builder, m.op, payload, m.match, m.onConflict), 15000);
     const stripCol = result?.error ? missingColumnFromError(result.error, payload) : null;
     if (stripCol) {
       const { [stripCol]: _dropped, ...strippedPayload } = payload;
-      result = await buildQuery(builder, m.op, strippedPayload, m.match, m.onConflict);
+      result = await withTimeout(buildQuery(builder, m.op, strippedPayload, m.match, m.onConflict), 15000);
     }
     return result?.error ? { ok: false, error: result.error } : { ok: true };
   } catch (e) {

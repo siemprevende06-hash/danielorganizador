@@ -28,6 +28,8 @@ export function useDailyPlanData(date?: Date) {
   const [planAssignments, setPlanAssignments] = useState<Record<string, string[]> | null>(null);
   const [planRoutineType, setPlanRoutineType] = useState<string | null>(null);
   const [planLanguage, setPlanLanguage] = useState<'ingles' | 'italiano' | null>(null);
+  const [planGoals, setPlanGoals] = useState<Record<string, number> | null>(null);
+  const [planIntensity, setPlanIntensity] = useState<Record<string, string> | null>(null);
   const [planLoaded, setPlanLoaded] = useState(false);
 
   const targetDate = date || new Date();
@@ -44,7 +46,7 @@ export function useDailyPlanData(date?: Date) {
     try {
       const { data: plan } = await supabase.from('daily_plans').select('routine_type, block_assignments, notes').eq('plan_date', dateStr).maybeSingle();
 
-      if (plan && plan.block_assignments) {
+if (plan && plan.block_assignments) {
         setPlanAssignments(plan.block_assignments as Record<string, string[]>);
         setPlanRoutineType(plan.routine_type);
         if (plan.notes) {
@@ -53,17 +55,32 @@ export function useDailyPlanData(date?: Date) {
             if (parsed.language === 'ingles' || parsed.language === 'italiano') {
               setPlanLanguage(parsed.language);
             }
+            if (parsed.dayGoals && typeof parsed.dayGoals === 'object') {
+              setPlanGoals(parsed.dayGoals);
+            } else {
+              setPlanGoals(null);
+            }
+            if (parsed.systemIntensity && typeof parsed.systemIntensity === 'object') {
+              setPlanIntensity(parsed.systemIntensity);
+            } else {
+              setPlanIntensity(null);
+            }
           } catch {}
         }
       } else {
         setPlanAssignments(null);
         setPlanRoutineType(null);
         setPlanLanguage(null);
+        setPlanGoals(null);
+        setPlanIntensity(null);
       }
     } catch (error) {
       console.error('Error loading plan for date:', error);
       setPlanAssignments(null);
       setPlanRoutineType(null);
+      setPlanLanguage(null);
+      setPlanGoals(null);
+      setPlanIntensity(null);
     } finally {
       setPlanLoaded(true);
     }
@@ -278,6 +295,8 @@ export function useDailyPlanData(date?: Date) {
     planAssignments,
     planRoutineType,
     planLanguage,
+    planGoals,
+    planIntensity,
     planLoaded,
   };
 }

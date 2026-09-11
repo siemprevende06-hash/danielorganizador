@@ -45,6 +45,7 @@ import { addDays, subDays } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { TimePeriodSections } from '@/components/today/TimePeriodSections';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
+import { PlanGoalsCard } from '@/components/today/PlanGoalsCard';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
@@ -129,6 +130,8 @@ export default function DailyView() {
     tasks,
     planRoutineType,
     planLanguage,
+    planGoals,
+    planIntensity,
   } = dailyPlanData;
   const planAssignments = dailyPlanData.planAssignments ?? null;
 
@@ -289,6 +292,8 @@ export default function DailyView() {
               })}
             </div>
 
+            <PlanGoalsCard date={selectedDate} planGoals={planGoals} planIntensity={planIntensity} plannedTasks={plannedTasksTotal.length} />
+
             <TimePeriodSections blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} />
 
             <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
@@ -296,7 +301,7 @@ export default function DailyView() {
             <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock} />
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} />
+              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
                 <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} />
               </div>

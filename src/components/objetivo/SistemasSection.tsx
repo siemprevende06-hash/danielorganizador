@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   Sun, CalendarCheck2, CalendarDays, Home, Sparkles, ArrowRight, Target, Activity,
+  ListChecks, CheckCircle2, Circle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { POINT_B_AREAS } from "@/data/pointB2027";
@@ -11,6 +12,21 @@ import { useSystemsTracking } from "@/hooks/useSystemsTracking";
 import { usePuntoPartida, type PuntoPartidaEntry } from "@/hooks/usePuntoPartida";
 import { getWeekGoalEffective, getMonthGoalsSummary } from "@/lib/hierarchy";
 import { getCoverGradient } from "@/components/areas/AreaCover";
+import { useAreaScores, type AreaScore, type SubAreaScore } from "@/hooks/useAreaScores";
+import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
+import { usePersonalLists, type PersonalList, type PersonalListTask } from "@/hooks/usePersonalLists";
+
+const LIST_AREA_MAP: Record<string, string> = {
+  salud_bienestar: "salud",
+  fuerza_mental: "fuerza-mental",
+  apariencia: "apariencia",
+  desarrollo_personal: "desarrollo",
+  profesional_academico: "profesional",
+  finanzas: "finanzas",
+  amor_romance: "amor",
+  familia_amistad: "familia",
+  ocio_experiencias: "ocio",
+};
 
 interface AreaSystemConfig {
   habits: string[];
@@ -173,8 +189,16 @@ function JourneyNode({ node }: {
   );
 }
 
+function collectSubScores(list: SubAreaScore[], m: Record<string, SubAreaScore>) {
+  for (const s of list) {
+    m[s.id] = s;
+    if (s.children && s.children.length > 0) collectSubScores(s.children, m);
+  }
+}
+
 function AreaJourneyCard({
   area, entries, sys, today, weekRows, monthRows, monthGoals,
+  score, subCovers, lists, tasks,
 }: {
   area: PointBArea;
   entries: Record<string, PuntoPartidaEntry>;
@@ -183,6 +207,10 @@ function AreaJourneyCard({
   weekRows: HistoryRow[];
   monthRows: HistoryRow[];
   monthGoals: Record<string, number>;
+  score?: AreaScore;
+  subCovers: Record<string, string>;
+  lists: PersonalList[];
+  tasks: PersonalListTask[];
 }) {
   const cfg = AREA_SYSTEMS[area.id] || { habits: [], hierarchyAreas: [], vision: "" };
 
@@ -198,6 +226,20 @@ function AreaJourneyCard({
     if (vals.length === 0) return 0;
     return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
   }, [subs, entries, area.id]);
+
+  const subScoresById = useMemo(() => {
+    const m: Record<string, SubAreaScore> = {};
+    collectSubScores(score?.sub || [], m);
+    return m;
+  }, [score]);
+
+  const areaLists = useMemo(
+    () => lists.filter(l => LIST_AREA_MAP[l.area_id] === area.id),
+    [lists, area.id]
+  );
+
+  const areaEsfuerzo = score?.esfuerzo ?? null;
+  const areaResultados = score?.resultados ?? null;
 
   const doneToday = cfg.habits.filter(h => sys.completions[h]).length;
   const minToday = cfg.habits.reduce((s, h) => s + (sys.timeData[h] || 0), 0);
@@ -260,11 +302,12 @@ function AreaJourneyCard({
     },
   ];
 
-  const results = subs.slice(0, 4).map(s => {
+  const results = subs.slice(0, 6).map(s => {
     const cur = entries[area.id]?.sub_scores?.[s.id] ?? s.start;
     const range = s.target - s.start;
     const pct = range === 0 ? 100 : Math.max(0, Math.min(100, ((cur - s.start) / range) * 100));
-    return { ...s, cur, pct };
+    const subScore = subScoresById[s.id];
+    return { ...s, cur, pct, esfuerzo: subScore?.esfuerzo ?? null, cover: subCovers[s.id] ?? null };
   });
 
   return (
@@ -306,6 +349,25 @@ function AreaJourneyCard({
           ))}
         </div>
 
+        {areaEsfuerzo != null && areaResultados != null && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-center">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-sky-600 flex items-center justify-center gap-1">
+                <Activity className="h-3 w-3" /> Esfuerzo real
+              </p>
+              <p className="text-xl font-black tabular-nums text-sky-600">{areaEsfuerzo}%</p>
+              <p className="text-[9px] text-muted-foreground">consistencia registrada en tus días</p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-center">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 flex items-center justify-center gap-1">
+                <Target className="h-3 w-3" /> Resultados reales
+              </p>
+              <p className="text-xl font-black tabular-nums text-emerald-600">{areaResultados}%</p>
+              <p className="text-[9px] text-muted-foreground">progreso hacia tu punto de comodidad</p>
+            </div>
+          </div>
+        )}
+
         {results.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">
@@ -318,17 +380,99 @@ function AreaJourneyCard({
               {results.map(s => {
                 const pct = s.pct;
                 return (
-                  <div key={s.id} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[11px] font-semibold truncate">{s.label}</span>
-                      <span className={cn("text-[11px] font-black tabular-nums shrink-0",
-                        pct >= 80 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-muted-foreground")}>
-                        {s.cur}{s.unit}
-                      </span>
+                  <div key={s.id} className="overflow-hidden rounded-lg border border-border/60 bg-muted/20">
+                    <div className={cn("relative h-14 flex items-center justify-center bg-gradient-to-br overflow-hidden", getCoverGradient(s.id))}>
+                      {s.cover ? (
+                        <img src={s.cover} alt={s.label} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl drop-shadow-sm">{area.icon}</span>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-black/70 to-transparent px-2 flex items-end">
+                        <span className="text-[10px] font-bold text-white drop-shadow truncate">{s.label}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <Progress value={pct} className="h-1.5" />
-                      <span className="text-[10px] font-bold text-muted-foreground tabular-nums shrink-0">{pct}%</span>
+                    <div className="p-2 pt-1.5 space-y-1.5">
+                      {s.esfuerzo != null && (
+                        <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Activity className="h-2.5 w-2.5 text-sky-500" /> Esfuerzo
+                          </span>
+                          <span className="font-bold tabular-nums">{s.esfuerzo}%</span>
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] text-muted-foreground mb-0.5">
+                          <span className="font-medium">Resultado planificado</span>
+                          <span className="font-bold tabular-nums text-[10px]">
+                            <span className={cn(
+                              "text-[11px] font-black",
+                              pct >= 80 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-muted-foreground"
+                            )}>{s.cur}{s.unit}</span>
+                            <span className="text-muted-foreground/50"> / {s.target}{s.unit}</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Progress value={pct} className="h-1.5 flex-1" />
+                          <span className="text-[9px] font-bold text-muted-foreground tabular-nums shrink-0">{pct}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {areaLists.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
+              <ListChecks className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Objetivos · Mi Lista Personal
+              </span>
+            </div>
+            <div className="space-y-2">
+              {areaLists.map(list => {
+                const listTasks = tasks.filter(t => t.list_id === list.id);
+                const roots = listTasks.filter(t => !t.parent_id);
+                const done = roots.filter(t => t.completed).length;
+                const pct = roots.length ? Math.round((done / roots.length) * 100) : 0;
+                return (
+                  <div key={list.id} className="overflow-hidden rounded-lg border border-emerald-500/20 bg-emerald-500/5">
+                    {list.cover_image_url && (
+                      <img src={list.cover_image_url} alt={`Portada de ${list.title}`} loading="lazy" className="h-12 w-full object-cover" />
+                    )}
+                    <div className="p-2.5 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold truncate">{list.title}</p>
+                          {list.sub_area && (
+                            <p className="text-[9px] text-muted-foreground truncate">{list.sub_area}</p>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-black tabular-nums shrink-0">{roots.length > 0 ? `${pct}%` : "—"}</span>
+                      </div>
+                      {roots.length > 0 && (
+                        <Progress value={pct} className="h-1.5" />
+                      )}
+                      {roots.length > 0 && (
+                        <div className="space-y-1">
+                          {roots.slice(0, 3).map(t => (
+                            <div key={t.id} className="flex items-center gap-1.5">
+                              {t.completed
+                                ? <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                                : <Circle className="h-3 w-3 text-muted-foreground shrink-0" />}
+                              <span className={cn("text-[10px] truncate", t.completed && "line-through text-muted-foreground")}>
+                                {t.title}
+                              </span>
+                            </div>
+                          ))}
+                          {roots.length > 3 && (
+                            <p className="text-[9px] text-muted-foreground pl-4">+{roots.length - 3} más</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -346,6 +490,9 @@ export function SistemasSection() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const { data: sys, loadHistory } = useSystemsTracking();
   const { entries, loading: ppLoading } = usePuntoPartida();
+  const { scores: areaScores, averages, loading: scoresLoading } = useAreaScores("month", "esfuerzo");
+  const { covers } = useAreaCovers();
+  const { lists, tasks } = usePersonalLists();
 
   useEffect(() => {
     let active = true;
@@ -363,6 +510,20 @@ export function SistemasSection() {
 
   const weekRows = useMemo(() => history.slice(-7), [history]);
   const monthRows = useMemo(() => history.slice(-30), [history]);
+
+  const scoreById = useMemo(() => {
+    const map: Record<string, AreaScore> = {};
+    areaScores.forEach(a => { map[a.id] = a; });
+    return map;
+  }, [areaScores]);
+
+  const subCovers = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const [key, url] of Object.entries(covers)) {
+      if (key.startsWith("sub:") && url) map[key.slice(4)] = url;
+    }
+    return map;
+  }, [covers]);
 
   const summary = useMemo(() => {
     const doneToday = ALL_HABITS.filter(h => sys.completions[h]).length;
@@ -399,7 +560,7 @@ export function SistemasSection() {
     return { doneToday, minToday, weekGoal, weekActual, monthGoal, monthActual, globalCom, visionDone };
   }, [sys, entries, today, monthGoals, weekRows, monthRows]);
 
-  const loading = loadingHistory || ppLoading;
+  const loading = loadingHistory || ppLoading || scoresLoading;
 
   return (
     <div className="space-y-6">
@@ -440,13 +601,27 @@ export function SistemasSection() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 max-w-2xl">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 flex-1 max-w-3xl">
               <div className="rounded-xl bg-background border border-border/60 px-3 py-2">
                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                   <Sun className="h-3 w-3 text-sky-500" /> Hoy
                 </p>
                 <p className="text-sm font-black tabular-nums mt-0.5">{summary.doneToday}/{ALL_HABITS.length}</p>
                 <p className="text-[10px] text-muted-foreground">{summary.minToday > 0 ? `${fmtMin(summary.minToday)} invertidos` : "sistemas del día"}</p>
+              </div>
+              <div className="rounded-xl bg-background border border-border/60 px-3 py-2">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Activity className="h-3 w-3 text-emerald-500" /> Esfuerzo
+                </p>
+                <p className="text-sm font-black tabular-nums mt-0.5">{averages.esfuerzo}%</p>
+                <p className="text-[10px] text-muted-foreground">consistencia real del mes</p>
+              </div>
+              <div className="rounded-xl bg-background border border-border/60 px-3 py-2">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Target className="h-3 w-3 text-purple-500" /> Resultados
+                </p>
+                <p className="text-sm font-black tabular-nums mt-0.5">{averages.resultados}%</p>
+                <p className="text-[10px] text-muted-foreground">avance real al punto B</p>
               </div>
               <div className="rounded-xl bg-background border border-border/60 px-3 py-2">
                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
@@ -461,13 +636,6 @@ export function SistemasSection() {
                 </p>
                 <p className="text-sm font-black tabular-nums mt-0.5">{summary.monthGoal > 0 ? `${Math.round((summary.monthActual / summary.monthGoal) * 100)}%` : "—"}</p>
                 <p className="text-[10px] text-muted-foreground">{summary.monthGoal > 0 ? `${fmtMin(summary.monthActual)} de ${fmtMin(summary.monthGoal)}` : "sin metas de minutos"}</p>
-              </div>
-              <div className="rounded-xl bg-background border border-border/60 px-3 py-2">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <Activity className="h-3 w-3 text-emerald-500" /> Resultado
-                </p>
-                <p className="text-sm font-black tabular-nums mt-0.5">{summary.visionDone}/{POINT_B_AREAS.length}</p>
-                <p className="text-[10px] text-muted-foreground">visiones alcanzadas</p>
               </div>
             </div>
           </div>
@@ -491,6 +659,10 @@ export function SistemasSection() {
               weekRows={weekRows}
               monthRows={monthRows}
               monthGoals={monthGoals}
+              score={scoreById[area.id]}
+              subCovers={subCovers}
+              lists={lists}
+              tasks={tasks}
             />
           ))}
         </div>

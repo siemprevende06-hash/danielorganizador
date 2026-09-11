@@ -15,6 +15,7 @@ self.addEventListener('activate', (event) => {
     (async () => {
       await caches.delete('static-assets-v2');
       await caches.delete('pages');
+      await caches.delete('supabase-api');
       await self.clients.claim();
     })()
   );
@@ -82,17 +83,13 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Datos REST de Supabase: SIEMPRE red (nunca cachear). La sincronización
+// offline la gestiona la app (cola de mutaciones + localStorage). Servir
+// respuestas viejas desde este caché hacía que PC/móvil mostraran datos
+// desactualizados aunque la base de datos ya los tuviera.
 registerRoute(
   /^https:\/\/fuqmrtenzlslkeqgdjwy\.supabase\.co\/rest\/v1\/.*/i,
-  new NetworkFirst({
-    cacheName: 'supabase-api',
-    networkTimeoutSeconds: 3,
-    plugins: [
-      new ExpirationPlugin({ maxEntries: 500, maxAgeSeconds: 7 * 24 * 60 * 60 }),
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new BackgroundSyncPlugin('supabase-sync', { maxRetentionTime: 24 * 60 }),
-    ],
-  }),
+  new NetworkOnly(),
   'GET'
 );
 

@@ -20,7 +20,7 @@ import { useGym } from "../store";
 import {
   effectiveRoutine,
   effectiveRoutineId,
-  streakWeeks,
+  streakDays,
   lastBW,
 } from "../lib/history";
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from "../lib/format";
@@ -300,7 +300,7 @@ export default function Home({ onGo }: { onGo: (tab: string) => void }) {
             <div className="flex items-center gap-2 text-lg font-bold">
               <Flame className="h-5 w-5 text-orange-500" />
               <span>
-                Racha de {streakWeeks(S)} {streakWeeks(S) === 1 ? "semana" : "semanas"}
+                Racha de {streakDays(S)} {streakDays(S) === 1 ? "día" : "días"}
               </span>
             </div>
             <div className="mt-0.5 text-xs text-muted-foreground">

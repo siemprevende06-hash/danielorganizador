@@ -436,12 +436,18 @@ export default function PlanManana() {
       await syncTaskDueDates(toAdd, targetStr);
       await syncTaskDueDates(toRemove, null);
 
+      const dayGoals: Record<string, number> = {};
+      ALL_HIERARCHY_AREAS.forEach(area => {
+        dayGoals[area] = getDayGoalEffective(targetDate, area);
+      });
+      const notesJSON = JSON.stringify({ systemIntensity, language: languageChoice, instrument: musicInstrument, dayGoals });
+
       const existing = await supabase.from("daily_plans").select("id").eq("plan_date", targetStr).maybeSingle();
       if (existing.data) {
         await supabase.from("daily_plans").update({
           routine_type: routineType,
           block_assignments: JSON.parse(JSON.stringify(assignments)),
-          notes: JSON.stringify({ systemIntensity, language: languageChoice, instrument: musicInstrument }),
+          notes: notesJSON,
         }).eq("id", existing.data.id);
       } else {
         await supabase.from("daily_plans").insert({
@@ -449,8 +455,19 @@ export default function PlanManana() {
           mode: routineType,
           routine_type: routineType,
           block_assignments: JSON.parse(JSON.stringify(assignments)),
-          notes: JSON.stringify({ systemIntensity, language: languageChoice, instrument: musicInstrument }),
+          notes: notesJSON,
         });
+      }
+
+      const goalRows = ALL_HIERARCHY_AREAS
+        .filter(a => (dayGoals[a] || 0) > 0)
+        .map(area => ({
+          area_id: area,
+          stat_date: targetStr,
+          time_goal_minutes: dayGoals[area] || 0,
+        }));
+      if (goalRows.length > 0) {
+        await supabase.from("daily_area_stats").upsert(goalRows as any, { onConflict: "area_id,stat_date" });
       }
 
       localStorage.setItem(`planTasks_${targetStr}`, JSON.stringify({
