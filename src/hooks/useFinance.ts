@@ -188,16 +188,21 @@ export const useFinance = () => {
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [exchangeRate, setExchangeRateState] = useState<number>(360);
   const [isLoading, setIsLoading] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Cache to local whenever state changes
+  // Cache to local whenever state changes.
+  // NO escribir hasta que la carga inicial termine (hydrated): si se guardara
+  // con el estado vacío del arranque, se borraría la caché local al volver a
+  // entrar a la página (los datos se "pierden").
   useEffect(() => {
+    if (!hydrated) return;
     saveLocal('finance_wallets', wallets.map(w => ({ id: w.id, name: w.name, balance: w.balance, iconName: iconToString(w.icon), currency: w.currency })));
-  }, [wallets]);
-  useEffect(() => { saveLocal('finance_transactions', transactions); }, [transactions]);
-  useEffect(() => { saveLocal('finance_loans', loans); }, [loans]);
-  useEffect(() => { saveLocal('finance_bags', distributionBags); }, [distributionBags]);
-  useEffect(() => { saveLocal('finance_debts', debts); }, [debts]);
-  useEffect(() => { saveLocal('finance_goals', financialGoals); }, [financialGoals]);
+  }, [wallets, hydrated]);
+  useEffect(() => { if (!hydrated) return; saveLocal('finance_transactions', transactions); }, [transactions, hydrated]);
+  useEffect(() => { if (!hydrated) return; saveLocal('finance_loans', loans); }, [loans, hydrated]);
+  useEffect(() => { if (!hydrated) return; saveLocal('finance_bags', distributionBags); }, [distributionBags, hydrated]);
+  useEffect(() => { if (!hydrated) return; saveLocal('finance_debts', debts); }, [debts, hydrated]);
+  useEffect(() => { if (!hydrated) return; saveLocal('finance_goals', financialGoals); }, [financialGoals, hydrated]);
   const setExchangeRate = useCallback((rate: number) => {
     setExchangeRateState(rate);
     saveTextSection('finance_exchange_rate', rate);
@@ -235,15 +240,19 @@ export const useFinance = () => {
     (async () => {
       setIsLoading(true);
       try {
-        const [walletsRes, txRes, loansRes, bagsRes, debtsData, goalsData, rateData] = await Promise.all([
-          supabase.from('wallets').select('*').order('created_at'),
-          supabase.from('transactions').select('*').order('transaction_date', { ascending: false }),
-          supabase.from('loans').select('*').order('loan_date', { ascending: false }),
-          supabase.from('distribution_bags').select('*').order('created_at'),
-          loadTextSection<any[]>('finance_debts', null),
-          loadTextSection<any[]>('finance_goals', null),
-          loadTextSection<number | null>('finance_exchange_rate', null),
-        ]);
+        const results = await Promise.race([
+          Promise.all([
+            supabase.from('wallets').select('*').order('created_at'),
+            supabase.from('transactions').select('*').order('transaction_date', { ascending: false }),
+            supabase.from('loans').select('*').order('loan_date', { ascending: false }),
+            supabase.from('distribution_bags').select('*').order('created_at'),
+            loadTextSection<any[]>('finance_debts', null),
+            loadTextSection<any[]>('finance_goals', null),
+            loadTextSection<number | null>('finance_exchange_rate', null),
+          ]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Finance load timeout')), 12000)),
+        ]) as [any, any, any, any, any, any, any];
+        const [walletsRes, txRes, loansRes, bagsRes, debtsData, goalsData, rateData] = results;
         if (cancelled) return;
 
         // --- Wallets ---
@@ -314,7 +323,13 @@ export const useFinance = () => {
         console.warn('Finance load error, falling back to localStorage', e);
         loadFromLocalStorage();
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          // Marcamos hydrated SOLO cuando ya hay datos en el estado (de Supabase
+          // o de la caché local). A partir de aquí los efectos de caché pueden
+          // escribir sin borrar nada.
+          setHydrated(true);
+          setIsLoading(false);
+        }
       }
     })();
     return () => { cancelled = true; };
