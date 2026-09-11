@@ -171,7 +171,7 @@ export function useSystemsTracking(targetDate?: Date) {
 
   // Sync time_data + completions to daily_area_stats so the Wheel of Life sees real data
   const syncToAreaStats = useCallback(async (newData: SystemsData, forDate: string) => {
-    let existingGoals: Record<string, number> = {};
+    const existingGoals: Record<string, number> = {};
     try {
       const { data } = await supabase
         .from("daily_area_stats")
