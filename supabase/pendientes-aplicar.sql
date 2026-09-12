@@ -224,3 +224,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS wallets_name_currency_uidx
   ON public.wallets (lower(btrim(name)), currency);
 
 COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- [7/7] 20260912000002_energy_sleep_checkin.sql
+-- Check-in de energía/sueño del día (1 tap) en daily_reviews.
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE public.daily_reviews
+  ADD COLUMN IF NOT EXISTS energy_rating integer,
+  ADD COLUMN IF NOT EXISTS sleep_rating integer,
+  ADD COLUMN IF NOT EXISTS sleep_hours numeric;

@@ -10,9 +10,12 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER, type AreaKey } from '@/hooks/useResultadosPeriodo';
 import { useDailyReview } from '@/hooks/useDailyReview';
 import { usePeriodicReview, type ReviewType } from '@/hooks/usePeriodicReview';
-import { getDayGoalEffective, getDayGoalTotal } from '@/lib/hierarchy';
+import { getDayGoalEffective, getDayGoalTotal, getQuarterFromDate } from '@/lib/hierarchy';
 import { ReflectionForm } from '@/components/self-review/ReflectionForm';
 import { OverallRating } from '@/components/self-review/OverallRating';
+import { EnergySleepCheckin } from '@/components/today/EnergySleepCheckin';
+import { StreaksTendencias } from '@/components/autocritica/StreaksTendencias';
+import { ComparativaTrimestres } from '@/components/control/ComparativaTrimestres';
 import { cn } from '@/lib/utils';
 
 const AREA_LABELS: Record<string, string> = {
@@ -113,6 +116,7 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
   const { data } = useResultadosPeriodo(start, end);
   const r = data ?? EMPTY_RESULTADO;
   const isDay = scope === 'day';
+  const quarterRef = getQuarterFromDate(start);
   const dateStr = format(start, 'yyyy-MM-dd');
   const dayReview = useDailyReview(dateStr);
   const periodicType: ReviewType =
@@ -450,7 +454,14 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
 
   const dayReflection = (
     <>
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reflexión del día</h3>
+      <EnergySleepCheckin
+        energyRating={dayReview.review?.energyRating || 0}
+        sleepRating={dayReview.review?.sleepRating || 0}
+        sleepHours={dayReview.review?.sleepHours || 0}
+        onEnergyChange={(v) => dayReview.saveReview({ energyRating: v })}
+        onSleepChange={(v) => dayReview.saveReview({ sleepRating: v })}
+        onSleepHoursChange={(v) => dayReview.saveReview({ sleepHours: v })}
+      />
       <ReflectionForm
         whatWentWell={dayReview.review?.whatWentWell || ''}
         whatCouldBeBetter={dayReview.review?.whatCouldBeBetter || ''}
@@ -498,6 +509,8 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
       {kpiGrid}
       {trendCard}
       {consistencyCard}
+      {scope === 'week' && <StreaksTendencias weekStart={start} />}
+      {scope === 'quarter' && <ComparativaTrimestres quarter={quarterRef.quarter} year={quarterRef.year} />}
       {rowsCard}
       {reflectionCard}
     </div>

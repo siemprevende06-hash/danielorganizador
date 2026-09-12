@@ -27,6 +27,9 @@ import {
 } from '@/components/monthly-planning/MonthlyPlanWidgets';
 import { InheritedBanner } from '@/components/planning/InheritedBanner';
 import { MonthBookSongOverview } from '@/components/monthly-planning/MonthBookSongOverview';
+import { ScorecardMensual } from '@/components/monthly-planning/ScorecardMensual';
+import { FinanzasDelMes } from '@/components/monthly-planning/FinanzasDelMes';
+import { CalendarioAcademico } from '@/components/monthly-planning/CalendarioAcademico';
 
 export default function MonthlyPlanningPage() {
   const [month, setMonth] = useState(new Date());
@@ -153,6 +156,13 @@ const handleSave = async () => {
           </div>
 
           <MonthBookSongOverview month={month} planData={planData} books={books.map(b => ({ id: b.id, title: b.title, author: b.author }))} songs={songs.map(s => ({ id: s.id, title: s.title, artist: s.artist, instrument: s.instrument }))} />
+
+          <ScorecardMensual month={month} />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <FinanzasDelMes month={month} />
+            <CalendarioAcademico month={month} />
+          </div>
 
           <PeriodTaskCreator
             periodStart={monthStart}

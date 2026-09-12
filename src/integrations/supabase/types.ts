@@ -782,6 +782,7 @@ export type Database = {
           blocks_completed: number | null
           blocks_total: number | null
           created_at: string | null
+          energy_rating: number | null
           focus_minutes: number | null
           habits_completed: number | null
           habits_total: number | null
@@ -790,6 +791,8 @@ export type Database = {
           pillar_progress: Json | null
           review_date: string
           secondary_goals_progress: Json | null
+          sleep_hours: number | null
+          sleep_rating: number | null
           tasks_completed: number | null
           tasks_total: number | null
           tomorrow_plan: string | null
@@ -803,6 +806,7 @@ export type Database = {
           blocks_completed?: number | null
           blocks_total?: number | null
           created_at?: string | null
+          energy_rating?: number | null
           focus_minutes?: number | null
           habits_completed?: number | null
           habits_total?: number | null
@@ -811,6 +815,8 @@ export type Database = {
           pillar_progress?: Json | null
           review_date?: string
           secondary_goals_progress?: Json | null
+          sleep_hours?: number | null
+          sleep_rating?: number | null
           tasks_completed?: number | null
           tasks_total?: number | null
           tomorrow_plan?: string | null
@@ -824,6 +830,7 @@ export type Database = {
           blocks_completed?: number | null
           blocks_total?: number | null
           created_at?: string | null
+          energy_rating?: number | null
           focus_minutes?: number | null
           habits_completed?: number | null
           habits_total?: number | null
@@ -832,6 +839,8 @@ export type Database = {
           pillar_progress?: Json | null
           review_date?: string
           secondary_goals_progress?: Json | null
+          sleep_hours?: number | null
+          sleep_rating?: number | null
           tasks_completed?: number | null
           tasks_total?: number | null
           tomorrow_plan?: string | null

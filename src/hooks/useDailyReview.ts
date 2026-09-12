@@ -10,7 +10,7 @@ interface BlockRating {
   status: 'completed' | 'partial' | 'skipped';
 }
 
-interface DailyReview {
+export interface DailyReview {
   id?: string;
   reviewDate: string;
   blocksCompleted: number;
@@ -25,6 +25,9 @@ interface DailyReview {
   whatCouldBeBetter: string;
   tomorrowPlan: string;
   overallRating: number;
+  energyRating: number;
+  sleepRating: number;
+  sleepHours: number;
 }
 
 export interface SystemsTrackingData {
@@ -106,7 +109,10 @@ export function useDailyReview(date?: string) {
         whatWentWell: existingReview.what_went_well || '',
         whatCouldBeBetter: existingReview.what_could_be_better || '',
         tomorrowPlan: existingReview.tomorrow_plan || '',
-        overallRating: existingReview.overall_rating || 0
+        overallRating: existingReview.overall_rating || 0,
+        energyRating: existingReview.energy_rating || 0,
+        sleepRating: existingReview.sleep_rating || 0,
+        sleepHours: existingReview.sleep_hours || 0
       });
     } else {
       // Create new review with calculated stats
@@ -118,7 +124,10 @@ export function useDailyReview(date?: string) {
         whatWentWell: '',
         whatCouldBeBetter: '',
         tomorrowPlan: '',
-        overallRating: 0
+        overallRating: 0,
+        energyRating: 0,
+        sleepRating: 0,
+        sleepHours: 0
       });
     }
 
@@ -206,7 +215,10 @@ export function useDailyReview(date?: string) {
       what_went_well: updatedReview.whatWentWell ?? review.whatWentWell,
       what_could_be_better: updatedReview.whatCouldBeBetter ?? review.whatCouldBeBetter,
       tomorrow_plan: updatedReview.tomorrowPlan ?? review.tomorrowPlan,
-      overall_rating: updatedReview.overallRating ?? review.overallRating
+      overall_rating: updatedReview.overallRating ?? review.overallRating,
+      energy_rating: updatedReview.energyRating ?? review.energyRating,
+      sleep_rating: updatedReview.sleepRating ?? review.sleepRating,
+      sleep_hours: updatedReview.sleepHours ?? review.sleepHours
     };
 
     if (review.id) {

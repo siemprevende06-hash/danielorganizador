@@ -8,6 +8,9 @@ import { loadQuarterPlan, QUARTER_MONTH_KEYS } from '@/lib/hierarchy';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
+import { MapaEstrategico } from '@/components/anual/MapaEstrategico';
+import { HitosDelAno } from '@/components/anual/HitosDelAno';
+import { ReviewAnual } from '@/components/anual/ReviewAnual';
 
 const QUARTERS = [
   { id: 1, name: 'Q1', dates: 'Ene – Mar' },
@@ -95,6 +98,11 @@ export default function AnualView() {
 
         {/* Secciones del Año (mismo diseño que 3 Meses) */}
         <PeriodSections scope="year" year={year} quarter={currentQuarter} />
+
+        {/* Mapa estratégico, hitos y review anual */}
+        <MapaEstrategico year={year} />
+        <HitosDelAno year={year} />
+        <ReviewAnual year={year} />
           </>
         ) : viewMode === 'sistemas' ? (
           <section className="space-y-4">
