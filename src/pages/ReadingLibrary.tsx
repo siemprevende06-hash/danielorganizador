@@ -157,6 +157,11 @@ export default function ReadingLibrary() {
     }
   };
 
+  const handleEditTxt = (book: Book) => {
+    setUploadBook(book);
+    setTxtDraft(book.bilingual_txt || '');
+  };
+
   const handleFileSelect = async (file: File) => {
     const text = await file.text();
     setTxtDraft(text);
@@ -220,6 +225,9 @@ export default function ReadingLibrary() {
           <div className="flex flex-wrap gap-1 pt-1">
             <Button size="sm" variant={hasTxt(book) ? 'default' : 'secondary'} className="flex-1 text-xs h-7" onClick={() => handleReadClick(book)}>
               <BookOpenCheck className="w-3 h-3 mr-1" /> Leer
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => handleEditTxt(book)} title="Subir o cambiar el texto bilingüe EN/ES">
+              <FileText className="w-3 h-3 mr-1" /> Texto
             </Button>
             {book.status === 'to_read' && (
               <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => startReading(book.id)}>Empezar</Button>
@@ -364,6 +372,11 @@ export default function ReadingLibrary() {
                 cada par en 2 líneas: <span className="font-mono text-foreground font-medium">#EN frase en inglés</span> y debajo <span className="font-mono text-foreground font-medium">#ES su traducción</span>.
                 También acepta alternado (una línea EN y la siguiente ES).
               </p>
+              {hasTxt(uploadBook) && (
+                <p className="text-xs font-medium text-amber-600">
+                  Este libro ya tiene un texto guardado. Si guardas de nuevo, lo reemplazarás.
+                </p>
+              )}
 
               <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-8 cursor-pointer hover:bg-muted/50 transition-colors">
                 <FileText className="w-8 h-8 text-muted-foreground" />
@@ -480,6 +493,9 @@ export default function ReadingLibrary() {
                       />
                       <Button size="sm" variant="outline" className="text-xs" onClick={() => handleReadClick(currentBook)}>
                         <BookOpenCheck className="w-3 h-3 mr-1" /> Leer
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => handleEditTxt(currentBook)} title="Subir o cambiar el texto bilingüe EN/ES">
+                        <FileText className="w-3 h-3 mr-1" /> Texto
                       </Button>
                       <Button size="sm" variant="default" onClick={() => finishBook(currentBook.id, 4)}>Terminé</Button>
                     </div>
