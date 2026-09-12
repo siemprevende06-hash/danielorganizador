@@ -52,6 +52,22 @@ function mergeById<T extends { id: string }>(primary: T[], local: T[]): T[] {
   return Array.from(map.values());
 }
 
+// La tabla wallets puede tener duplicados (p. ej. un "Efectivo CUP" creado por
+// la siembra automática además del real, con ids distintos). Se deduplican por
+// nombre + moneda, conservando la de mayor saldo (en empate, la primera de la
+// lista). Así ni la página ni el AI de finanzas ven dos billeteras iguales.
+function dedupeWallets(list: Wallet[]): Wallet[] {
+  const map = new Map<string, Wallet>();
+  for (const w of list) {
+    const key = `${w.name.trim().toLowerCase()}|${w.currency}`;
+    const existing = map.get(key);
+    if (!existing || w.balance > existing.balance) {
+      map.set(key, w);
+    }
+  }
+  return Array.from(map.values());
+}
+
 function saveFeedback(label: string, res: { queued: boolean; error: any }) {
   if (res.error) toast.error(`${label} no se pudo guardar: ${res.error}`);
   else if (res.queued) toast.warning(`${label} guardado localmente · pendiente de sincronización`);
@@ -212,7 +228,7 @@ export const useFinance = () => {
   const loadFromLocalStorage = useCallback(() => {
     const cachedWallets = loadLocal<any[]>('finance_wallets', []);
     if (cachedWallets.length > 0) {
-      setWallets(cachedWallets.map((w: any) => ({ ...w, currency: w.currency === 'USD' ? 'USD' : 'CUP', icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) })));
+      setWallets(dedupeWallets(cachedWallets.map((w: any) => ({ ...w, currency: w.currency === 'USD' ? 'USD' : 'CUP', icon: stringToIcon(w.iconName || (typeof w.icon === 'string' ? w.icon : 'Wallet')) }))));
     }
     const cachedTx = loadLocal<any[]>('finance_transactions', []);
     if (cachedTx.length > 0) {
@@ -268,6 +284,10 @@ export const useFinance = () => {
         } else {
           walletsList = mergeById(walletsList, walletsCached);
         }
+        // Si la nube quedó con duplicados (mezcla de siembra offline + billetera
+        // real), consolidarlos en la de mayor saldo antes de mostrarlos al AI y
+        // a la página.
+        walletsList = dedupeWallets(walletsList);
         const remoteWalletIds = new Set((walletsRes.data || []).map((r: any) => r.id));
         for (const w of walletsList) {
           if (!remoteWalletIds.has(w.id)) {

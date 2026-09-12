@@ -16,6 +16,44 @@ const todayStr = () => {
   return d.toISOString().split("T")[0];
 };
 
+// Extrae el primer JSON válido de la respuesta del modelo. Tolera texto extra,
+// fences de markdown (```json) y varios bloques con llaves. Devuelve null si no
+// hay ningún JSON parseable.
+function extractJson(text: string): any | null {
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { /* sigue */ }
+  const clean = text.replace(/```(?:json)?/gi, "").trim();
+  try { return JSON.parse(clean); } catch { /* sigue */ }
+  let best: any = null;
+  let bestScore = 0;
+  let idx = clean.indexOf("{");
+  while (idx !== -1) {
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    let end = -1;
+    for (let i = idx; i < clean.length; i++) {
+      const ch = clean[i];
+      if (esc) { esc = false; continue; }
+      if (ch === "\\") { esc = true; continue; }
+      if (inStr) { if (ch === '"') inStr = false; continue; }
+      if (ch === '"') { inStr = true; continue; }
+      if (ch === "{") depth++;
+      else if (ch === "}") { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end !== -1) {
+      const candidate = clean.slice(idx, end + 1);
+      try {
+        const parsed = JSON.parse(candidate);
+        const score = candidate.length + (parsed.completado !== undefined ? 1000 : 0);
+        if (!best || score > bestScore) { best = parsed; bestScore = score; }
+      } catch { /* bloque inválido, probar el siguiente */ }
+    }
+    idx = clean.indexOf("{", idx + 1);
+  }
+  return best;
+}
+
 // Modelos gratis conocidos (se prueban primero por velocidad)
 const MODELOS_FREE = [
   "qwen/qwen3-32b:free",
@@ -140,12 +178,15 @@ B) Faltan datos:
 
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content || "";
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) return json({ error: "El modelo no devolvió JSON válido" }, 502);
-
-    let parsed: any;
-    try { parsed = JSON.parse(match[0]); } catch {
-      return json({ error: "El modelo no devolvió JSON válido" }, 502);
+    const parsed = extractJson(content);
+    if (!parsed) {
+      // Mejor una pregunta amable que un error: el usuario retoma el chat sin
+      // ver un mensaje técnico.
+      return json({
+        completado: false,
+        pregunta: "No pude interpretar eso. Dímelo de nuevo con el monto y la billetera, por ejemplo: \"Compré café por 5 USD en Efectivo\".",
+        parcial: {},
+      });
     }
 
     if (parsed.completado && parsed.transaccion) {

@@ -17,7 +17,7 @@ export interface GymCoachMeta {
 const PROD_SUPABASE_URL = "https://fuqmrtenzlslkeqgdjwy.supabase.co";
 const PROD_SUPABASE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1cW1ydGVuemxzbGtlcWdkand5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MTgxMzksImV4cCI6MjEwMDk5NDEzOX0.3Xxk0AiGLuCjnSJvm0sK9C1cIbpeWgkuhrFc3QnnuVc";
-const FN_URL = `${import.meta.env.VITE_SUPABASE_URL || PROD_SUPABASE_URL}/functions/v1/gym-coach`;
+const FN_URL = `${PROD_SUPABASE_URL}/functions/v1/gym-coach`;
 
 export function useGymCoach() {
   const [meta, setMeta] = useState<GymCoachMeta[]>([]);
@@ -96,8 +96,8 @@ export function useGymCoach() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || PROD_SUPABASE_KEY}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || PROD_SUPABASE_KEY,
+            Authorization: `Bearer ${PROD_SUPABASE_KEY}`,
+            apikey: PROD_SUPABASE_KEY,
           },
           body: JSON.stringify({ message: trimmed, history, gymState }),
         });
