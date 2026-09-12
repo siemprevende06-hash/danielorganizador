@@ -37,6 +37,8 @@ export function parseBilingualText(text: string): LinePair[] {
           if (!current) current = { en: '', es: '' };
           current.es = m[2].trim();
         }
+      } else if (/^\s*#\s*(PAG|PAGE|P[AÁ]GINA|P[AÁ]G)\.?\s*\d*[:.\-]?\s*$/i.test(raw.trim())) {
+        continue;
       } else if (current && raw.trim()) {
         current.es = current.es ? `${current.es} ${raw.trim()}` : raw.trim();
       }
