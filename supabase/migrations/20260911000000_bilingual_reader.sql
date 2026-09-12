@@ -24,8 +24,19 @@ CREATE TABLE IF NOT EXISTS public.user_vocabulary (
 );
 
 ALTER TABLE public.user_vocabulary ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all access to user_vocabulary" ON public.user_vocabulary;
 CREATE POLICY "Allow all access to user_vocabulary" ON public.user_vocabulary FOR ALL USING (true) WITH CHECK (true);
 
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_user_vocabulary_updated_at ON public.user_vocabulary;
 CREATE TRIGGER update_user_vocabulary_updated_at BEFORE UPDATE ON public.user_vocabulary FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 CREATE INDEX IF NOT EXISTS idx_user_vocabulary_language ON public.user_vocabulary(language, status);
