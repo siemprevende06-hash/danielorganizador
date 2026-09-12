@@ -59,7 +59,7 @@ export interface PeriodSectionsProps {
 }
 
 interface BookDetail { id: string; title: string; author: string | null; cover_image_url: string | null; pages_read?: number | null; pages_total?: number | null; }
-interface SongDetail { id: string; title: string; artist: string | null; instrument: string; }
+interface SongDetail { id: string; title: string; artist: string | null; instrument: string; cover_image_url?: string | null; }
 interface TaskItem { id: string; title: string; source: string; due_date: string; completed: boolean; priority?: string; }
 interface CalendarEvent { id: string; title: string; event_date: string; category: string; }
 
@@ -233,6 +233,13 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
       });
       bookIds = [...bSet];
       songIds = [...sSet];
+    } else if (scope === 'week') {
+      // Solo los libros/canciones repartidos a ESTA semana (reparto semanal del plan mensual)
+      const monthly = loadMonthlyPlan(monthAnchor);
+      const weekKey = format(periodStart, 'yyyy-MM-dd');
+      const weekDist = monthly?.week_distribution?.[weekKey];
+      bookIds = weekDist?.books || [];
+      songIds = weekDist?.songs || [];
     } else if (qp) {
       const dist = qp.distribution || {};
       if (scope === 'month') {
@@ -247,9 +254,6 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
         });
         bookIds = [...bSet];
         songIds = [...sSet];
-      } else if (scope === 'week') {
-        bookIds = dist[anchorMonthKey]?.books || [];
-        songIds = dist[anchorMonthKey]?.songs || [];
       }
     }
 
@@ -258,7 +262,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
         ? supabase.from("reading_library").select("id, title, author, cover_image_url, pages_read, pages_total").in("id", bookIds)
         : Promise.resolve({ data: [] }),
       songIds.length > 0
-        ? supabase.from("music_repertoire").select("id, title, artist, instrument").in("id", songIds)
+        ? supabase.from("music_repertoire").select("id, title, artist, instrument, cover_image_url").in("id", songIds)
         : Promise.resolve({ data: [] }),
       supabase.from('tasks').select('id, title, source, due_date, completed, priority')
         .gte('due_date', `${startStr}T00:00:00`).lte('due_date', `${endStr}T23:59:59`),
@@ -679,7 +683,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                 </Badge>
               </div>
               <TimeGoalRow label="Minutos de lectura" actual={timeByArea.lectura || 0} goal={periodGoal('lectura')} color="emerald" icon={<Book className="h-3 w-3 text-emerald-500" />} />
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <div className={cn("grid gap-3", scope === 'week' ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4")}>
                 {Array.from({ length: canAddBooks ? Math.max(booksGoal, monthBooks.length) : monthBooks.length }).map((_, i) => {
                   if (i < monthBooks.length) {
                     const book = monthBooks[i];
@@ -738,14 +742,18 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                   <span className="text-[10px] text-muted-foreground">{songsDone}/{songsGoal} completadas</span>
                 </div>
                 <TimeGoalRow label="Minutos de práctica" actual={timeByArea.musica || 0} goal={periodGoal('musica')} color="rose" icon={<Music className="h-3 w-3 text-rose-500" />} />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div className={cn("grid gap-3", scope === 'week' ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4")}>
                   {pianoSongs.map(song => {
                     const done = progress.completedSongs.includes(song.id);
                     return (
                       <div key={song.id} className={cn("space-y-1.5 p-2 rounded-xl border transition-all cursor-pointer", done ? "border-rose-300 bg-rose-50/50 dark:bg-rose-950/20" : "border-border/50 bg-card/30 hover:border-rose-200")}
                         onClick={() => toggleSong(song.id)}>
                         <div className="aspect-[2/3] bg-gradient-to-br from-rose-500/20 to-rose-500/5 rounded-lg overflow-hidden flex items-center justify-center shadow-sm relative">
-                          <Piano className="w-8 h-8 text-rose-400/60" />
+                          {song.cover_image_url ? (
+                            <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <Piano className="w-8 h-8 text-rose-400/60" />
+                          )}
                           {done && (
                             <div className="absolute inset-0 bg-rose-500/20 flex items-center justify-center">
                               <div className="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg">
@@ -765,7 +773,11 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                       <div key={song.id} className={cn("space-y-1.5 p-2 rounded-xl border transition-all cursor-pointer", done ? "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20" : "border-border/50 bg-card/30 hover:border-amber-200")}
                         onClick={() => toggleSong(song.id)}>
                         <div className="aspect-[2/3] bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-lg overflow-hidden flex items-center justify-center shadow-sm relative">
-                          <Guitar className="w-8 h-8 text-amber-400/60" />
+                          {song.cover_image_url ? (
+                            <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <Guitar className="w-8 h-8 text-amber-400/60" />
+                          )}
                           {done && (
                             <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
                               <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg">
