@@ -73,7 +73,7 @@ interface TrimestralPlan {
 }
 
 interface BookDetail { id: string; title: string; author: string | null; cover_image_url: string | null; pages_read?: number | null; pages_total?: number | null; }
-interface SongDetail { id: string; title: string; artist: string | null; instrument: string; }
+interface SongDetail { id: string; title: string; artist: string | null; instrument: string; cover_image_url: string | null; }
 interface TaskItem { id: string; title: string; source: string; due_date: string; completed: boolean; priority?: string; }
 interface CalendarEvent { id: string; title: string; event_date: string; category: string; }
 interface ProjectItem { id: string; name: string; }
@@ -238,7 +238,7 @@ export default function TwelveWeekYear() {
             ? supabase.from("reading_library").select("id, title, author, cover_image_url, pages_read, pages_total").in("id", allBookIds)
             : Promise.resolve({ data: [] }),
           allSongIds.length > 0
-            ? supabase.from("music_repertoire").select("id, title, artist, instrument").in("id", allSongIds)
+            ? supabase.from("music_repertoire").select("id, title, artist, instrument, cover_image_url").in("id", allSongIds)
             : Promise.resolve({ data: [] }),
           supabase.from('tasks').select('id, title, source, due_date, completed, priority')
             .gte('due_date', qs).lte('due_date', qe),
@@ -852,7 +852,11 @@ export default function TwelveWeekYear() {
                         <div key={song.id} className={cn("space-y-1.5 p-2 rounded-xl border transition-all cursor-pointer", done ? "border-rose-300 bg-rose-50/50 dark:bg-rose-950/20" : "border-border/50 bg-card/30 hover:border-rose-200")}
                           onClick={() => toggleSong(song.id)}>
                           <div className="aspect-[2/3] bg-gradient-to-br from-rose-500/20 to-rose-500/5 rounded-lg overflow-hidden flex items-center justify-center shadow-sm relative">
-                            <Piano className="w-8 h-8 text-rose-400/60" />
+                            {song.cover_image_url ? (
+                              <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <Piano className="w-8 h-8 text-rose-400/60" />
+                            )}
                             {done && (
                               <div className="absolute inset-0 bg-rose-500/20 flex items-center justify-center">
                                 <div className="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg">
@@ -872,7 +876,11 @@ export default function TwelveWeekYear() {
                         <div key={song.id} className={cn("space-y-1.5 p-2 rounded-xl border transition-all cursor-pointer", done ? "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20" : "border-border/50 bg-card/30 hover:border-amber-200")}
                           onClick={() => toggleSong(song.id)}>
                           <div className="aspect-[2/3] bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-lg overflow-hidden flex items-center justify-center shadow-sm relative">
-                            <Guitar className="w-8 h-8 text-amber-400/60" />
+                            {song.cover_image_url ? (
+                              <img src={song.cover_image_url} alt={song.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <Guitar className="w-8 h-8 text-amber-400/60" />
+                            )}
                             {done && (
                               <div className="absolute inset-0 bg-amber-500/20 flex items-center justify-center">
                                 <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg">

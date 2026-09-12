@@ -2130,6 +2130,7 @@ export type Database = {
       music_repertoire: {
         Row: {
           artist: string | null
+          cover_image_url: string | null
           created_at: string | null
           difficulty: string | null
           id: string
@@ -2145,6 +2146,7 @@ export type Database = {
         }
         Insert: {
           artist?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
           id?: string
@@ -2160,6 +2162,7 @@ export type Database = {
         }
         Update: {
           artist?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
           id?: string

@@ -28,6 +28,7 @@ interface MusicPiece {
   notes: string | null;
   difficulty: string | null;
   status: string | null;
+  cover_image_url: string | null;
 }
 
 interface LanguageSession {
@@ -317,8 +318,12 @@ export function OrganizedLearning() {
             {currentSong ? (
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-purple-500/10">
-                    <Music className="h-5 w-5 text-purple-500" />
+                  <div className="w-12 h-12 p-0 rounded-lg bg-purple-500/10 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                    {currentSong.cover_image_url ? (
+                      <img src={currentSong.cover_image_url} alt={currentSong.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <Music className="h-5 w-5 text-purple-500" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <h4 className="font-semibold">{currentSong.title}</h4>

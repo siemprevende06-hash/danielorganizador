@@ -215,8 +215,12 @@ const MusicCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number; 
       <div className={cn("p-4 space-y-3", sem.bg)}>
         {learning ? (
           <div className="flex gap-3">
-            <div className="w-14 h-14 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 flex-shrink-0 flex items-center justify-center border">
-              <Music2 className="h-5 w-5 text-primary/60" />
+            <div className="w-14 h-14 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 flex-shrink-0 flex items-center justify-center border overflow-hidden">
+              {learning.cover_image_url ? (
+                <img src={learning.cover_image_url} alt={learning.title} className="w-full h-full object-cover" />
+              ) : (
+                <Music2 className="h-5 w-5 text-primary/60" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate">{learning.title}</p>
