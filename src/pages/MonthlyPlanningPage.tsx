@@ -26,6 +26,7 @@ import {
   GoalPlannerWidget,
 } from '@/components/monthly-planning/MonthlyPlanWidgets';
 import { InheritedBanner } from '@/components/planning/InheritedBanner';
+import { MonthBookSongOverview } from '@/components/monthly-planning/MonthBookSongOverview';
 
 export default function MonthlyPlanningPage() {
   const [month, setMonth] = useState(new Date());
@@ -150,6 +151,8 @@ const handleSave = async () => {
             <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
             <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
           </div>
+
+          <MonthBookSongOverview month={month} planData={planData} books={books.map(b => ({ id: b.id, title: b.title, author: b.author }))} songs={songs.map(s => ({ id: s.id, title: s.title, artist: s.artist, instrument: s.instrument }))} />
 
           <PeriodTaskCreator
             periodStart={monthStart}

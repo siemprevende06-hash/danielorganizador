@@ -261,6 +261,23 @@ export function getDayGoalSum(date: Date): number {
   return ALL_HIERARCHY_AREAS.reduce((s, a) => s + (getDayGoalEffective(date, a) || 0), 0);
 }
 
+/**
+ * Total de la meta de minutos del día ("Metas de minutos del día").
+ * Prioriza el plan guardado por el usuario (planGoals) pero, como el recuadro
+ * de Planificación Mañana, rellena las áreas sin valor explícito desde la
+ * jerarquía de metas. Si no hay plan, cae a la suma de la jerarquía.
+ */
+export function getDayGoalTotal(date: Date, planGoals?: Record<string, number> | null): number {
+  if (planGoals) {
+    const total = ALL_HIERARCHY_AREAS.reduce(
+      (s, a) => s + Math.max(0, planGoals[a] || getDayGoalEffective(date, a) || 0),
+      0
+    );
+    if (total > 0) return total;
+  }
+  return getDayGoalSum(date);
+}
+
 // ---------------------------------------------------------------------------
 // Idiomas = italiano + inglés (un solo indicador en el plan/esfuerzo diario).
 // ---------------------------------------------------------------------------

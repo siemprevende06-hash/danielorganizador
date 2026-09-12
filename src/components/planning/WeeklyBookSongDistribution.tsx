@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { BookOpen, Piano, Guitar, ChevronRight, ChevronLeft, X, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +23,14 @@ interface SongDef {
   artist?: string | null;
 }
 
-type WeekItems = { books: string[]; songs: string[] };
+type WeekItems = {
+  books: string[];
+  songs: string[];
+  book_pages?: number;
+  book_minutes?: number;
+  music_minutes?: number;
+  music_focus?: string;
+};
 export type WeekDistribution = Record<string, WeekItems>;
 
 interface WeeklyBookSongDistributionProps {
@@ -40,9 +48,14 @@ interface WeeklyBookSongDistributionProps {
 function cleanDistribution(weeks: WeeklySlot[], dist: WeekDistribution): WeekDistribution {
   const out: WeekDistribution = {};
   weeks.forEach(w => {
+    const prev = dist[w.key] || {};
     out[w.key] = {
-      books: [...(dist[w.key]?.books || [])],
-      songs: [...(dist[w.key]?.songs || [])],
+      books: [...(prev.books || [])],
+      songs: [...(prev.songs || [])],
+      book_pages: prev.book_pages,
+      book_minutes: prev.book_minutes,
+      music_minutes: prev.music_minutes,
+      music_focus: prev.music_focus,
     };
   });
   return out;
@@ -90,6 +103,12 @@ export function WeeklyBookSongDistribution({
     const next = cleanDistribution(weeks, dist);
     if (type === 'book') next[fromKey] = { ...next[fromKey], books: next[fromKey].books.filter(id => id !== itemId) };
     else next[fromKey] = { ...next[fromKey], songs: next[fromKey].songs.filter(id => id !== itemId) };
+    onChange(next);
+  };
+
+  const setWeekField = (weekKey: string, patch: Partial<WeekItems>) => {
+    const next = cleanDistribution(weeks, dist);
+    next[weekKey] = { ...next[weekKey], ...patch };
     onChange(next);
   };
 
@@ -248,6 +267,31 @@ export function WeeklyBookSongDistribution({
                   </div>
                 ))}
 
+                {weekBooks.length > 0 && (
+                  <div className="border-t border-border/40 pt-1.5 space-y-1">
+                    <label className="block">
+                      <span className="text-[9px] text-muted-foreground">📖 Páginas a leer</span>
+                      <Input
+                        type="number" min={0}
+                        placeholder="0"
+                        value={dist[w.key].book_pages ?? ''}
+                        onChange={e => setWeekField(w.key, { book_pages: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="h-6 mt-0.5 text-[10px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[9px] text-muted-foreground">⏱ Min de lectura</span>
+                      <Input
+                        type="number" min={0}
+                        placeholder="0"
+                        value={dist[w.key].book_minutes ?? ''}
+                        onChange={e => setWeekField(w.key, { book_minutes: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="h-6 mt-0.5 text-[10px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </label>
+                  </div>
+                )}
+
                 {weekSongs.map(song => (
                   <div key={song.id} className="flex items-center gap-1.5 p-1.5 rounded-lg bg-white dark:bg-zinc-950 border border-border/50 shadow-sm group">
                     {song.instrument === 'piano' ? (
@@ -273,6 +317,31 @@ export function WeeklyBookSongDistribution({
                     </div>
                   </div>
                 ))}
+
+                {weekSongs.length > 0 && (
+                  <div className="border-t border-border/40 pt-1.5 space-y-1">
+                    <label className="block">
+                      <span className="text-[9px] text-muted-foreground">🎹 Min de práctica</span>
+                      <Input
+                        type="number" min={0}
+                        placeholder="0"
+                        value={dist[w.key].music_minutes ?? ''}
+                        onChange={e => setWeekField(w.key, { music_minutes: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="h-6 mt-0.5 text-[10px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[9px] text-muted-foreground">🔎 Qué practicar (sección/parte)</span>
+                      <Input
+                        type="text"
+                        placeholder="Intro, estribillo, compases..."
+                        value={dist[w.key].music_focus || ''}
+                        onChange={e => setWeekField(w.key, { music_focus: e.target.value })}
+                        className="h-6 mt-0.5 text-[10px]"
+                      />
+                    </label>
+                  </div>
+                )}
 
                 {weekBooks.length === 0 && weekSongs.length === 0 && (
                   <div className="flex items-center justify-center h-14">

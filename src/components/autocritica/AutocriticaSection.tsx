@@ -10,7 +10,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER, type AreaKey } from '@/hooks/useResultadosPeriodo';
 import { useDailyReview } from '@/hooks/useDailyReview';
 import { usePeriodicReview, type ReviewType } from '@/hooks/usePeriodicReview';
-import { getDayGoalEffective } from '@/lib/hierarchy';
+import { getDayGoalEffective, getDayGoalTotal } from '@/lib/hierarchy';
 import { ReflectionForm } from '@/components/self-review/ReflectionForm';
 import { OverallRating } from '@/components/self-review/OverallRating';
 import { cn } from '@/lib/utils';
@@ -164,7 +164,9 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
     }))
     .filter((x) => x.plan > 0 || x.real > 0 || x.total > 0);
 
-  const planTotal = rows.reduce((s, x) => s + x.plan, 0);
+  // Para el día, el plan total es el mismo total del recuadro "Metas de minutos
+  // del día"; en scopes mayores se suma el plan de cada área del período.
+  const planTotal = isDay ? getDayGoalTotal(start, planGoals) : rows.reduce((s, x) => s + x.plan, 0);
   const realTotal = rows.reduce((s, x) => s + x.real, 0);
   const overallPct = planTotal > 0 ? Math.round((realTotal / planTotal) * 100) : 0;
   const hasPlan = planTotal > 0 || r.globalTotal > 0 || r.systems.total > 0 || r.lectura.pagesGoal > 0 || r.books.length > 0;

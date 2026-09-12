@@ -22,6 +22,7 @@ import { PeriodControlSection } from '@/components/control/PeriodControlSection'
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { PlanSemanal } from '@/components/plan/PlanSemanal';
 import { WeeklyObjectives } from '@/components/weekly/WeeklyObjectives';
+import { WeeklyFocusCard } from '@/components/planning/WeeklyFocusCard';
 import { ResultadosSemana } from '@/components/resultados/ResultadosSemana';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
@@ -205,6 +206,9 @@ export default function WeeklyView() {
           <>
             {/* Panel de control de la semana */}
             <PeriodControlSection scope="week" start={weekStart} end={weekEnd} rows={weekData?.systems} areaRows={weekData?.areaStats} />
+
+            {/* Enfocado esta semana: solo el libro/canción de ESA semana */}
+            <WeeklyFocusCard weekStart={weekStart} />
 
             {/* Resumen section — al tope de la página */}
             <section className="space-y-4">

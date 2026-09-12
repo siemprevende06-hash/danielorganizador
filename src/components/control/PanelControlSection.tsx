@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Gauge } from 'lucide-react';
-import { getDayGoalEffective, getIdiomasGoal } from '@/lib/hierarchy';
+import { getDayGoalEffective, getIdiomasGoal, getDayGoalTotal } from '@/lib/hierarchy';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,7 +101,7 @@ export function goalOfToday(today: Date, id: string, planGoals?: Record<string, 
 
 export function computePanelSummary(timeData: Record<string, number>, workoutDuration: number, today = new Date(), planGoals?: Record<string, number> | null) {
   const minutes = ALL_TIMER_ITEMS.reduce((s, it) => s + minutesOfToday(timeData, workoutDuration, it.id), 0);
-  const goal = ALL_TIMER_ITEMS.reduce((s, it) => s + goalOfToday(today, it.id, planGoals), 0);
+  const goal = getDayGoalTotal(today, planGoals);
   return { minutes, goal, pct: goal > 0 ? Math.min(100, Math.round((minutes / goal) * 100)) : 0 };
 }
 
@@ -211,7 +211,7 @@ export function PanelControlSection({ timeData = {}, completions = {}, workoutDu
 
   const summary = useMemo(() => {
     const minutes = ALL_TIMER_ITEMS.reduce((s, it) => s + mergedMinutes(it.id), 0);
-    const goal = ALL_TIMER_ITEMS.reduce((s, it) => s + goalOfToday(today, it.id, planGoals), 0);
+    const goal = getDayGoalTotal(today, planGoals);
     return { minutes, goal, pct: goal > 0 ? Math.min(100, Math.round((minutes / goal) * 100)) : 0 };
   }, [timeData, workoutDuration, areaMinutes, today, planGoals]); // eslint-disable-line react-hooks/exhaustive-deps
 

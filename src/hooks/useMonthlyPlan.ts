@@ -4,6 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 import { syncMonthlyFromQuarter } from '@/lib/hierarchy';
 
+export interface WeekBookSongDistribution {
+  books: string[];
+  songs: string[];
+  book_pages?: number;
+  book_minutes?: number;
+  music_minutes?: number;
+  music_focus?: string;
+}
+
 export interface MonthlyPlanData {
   books: { goal: number; selected: string[] };
   songs: { goal: number; selected: string[] };
@@ -13,7 +22,7 @@ export interface MonthlyPlanData {
   personal_goals: { title: string; target?: string }[];
   inherited_from?: { quarter: number; year: number };
   distribution?: Record<string, { books: string[]; songs: string[] }>;
-  week_distribution?: Record<string, { books: string[]; songs: string[] }>;
+  week_distribution?: Record<string, WeekBookSongDistribution>;
 
 }
 

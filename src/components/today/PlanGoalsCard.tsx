@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Target, Brain } from "lucide-react";
-import { AREA_LABELS, ALL_HIERARCHY_AREAS, getDayGoalEffective } from "@/lib/hierarchy";
+import { AREA_LABELS, ALL_HIERARCHY_AREAS, getDayGoalEffective, getDayGoalTotal } from "@/lib/hierarchy";
 import { cn } from "@/lib/utils";
 
 const INTENSITY_LABEL: Record<string, string> = { minimo: "Mín", maximo: "Máx", extra: "Extra" };
@@ -26,7 +26,7 @@ export function PlanGoalsCard({ date, planGoals, planIntensity, plannedTasks }: 
   const rows = ALL_HIERARCHY_AREAS
     .map(a => ({ area: a, label: AREA_LABELS[a] || a, min: goalFor(a) }))
     .filter(r => r.min > 0);
-  const total = rows.reduce((s, r) => s + r.min, 0);
+  const total = getDayGoalTotal(date, planGoals);
 
   const intensityEntries = Object.entries(planIntensity || {})
     .map(([id, v]) => ({

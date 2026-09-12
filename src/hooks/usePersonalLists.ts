@@ -84,6 +84,8 @@ async function fetchStore(): Promise<Store> {
       .from('text_sections')
       .select('content')
       .eq('section_key', SECTION_KEY)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (error) throw error;
     const content = (data?.content || null) as Store | null;
@@ -99,13 +101,16 @@ async function fetchStore(): Promise<Store> {
 
 async function saveStore(store: Store): Promise<void> {
   writeLocal(store);
-  const { data } = await db
+  const { data: existingRows } = await db
     .from('text_sections')
     .select('id')
-    .eq('section_key', SECTION_KEY)
-    .maybeSingle();
-  if (data?.id) {
-    const { error } = await db.from('text_sections').update({ content: store }).eq('id', data.id);
+    .eq('section_key', SECTION_KEY);
+  const existingIds = (existingRows || []).map(r => r.id) as unknown as string[];
+  if (existingIds.length > 1) {
+    await db.from('text_sections').delete().in('id', existingIds.slice(1));
+  }
+  if (existingIds.length >= 1) {
+    const { error } = await db.from('text_sections').update({ content: store }).eq('id', existingIds[0]);
     if (error) throw error;
   } else {
     const { error } = await db
