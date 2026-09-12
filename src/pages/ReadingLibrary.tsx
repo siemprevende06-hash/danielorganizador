@@ -16,6 +16,7 @@ import { format, startOfMonth, endOfMonth, addMonths, startOfWeek, endOfWeek, di
 import { es } from 'date-fns/locale';
 import { DailyReadingIndicator } from '@/components/reading/DailyReadingIndicator';
 import { BookContent } from '@/components/reading/BookContent';
+import { BookTeachingsTab } from '@/components/reading/BookTeachingsTab';
 import BilingualReader, { parseBilingualText } from '@/components/reading/BilingualReader';
 
 export default function ReadingLibrary() {
@@ -424,6 +425,7 @@ export default function ReadingLibrary() {
       <Tabs defaultValue="monthly">
         <TabsList className="flex w-full overflow-x-auto justify-start">
           <TabsTrigger value="monthly" className="flex-1 min-w-fit whitespace-nowrap">📅 Del Mes</TabsTrigger>
+          <TabsTrigger value="apply" className="flex-1 min-w-fit whitespace-nowrap">✅ Aplicar</TabsTrigger>
           <TabsTrigger value="history" className="flex-1 min-w-fit whitespace-nowrap">📖 Leídos</TabsTrigger>
           <TabsTrigger value="archive" className="flex-1 min-w-fit whitespace-nowrap">🗂️ Historial</TabsTrigger>
           <TabsTrigger value="future" className="flex-1 min-w-fit whitespace-nowrap">📋 Próximas</TabsTrigger>
@@ -490,6 +492,11 @@ export default function ReadingLibrary() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {booksReadingNow.map(book => <BookCard key={book.id} book={book} />)}
           </div>
+        </TabsContent>
+
+        {/* Aplicar en la vida diaria */}
+        <TabsContent value="apply" className="mt-4">
+          <BookTeachingsTab books={books} />
         </TabsContent>
 
         {/* History - Enhanced */}
