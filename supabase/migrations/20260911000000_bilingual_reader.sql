@@ -2,6 +2,10 @@
 ALTER TABLE public.reading_library
   ADD COLUMN IF NOT EXISTS bilingual_txt TEXT;
 
+-- Posición de lectura (índice de par EN/ES) para reanudar en cualquier dispositivo
+ALTER TABLE public.reading_library
+  ADD COLUMN IF NOT EXISTS reading_pair_index INTEGER;
+
 -- Vocabulario capturado desde la lectura
 CREATE TABLE IF NOT EXISTS public.user_vocabulary (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

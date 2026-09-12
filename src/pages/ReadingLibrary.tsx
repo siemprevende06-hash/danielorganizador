@@ -178,7 +178,7 @@ export default function ReadingLibrary() {
     if (!book || !book.pages_total || pairsCount <= 0) return;
     const estimated = Math.max(1, Math.round(((pairIndex + 1) / pairsCount) * book.pages_total));
     const next = Math.min(book.pages_total, Math.max(book.pages_read || 0, estimated));
-    if (next > (book.pages_read || 0)) updateProgress(bookId, next);
+    if (next > (book.pages_read || 0)) updateProgress(bookId, next, { reading_pair_index: pairIndex });
   };
 
   const BookCard = ({ book }: { book: Book }) => {

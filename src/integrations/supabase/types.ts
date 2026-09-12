@@ -2720,6 +2720,7 @@ export type Database = {
       reading_library: {
         Row: {
           author: string | null
+          bilingual_txt: string | null
           cover_image_url: string | null
           created_at: string | null
           finish_date: string | null
@@ -2729,6 +2730,7 @@ export type Database = {
           pages_read: number | null
           pages_total: number | null
           rating: number | null
+          reading_pair_index: number | null
           start_date: string | null
           status: string | null
           title: string
@@ -2737,6 +2739,7 @@ export type Database = {
         }
         Insert: {
           author?: string | null
+          bilingual_txt?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           finish_date?: string | null
@@ -2746,6 +2749,7 @@ export type Database = {
           pages_read?: number | null
           pages_total?: number | null
           rating?: number | null
+          reading_pair_index?: number | null
           start_date?: string | null
           status?: string | null
           title: string
@@ -2754,6 +2758,7 @@ export type Database = {
         }
         Update: {
           author?: string | null
+          bilingual_txt?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           finish_date?: string | null
@@ -2763,6 +2768,7 @@ export type Database = {
           pages_read?: number | null
           pages_total?: number | null
           rating?: number | null
+          reading_pair_index?: number | null
           start_date?: string | null
           status?: string | null
           title?: string
@@ -3818,6 +3824,54 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wake_time?: string | null
+        }
+        Relationships: []
+      }
+      user_vocabulary: {
+        Row: {
+          book_id: string | null
+          book_title: string | null
+          context_en: string | null
+          context_es: string | null
+          created_at: string | null
+          id: string
+          language: string | null
+          review_count: number | null
+          status: string | null
+          translation: string | null
+          updated_at: string | null
+          user_id: string | null
+          word: string
+        }
+        Insert: {
+          book_id?: string | null
+          book_title?: string | null
+          context_en?: string | null
+          context_es?: string | null
+          created_at?: string | null
+          id?: string
+          language?: string | null
+          review_count?: number | null
+          status?: string | null
+          translation?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          word: string
+        }
+        Update: {
+          book_id?: string | null
+          book_title?: string | null
+          context_en?: string | null
+          context_es?: string | null
+          created_at?: string | null
+          id?: string
+          language?: string | null
+          review_count?: number | null
+          status?: string | null
+          translation?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          word?: string
         }
         Relationships: []
       }

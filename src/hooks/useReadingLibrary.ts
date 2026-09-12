@@ -8,6 +8,7 @@ export interface Book {
   title: string;
   author: string | null;
   bilingual_txt: string | null;
+  reading_pair_index: number | null;
   cover_image_url: string | null;
   status: 'to_read' | 'reading' | 'completed';
   start_date: string | null;
@@ -130,11 +131,11 @@ export const useReadingLibrary = () => {
     });
   };
 
-  const updateProgress = async (id: string, pagesRead: number) => {
+  const updateProgress = async (id: string, pagesRead: number, extra?: Partial<Book>) => {
     const book = books.find(b => b.id === id);
     if (!book) return;
 
-    const updates: Partial<Book> = { pages_read: pagesRead };
+    const updates: Partial<Book> = { pages_read: pagesRead, ...extra };
     if (book.pages_total && pagesRead >= book.pages_total) {
       updates.status = 'completed';
       updates.finish_date = new Date().toISOString().split('T')[0];

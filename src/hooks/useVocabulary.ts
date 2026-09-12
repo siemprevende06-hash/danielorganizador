@@ -60,6 +60,9 @@ export const useVocabulary = () => {
     );
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id ?? null;
+
       if (existing) {
         const { error } = await supabase
           .from('user_vocabulary')
@@ -84,6 +87,7 @@ export const useVocabulary = () => {
         .insert({
           word: input.word,
           language,
+          user_id: userId,
           translation: input.translation || null,
           context_en: input.context_en || null,
           context_es: input.context_es || null,
