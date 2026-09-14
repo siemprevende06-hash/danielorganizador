@@ -76,6 +76,7 @@ import MisNecesidades from "./pages/MisNecesidades";
 import Novia from "./pages/Novia";
 import AreasDeVida from "./pages/AreasDeVida";
 import MapaDeVidaPage from "./pages/MapaDeVida";
+import ConectorEnergiaPage from "./pages/ConectorEnergia";
 import Recompensas from "./pages/Recompensas";
 import Paginas from "./pages/Paginas";
 import Motivos from "./pages/Motivos";
@@ -164,6 +165,7 @@ function AppContent() {
         <Route path="/life-alignment" element={<LifeAlignment />} />
         <Route path="/areas-de-vida" element={<AreasDeVida />} />
         <Route path="/mapa-de-vida" element={<MapaDeVidaPage />} />
+        <Route path="/conector-energia" element={<ConectorEnergiaPage />} />
         <Route path="/recompensas" element={<Recompensas />} />
         <Route path="/confidence-steps" element={<ConfidenceSteps />} />
         <Route path="/reading-library" element={<ReadingLibrary />} />

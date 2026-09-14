@@ -63,6 +63,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/objetivo-prioritario', label: 'Objetivo Prioritario', icon: Milestone },
       { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
       { path: '/estadisticas-esfuerzo', label: 'Esfuerzo', icon: Activity },
+      { path: '/conector-energia', label: 'Conector de Energía', icon: Zap },
     ]
   },
   {

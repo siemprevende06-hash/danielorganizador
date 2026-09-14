@@ -1,0 +1,59 @@
+.conector-canvas {
+  background-image: radial-gradient(hsl(var(--border) / 0.55) 1px, transparent 1px);
+  background-size: 26px 26px;
+  border-radius: 1rem;
+}
+
+.conector-canvas svg {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.conector-text {
+  fill: hsl(var(--foreground));
+}
+
+.conector-text-muted {
+  fill: hsl(var(--muted-foreground));
+}
+
+.conector-edge {
+  transition: opacity 0.25s ease;
+}
+
+.conector-connect-line {
+  stroke-dasharray: 7 7;
+  animation: conector-dash 0.8s linear infinite;
+}
+
+@keyframes conector-dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+.conector-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: conector-ping 2.6s ease-out infinite;
+}
+
+.conector-ping-alt {
+  animation-delay: 1.3s;
+}
+
+@keyframes conector-ping {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
