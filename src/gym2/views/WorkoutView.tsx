@@ -54,7 +54,7 @@ import {
 } from "../components/sheets";
 import { nextPrescription, applyPrescription } from "../lib/progression";
 import { Glyph } from "../lib/glyphs";
-import { ExerciseIcon } from "../components/Media";
+import { ExerciseImg } from "../components/Media";
 import type { Entry, Prescription, SetRec } from "../lib/types";
 
 /* ---------- start chooser (sin entrenamiento activo) ---------- */
@@ -335,7 +335,7 @@ function ExerciseBlock({
 
   return (
     <>
-      <ExerciseIcon ex={ex} />
+      <ExerciseImg ex={ex} />
       <div className="mb-1.5 flex items-center justify-between">
         <div className="text-lg font-bold capitalize leading-tight tracking-tight">{esName(ex)}</div>
         <button

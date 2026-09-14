@@ -25,7 +25,7 @@ import {
   SelectRow,
 } from "../components/sheets";
 import { Glyph } from "../lib/glyphs";
-import { ExerciseIcon } from "../components/Media";
+import { ExerciseImg } from "../components/Media";
 import { MuscleMap, MuscleMapLegend } from "../components/MuscleMap";
 import { type Routine } from "../lib/types";
 
@@ -213,7 +213,7 @@ export default function RoutineEditView({
             })();
             return (
               <div key={i} className="flex items-center gap-2 px-3 py-2.5">
-                <ExerciseIcon ex={ex} />
+                <ExerciseImg ex={ex} />
                 <button
                   type="button"
                   className="min-w-0 grow text-left"

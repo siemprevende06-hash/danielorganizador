@@ -12,7 +12,7 @@ import {
   addToRoutineSheet,
   customExSheet,
 } from "../components/sheets";
-import { ExerciseIcon } from "../components/Media";
+import { ExerciseImg } from "../components/Media";
 import { fmtNum } from "../lib/format";
 import type { AnyExercise } from "../lib/exercises";
 
@@ -107,7 +107,7 @@ export default function Library() {
               className="flex cursor-pointer items-center gap-3 bg-card px-3 py-2.5 transition-colors hover:bg-accent/60 rounded-2xl lg:rounded-xl"
               onClick={() => exerciseDetailSheet(ex)}
             >
-              <ExerciseIcon ex={ex} />
+              <ExerciseImg ex={ex} />
               <div className="min-w-0 grow">
                 <div className="truncate text-sm font-semibold capitalize">{esName(ex)}</div>
                 <div className="truncate text-[11px] text-muted-foreground">

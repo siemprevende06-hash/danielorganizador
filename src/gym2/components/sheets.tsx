@@ -10,7 +10,7 @@ import { getGym, useGym } from "../store";
 import { getUI } from "./SheetStack";
 import { markGymDayInDaily, syncRestDays } from "../lib/dailySync";
 import { Stepper } from "./Stepper";
-import { ExerciseIcon } from "./Media";
+import { ExerciseIcon, ExerciseImg, imgUrl } from "./Media";
 import { MuscleMap } from "./MuscleMap";
 import {
   EXIDX,
@@ -922,7 +922,7 @@ function PickerContent({ onPick }: { onPick: (ex: AnyExercise) => void }) {
         )}
         {f.slice(0, shown).map((e) => (
           <div key={e.id} className={rowCls()} onClick={() => onPick(e)}>
-            <ExerciseIcon ex={e} />
+            <ExerciseImg ex={e} />
             <div className="grow">
               <div className="text-sm font-semibold capitalize">{esName(e)}</div>
               <div className="text-xs capitalize text-muted-foreground">
@@ -1548,6 +1548,13 @@ export function exerciseDetailSheet(ex: AnyExercise) {
     };
     return (
       <div>
+        {imgUrl(x) && (
+          <ExerciseImg
+            ex={x}
+            preferGif
+            className="mb-3 h-44 w-full rounded-2xl"
+          />
+        )}
         <h3 className="text-lg font-bold capitalize">{esName(ex)}</h3>
         <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
           <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary capitalize">
