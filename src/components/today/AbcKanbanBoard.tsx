@@ -99,12 +99,21 @@ const sourceOf = (t: TaskItem): string => {
   return raw === 'proyectos' ? 'project' : raw;
 };
 
-const autoCategory = (t: TaskItem): Category => {
-  if (t.priority === 'high') return 'a';
-  if (t.priority === 'medium') return 'b';
-  if (t.priority === 'low') return 'c';
-  return 'd';
+const taskScore = (t: TaskItem): number => {
+  let s = 0;
+  if (t.priority === 'high') s += 4;
+  else if (t.priority === 'medium') s += 3;
+  else if (t.priority === 'low') s += 2;
+  else s += 1;
+  const src = sourceOf(t);
+  if (src === 'entrepreneurship') s += 2;
+  else if (src === 'university') s += 1;
+  else if (src === 'project') s += 0.5;
+  return s;
 };
+
+const bucketIndex = (pos: number, size: number): number =>
+  size <= 1 ? 0 : Math.min(3, Math.floor((pos * 4) / size));
 
 const storageKey = (date: Date) => `abc_${format(date, 'yyyy-MM-dd')}`;
 
@@ -131,15 +140,19 @@ export function AbcKanbanBoard({ tasks, onToggle, date }: {
 
   useEffect(() => {
     setMap(prev => {
+      const pending = tasks.filter(t => !t.completed);
+      if (pending.length === 0) return prev;
+      const sorted = [...pending].sort((x, y) => taskScore(x) - taskScore(y));
+      const n = sorted.length;
       const next = { ...prev };
       let changed = false;
-      for (const t of tasks) {
-        if (t.completed) continue;
-        if (!next[t.id]) {
-          next[t.id] = autoCategory(t);
-          changed = true;
-        }
-      }
+      sorted.forEach((t, i) => {
+        if (next[t.id]) return;
+        const idx = bucketIndex(i, n);
+        const cat: Category = idx === 3 ? 'a' : idx === 2 ? 'b' : idx === 1 ? 'c' : 'd';
+        next[t.id] = cat;
+        changed = true;
+      });
       return changed ? next : prev;
     });
   }, [tasks]);
