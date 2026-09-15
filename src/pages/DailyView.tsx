@@ -25,6 +25,7 @@ import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { TaskChecklist } from '@/components/today/TaskChecklist';
+import { EisenhowerMatrix } from '@/components/today/EisenhowerMatrix';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
@@ -308,6 +309,8 @@ export default function DailyView() {
             </div>
 
             <TaskChecklist tasks={tasks} onToggle={toggleTaskDone} />
+
+            <EisenhowerMatrix key={format(selectedDate, 'yyyy-MM-dd')} tasks={tasks} onToggle={toggleTaskDone} date={selectedDate} />
 
             <DaySpeedSection />
           </>
