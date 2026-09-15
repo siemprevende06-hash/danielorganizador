@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,17 @@ import { format } from 'date-fns';
 interface Props {
   unassignedTasks: TaskItem[];
   onTaskCreated: () => void;
+  selectedDate?: Date;
 }
+
+const ABC_CATEGORY_COLORS: Record<string, string> = {
+  a: 'bg-red-400 text-white',
+  b: 'bg-amber-400 text-white',
+  c: 'bg-blue-400 text-white',
+  d: 'bg-slate-400 text-white',
+};
+
+const ABC_STORAGE_PREFIX = 'abc_';
 
 const SOURCE_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   general: { label: 'General', color: 'bg-blue-500/15 text-blue-400 border-blue-500/30', icon: <Target className="h-3 w-3" /> },
@@ -24,17 +34,32 @@ const SOURCE_CONFIG: Record<string, { label: string; color: string; icon: React.
   project: { label: 'Proyecto', color: 'bg-orange-500/15 text-orange-400 border-orange-500/30', icon: <FolderKanban className="h-3 w-3" /> },
 };
 
-export function TaskPoolPanel({ unassignedTasks, onTaskCreated }: Props) {
+export function TaskPoolPanel({ unassignedTasks, onTaskCreated, selectedDate }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [abcFilter, setAbcFilter] = useState<string>('all');
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskArea, setNewTaskArea] = useState('general');
   const [creating, setCreating] = useState(false);
+  const [abcMap, setAbcMap] = useState<Record<string, string>>({});
 
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!selectedDate) { setAbcMap({}); return; }
+    const key = `${ABC_STORAGE_PREFIX}${format(selectedDate, 'yyyy-MM-dd')}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') setAbcMap(parsed);
+      }
+    } catch { /* ignore */ }
+  }, [selectedDate]);
+
   const filteredTasks = unassignedTasks.filter(t => {
     if (sourceFilter !== 'all' && t.source !== sourceFilter) return false;
+    if (abcFilter !== 'all' && abcMap[t.id] !== abcFilter) return false;
     if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
@@ -133,6 +158,24 @@ export function TaskPoolPanel({ unassignedTasks, onTaskCreated }: Props) {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex gap-1 mt-2">
+          {(['all', 'a', 'b', 'c', 'd'] as const).map(abc => (
+            <button
+              key={abc}
+              onClick={() => setAbcFilter(abc)}
+              className={cn(
+                'px-2 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer',
+                abcFilter === abc
+                  ? abc === 'all'
+                    ? 'bg-foreground text-background border-foreground'
+                    : ABC_CATEGORY_COLORS[abc] + ' border-transparent'
+                  : 'bg-muted/50 text-muted-foreground border-border/60 hover:border-foreground/30',
+              )}
+            >
+              {abc === 'all' ? 'ABC' : abc.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </div>
 
       <ScrollArea className="flex-1 min-h-[200px]">
@@ -171,9 +214,19 @@ export function TaskPoolPanel({ unassignedTasks, onTaskCreated }: Props) {
                       <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate">{task.title}</p>
-                        {task.priority === 'high' && (
-                          <Badge variant="destructive" className="text-[8px] px-1 py-0 h-3.5 mt-0.5">Alta</Badge>
-                        )}
+                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                          {task.priority === 'high' && (
+                            <Badge variant="destructive" className="text-[8px] px-1 py-0 h-3.5">Alta</Badge>
+                          )}
+                          {abcMap[task.id] && (
+                            <span className={cn(
+                              'inline-flex items-center justify-center w-3.5 h-3.5 rounded text-[7px] font-black leading-none',
+                              ABC_CATEGORY_COLORS[abcMap[task.id]] || 'bg-slate-200 text-slate-600',
+                            )}>
+                              {abcMap[task.id].toUpperCase()}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
