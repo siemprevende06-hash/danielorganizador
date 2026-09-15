@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +10,11 @@ import { cn } from '@/lib/utils';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
 
 interface Props {
   unassignedTasks: TaskItem[];
   onTaskCreated: () => void;
-  selectedDate?: Date;
+  abcMap?: Record<string, string>;
 }
 
 const ABC_CATEGORY_COLORS: Record<string, string> = {
@@ -25,8 +24,6 @@ const ABC_CATEGORY_COLORS: Record<string, string> = {
   d: 'bg-slate-400 text-white',
 };
 
-const ABC_STORAGE_PREFIX = 'abc_';
-
 const SOURCE_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   general: { label: 'General', color: 'bg-blue-500/15 text-blue-400 border-blue-500/30', icon: <Target className="h-3 w-3" /> },
   university: { label: 'Universidad', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', icon: <BookOpen className="h-3 w-3" /> },
@@ -34,28 +31,15 @@ const SOURCE_CONFIG: Record<string, { label: string; color: string; icon: React.
   project: { label: 'Proyecto', color: 'bg-orange-500/15 text-orange-400 border-orange-500/30', icon: <FolderKanban className="h-3 w-3" /> },
 };
 
-export function TaskPoolPanel({ unassignedTasks, onTaskCreated, selectedDate }: Props) {
+export function TaskPoolPanel({ unassignedTasks, onTaskCreated, abcMap = {} }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [abcFilter, setAbcFilter] = useState<string>('all');
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskArea, setNewTaskArea] = useState('general');
   const [creating, setCreating] = useState(false);
-  const [abcMap, setAbcMap] = useState<Record<string, string>>({});
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (!selectedDate) { setAbcMap({}); return; }
-    const key = `${ABC_STORAGE_PREFIX}${format(selectedDate, 'yyyy-MM-dd')}`;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') setAbcMap(parsed);
-      }
-    } catch { /* ignore */ }
-  }, [selectedDate]);
 
   const filteredTasks = unassignedTasks.filter(t => {
     if (sourceFilter !== 'all' && t.source !== sourceFilter) return false;

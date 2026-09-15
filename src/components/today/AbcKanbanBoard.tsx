@@ -1,18 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   Check, Loader2, GripVertical, LayoutGrid, CalendarClock, Clock, Trash2, Target,
-  ChevronDown, ChevronUp, ArrowRight,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { format } from 'date-fns';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
-
-type Category = 'a' | 'b' | 'c' | 'd';
+import type { AbcCategory } from '@/hooks/useAbcCategories';
 
 interface CategoryCfg {
-  id: Category;
+  id: AbcCategory;
   letter: string;
   name: string;
   hint: string;
@@ -25,7 +23,7 @@ interface CategoryCfg {
   ring: string;
 }
 
-const CATEGORIES: Record<Category, CategoryCfg> = {
+const CATEGORIES: Record<AbcCategory, CategoryCfg> = {
   a: {
     id: 'a',
     letter: 'A',
@@ -80,8 +78,6 @@ const CATEGORIES: Record<Category, CategoryCfg> = {
   },
 };
 
-const CAT_ORDER: Category[] = ['a', 'b', 'c', 'd'];
-
 const SOURCE_META: Record<string, { label: string; cls: string }> = {
   universidad: { label: 'Uni', cls: 'text-blue-500' },
   university: { label: 'Uni', cls: 'text-blue-500' },
@@ -99,87 +95,15 @@ const sourceOf = (t: TaskItem): string => {
   return raw === 'proyectos' ? 'project' : raw;
 };
 
-const taskScore = (t: TaskItem): number => {
-  let s = 0;
-  if (t.priority === 'high') s += 4;
-  else if (t.priority === 'medium') s += 3;
-  else if (t.priority === 'low') s += 2;
-  else s += 1;
-  const src = sourceOf(t);
-  if (src === 'entrepreneurship') s += 2;
-  else if (src === 'university') s += 1;
-  else if (src === 'project') s += 0.5;
-  return s;
-};
-
-const bucketIndex = (pos: number, size: number): number =>
-  size <= 1 ? 0 : Math.min(3, Math.floor((pos * 4) / size));
-
-const storageKey = (date: Date) => `abc_${format(date, 'yyyy-MM-dd')}`;
-
-const readStored = (key: string): Record<string, Category> | null => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Record<string, Category>;
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch {
-    return null;
-  }
-};
-
-export function AbcKanbanBoard({ tasks, onToggle, date }: {
+export function AbcKanbanBoard({ tasks, onToggle, map, onMove, onRotate }: {
   tasks: TaskItem[];
   onToggle: (taskId: string) => void;
-  date: Date;
+  map: Record<string, AbcCategory>;
+  onMove: (taskId: string, cat: AbcCategory) => void;
+  onRotate: (taskId: string, dir: 1 | -1) => void;
 }) {
-  const key = storageKey(date);
-  const [map, setMap] = useState<Record<string, Category>>(() => readStored(key) || {});
   const [toggling, setToggling] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState<Category | null>(null);
-
-  useEffect(() => {
-    setMap(prev => {
-      const pending = tasks.filter(t => !t.completed);
-      if (pending.length === 0) return prev;
-      const sorted = [...pending].sort((x, y) => taskScore(x) - taskScore(y));
-      const n = sorted.length;
-      const next = { ...prev };
-      let changed = false;
-      sorted.forEach((t, i) => {
-        if (next[t.id]) return;
-        const idx = bucketIndex(i, n);
-        const cat: Category = idx === 3 ? 'a' : idx === 2 ? 'b' : idx === 1 ? 'c' : 'd';
-        next[t.id] = cat;
-        changed = true;
-      });
-      return changed ? next : prev;
-    });
-  }, [tasks]);
-
-  const persist = (next: Record<string, Category>) => {
-    localStorage.setItem(key, JSON.stringify(next));
-  };
-
-  const moveTo = (taskId: string, cat: Category) => {
-    setMap(prev => {
-      const next = { ...prev, [taskId]: cat };
-      persist(next);
-      return next;
-    });
-  };
-
-  const rotate = (taskId: string, dir: 1 | -1) => {
-    setMap(prev => {
-      const cur = prev[taskId];
-      if (!cur) return prev;
-      const idx = CAT_ORDER.indexOf(cur);
-      const nextCat = CAT_ORDER[(idx + dir + CAT_ORDER.length) % CAT_ORDER.length];
-      const next = { ...prev, [taskId]: nextCat };
-      persist(next);
-      return next;
-    });
-  };
+  const [dragOver, setDragOver] = useState<AbcCategory | null>(null);
 
   const handleToggle = async (taskId: string) => {
     setToggling(taskId);
@@ -216,7 +140,7 @@ export function AbcKanbanBoard({ tasks, onToggle, date }: {
           e.preventDefault();
           setDragOver(null);
           const id = e.dataTransfer.getData('text/plain');
-          if (id) moveTo(id, cat.id);
+          if (id) onMove(id, cat.id);
         }}
         className={cn(
           'relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 animate-fade-in',
@@ -301,7 +225,7 @@ export function AbcKanbanBoard({ tasks, onToggle, date }: {
                       <button
                         onClick={e => {
                           e.stopPropagation();
-                          rotate(task.id, -1);
+                          onRotate(task.id, -1);
                         }}
                         className="w-3.5 h-3.5 flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
                         title="Mover a la categoría anterior"
@@ -311,7 +235,7 @@ export function AbcKanbanBoard({ tasks, onToggle, date }: {
                       <button
                         onClick={e => {
                           e.stopPropagation();
-                          rotate(task.id, 1);
+                          onRotate(task.id, 1);
                         }}
                         className="w-3.5 h-3.5 flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
                         title="Mover a la siguiente categoría"
