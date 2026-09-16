@@ -410,10 +410,10 @@ export default function PlanManana() {
     const regularIds = taskIds.filter(id => !entreTaskIds.has(id));
     const ops: Promise<unknown>[] = [];
     if (entreIds.length > 0) {
-      ops.push(supabase.from('entrepreneurship_tasks').update({ due_date: dateStr }).in('id', entreIds));
+      ops.push(Promise.resolve(supabase.from('entrepreneurship_tasks').update({ due_date: dateStr }).in('id', entreIds)));
     }
     if (regularIds.length > 0) {
-      ops.push(supabase.from('tasks').update({ due_date: dateStr }).in('id', regularIds));
+      ops.push(Promise.resolve(supabase.from('tasks').update({ due_date: dateStr }).in('id', regularIds)));
     }
     await Promise.all(ops);
   };

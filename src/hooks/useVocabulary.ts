@@ -28,7 +28,7 @@ export const useVocabulary = () => {
   const fetchWords = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('user_vocabulary')
+        .from('user_vocabulary' as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -65,7 +65,7 @@ export const useVocabulary = () => {
 
       if (existing) {
         const { error } = await supabase
-          .from('user_vocabulary')
+          .from('user_vocabulary' as any)
           .update({
             translation: input.translation || existing.translation || null,
             context_en: input.context_en || existing.context_en || null,
@@ -83,7 +83,7 @@ export const useVocabulary = () => {
       }
 
       const { data, error } = await supabase
-        .from('user_vocabulary')
+        .from('user_vocabulary' as any)
         .insert({
           word: input.word,
           language,
@@ -113,7 +113,7 @@ export const useVocabulary = () => {
   const updateWord = async (id: string, updates: Partial<VocabularyWord>) => {
     try {
       const { error } = await supabase
-        .from('user_vocabulary')
+        .from('user_vocabulary' as any)
         .update(updates)
         .eq('id', id);
 
@@ -128,7 +128,7 @@ export const useVocabulary = () => {
   const deleteWord = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('user_vocabulary')
+        .from('user_vocabulary' as any)
         .delete()
         .eq('id', id);
 

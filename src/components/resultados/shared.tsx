@@ -428,7 +428,7 @@ export function useToggleResultTask() {
           .eq('id', t.project_id)
           .maybeSingle();
         if (readErr) throw readErr;
-        const tasks = (proj?.tasks || []).map((x: any) =>
+        const tasks = (((proj as any)?.tasks as any[]) || []).map((x: any) =>
           x.id === t.id ? { ...x, completed: next } : x
         );
         const { error } = await supabase.from('projects').update({ tasks }).eq('id', t.project_id);

@@ -248,7 +248,7 @@ export default function TwelveWeekYear() {
         ]);
         if (booksRes.data) setBooks(booksRes.data);
         if (allBooksRes.data) setAllBooks(allBooksRes.data);
-        if (songsRes.data) setSongs(songsRes.data);
+        if (songsRes.data) setSongs(songsRes.data as any);
 
         try {
           const { data: projRows } = await supabase.from('projects').select('id, title');

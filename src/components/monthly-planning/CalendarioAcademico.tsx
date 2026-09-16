@@ -54,7 +54,7 @@ export function CalendarioAcademico({ month }: { month: Date }) {
         type: 'delivery',
         title: t.title,
         date: t.due_date || '',
-        status: t.completed ? 'completed' : t.status || 'pending',
+        status: t.completed ? 'completed' : (t as any).status || 'pending',
       }));
 
       const events: AcademicItem[] = (eventsRes.data || [])

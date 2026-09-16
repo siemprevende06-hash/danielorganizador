@@ -57,7 +57,7 @@ export function useMonthlyFinance(month: Date): MonthFinanceData {
 
       type TxRow = NonNullable<typeof txRes.data>[number];
 
-      const wallets = (walletRes.data || []).map((w) => ({
+      const wallets = ((walletRes.data || []) as any[]).map((w) => ({
         id: w.id,
         currency: (w as unknown as { currency?: string | null }).currency ?? null,
       }));
