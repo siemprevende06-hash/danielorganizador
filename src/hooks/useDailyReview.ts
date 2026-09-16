@@ -110,9 +110,9 @@ export function useDailyReview(date?: string) {
         whatCouldBeBetter: existingReview.what_could_be_better || '',
         tomorrowPlan: existingReview.tomorrow_plan || '',
         overallRating: existingReview.overall_rating || 0,
-        energyRating: existingReview.energy_rating || 0,
-        sleepRating: existingReview.sleep_rating || 0,
-        sleepHours: existingReview.sleep_hours || 0
+        energyRating: (existingReview as any).energy_rating || 0,
+        sleepRating: (existingReview as any).sleep_rating || 0,
+        sleepHours: (existingReview as any).sleep_hours || 0
       });
     } else {
       // Create new review with calculated stats

@@ -81,7 +81,7 @@ export function LearningToday() {
         .limit(1)
         .single();
       
-      if (songData) setCurrentSong(songData);
+      if (songData) setCurrentSong(songData as any);
 
       // Load language settings
       const { data: langSettings } = await supabase

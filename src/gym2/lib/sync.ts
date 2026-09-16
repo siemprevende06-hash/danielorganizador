@@ -93,7 +93,7 @@ export async function pushState(state: GymState): Promise<boolean> {
 
     const { error } = await supabase
       .from(TABLE as never)
-      .upsert(payload, { onConflict: "id" });
+      .upsert(payload as never, { onConflict: "id" });
 
     if (error) {
       console.warn("[gym20sync] push error:", error.message);

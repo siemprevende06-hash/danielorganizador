@@ -38,7 +38,7 @@ export function WeeklyAgenda({ weekStart, weekEnd }: { weekStart: Date; weekEnd:
         .lte('event_date', endStr)
         .order('event_date');
       if (error) throw error;
-      return (data || []) as WeekEvent[];
+      return ((data || []) as unknown) as WeekEvent[];
     },
   });
 

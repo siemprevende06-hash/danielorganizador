@@ -782,7 +782,6 @@ export type Database = {
           blocks_completed: number | null
           blocks_total: number | null
           created_at: string | null
-          energy_rating: number | null
           focus_minutes: number | null
           habits_completed: number | null
           habits_total: number | null
@@ -791,8 +790,6 @@ export type Database = {
           pillar_progress: Json | null
           review_date: string
           secondary_goals_progress: Json | null
-          sleep_hours: number | null
-          sleep_rating: number | null
           tasks_completed: number | null
           tasks_total: number | null
           tomorrow_plan: string | null
@@ -806,7 +803,6 @@ export type Database = {
           blocks_completed?: number | null
           blocks_total?: number | null
           created_at?: string | null
-          energy_rating?: number | null
           focus_minutes?: number | null
           habits_completed?: number | null
           habits_total?: number | null
@@ -815,8 +811,6 @@ export type Database = {
           pillar_progress?: Json | null
           review_date?: string
           secondary_goals_progress?: Json | null
-          sleep_hours?: number | null
-          sleep_rating?: number | null
           tasks_completed?: number | null
           tasks_total?: number | null
           tomorrow_plan?: string | null
@@ -830,7 +824,6 @@ export type Database = {
           blocks_completed?: number | null
           blocks_total?: number | null
           created_at?: string | null
-          energy_rating?: number | null
           focus_minutes?: number | null
           habits_completed?: number | null
           habits_total?: number | null
@@ -839,8 +832,6 @@ export type Database = {
           pillar_progress?: Json | null
           review_date?: string
           secondary_goals_progress?: Json | null
-          sleep_hours?: number | null
-          sleep_rating?: number | null
           tasks_completed?: number | null
           tasks_total?: number | null
           tomorrow_plan?: string | null
@@ -2139,7 +2130,6 @@ export type Database = {
       music_repertoire: {
         Row: {
           artist: string | null
-          cover_image_url: string | null
           created_at: string | null
           difficulty: string | null
           id: string
@@ -2155,7 +2145,6 @@ export type Database = {
         }
         Insert: {
           artist?: string | null
-          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
           id?: string
@@ -2171,7 +2160,6 @@ export type Database = {
         }
         Update: {
           artist?: string | null
-          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
           id?: string
@@ -2729,7 +2717,6 @@ export type Database = {
       reading_library: {
         Row: {
           author: string | null
-          bilingual_txt: string | null
           cover_image_url: string | null
           created_at: string | null
           finish_date: string | null
@@ -2739,7 +2726,6 @@ export type Database = {
           pages_read: number | null
           pages_total: number | null
           rating: number | null
-          reading_pair_index: number | null
           start_date: string | null
           status: string | null
           title: string
@@ -2748,7 +2734,6 @@ export type Database = {
         }
         Insert: {
           author?: string | null
-          bilingual_txt?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           finish_date?: string | null
@@ -2758,7 +2743,6 @@ export type Database = {
           pages_read?: number | null
           pages_total?: number | null
           rating?: number | null
-          reading_pair_index?: number | null
           start_date?: string | null
           status?: string | null
           title: string
@@ -2767,7 +2751,6 @@ export type Database = {
         }
         Update: {
           author?: string | null
-          bilingual_txt?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           finish_date?: string | null
@@ -2777,7 +2760,6 @@ export type Database = {
           pages_read?: number | null
           pages_total?: number | null
           rating?: number | null
-          reading_pair_index?: number | null
           start_date?: string | null
           status?: string | null
           title?: string
@@ -3833,54 +3815,6 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wake_time?: string | null
-        }
-        Relationships: []
-      }
-      user_vocabulary: {
-        Row: {
-          book_id: string | null
-          book_title: string | null
-          context_en: string | null
-          context_es: string | null
-          created_at: string | null
-          id: string
-          language: string | null
-          review_count: number | null
-          status: string | null
-          translation: string | null
-          updated_at: string | null
-          user_id: string | null
-          word: string
-        }
-        Insert: {
-          book_id?: string | null
-          book_title?: string | null
-          context_en?: string | null
-          context_es?: string | null
-          created_at?: string | null
-          id?: string
-          language?: string | null
-          review_count?: number | null
-          status?: string | null
-          translation?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-          word: string
-        }
-        Update: {
-          book_id?: string | null
-          book_title?: string | null
-          context_en?: string | null
-          context_es?: string | null
-          created_at?: string | null
-          id?: string
-          language?: string | null
-          review_count?: number | null
-          status?: string | null
-          translation?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-          word?: string
         }
         Relationships: []
       }
