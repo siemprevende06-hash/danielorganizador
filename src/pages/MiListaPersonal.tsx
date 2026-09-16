@@ -47,6 +47,7 @@ function CreateListDialog({ onCreate }: { onCreate: (p: Partial<PersonalList>) =
   const [areaId, setAreaId] = useState(LIFE_AREAS[0].id);
   const [subArea, setSubArea] = useState('');
   const [systemKey, setSystemKey] = useState('none');
+  const [targetDate, setTargetDate] = useState('');
   const [cover, setCover] = useState<string | null>(null);
   const { uploadImage, uploading } = useImageUpload();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -60,8 +61,9 @@ function CreateListDialog({ onCreate }: { onCreate: (p: Partial<PersonalList>) =
       sub_area: subArea.trim() || null,
       cover_image_url: cover,
       system_key: systemKey === 'none' ? null : systemKey,
+      target_date: targetDate || null,
     });
-    setTitle(''); setDescription(''); setSubArea(''); setCover(null); setSystemKey('none');
+    setTitle(''); setDescription(''); setSubArea(''); setCover(null); setSystemKey('none'); setTargetDate('');
     setOpen(false);
   };
 
@@ -94,6 +96,10 @@ function CreateListDialog({ onCreate }: { onCreate: (p: Partial<PersonalList>) =
             <Input value={subArea} onChange={e => setSubArea(e.target.value)} placeholder="Ej: Hábitos de estudio" />
           </div>
           <div className="grid gap-2">
+            <Label>Fecha límite (opcional)</Label>
+            <Input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} />
+          </div>
+          <div className="grid gap-2">
             <Label>Sistema diario vinculado</Label>
             <Select value={systemKey} onValueChange={setSystemKey}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -102,6 +108,10 @@ function CreateListDialog({ onCreate }: { onCreate: (p: Partial<PersonalList>) =
                 {DAILY_SYSTEMS.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label>Fecha límite (opcional)</Label>
+            <Input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} className="h-9" />
           </div>
           <div className="grid gap-2">
             <Label>Descripción</Label>
@@ -150,6 +160,7 @@ function EditListDialog({
   const [areaId, setAreaId] = useState(list.area_id);
   const [subArea, setSubArea] = useState(list.sub_area || '');
   const [systemKey, setSystemKey] = useState(list.system_key || 'none');
+  const [targetDate, setTargetDate] = useState(list.target_date || '');
   const [cover, setCover] = useState<string | null>(list.cover_image_url);
   const { uploadImage, uploading } = useImageUpload();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -160,6 +171,7 @@ function EditListDialog({
     setAreaId(list.area_id);
     setSubArea(list.sub_area || '');
     setSystemKey(list.system_key || 'none');
+    setTargetDate(list.target_date || '');
     setCover(list.cover_image_url);
   }, [list, open]);
 
@@ -173,6 +185,7 @@ function EditListDialog({
       sub_area: subArea.trim() || null,
       cover_image_url: cover,
       system_key: systemKey === 'none' ? null : systemKey,
+      target_date: targetDate || null,
     });
     onOpenChange(false);
   };

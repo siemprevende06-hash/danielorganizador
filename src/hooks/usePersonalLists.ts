@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { toast } from 'sonner';
 
 export interface PersonalList {
@@ -11,6 +11,7 @@ export interface PersonalList {
   sub_area: string | null;
   cover_image_url: string | null;
   system_key: string | null;
+  target_date: string | null;
   created_at: string;
 }
 
@@ -178,6 +179,7 @@ export function usePersonalLists() {
             sub_area: payload.sub_area ?? null,
             cover_image_url: payload.cover_image_url ?? null,
             system_key: payload.system_key ?? null,
+            target_date: payload.target_date ?? null,
             created_at: new Date().toISOString(),
           },
           ...s.lists,
@@ -263,4 +265,39 @@ export function usePersonalLists() {
     createList, updateList, deleteList,
     createTask, updateTask, deleteTask,
   };
+}
+
+export interface AreaRangeActivity {
+  activeDays: number;
+  totalMinutes: number;
+  completedDays: number;
+}
+
+/**
+ * Agrega `daily_area_stats` de los últimos `days` días (incluido hoy)
+ * para medir actividad semanal/mensual de los sistemas.
+ */
+export function usePersonalListsSystemsRange(days: number) {
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const fromKey = format(subDays(new Date(), days - 1), 'yyyy-MM-dd');
+  return useQuery({
+    queryKey: ['personalListSystemsRange', fromKey, todayKey],
+    queryFn: async (): Promise<Record<string, AreaRangeActivity>> => {
+      const { data, error } = await db
+        .from('daily_area_stats')
+        .select('area_id, completed, time_spent_minutes')
+        .gte('stat_date', fromKey)
+        .lte('stat_date', todayKey);
+      if (error) throw error;
+      const map: Record<string, AreaRangeActivity> = {};
+      (data || []).forEach((row: any) => {
+        const cur = map[row.area_id] || { activeDays: 0, totalMinutes: 0, completedDays: 0 };
+        cur.totalMinutes += row.time_spent_minutes || 0;
+        if ((row.time_spent_minutes || 0) > 0 || !!row.completed) cur.activeDays += 1;
+        if (row.completed) cur.completedDays += 1;
+        map[row.area_id] = cur;
+      });
+      return map;
+    },
+  });
 }

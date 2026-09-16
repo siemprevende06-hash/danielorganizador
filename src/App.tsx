@@ -1,4 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
+﻿import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { SplashScreen } from "./components/SplashScreen";
 import { useEffect, useState } from "react";
@@ -78,6 +78,7 @@ import AreasDeVida from "./pages/AreasDeVida";
 import MapaDeVidaPage from "./pages/MapaDeVida";
 import ConectorEnergiaPage from "./pages/ConectorEnergia";
 import Recompensas from "./pages/Recompensas";
+import Ruta2026 from "./pages/Ruta2026";
 import Paginas from "./pages/Paginas";
 import Motivos from "./pages/Motivos";
 import MonthlyPlanningPage from "./pages/MonthlyPlanningPage";
@@ -190,6 +191,7 @@ function AppContent() {
         <Route path="/mis-necesidades" element={<MisNecesidades />} />
         <Route path="/novia" element={<Novia />} />
         <Route path="/motivos" element={<Motivos />} />
+<Route path="/ruta-2026" element={<Ruta2026 />} />
         <Route path="/motivos/realidad" element={<Realidad />} />
         <Route path="/paginas" element={<Paginas />} />
         <Route path="/paginas/:id" element={<Paginas />} />
