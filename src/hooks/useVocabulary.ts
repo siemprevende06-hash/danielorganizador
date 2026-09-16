@@ -33,7 +33,7 @@ export const useVocabulary = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setWords((data as VocabularyWord[]) || []);
+      setWords((data as unknown as VocabularyWord[]) || []);
     } catch (error) {
       console.error('Error fetching vocabulary:', error);
     } finally {
@@ -100,7 +100,7 @@ export const useVocabulary = () => {
         .single();
 
       if (error) throw error;
-      setWords(prev => [data as VocabularyWord, ...prev]);
+      setWords(prev => [data as unknown as VocabularyWord, ...prev]);
       toast({ title: 'Guardada en vocabulario 📚', description: `"${input.word}" agregada a tu lista` });
       return data;
     } catch (error) {
