@@ -8,7 +8,7 @@ import {
   usePersonalLists,
   LIFE_AREAS,
 } from "@/hooks/usePersonalLists";
-import { MotivosBoard } from "@/components/motivos/MotivosBoard";
+import MotivosBoard from "@/components/motivos/MotivosBoard";
 import ObjetivoPrioritario from "./ObjetivoPrioritario";
 import DailyRoutine from "./DailyRoutine";
 import Systems from "./Systems";
