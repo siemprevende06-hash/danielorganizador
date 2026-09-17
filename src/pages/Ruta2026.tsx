@@ -15,7 +15,7 @@ import Systems from "./Systems";
 
 const SECTIONS = [
   { id: "inicio", label: "Inicio", icon: Home },
-  { id: "camino", label: "Camino", icon: Map },
+  { id: "camino", label: "Camino", icon: MapIcon },
   { id: "control", label: "Control", icon: Gauge },
   { id: "rutina", label: "Rutina", icon: CalendarRange },
   { id: "sistemas", label: "Sistemas", icon: Layers },
