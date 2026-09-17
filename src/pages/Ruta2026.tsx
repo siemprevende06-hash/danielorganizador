@@ -210,7 +210,7 @@ export default function Ruta2026() {
                     value={area.pendingTasks}
                     max={Math.max(1, metrics.pending)}
                     className="h-2"
-                    // @ts-expect-error Progress acepta color via style
+                    
                     style={{ ["--progress-color" as string]: areaColor(area.id) }}
                   />
                 </div>
