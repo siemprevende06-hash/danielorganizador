@@ -104,9 +104,9 @@ export function OrganizedLearning() {
         supabase.from('entrepreneurship_tasks').select('*').eq('due_date', today),
       ]);
 
-      if (bookRes.data) setCurrentBook(bookRes.data);
-      if (pianoRes.data) setPianoSong(pianoRes.data);
-      if (guitarRes.data) setGuitarSong(guitarRes.data);
+      if (bookRes.data) setCurrentBook(bookRes.data as any);
+      if (pianoRes.data) setPianoSong(pianoRes.data as any);
+      if (guitarRes.data) setGuitarSong(guitarRes.data as any);
       if (langSettingsRes.data) setLanguageSettings(langSettingsRes.data);
       if (langSessionRes.data) setTodaySession(langSessionRes.data);
       

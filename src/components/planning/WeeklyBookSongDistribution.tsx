@@ -48,7 +48,7 @@ interface WeeklyBookSongDistributionProps {
 function cleanDistribution(weeks: WeeklySlot[], dist: WeekDistribution): WeekDistribution {
   const out: WeekDistribution = {};
   weeks.forEach(w => {
-    const prev = dist[w.key] || {};
+    const prev: any = dist[w.key] || {};
     out[w.key] = {
       books: [...(prev.books || [])],
       songs: [...(prev.songs || [])],

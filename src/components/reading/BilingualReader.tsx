@@ -437,7 +437,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
             <div className="max-w-3xl mx-auto px-5 md:px-8 py-6 pb-10">
               <div className="space-y-5">
                 {(pages[pageIndex]?.pairs ?? []).map((pair, i) => (
-                  <div key={i} data-pair-index={ranges[pageIndex]?.start + i ?? i} className="leading-relaxed">
+                  <div key={i} data-pair-index={(ranges[pageIndex]?.start ?? 0) + i} className="leading-relaxed">
                     <p
                       onClick={(e) => handleEnLineClick(e, pair)}
                       className="text-foreground font-medium cursor-text select-text"

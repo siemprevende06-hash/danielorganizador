@@ -220,7 +220,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         supabase.from('tasks').select('*').eq('source', 'university').eq('completed', false),
         supabase.from('daily_plans').select('plan_date, notes').gte('plan_date', startStr).lte('plan_date', endStr),
         supabase.from('routine_blocks').select('block_id, title'),
-        supabase.from('area_covers').select('id, type, url'),
+        supabase.from('area_covers' as any).select('id, type, url'),
         supabase.from('tasks').select('*').eq('source', 'university'),
       ]);
 
