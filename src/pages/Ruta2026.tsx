@@ -114,7 +114,7 @@ export default function Ruta2026() {
         };
       })
       .filter((r) => !r.hidden)
-      .sort((a, b) => a.area.name.localeCompare(b.area.name));
+      .sort((a, b) => a.area.label.localeCompare(b.area.label));
   }, [tasks, lists, activeArea]);
 
   return (
@@ -199,8 +199,8 @@ export default function Ruta2026() {
                 <div key={area.id} className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-2 font-medium">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: area.color }} />
-                      {area.name}
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: areaColor(area.id) }} />
+                      {area.label}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {area.listCount} sistemas · {area.pendingTasks} pend.
@@ -211,7 +211,7 @@ export default function Ruta2026() {
                     max={Math.max(1, metrics.pending)}
                     className="h-2"
                     // @ts-expect-error Progress acepta color via style
-                    style={{ ["--progress-color" as string]: area.color }}
+                    style={{ ["--progress-color" as string]: areaColor(area.id) }}
                   />
                 </div>
               ))}
@@ -246,9 +246,9 @@ export default function Ruta2026() {
                       "rounded-full px-3 py-1 text-xs font-medium",
                       activeArea === area.id ? "text-background" : "text-muted-foreground hover:bg-muted"
                     )}
-                    style={activeArea === area.id ? { backgroundColor: area.color } : undefined}
+                    style={activeArea === area.id ? { backgroundColor: areaColor(area.id) } : undefined}
                   >
-                    {area.name}
+                    {area.label}
                   </button>
                 ))}
               </div>
@@ -264,8 +264,8 @@ export default function Ruta2026() {
                   <RootTaskNode
                     key={t.id}
                     task={t}
-                    areaName={t.area.name}
-                    areaColor={t.area.color}
+                    areaName={t.area.label}
+                    areaColor={areaColor(t.area.id)}
                     progress={t.progress}
                     done={t.done}
                   />
