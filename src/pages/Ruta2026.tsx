@@ -24,6 +24,13 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
+/** Deterministic muted tone per area (design-system neutral scale). */
+function areaColor(areaId: string) {
+  const index = Math.max(0, LIFE_AREAS.findIndex((a) => a.id === areaId));
+  const lightness = 78 - index * 6;
+  return `hsl(0 0% ${lightness}%)`;
+}
+
 function RootTaskNode({
   task,
   areaName,
