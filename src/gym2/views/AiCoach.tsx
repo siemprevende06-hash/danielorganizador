@@ -62,6 +62,14 @@ const PROMPTS: { label: string; text: string }[] = [
     label: "Recomiéndame descansos",
     text: "Según mi tope cardíaco (FC máx 148) y mi rutina, sugiero cuántos minutos descansar entre series de cada ejercicio hoy.",
   },
+  {
+    label: "Plan de comidas para subir de peso",
+    text: "Con mi objetivo de ganar masa muscular y mi plan de entrenamiento, sugiéreme comidas y qué cantidad de proteínas/carbohidratos necesito cada día.",
+  },
+  {
+    label: "Sueño y recuperación",
+    text: "Revisa mis horas de sueño de los últimos días y dime qué ajustar para llegar mejor entrenado y recuperarme bien.",
+  },
 ];
 
 export default function AiCoach() {
@@ -87,7 +95,7 @@ export default function AiCoach() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Coach IA</h1>
           <div className="text-sm text-muted-foreground">
-            Entrenador personal con acceso a tu historial y pesos
+            Entrenador personal: gym, nutrición y sueño
           </div>
         </div>
         <Button size="icon" variant="outline" onClick={newConversation} aria-label="Nueva conversación">

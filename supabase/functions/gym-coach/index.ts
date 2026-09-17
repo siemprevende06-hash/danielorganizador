@@ -29,6 +29,16 @@ const todayStr = () => {
 const fmt = (n: number | undefined) =>
   (Math.round((n || 0) * 10) / 10).toLocaleString("es-ES");
 
+const calcSleepHours = (wake: string, sleep: string): number => {
+  if (!wake || !sleep) return 0;
+  const [wh, wm] = wake.split(":").map(Number);
+  const [sh, sm] = sleep.split(":").map(Number);
+  if (isNaN(wh) || isNaN(wm) || isNaN(sh) || isNaN(sm)) return 0;
+  const diff = wh * 60 + wm - (sh * 60 + sm);
+  const mins = diff >= 0 ? diff : 24 * 60 + diff;
+  return Math.round((mins / 60) * 10) / 10;
+};
+
 // ---------------- Contexto del gimnasio ----------------
 
 const DAYN = [
@@ -92,22 +102,65 @@ function summarizeGymState(raw: any) {
   };
 }
 
+const hoy = () => todayStr();
+const enNDias = (n: number) => {
+  const d = new Date(Date.now() - 4 * 60 * 60 * 1000);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split("T")[0];
+};
+
 async function buildGymContext(sb: any) {
-  const [gym20, tracking, sessions] = await Promise.all([
+  const [gym20, tracking, sessions, comidas, plan] = await Promise.all([
     sb.from("gym20_data").select("*").order("updated_at", { ascending: false }).limit(1),
     sb.from("daily_systems_tracking")
-      .select("tracking_date,workout_duration,completions,skipped")
-      .order("tracking_date", { ascending: false }).limit(45),
+      .select(
+        "tracking_date,workout_duration,workout_intensity,completions,skipped,sleep_time,wake_time,water_data"
+      )
+      .order("tracking_date", { ascending: false }).limit(30),
     sb.from("workout_sessions").select("*").order("ended_at", { ascending: false }).limit(10),
+    sb.from("meal_tracking")
+      .select("meal_date,meal_type,completed,notes")
+      .order("meal_date", { ascending: false }).limit(20),
+    sb.from("meal_plan")
+      .select("plan_date,meal_slot,recipes(name)")
+      .gte("plan_date", hoy())
+      .lte("plan_date", enNDias(6)),
   ]);
   const raw = gym20.data && gym20.data[0] ? gym20.data[0].state : null;
+  const recetaNombre = (p: any) =>
+    Array.isArray(p.recipes)
+      ? p.recipes[0] && p.recipes[0].name
+      : p.recipes && p.recipes.name;
   return {
     gym2: summarizeGymState(raw),
     esfuerzo_reciente: (tracking.data || []).map((t: any) => ({
       fecha: t.tracking_date,
       duration: t.workout_duration ? t.workout_duration + " min" : null,
+      intensidad: t.workout_intensity || "moderate",
       completado: !!(t.completions && t.completions["entrenamiento-fisico"]),
       descanso: !!(t.skipped && t.skipped["entrenamiento-fisico"]),
+    })),
+    sueño_reciente: (tracking.data || []).slice(0, 14).map((t: any) => ({
+      fecha: t.tracking_date,
+      horas_sueño: calcSleepHours(t.wake_time, t.sleep_time) || null,
+      acostarse: t.sleep_time ? t.sleep_time.slice(0, 5) : null,
+      despertar: t.wake_time ? t.wake_time.slice(0, 5) : null,
+    })),
+    agua_reciente: (tracking.data || []).slice(0, 7).map((t: any) => ({
+      fecha: t.tracking_date,
+      vasos: t.water_data
+        ? Object.values(t.water_data).filter(Boolean).length
+        : 0,
+    })),
+    comidas_recientes: (comidas.data || []).map((m: any) => ({
+      fecha: m.meal_date,
+      comida: m.meal_type,
+      completada: !!m.completed,
+    })),
+    plan_comidas_proximos_7_dias: (plan.data || []).map((p: any) => ({
+      fecha: p.plan_date,
+      slot: p.meal_slot,
+      receta: recetaNombre(p),
     })),
     sesiones_daily: sessions.data || [],
   };
@@ -155,12 +208,30 @@ ${ctx.gym2 ? JSON.stringify(ctx.gym2, null, 2).slice(0, 25000) : "Sin datos toda
 Esfuerzo de los últimos días (página Esfuerzo):
 ${JSON.stringify(ctx.esfuerzo_reciente || [], null, 2)}
 
+Sueño de los últimos días (página Sistemas):
+${JSON.stringify(ctx.sueño_reciente || [], null, 2)}
+
+Agua (vasos por día, últimos 7 días):
+${JSON.stringify(ctx.agua_reciente || [], null, 2)}
+
+Comidas recientes (seguimiento de alimentación):
+${JSON.stringify(ctx.comidas_recientes || [], null, 2)}
+
+Plan de comidas de los próximos 7 días:
+${JSON.stringify(ctx.plan_comidas_proximos_7_dias || [], null, 2)}
+
+ALCANCE (REGLAS DE ORO):
+- Solo respondes sobre GIMNASIO y rendimiento físico: entrenamiento y ejercicios, progresión de fuerza y masa muscular, rutinas, NUTRICIÓN orientada a entrenar (ganar peso, proteínas, comidas, plan de alimentación), SUEÑO, descanso y recuperación.
+- Son bienvenidas y útiles las preguntas de nutrición, sueño y descanso; usa los datos de arriba cuando aplique.
+- Si te preguntan cualquier cosa FUERA de eso (finanzas, dinero, trabajo, tecnología, relaciones, estudios, política, noticias, etc.), NO des respuesta sobre el tema: contesta en UNA línea que solo puedes ayudar con gimnasio, nutrición, sueño y recuperación, y devuelve el foco a un tema fitness (por ejemplo: "¿cómo va tu próximo entrenamiento?").
+
 TU TRABAJO:
 1. Prepara el PRÓXIMO entrenamiento concreto: para cada ejercicio indica series, repeticiones y PESO sugerido (kg), basándote en el historial real de arriba, no inventes.
 2. Usa progresión sana: si la última vez completó todas las series y reps al peso, sube 2.5 kg (o 5 en sentadilla, peso muerto rumano y prensa). Si no completó, repite el peso. Si lleva 2-3 sesiones iguales sin progresar, baja 10% y sube de nuevo.
 3. Recuerda su tope cardíaco: entre ejercicios pesados de piernas sugiere 3-4 min de descanso; en accesorios 2 min.
 4. Puede pedirte ajustar la rutina, explicar un ejercicio, organizar descansos o revisar su progreso. Usa siempre los datos reales.
 5. Sé honesto: si ves que el peso no progresa o que se está excediendo con series, díselo claro.
+6. También puede pedirte consejo de NUTRICIÓN (qué y cuánto comer para ganar peso, proteínas, ajustar comidas) y de SUEÑO (horas, horarios, calidad) porque son clave para su meta de ganar músculo. Conecta esos consejos con su entrenamiento.
 
 Reglas:
 - Nunca inventes pesos ni series: si no hay historial para un ejercicio, sugiere empezar liviano (0 kg peso corporal / barra sola) y anótalo así.
