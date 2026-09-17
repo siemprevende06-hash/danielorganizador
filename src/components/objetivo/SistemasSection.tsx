@@ -15,6 +15,7 @@ import { getCoverGradient } from "@/components/areas/AreaCover";
 import { useAreaScores, type AreaScore, type SubAreaScore } from "@/hooks/useAreaScores";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { usePersonalLists, type PersonalList, type PersonalListTask } from "@/hooks/usePersonalLists";
+import { AREA_SYSTEMS, GROUP_LABELS } from "@/lib/areaSystemsMap";
 
 const LIST_AREA_MAP: Record<string, string> = {
   salud_bienestar: "salud",
@@ -26,71 +27,6 @@ const LIST_AREA_MAP: Record<string, string> = {
   amor_romance: "amor",
   familia_amistad: "familia",
   ocio_experiencias: "ocio",
-};
-
-interface AreaSystemConfig {
-  habits: string[];
-  hierarchyAreas: string[];
-  vision: string;
-}
-
-const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
-  salud: {
-    habits: ["entrenamiento-fisico", "alistamiento-desayuno", "desayuno", "almuerzo", "comida", "antes-dormir", "suplementos"],
-    hierarchyAreas: ["gym"],
-    vision: "Físicamente fuerte: 70kg+, gym 5d/sem y presencia imponente",
-  },
-  "fuerza-mental": {
-    habits: ["rutina-activacion", "horario-regular", "rutina-desactivacion"],
-    hierarchyAreas: [],
-    vision: "Rutinas y disciplina automáticas que sostienen todo lo demás",
-  },
-  apariencia: {
-    habits: ["skincare-manana", "skincare-noche", "banarme-vestirse"],
-    hierarchyAreas: [],
-    vision: "Presencia impecable en cada detalle del día",
-  },
-  desarrollo: {
-    habits: ["musica", "lectura", "ajedrez", "game"],
-    hierarchyAreas: ["musica", "lectura", "ajedrez", "ingles", "italiano", "game"],
-    vision: "Tocar música de forma avanzada, +24 libros/año y dominio de inglés e italiano",
-  },
-  profesional: {
-    habits: ["universidad", "emprendimiento", "proyectos"],
-    hierarchyAreas: ["universidad", "proyectos", "emprendimiento"],
-    vision: "Graduado en Ingeniería Automática y AUTEC estable generando ingresos",
-  },
-  finanzas: {
-    habits: ["finanzas"],
-    hierarchyAreas: [],
-    vision: "Libertad económica: ahorro, inversión e ingresos múltiples",
-  },
-  familia: {
-    habits: ["familia"],
-    hierarchyAreas: [],
-    vision: "Amistades profundas y una red social sólida",
-  },
-  amor: {
-    habits: ["game"],
-    hierarchyAreas: [],
-    vision: "Hombre seguro con experiencia real en relaciones",
-  },
-  ocio: {
-    habits: ["game"],
-    hierarchyAreas: [],
-    vision: "Vida equilibrada, experiencias nuevas y viajes",
-  },
-  proposito: {
-    habits: ["journaling"],
-    hierarchyAreas: [],
-    vision: "Saber quién soy, hacia dónde voy y por qué",
-  },
-};
-
-const GROUP_LABELS: Record<string, string> = {
-  cimientos: "Cimientos · Estructura",
-  construccion: "Construcción · Esfuerzo",
-  recompensas: "Recompensas · Vida",
 };
 
 const ALL_HABITS = [...new Set(Object.values(AREA_SYSTEMS).flatMap(c => c.habits))];

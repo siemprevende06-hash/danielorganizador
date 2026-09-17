@@ -1,251 +1,26 @@
-import { useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { useMemo } from "react";
+import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { getCoverGradient } from "@/components/areas/AreaCover";
-import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
+import { useAreaCovers } from "@/hooks/useAreaCovers";
+import { useAreaScores } from "@/hooks/useAreaScores";
 import { useSystemSpeed } from "@/hooks/useSystemSpeed";
+import { useSystemStreaks } from "@/hooks/useSystemStreaks";
 import {
-  DAY_SYSTEMS,
-  SOSTEN_AREAS,
-  systemActualMinutes,
-  type DaySystem,
-  type DaySystemArea,
-  type SostenHabit,
-  type SostenSubarea,
-  type SpeedOption,
-} from "@/lib/daySystems";
+  ALL_TRACKABLE_IDS,
+  GROUP_CONFIG,
+  HABIT_META,
+  diagnoseArea,
+  getAreaTrackableHabits,
+  type PointBGroup,
+} from "@/lib/areaSystemsMap";
+import { systemActualMinutes, systemMinForSpeed } from "@/lib/daySystems";
+import { POINT_B_AREAS } from "@/data/pointB2027";
+import type { PointBArea } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Flame, Trophy, Zap, Sun, Shield, Sparkles, Clock, Gauge, Droplets, Camera, ExternalLink, Dumbbell, Moon, GraduationCap, Rocket, Music, Languages, Gamepad2, BookOpen, Crown, Wallet } from "lucide-react";
+import { Zap, AlertTriangle, CheckCircle2 } from "lucide-react";
+import AreaSystemCard, { type AreaInteraction } from "./systems/AreaSystemCard";
 
-const AREA_ICONS: Record<string, React.ReactNode> = {
-  "prof-acad": <Zap className="h-3.5 w-3.5" />,
-  desarrollo: <Sparkles className="h-3.5 w-3.5" />,
-  finanzas: <Gauge className="h-3.5 w-3.5" />,
-  salud: <Sun className="h-3.5 w-3.5" />,
-  "fuerza-mental": <Sparkles className="h-3.5 w-3.5" />,
-  apariencia: <Sparkles className="h-3.5 w-3.5" />,
-};
-
-const SYSTEM_ICONS: Record<string, React.ReactNode> = {
-  universidad: <GraduationCap className="h-4 w-4" />,
-  emprendimiento: <Rocket className="h-4 w-4" />,
-  musica: <Music className="h-4 w-4" />,
-  idiomas: <Languages className="h-4 w-4" />,
-  game: <Gamepad2 className="h-4 w-4" />,
-  ajedrez: <Crown className="h-4 w-4" />,
-  lectura: <BookOpen className="h-4 w-4" />,
-  finanzas: <Wallet className="h-4 w-4" />,
-};
-
-type TierKey = "red" | "grey" | "blue" | "green" | "gold";
-
-interface Tier {
-  key: TierKey;
-  label: string;
-  border: string;
-  bg: string;
-  bar: string;
-  text: string;
-  hex: string;
-  ring: string;
-  dot: string;
-}
-
-const TIERS: Record<TierKey, Tier> = {
-  red: {
-    key: "red",
-    label: "No hice",
-    border: "border-red-500/50",
-    bg: "bg-red-500/5",
-    bar: "bg-red-500",
-    text: "text-red-500",
-    hex: "#ef4444",
-    ring: "ring-red-500/50",
-    dot: "bg-red-500",
-  },
-  grey: {
-    key: "grey",
-    label: "Sin datos",
-    border: "border-border/40",
-    bg: "bg-white/80 dark:bg-zinc-950/80",
-    bar: "bg-muted-foreground/40",
-    text: "text-muted-foreground",
-    hex: "#64748b",
-    ring: "ring-border/40",
-    dot: "bg-gray-400",
-  },
-  blue: {
-    key: "blue",
-    label: "Mínimo",
-    border: "border-blue-500/50",
-    bg: "bg-blue-500/5",
-    bar: "bg-blue-500",
-    text: "text-blue-500",
-    hex: "#3b82f6",
-    ring: "ring-blue-500/50",
-    dot: "bg-blue-500",
-  },
-  green: {
-    key: "green",
-    label: "Máximo",
-    border: "border-emerald-500/50",
-    bg: "bg-emerald-500/5",
-    bar: "bg-emerald-500",
-    text: "text-emerald-500",
-    hex: "#10b981",
-    ring: "ring-emerald-500/50",
-    dot: "bg-emerald-500",
-  },
-  gold: {
-    key: "gold",
-    label: "Extra",
-    border: "border-amber-500/50",
-    bg: "bg-amber-500/5",
-    bar: "bg-amber-500",
-    text: "text-amber-500",
-    hex: "#f59e0b",
-    ring: "ring-amber-500/60",
-    dot: "bg-amber-400",
-  },
-};
-
-function getTier(actual: number, skipped: boolean, meta: number, speedOptions: SpeedOption[]): Tier {
-  if (skipped) return TIERS.red;
-  const baseMin = speedOptions.find(o => o.id === "minimo")?.minutes ?? 0;
-  const extra = speedOptions.find(o => o.id === "extra")?.minutes ?? 0;
-  if (actual <= 0) return TIERS.grey;
-  if (extra > 0 && actual >= extra) return TIERS.gold;
-  // La velocidad elegida (mín/máx/extra) actúa como tiempo máximo del sistema
-  if (meta > 0 && actual >= meta) return TIERS.green;
-  if (baseMin > 0 && actual >= baseMin) return TIERS.blue;
-  return TIERS.grey;
-}
-
-function CentralSystemCard({
-  system,
-  completed,
-  skipped,
-  actualMinutes,
-  meta,
-  count,
-  streakLabel,
-  streak,
-  onToggle,
-  onTimeChange,
-  onCountChange,
-  coverUrl,
-}: {
-  system: DaySystem;
-  completed: boolean;
-  skipped: boolean;
-  actualMinutes: number;
-  meta: number;
-  count?: number;
-  streakLabel?: string;
-  streak?: { current: number; best: number };
-  onToggle: () => void;
-  onTimeChange: (minutes: number) => void;
-  onCountChange?: (count: number) => void;
-  coverUrl?: string | null;
-}) {
-  const tier = getTier(actualMinutes, skipped, meta, system.speedOptions);
-  const pct = meta > 0 ? Math.round((actualMinutes / meta) * 100) : 0;
-  const icon = SYSTEM_ICONS[system.id];
-
-  return (
-    <div
-      className={cn(
-        "relative rounded-2xl overflow-hidden ring-2 p-2.5 flex flex-col h-full transition-all hover:shadow-md",
-        tier.ring,
-        tier.bg
-      )}
-    >
-      <div className={cn("relative -mx-2.5 -mt-2.5 mb-2 h-16 shrink-0 overflow-hidden bg-gradient-to-br", getCoverGradient(system.cover.id))}>
-        {coverUrl ? (
-          <img src={coverUrl} alt={system.name} className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 grid place-items-center">
-            <span className="text-white/80 drop-shadow-sm">{icon || "🖼️"}</span>
-          </div>
-        )}
-      </div>
-
-      <div className={cn("absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", tier.dot)} />
-
-      <div className="flex items-center justify-between gap-1 mb-1.5">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-muted-foreground shrink-0">{icon}</span>
-          <span className="text-xs font-bold truncate">{system.name}</span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {streakLabel && <span className="text-[10px] text-orange-500">{streakLabel}</span>}
-          <span className={cn("text-[10px] font-semibold", tier.text)}>{tier.label}</span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <Checkbox
-          checked={completed || actualMinutes >= meta}
-          onCheckedChange={onToggle}
-          className="h-4 w-4 data-[state=checked]:bg-primary"
-        />
-        <span className="text-[10px] text-muted-foreground">Hecho</span>
-      </div>
-
-      <div className="flex items-center gap-1 mb-1.5">
-        <Input
-          type="number"
-          min={0}
-          value={actualMinutes || ""}
-          onChange={e => onTimeChange(Math.max(0, parseInt(e.target.value) || 0))}
-          placeholder="min"
-          className={cn("h-7 w-16 text-center text-xs px-1 font-semibold", tier.text)}
-        />
-        <span className="text-[10px] text-muted-foreground">min</span>
-        {system.countKey && (
-          <>
-            <Input
-              type="number"
-              min={0}
-              value={count || ""}
-              onChange={e => onCountChange?.(Math.max(0, parseInt(e.target.value) || 0))}
-              placeholder={system.countLabel || "partidas"}
-              className="h-7 w-16 text-center text-xs px-1 font-semibold text-indigo-600 dark:text-indigo-400"
-            />
-            <span className="text-[10px] text-muted-foreground hidden sm:inline">{system.countLabel || "partidas"}</span>
-          </>
-        )}
-        {meta > 0 && <span className="text-[10px] text-muted-foreground ml-auto">/{meta}</span>}
-      </div>
-
-      <Progress
-        value={Math.min(100, pct)}
-        className="h-1.5 mt-auto"
-        indicatorClassName={tier.bar}
-      />
-
-      {streak && (streak.current > 0 || streak.best > 0) && (
-        <div className="flex items-center gap-2 mt-1.5 text-[9px]">
-          {streak.current > 0 && (
-            <span className="flex items-center gap-0.5 text-orange-500">
-              <Flame className="h-2.5 w-2.5" /> {streak.current}
-            </span>
-          )}
-          {streak.best > 0 && (
-            <span className="flex items-center gap-0.5 text-yellow-600">
-              <Trophy className="h-2.5 w-2.5" /> {streak.best}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+const GROUP_ORDER: PointBGroup[] = ["cimientos", "construccion", "recompensas"];
 
 export function DaySystemsSection({
   completions,
@@ -254,7 +29,6 @@ export function DaySystemsSection({
   onToggle,
   onTimeChange,
   skipped,
-  streaks,
   countData,
   onCountChange,
   waterData,
@@ -292,578 +66,264 @@ export function DaySystemsSection({
   onWorkoutIntensityChange?: (v: string) => void;
   onWorkoutDurationChange?: (v: number) => void;
 }) {
-  const { getMinutes } = useSystemSpeed();
+  const { getSpeed, setSpeed } = useSystemSpeed();
   const covers = useAreaCovers();
+  const { scores, averages, loading } = useAreaScores("month", "ambos");
+  const { streaks } = useSystemStreaks(ALL_TRACKABLE_IDS);
 
-  const centralAreas = useMemo(() => DAY_SYSTEMS.filter(a => a.kind === "central"), []);
-  const structuralAreas = useMemo(() => DAY_SYSTEMS.filter(a => a.kind === "estructural"), []);
+  const scoreById = useMemo(
+    () => Object.fromEntries(scores.map(s => [s.id, s])),
+    [scores]
+  );
+
+  const metaMinutesById = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const id of ALL_TRACKABLE_IDS) {
+      const meta = HABIT_META[id];
+      if (meta?.system) {
+        m[id] = systemMinForSpeed(meta.system, getSpeed(meta.system.id));
+      }
+    }
+    return m;
+  }, [getSpeed]);
+
+  const todayDone = useMemo(
+    () => ALL_TRACKABLE_IDS.filter(id => completions[id]).length,
+    [completions]
+  );
+
+  const todayMinutes = useMemo(() => {
+    let total = 0;
+    for (const id of ALL_TRACKABLE_IDS) {
+      const meta = HABIT_META[id];
+      if (!meta) continue;
+      total += meta.system
+        ? systemActualMinutes(meta.system, { timeData })
+        : (timeData[id] ?? 0);
+    }
+    return total;
+  }, [timeData]);
+
+  const groups = useMemo(() => {
+    const g: Record<PointBGroup, PointBArea[]> = {
+      cimientos: [],
+      construccion: [],
+      recompensas: [],
+    };
+    for (const area of POINT_B_AREAS) g[area.group].push(area);
+    return g;
+  }, []);
+
+  const interaction: AreaInteraction = {
+    completions,
+    timeData,
+    countData,
+    waterData,
+    mealPhotos,
+    skipped,
+    wakeTime,
+    sleepTime,
+    workoutDuration,
+    workoutIntensity,
+    streaks,
+    metaMinutesById,
+    getSpeed,
+    setSpeed,
+    covers: covers.covers,
+    onToggle,
+    onTimeChange,
+    onCountChange,
+    onWaterToggle,
+    onMealPhotoUpload,
+    onSkipToggle,
+    onWakeTimeChange,
+    onSleepTimeChange,
+    onWorkoutDurationChange,
+    onWorkoutIntensityChange,
+  };
 
   return (
     <div className="space-y-5">
-      <div className="space-y-4">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 flex items-center gap-1.5">
-          <Zap className="h-3.5 w-3.5 text-primary" /> Áreas Centrales
-        </h2>
-        {centralAreas.map(area => (
-          <AreaGroup
-            key={area.id}
-            area={area}
-            completions={completions}
-            timeData={timeData}
-            onToggle={onToggle}
-            onTimeChange={onTimeChange}
-            skipped={skipped}
-            getMinutes={getMinutes}
-            covers={covers}
-            streaks={streaks}
-            countData={countData}
-            onCountChange={onCountChange}
-          />
-        ))}
-      </div>
+      <SummaryHeader
+        averages={averages}
+        scores={scores}
+        loading={loading}
+        todayDone={todayDone}
+        todayTotal={ALL_TRACKABLE_IDS.length}
+        todayMinutes={todayMinutes}
+      />
 
-      <div className="space-y-4">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 flex items-center gap-1.5">
-          <Shield className="h-3.5 w-3.5 text-blue-500" /> Áreas Estructurales
-        </h2>
-        {structuralAreas.map(area => (
-          <EstructuralAreaCard
-            key={area.id}
-            area={area}
-            completions={completions}
-            skipped={skipped}
-            timeData={timeData}
-            onToggle={onToggle}
-            onTimeChange={onTimeChange}
-            onSkipToggle={onSkipToggle}
-            covers={covers}
-            waterData={waterData}
-            onWaterToggle={onWaterToggle}
-            mealPhotos={mealPhotos}
-            onMealPhotoUpload={onMealPhotoUpload}
-            wakeTime={wakeTime}
-            sleepTime={sleepTime}
-            onWakeTimeChange={onWakeTimeChange}
-            onSleepTimeChange={onSleepTimeChange}
-            workoutDuration={workoutDuration}
-            workoutIntensity={workoutIntensity}
-            onWorkoutDurationChange={onWorkoutDurationChange}
-            onWorkoutIntensityChange={onWorkoutIntensityChange}
-            streaks={streaks}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
+      <ChaosBanner scores={scores} loading={loading} />
 
-function AreaGroup({
-  area,
-  completions,
-  timeData,
-  onToggle,
-  onTimeChange,
-  skipped,
-  getMinutes,
-  covers,
-  streaks,
-  countData,
-  onCountChange,
-}: {
-  area: DaySystemArea;
-  completions: Record<string, boolean>;
-  timeData: Record<string, number>;
-  onToggle: (id: string) => void;
-  onTimeChange: (id: string, minutes: number) => void;
-  skipped?: Record<string, boolean>;
-  getMinutes: (sysId: string) => number;
-  covers: ReturnType<typeof useAreaCovers>;
-  streaks?: Record<string, { current: number; best: number }>;
-  countData?: Record<string, number>;
-  onCountChange?: (id: string, count: number) => void;
-}) {
-  const coverUrl = covers.covers[coverKey(area.cover.type, area.cover.id)] ?? null;
-  const done = !!completions[area.id];
-
-  return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className="p-3 border-b border-border/40 flex items-center gap-2.5">
-        <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0 relative bg-gradient-to-br border border-border/40">
-          {coverUrl ? (
-            <img src={coverUrl} alt={area.name} className="absolute inset-0 w-full h-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 grid place-items-center">
-              <span className="text-lg">{AREA_ICONS[area.id]}</span>
+      {GROUP_ORDER.map(g => {
+        const cfg = GROUP_CONFIG[g];
+        const areas = groups[g];
+        return (
+          <section key={g} className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", cfg.dot)} />
+                {cfg.label}
+              </h2>
+              <span className="text-[9px] text-muted-foreground hidden sm:inline">{cfg.note}</span>
             </div>
-          )}
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold truncate">{area.name}</h3>
-          <p className="text-[9px] text-muted-foreground">
-            {area.kind === "central" ? `${area.systems.length} sistemas del día` : "Desde Sostén"}
-          </p>
-        </div>
-      </div>
-      <CardContent className="p-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {area.systems.map(sys => {
-            const meta = getMinutes(sys.id);
-            const actual = systemActualMinutes(sys, { timeData });
-            const isDone = !!completions[sys.id];
-            const isSkipped = !!skipped?.[sys.id];
-            const streak = streaks?.[sys.id];
-            const count = sys.countKey ? countData?.[sys.countKey] ?? 0 : undefined;
-            const sysCoverUrl = covers.covers[coverKey(sys.cover.type, sys.cover.id)] ?? coverUrl ?? null;
-            const streakLabel =
-              sys.streakMinutes > 0
-                ? sys.streakMinutes === 30
-                  ? "🏆30'"
-                  : "🔥5'"
-                : undefined;
-            return (
-              <CentralSystemCard
-                key={sys.id}
-                system={sys}
-                completed={isDone}
-                skipped={isSkipped}
-                actualMinutes={actual}
-                meta={meta}
-                count={count}
-                streakLabel={streakLabel}
-                onToggle={() => onToggle(sys.id)}
-                onTimeChange={v => onTimeChange(sys.id, v)}
-                onCountChange={sys.countKey ? (v => onCountChange?.(sys.countKey!, v)) : undefined}
-                streak={streak}
-                coverUrl={sysCoverUrl}
-              />
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-interface EstructuralProps {
-  area: DaySystemArea;
-  completions: Record<string, boolean>;
-  skipped?: Record<string, boolean>;
-  timeData: Record<string, number>;
-  onToggle: (id: string) => void;
-  onTimeChange?: (id: string, minutes: number) => void;
-  onSkipToggle?: (id: string) => void;
-  covers: ReturnType<typeof useAreaCovers>;
-  waterData?: Record<string, boolean>;
-  onWaterToggle?: (id: string) => void;
-  mealPhotos?: Record<string, string>;
-  onMealPhotoUpload?: (id: string, url: string) => void;
-  wakeTime?: string;
-  sleepTime?: string;
-  onWakeTimeChange?: (v: string) => void;
-  onSleepTimeChange?: (v: string) => void;
-  workoutDuration?: number;
-  workoutIntensity?: string;
-  onWorkoutDurationChange?: (v: number) => void;
-  onWorkoutIntensityChange?: (v: string) => void;
-  streaks?: Record<string, { current: number; best: number }>;
-}
-
-function EstructuralAreaCard({
-  area,
-  completions,
-  skipped,
-  timeData,
-  onToggle,
-  onTimeChange,
-  onSkipToggle,
-  covers,
-  waterData,
-  onWaterToggle,
-  mealPhotos,
-  onMealPhotoUpload,
-  wakeTime,
-  sleepTime,
-  onWakeTimeChange,
-  onSleepTimeChange,
-  workoutDuration,
-  workoutIntensity,
-  onWorkoutDurationChange,
-  onWorkoutIntensityChange,
-  streaks,
-}: EstructuralProps) {
-  const areaDef = SOSTEN_AREAS.find(a => a.id === area.id);
-  const coverUrl = covers.covers[coverKey(area.cover.type, area.cover.id)] ?? null;
-  const allHabits = areaDef?.subareas.flatMap(s => s.habits) ?? [];
-  const doneCount = allHabits.filter(h => completions[h.id]).length;
-  const pct = allHabits.length > 0 ? Math.round((doneCount / allHabits.length) * 100) : 0;
-
-  return (
-    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className="p-3 border-b border-border/40">
-        <div className="flex items-center gap-2.5">
-          <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0 relative bg-gradient-to-br border border-border/40">
-            {coverUrl ? (
-              <img src={coverUrl} alt={area.name} className="absolute inset-0 w-full h-full object-cover" />
-            ) : (
-              <div className="absolute inset-0 grid place-items-center">
-                <span className="text-lg">{AREA_ICONS[area.id]}</span>
-              </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold truncate">{area.name}</h3>
-            <p className="text-[9px] text-muted-foreground">
-              {doneCount}/{allHabits.length} completados
-            </p>
-          </div>
-          <Progress value={pct} className="w-16 h-1.5" indicatorClassName="bg-blue-500" />
-        </div>
-      </div>
-      <CardContent className="p-3 space-y-4">
-        {(areaDef?.subareas ?? []).map(subarea => (
-          <SubareaBlock
-            key={subarea.id}
-            subarea={subarea}
-            completions={completions}
-            skipped={skipped}
-            timeData={timeData}
-            onToggle={onToggle}
-            onTimeChange={onTimeChange}
-            onSkipToggle={onSkipToggle}
-            waterData={waterData}
-            onWaterToggle={onWaterToggle}
-            mealPhotos={mealPhotos}
-            onMealPhotoUpload={onMealPhotoUpload}
-            wakeTime={wakeTime}
-            sleepTime={sleepTime}
-            onWakeTimeChange={onWakeTimeChange}
-            onSleepTimeChange={onSleepTimeChange}
-            workoutDuration={workoutDuration}
-            workoutIntensity={workoutIntensity}
-            onWorkoutDurationChange={onWorkoutDurationChange}
-            onWorkoutIntensityChange={onWorkoutIntensityChange}
-            streaks={streaks}
-            areaCoverUrl={coverUrl}
-          />
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function SubareaBlock({
-  subarea,
-  completions,
-  skipped,
-  timeData,
-  onToggle,
-  onTimeChange,
-  onSkipToggle,
-  waterData,
-  onWaterToggle,
-  mealPhotos,
-  onMealPhotoUpload,
-  wakeTime,
-  sleepTime,
-  onWakeTimeChange,
-  onSleepTimeChange,
-  workoutDuration,
-  workoutIntensity,
-  onWorkoutDurationChange,
-  onWorkoutIntensityChange,
-  streaks,
-  areaCoverUrl,
-}: {
-  subarea: SostenSubarea;
-  completions: Record<string, boolean>;
-  skipped?: Record<string, boolean>;
-  timeData: Record<string, number>;
-  onToggle: (id: string) => void;
-  onTimeChange?: (id: string, minutes: number) => void;
-  onSkipToggle?: (id: string) => void;
-  waterData?: Record<string, boolean>;
-  onWaterToggle?: (id: string) => void;
-  mealPhotos?: Record<string, string>;
-  onMealPhotoUpload?: (id: string, url: string) => void;
-  wakeTime?: string;
-  sleepTime?: string;
-  onWakeTimeChange?: (v: string) => void;
-  onSleepTimeChange?: (v: string) => void;
-  workoutDuration?: number;
-  workoutIntensity?: string;
-  onWorkoutDurationChange?: (v: number) => void;
-  onWorkoutIntensityChange?: (v: string) => void;
-  streaks?: Record<string, { current: number; best: number }>;
-  areaCoverUrl?: string | null;
-}) {
-  const doneCount = subarea.habits.filter(h => completions[h.id]).length;
-
-  return (
-    <div key={subarea.id} className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <span>{subarea.emoji}</span> {subarea.title}
-        </h4>
-        <span className={cn("text-[9px] font-medium", doneCount === subarea.habits.length ? "text-emerald-500" : "text-muted-foreground")}>
-          {doneCount}/{subarea.habits.length}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {subarea.habits.map(habit => (
-          <EstructuralHabitCard
-            key={habit.id}
-            habit={habit}
-            coverId={subarea.id}
-            done={!!completions[habit.id]}
-            isSkipped={!!skipped?.[habit.id]}
-            timeValue={timeData[habit.id] || 0}
-            hasTime={!!habit.hasTime}
-            hasWater={!!habit.hasWater}
-            waterDone={!!waterData?.[habit.id]}
-            mealUrl={mealPhotos?.[habit.id]}
-            hasWorkout={!!habit.isWorkout}
-            workoutDuration={workoutDuration}
-            workoutIntensity={workoutIntensity}
-            hasSleep={!!habit.isSleepSchedule}
-            wakeTime={wakeTime}
-            sleepTime={sleepTime}
-            streak={streaks?.[habit.id]}
-            areaCoverUrl={areaCoverUrl}
-            onToggle={() => onToggle(habit.id)}
-            onSkip={() => onSkipToggle?.(habit.id)}
-            onWater={() => onWaterToggle?.(habit.id)}
-            onMealPhotoUpload={onMealPhotoUpload}
-            onTimeChange={v => onTimeChange?.(habit.id, v)}
-            onWorkoutDurationChange={onWorkoutDurationChange}
-            onWorkoutIntensityChange={onWorkoutIntensityChange}
-            onWakeTimeChange={onWakeTimeChange}
-            onSleepTimeChange={onSleepTimeChange}
-          />
-        ))}
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {areas.map(area => (
+                <AreaSystemCard
+                  key={area.id}
+                  area={area}
+                  score={scoreById[area.id]}
+                  trackables={getAreaTrackableHabits(area.id)}
+                  interaction={interaction}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
 
-function EstructuralHabitCard({
-  habit,
-  coverId,
-  done,
-  isSkipped,
-  hasTime,
-  timeValue,
-  hasWater,
-  waterDone,
-  mealUrl,
-  hasWorkout,
-  workoutDuration,
-  workoutIntensity,
-  hasSleep,
-  wakeTime,
-  sleepTime,
-  streak,
-  areaCoverUrl,
-  onToggle,
-  onSkip,
-  onWater,
-  onMealPhotoUpload,
-  onTimeChange,
-  onWorkoutDurationChange,
-  onWorkoutIntensityChange,
-  onWakeTimeChange,
-  onSleepTimeChange,
+function SummaryHeader({
+  averages,
+  scores,
+  loading,
+  todayDone,
+  todayTotal,
+  todayMinutes,
 }: {
-  habit: SostenHabit;
-  coverId: string;
-  done: boolean;
-  isSkipped: boolean;
-  hasTime: boolean;
-  timeValue: number;
-  hasWater: boolean;
-  waterDone: boolean;
-  mealUrl?: string;
-  hasWorkout: boolean;
-  workoutDuration?: number;
-  workoutIntensity?: string;
-  hasSleep: boolean;
-  wakeTime?: string;
-  sleepTime?: string;
-  streak?: { current: number; best: number };
-  areaCoverUrl?: string | null;
-  onToggle: () => void;
-  onSkip: () => void;
-  onWater: () => void;
-  onMealPhotoUpload?: (id: string, url: string) => void;
-  onTimeChange?: (v: number) => void;
-  onWorkoutDurationChange?: (v: number) => void;
-  onWorkoutIntensityChange?: (v: string) => void;
-  onWakeTimeChange?: (v: string) => void;
-  onSleepTimeChange?: (v: string) => void;
+  averages: { esfuerzo: number; resultados: number };
+  scores: ReturnType<typeof useAreaScores>["scores"];
+  loading: boolean;
+  todayDone: number;
+  todayTotal: number;
+  todayMinutes: number;
 }) {
-  const navigate = useNavigate();
-  const fileRef = useRef<HTMLInputElement | null>(null);
-
-  const handlePhotoUpload = async (file: File) => {
-    if (!onMealPhotoUpload) return;
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `meals/${Date.now()}_${habit.id}.${ext}`;
-      const { error } = await supabase.storage.from("user-images").upload(path, file);
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from("user-images").getPublicUrl(path);
-      onMealPhotoUpload(habit.id, urlData.publicUrl);
-      toast.success("Foto guardada");
-    } catch {
-      toast.error("Error al subir foto");
+  const counts = useMemo(() => {
+    let funcionando = 0;
+    let roto = 0;
+    let caos = 0;
+    let heredado = 0;
+    for (const s of scores) {
+      const d = diagnoseArea(s.esfuerzo, s.resultados);
+      if (d.key === "funcionando") funcionando++;
+      else if (d.key === "roto") roto++;
+      else if (d.key === "abandonado") caos++;
+      else if (d.key === "heredado") heredado++;
     }
-  };
-
-  const border = done
-    ? "border-emerald-500/40 bg-emerald-500/5"
-    : isSkipped
-    ? "border-red-500/40 bg-red-500/5"
-    : "border-border/60 bg-background/40";
+    return { funcionando, roto, caos, heredado };
+  }, [scores]);
 
   return (
-    <div className={cn("relative rounded-xl overflow-hidden border transition-all hover:shadow-sm flex flex-col", border)}>
-      <div className={cn("h-12 w-full shrink-0 relative bg-gradient-to-br overflow-hidden", getCoverGradient(coverId))}>
-        {areaCoverUrl ? (
-          <img src={areaCoverUrl} alt={habit.name} className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 grid place-items-center">
-            <span className="text-lg drop-shadow-sm">{habit.emoji}</span>
-          </div>
-        )}
-      </div>
-      <div className="p-2 space-y-1.5 flex-1 flex flex-col">
-        <div className="flex items-center gap-1.5 flex-1">
-          <Checkbox
-            checked={done}
-            onCheckedChange={onToggle}
-            className="h-3.5 w-3.5 shrink-0 data-[state=checked]:bg-primary"
-          />
-          <div className="min-w-0 flex-1">
-            <span className={cn("text-[10px] font-semibold block leading-tight", done && "line-through text-muted-foreground")}>
-              {habit.name}
-            </span>
-            {(streak && (streak.current > 0 || streak.best > 0)) && (
-              <span className="flex items-center gap-1 text-[9px]">
-                {streak.current > 0 && <span className="flex items-center gap-0.5 text-orange-500"><Flame className="h-2 w-2" />{streak.current}</span>}
-                {streak.best > 0 && <span className="flex items-center gap-0.5 text-yellow-600"><Trophy className="h-2 w-2" />{streak.best}</span>}
-              </span>
-            )}
-          </div>
+    <Card className="border-0 bg-gradient-to-br from-primary/15 via-background to-background backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-1.5">
+          <Zap className="h-3.5 w-3.5 text-primary" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Sistemas y Resultados
+          </h2>
         </div>
 
-        <div className="flex items-center gap-1">
-          {hasTime && (
-            <div className="flex items-center gap-0.5">
-              <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-              <Input
-                type="number"
-                min={0}
-                value={timeValue || ""}
-                onChange={e => onTimeChange?.(Math.max(0, parseInt(e.target.value) || 0))}
-                placeholder="min"
-                className="h-5 w-14 text-[9px] text-center px-1"
-              />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-background/80 dark:bg-zinc-950/40 border border-border/50 p-2.5 space-y-1">
+            <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+              <span>Punto B global</span>
+              <span className="font-bold text-foreground">{averages.resultados}%</span>
             </div>
-          )}
-          {hasWater && (
-            <button
-              onClick={onWater}
-              className={cn(
-                "flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-medium transition-colors",
-                waterDone ? "bg-blue-500/20 text-blue-500" : "bg-muted text-muted-foreground"
-              )}
-            >
-              <Droplets className="h-2.5 w-2.5" /> 300ml
-            </button>
-          )}
-          {habit.hasMealPhoto && (
+            <Progress value={Math.min(100, averages.resultados)} className="h-1.5" indicatorClassName="bg-primary" />
+          </div>
+          <div className="rounded-xl bg-background/80 dark:bg-zinc-950/40 border border-border/50 p-2.5 space-y-1">
+            <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+              <span>Esfuerzo 30 días</span>
+              <span className="font-bold text-foreground">{averages.esfuerzo}%</span>
+            </div>
+            <Progress value={Math.min(100, averages.esfuerzo)} className="h-1.5" indicatorClassName="bg-amber-500" />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+          <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+            Hoy {todayDone}/{todayTotal} ✓
+          </span>
+          <span className="px-2 py-1 rounded-lg bg-foreground/5 text-muted-foreground font-semibold">
+            {todayMinutes} min
+          </span>
+          {!loading ? (
             <>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={el => { fileRef.current = el; }}
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) handlePhotoUpload(file);
-                }}
-              />
-              <button
-                onClick={() => fileRef.current?.click()}
-                className={cn(
-                  "flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-medium transition-colors",
-                  mealUrl ? "bg-green-500/20 text-green-600" : "bg-muted text-muted-foreground"
-                )}
-              >
-                <Camera className="h-2.5 w-2.5" /> {mealUrl ? "✓" : "Foto"}
-              </button>
+              <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
+                ✅ {counts.funcionando}
+              </span>
+              <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">
+                ⚙️ {counts.roto}
+              </span>
+              <span className="px-2 py-1 rounded-lg bg-red-500/10 text-red-500 font-semibold">
+                🧨 {counts.caos}
+              </span>
+              <span className="px-2 py-1 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 font-semibold">
+                🎓 {counts.heredado}
+              </span>
             </>
-          )}
-          {onSkip && (
-            <button
-              onClick={onSkip}
-              className="ml-auto px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-            >
-              {isSkipped ? "Hecho" : "Saltar"}
-            </button>
-          )}
-          {habit.linkTo && (
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(habit.linkTo!); }}
-              className="ml-auto flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-            >
-              <ExternalLink className="h-2.5 w-2.5" /> Ver
-            </button>
+          ) : (
+            <span className="px-2 py-1 rounded-lg bg-foreground/5 text-muted-foreground animate-pulse">
+              Diagnóstico…
+            </span>
           )}
         </div>
       </div>
+    </Card>
+  );
+}
 
-      {mealUrl && (
-        <div className="px-2 pb-2">
-          <img src={mealUrl} alt={habit.name} className="w-16 h-16 rounded-lg object-cover border" />
+function ChaosBanner({
+  scores,
+  loading,
+}: {
+  scores: ReturnType<typeof useAreaScores>["scores"];
+  loading: boolean;
+}) {
+  const onFire = useMemo(() => {
+    if (loading) return [];
+    return scores
+      .map(s => {
+        const area = POINT_B_AREAS.find(a => a.id === s.id);
+        if (!area) return null;
+        return { area, diagnosis: diagnoseArea(s.esfuerzo, s.resultados) };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x)
+      .filter(x => x.diagnosis.key === "abandonado" || x.diagnosis.key === "roto");
+  }, [scores, loading]);
+
+  if (onFire.length === 0) {
+    if (loading) return null;
+    if (scores.some(s => s.esfuerzo > 0 || s.resultados > 0)) {
+      return (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 flex items-center gap-2 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          Todo en marcha: ningún sistema roto ni abandonado.
         </div>
-      )}
+      );
+    }
+    return null;
+  }
 
-      {hasWorkout && (
-        <div className="px-2 pb-2 flex items-center gap-1.5 text-[9px]">
-          <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-          <Input
-            type="number"
-            min={0}
-            value={workoutDuration || ""}
-            onChange={e => onWorkoutDurationChange?.(parseInt(e.target.value) || 0)}
-            placeholder="min"
-            className="h-5 w-14 text-[9px] text-center px-1"
-          />
-          <select
-            value={workoutIntensity || "moderate"}
-            onChange={e => onWorkoutIntensityChange?.(e.target.value)}
-            className="h-5 text-[9px] rounded-md border bg-background px-1"
+  return (
+    <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-3 space-y-2">
+      <p className="text-[10px] font-bold text-red-500 flex items-center gap-1.5">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        Áreas que necesitan atención
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {onFire.map(({ area, diagnosis }) => (
+          <span
+            key={area.id}
+            className="px-2 py-1 rounded-lg border text-[9px] font-bold bg-background/70"
           >
-            <option value="light">Baja</option>
-            <option value="moderate">Media</option>
-            <option value="high">Alta</option>
-            <option value="extreme">Extrema</option>
-          </select>
-        </div>
-      )}
-
-      {hasSleep && (
-        <div className="px-2 pb-2 space-y-1 text-[9px]">
-          <div className="flex items-center gap-1">
-            <Sun className="h-2.5 w-2.5 text-amber-500" />
-            <Input type="time" value={wakeTime || ""} onChange={e => onWakeTimeChange?.(e.target.value)} className="h-5 w-20 text-[9px]" />
-          </div>
-          <div className="flex items-center gap-1">
-            <Moon className="h-2.5 w-2.5 text-indigo-500" />
-            <Input type="time" value={sleepTime || ""} onChange={e => onSleepTimeChange?.(e.target.value)} className="h-5 w-20 text-[9px]" />
-          </div>
-        </div>
-      )}
+            {diagnosis.icon} {area.label}
+            <span className="text-muted-foreground font-medium"> · {diagnosis.short}</span>
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
