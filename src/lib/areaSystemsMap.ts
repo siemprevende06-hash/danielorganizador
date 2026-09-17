@@ -144,6 +144,8 @@ export const GROUP_CONFIG: Record<
   {
     label: string;
     note: string;
+    sectionTitle: string;
+    sectionNote: string;
     chip: string;
     bar: string;
     dot: string;
@@ -154,6 +156,8 @@ export const GROUP_CONFIG: Record<
   cimientos: {
     label: "Cimientos · Estructura",
     note: "La base sobre la que construyes todo",
+    sectionTitle: "Áreas Estructurales",
+    sectionNote: "La base que sostiene todo: rutinas, salud, apariencia y propósito",
     chip: "bg-blue-500/10 text-blue-600 border-blue-500/25",
     bar: "bg-blue-500",
     dot: "bg-blue-500",
@@ -163,6 +167,8 @@ export const GROUP_CONFIG: Record<
   construccion: {
     label: "Construcción · Esfuerzo",
     note: "Donde pones tu energía para crecer",
+    sectionTitle: "Áreas Centrales",
+    sectionNote: "Los sistemas del día que hacen avanzar tu construcción",
     chip: "bg-amber-500/10 text-amber-600 border-amber-500/25",
     bar: "bg-amber-500",
     dot: "bg-amber-500",
@@ -172,6 +178,8 @@ export const GROUP_CONFIG: Record<
   recompensas: {
     label: "Recompensas · Vida",
     note: "El resultado de tu esfuerzo",
+    sectionTitle: "Áreas de Recompensa",
+    sectionNote: "El resultado de la estructura y el esfuerzo constante",
     chip: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25",
     bar: "bg-emerald-500",
     dot: "bg-emerald-500",

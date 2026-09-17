@@ -163,9 +163,9 @@ export function DaySystemsSection({
             <div className="flex items-center gap-2 px-1">
               <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", cfg.dot)} />
-                {cfg.label}
+                {cfg.sectionTitle}
               </h2>
-              <span className="text-[9px] text-muted-foreground hidden sm:inline">{cfg.note}</span>
+              <span className="text-[9px] text-muted-foreground hidden sm:inline">{cfg.sectionNote}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {areas.map(area => (
