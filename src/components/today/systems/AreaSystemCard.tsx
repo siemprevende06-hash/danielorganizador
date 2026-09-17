@@ -1,5 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Maximize2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { coverKey } from "@/hooks/useAreaCovers";
 import { systemActualMinutes, type SystemSpeed } from "@/lib/daySystems";
 import {
@@ -107,6 +109,13 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
             <p className="text-[9px] text-muted-foreground truncate">{config?.vision}</p>
           </div>
           <DiagnosisBadge diagnosis={diagnosis} />
+          <Link
+            to={`/sistemas/${area.id}`}
+            className="size-8 shrink-0 grid place-items-center rounded-lg bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground transition-colors"
+            title="Ver página completa · esfuerzo, resultados y objetivos"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 gap-1.5 text-[9px]">

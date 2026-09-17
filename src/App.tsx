@@ -101,6 +101,7 @@ import AlgunDia from "./pages/AlgunDia";
 import AhoraMismo from "./pages/AhoraMismo";
 import LineaDeTiempo from "./pages/LineaDeTiempo";
 import ObjetivoPrioritario from "./pages/ObjetivoPrioritario";
+import SistemaDetalle from "./pages/SistemaDetalle";
 
 const queryClient = new QueryClient();
 
@@ -153,6 +154,7 @@ function AppContent() {
         <Route path="/routine-day" element={<RoutineDay />} />
         <Route path="/performance-modes" element={<PerformanceModes />} />
         <Route path="/systems" element={<Systems />} />
+        <Route path="/sistemas/:areaId" element={<SistemaDetalle />} />
         <Route path="/sprint" element={<SprintPage />} />
         <Route path="/vision" element={<VisionPage />} />
         <Route path="/antivision" element={<AntiVisionPage />} />
