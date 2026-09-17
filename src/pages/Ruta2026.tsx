@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Home, Map, Gauge, CalendarRange, Layers, Gift, Check, Clock, FolderTree, ChevronRight } from "lucide-react";
+import { Home, Map as MapIcon, Gauge, CalendarRange, Layers, Gift, Check, Clock, FolderTree, ChevronRight } from "lucide-react";
 import {
   usePersonalLists,
   LIFE_AREAS,
