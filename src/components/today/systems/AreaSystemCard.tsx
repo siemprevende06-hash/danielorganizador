@@ -16,8 +16,11 @@ import {
 import type { PointBArea } from "@/lib/definitions";
 import type { AreaScore, SubAreaScore } from "@/hooks/useAreaScores";
 import type { SystemStreak } from "@/hooks/useSystemStreaks";
+import type { TodayStripItem, TodayTaskItem } from "@/hooks/useTodayFocusItems";
 import { cn } from "@/lib/utils";
 import HabitSystemCard from "./HabitSystemCard";
+import { OrganizacionCard } from "./OrganizacionCard";
+import { TareasGeneralesCard } from "./TareasGeneralesCard";
 
 export interface AreaInteraction {
   completions: Record<string, boolean>;
@@ -34,6 +37,9 @@ export interface AreaInteraction {
   metaMinutesById: Record<string, number>;
   sparks?: Record<string, number[]>;
   weekTotals?: Record<string, number>;
+  todayItems?: Record<string, TodayStripItem>;
+  generalTasks?: { planned: TodayTaskItem[]; doneCount: number; totalCount: number };
+  onToggleGeneralTask?: (id: string, done: boolean) => void;
   getSpeed: (id: string) => SystemSpeed;
   setSpeed: (id: string, s: SystemSpeed) => void;
   covers: Record<string, string>;
@@ -127,6 +133,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
         speed={interaction.getSpeed(meta.id)}
         spark={spark}
         weekTotal={weekTotal}
+        today={interaction.todayItems?.[meta.id]}
         waterDone={!!interaction.waterData?.[meta.id]}
         mealUrl={interaction.mealPhotos?.[meta.id]}
         wakeTime={interaction.wakeTime}
@@ -254,6 +261,20 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
             <span className="font-bold">{diagnosis.icon} Sistema conectado: </span>
             {config?.systemNote ?? "Esta área se nutre de sistemas conectados. Cumple su sistema para que dé resultados."}
           </div>
+        )}
+
+        {config?.specialSections?.includes("organizacion") && (
+          <OrganizacionCard
+            completions={interaction.completions}
+            onToggle={interaction.onToggle}
+          />
+        )}
+
+        {config?.specialSections?.includes("tareas-generales") && interaction.generalTasks && (
+          <TareasGeneralesCard
+            data={interaction.generalTasks}
+            onToggleTask={(id, done) => interaction.onToggleGeneralTask?.(id, done)}
+          />
         )}
 
         {resultLeaves.length > 0 && (

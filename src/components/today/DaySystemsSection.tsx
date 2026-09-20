@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAreaCovers } from "@/hooks/useAreaCovers";
@@ -6,6 +6,8 @@ import { useAreaScores } from "@/hooks/useAreaScores";
 import { useSystemSpeed } from "@/hooks/useSystemSpeed";
 import { useSystemStreaks } from "@/hooks/useSystemStreaks";
 import { useWeekSparks } from "@/hooks/useWeekSparks";
+import { useTodayFocusItems } from "@/hooks/useTodayFocusItems";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ALL_TRACKABLE_IDS,
   GROUP_CONFIG,
@@ -72,6 +74,15 @@ export function DaySystemsSection({
   const { scores, averages, loading } = useAreaScores("month", "ambos");
   const { streaks } = useSystemStreaks(ALL_TRACKABLE_IDS);
   const { sparks, weekTotals } = useWeekSparks(ALL_TRACKABLE_IDS);
+  const { items: todayItems, generalTasks, refresh: refreshToday } = useTodayFocusItems();
+
+  const toggleGeneralTask = useCallback(
+    async (id: string, done: boolean) => {
+      await supabase.from("tasks").update({ completed: !done }).eq("id", id);
+      refreshToday();
+    },
+    [refreshToday]
+  );
 
   const [activeGroup, setActiveGroup] = useState<PointBGroup | "todas">("todas");
 
@@ -153,6 +164,9 @@ export function DaySystemsSection({
     metaMinutesById,
     sparks,
     weekTotals,
+    todayItems,
+    generalTasks,
+    onToggleGeneralTask: toggleGeneralTask,
     getSpeed,
     setSpeed,
     covers: covers.covers,
