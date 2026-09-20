@@ -234,7 +234,36 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
                 <span className="text-[9px] text-muted-foreground ml-auto">{trackableMinutes} min hoy</span>
               )}
             </div>
-            {topRow.length > 0 ? (
+            {config?.habitSections ? (
+              <div className="space-y-3">
+                {config.habitSections.map(sec => {
+                  const secHabits = trackables.filter(t => sec.habitIds.includes(t.id));
+                  if (secHabits.length === 0) return null;
+                  const secDone = secHabits.filter(t => interaction.completions[t.id]).length;
+                  return (
+                    <div key={sec.id} className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          {sec.emoji && <span className="mr-1">{sec.emoji}</span>}
+                          {sec.title}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-[9px] font-medium",
+                            secDone === secHabits.length ? "text-emerald-500" : "text-muted-foreground"
+                          )}
+                        >
+                          {secDone}/{secHabits.length}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {secHabits.map(renderHabit)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : topRow.length > 0 ? (
               <>
                 <div className="grid grid-cols-3 gap-2">
                   {topRow.map(renderHabit)}

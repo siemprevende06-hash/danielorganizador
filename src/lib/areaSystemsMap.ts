@@ -28,6 +28,15 @@ export interface AreaSystemConfig {
   fullWidthFromIndex?: number;
   /** Tarjetas especiales al final del área (checklist/tareas virtuales). */
   specialSections?: Array<"tareas-generales" | "organizacion">;
+  /** Sub-secciones con encabezado dentro de la tarjeta (en vez del grid plano). */
+  habitSections?: HabitSection[];
+}
+
+export interface HabitSection {
+  id: string;
+  title: string;
+  emoji?: string;
+  habitIds: string[];
 }
 
 export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
@@ -35,7 +44,6 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
     habits: [
       "gym",
       "pre-entreno",
-      "alistamiento-desayuno",
       "desayuno",
       "merienda-1",
       "almuerzo",
@@ -43,6 +51,28 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
       "comida",
       "antes-dormir",
       "suplementos",
+      "horario-regular",
+      "hidratacion",
+    ],
+    habitSections: [
+      {
+        id: "alimentacion",
+        title: "Alimentación",
+        emoji: "🍽️",
+        habitIds: [
+          "pre-entreno",
+          "desayuno",
+          "merienda-1",
+          "almuerzo",
+          "merienda-2",
+          "comida",
+          "antes-dormir",
+          "suplementos",
+        ],
+      },
+      { id: "gym", title: "Gym", emoji: "💪", habitIds: ["gym"] },
+      { id: "hidratacion", title: "Hidratación", emoji: "💧", habitIds: ["hidratacion"] },
+      { id: "sueno", title: "Sueño", emoji: "🌙", habitIds: ["horario-regular"] },
     ],
     hierarchyAreas: ["gym"],
     vision: "Físicamente fuerte: 70kg+, gym 5d/sem y presencia imponente",
@@ -52,7 +82,7 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
   "fuerza-mental": {
     habits: [
       "rutina-activacion",
-      "horario-regular",
+      "alistamiento-desayuno",
       "rutina-desactivacion",
       "habit-sueno",
       "habit-rutina-activacion",
@@ -69,6 +99,36 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
       "no-porn",
       "no-fap",
       "redes-sociales",
+    ],
+    habitSections: [
+      {
+        id: "rutinas",
+        title: "Rutinas",
+        emoji: "🔁",
+        habitIds: ["rutina-activacion", "alistamiento-desayuno", "rutina-desactivacion"],
+      },
+      {
+        id: "habitos",
+        title: "Hábitos",
+        emoji: "🎯",
+        habitIds: [
+          "habit-sueno",
+          "habit-rutina-activacion",
+          "habit-entrenamiento",
+          "habit-desayuno",
+          "habit-skincare-am",
+          "habit-skincare-pm",
+          "habit-rutina-desactivacion",
+          "habit-alimentacion",
+          "habit-finanzas",
+        ],
+      },
+      {
+        id: "detox",
+        title: "Detox Dopamínico",
+        emoji: "🧘",
+        habitIds: ["mini-nofap", "mini-nosocial", "no-videojuegos", "no-porn", "no-fap", "redes-sociales"],
+      },
     ],
     hierarchyAreas: [],
     vision: "Rutinas y disciplina automáticas que sostienen todo lo demás",
@@ -310,8 +370,9 @@ export interface HabitMeta {
   system?: DaySystem;
 }
 
-const EXTRA_HABITS: Record<string, { name: string; emoji?: string }> = {
+const EXTRA_HABITS: Record<string, { name: string; emoji?: string; hasWater?: boolean }> = {
   proyectos: { name: "Proyectos" },
+  hidratacion: { name: "Hidratación", emoji: "💧", hasWater: true },
   "organizacion-cuarto": { name: "Recoger cuarto", emoji: "🛏️" },
   "organizacion-bano": { name: "Recoger baño", emoji: "🚿" },
   "organizacion-sala": { name: "Recoger sala", emoji: "🛋️" },
@@ -367,7 +428,7 @@ function buildHabitMeta(): Record<string, HabitMeta> {
         emoji: extra.emoji,
         cover: { type: "area", id },
         hasTime: true,
-        hasWater: false,
+        hasWater: extra.hasWater ?? false,
         hasMealPhoto: false,
         isWorkout: false,
         isSleepSchedule: false,
