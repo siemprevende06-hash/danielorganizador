@@ -17,12 +17,10 @@ import type { PointBArea } from "@/lib/definitions";
 import type { AreaScore } from "@/hooks/useAreaScores";
 import type { SystemStreak } from "@/hooks/useSystemStreaks";
 import type { TodayStripItem, TodayTaskItem } from "@/hooks/useTodayFocusItems";
-import { buildResultLeaves } from "@/lib/resultConnections";
 import { cn } from "@/lib/utils";
 import HabitSystemCard from "./HabitSystemCard";
 import { OrganizacionCard } from "./OrganizacionCard";
 import { TareasGeneralesCard } from "./TareasGeneralesCard";
-import { ResultLeaves } from "./ResultLeaves";
 
 export interface AreaInteraction {
   completions: Record<string, boolean>;
@@ -82,17 +80,6 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
 
   const diagnosis = score ? diagnoseArea(score.esfuerzo, score.resultados) : diagnoseArea(0, 0);
   const tone = DIAGNOSIS_TONE[diagnosis.tone];
-
-  const resultLeaves = useMemo(() => {
-    if (!score) return [];
-    return buildResultLeaves({
-      area,
-      score,
-      completions: interaction.completions,
-      timeData: interaction.timeData,
-      subStats: interaction.subStats,
-    });
-  }, [area, score, interaction.completions, interaction.timeData, interaction.subStats]);
 
   const doneCount = trackables.filter(t => interaction.completions[t.id]).length;
   const trackableMinutes = trackables.reduce((sum, t) => {
@@ -306,16 +293,6 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
             data={interaction.generalTasks}
             onToggleTask={(id, done) => interaction.onToggleGeneralTask?.(id, done)}
           />
-        )}
-
-        {resultLeaves.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <span className={cn("w-1.5 h-1.5 rounded-full", group.dot)} />
-              Resultados que produce
-            </h4>
-            <ResultLeaves leaves={resultLeaves} group={group} maxResults={8} />
-          </div>
         )}
       </div>
     </Card>

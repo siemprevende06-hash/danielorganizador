@@ -42,8 +42,11 @@ import {
 } from "@/lib/hierarchy";
 import { useAreaScores, type AreaScore } from "@/hooks/useAreaScores";
 import { usePuntoPartida } from "@/hooks/usePuntoPartida";
+import { usePersonalLists, usePersonalListsSystemsRange } from "@/hooks/usePersonalLists";
 import { buildResultLeaves } from "@/lib/resultConnections";
+import { chainForArea } from "@/lib/resultChains";
 import { ResultLeaves } from "@/components/today/systems/ResultLeaves";
+import { ResultChain, type ChainComodidad } from "@/components/today/systems/ResultChain";
 import {
   useAreaDetailData,
   type EffortWindow,
@@ -108,6 +111,10 @@ export default function SistemaDetalle() {
     useAreaDetailData(areaId ?? "");
   const { scores: areaScores, loading: scoresLoading, subStats } = useAreaScores("month", "ambos");
   const { entries: ppEntries, loading: ppLoading } = usePuntoPartida();
+  const { lists, tasks, systems } = usePersonalLists();
+  const range7 = usePersonalListsSystemsRange(7);
+  const range30 = usePersonalListsSystemsRange(30);
+  const range90 = usePersonalListsSystemsRange(90);
 
   const score = useMemo(
     () => (areaScores.length > 0 ? areaScores.find(s => s.id === areaId) : undefined),
@@ -133,6 +140,41 @@ export default function SistemaDetalle() {
     if (!area) return [];
     return flattenPointB(area.sub);
   }, [area]);
+
+  const chainsData = useMemo(() => {
+    if (!area) return [] as { chainId: string; minutes: Record<string, number>; comodidad: ChainComodidad }[];
+    return chainForArea(area.id).map(c => {
+      const minutes = {
+        hoy: systems[c.systemId]?.minutes ?? 0,
+        semana: range7.data?.[c.systemId]?.totalMinutes ?? 0,
+        mes: range30.data?.[c.systemId]?.totalMinutes ?? 0,
+        trimestre: range90.data?.[c.systemId]?.totalMinutes ?? 0,
+      };
+      const linked = lists
+        .filter(l => l.system_key === c.systemId)
+        .map(l => {
+          const lt = tasks.filter(t => t.list_id === l.id);
+          return { title: l.title, done: lt.filter(t => t.completed).length, total: lt.length };
+        });
+      let pct = 0;
+      let source: ChainComodidad["source"] = "lists";
+      if (linked.length > 0) {
+        const total = linked.reduce((s, l) => s + l.total, 0);
+        const done = linked.reduce((s, l) => s + l.done, 0);
+        pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      } else {
+        source = "puntoB";
+        const leaf = pointBLeaves.find(l => l.id === c.leafId);
+        if (leaf) {
+          const base = ppEntries[area.id]?.sub_scores?.[c.leafId];
+          const cur = typeof base === "number" ? base : leaf.start;
+          const range = leaf.target - leaf.start;
+          pct = range !== 0 ? Math.round(Math.max(0, Math.min(100, ((cur - leaf.start) / range) * 100))) : 0;
+        }
+      }
+      return { chainId: c.systemId, minutes, comodidad: { pct, source, linked } };
+    });
+  }, [area, systems, range7.data, range30.data, range90.data, lists, tasks, ppEntries, pointBLeaves]);
 
   const diagnosis = score ? diagnoseArea(score.esfuerzo, score.resultados) : diagnoseArea(0, 0);
   const tone = DIAGNOSIS_TONE[diagnosis.tone];
@@ -445,12 +487,30 @@ export default function SistemaDetalle() {
             </span>
           </div>
 
-          {resultLeaves.length > 0 ? (
-            <ResultLeaves leaves={resultLeaves} group={group} />
-          ) : (
-            <p className="text-[10px] text-muted-foreground">
-              Configura el Punto B para ver qué resultados produce esta área.
-            </p>
+          {chainsData.length > 0 && (
+            <div className="space-y-4">
+              {chainsData.map(d => {
+                const chain = chainForArea(area.id).find(ch => ch.systemId === d.chainId);
+                if (!chain) return null;
+                return (
+                  <div key={d.chainId} className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span>{chain.emoji}</span> {chain.name}
+                    </div>
+                    <ResultChain chain={chain} minutes={d.minutes} comodidad={d.comodidad} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {resultLeaves.length > 0 && (
+            <div className="pt-1 space-y-2 border-t border-border/40">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Resumen del Punto B
+              </p>
+              <ResultLeaves leaves={resultLeaves} group={group} />
+            </div>
           )}
         </Card>
       </div>
