@@ -97,8 +97,6 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
       "mini-nosocial",
       "no-videojuegos",
       "no-porn",
-      "no-fap",
-      "redes-sociales",
     ],
     habitSections: [
       {
@@ -127,7 +125,7 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
         id: "detox",
         title: "Detox Dopamínico",
         emoji: "🧘",
-        habitIds: ["mini-nofap", "mini-nosocial", "no-videojuegos", "no-porn", "no-fap", "redes-sociales"],
+        habitIds: ["mini-nofap", "mini-nosocial", "no-videojuegos", "no-porn"],
       },
     ],
     hierarchyAreas: [],
