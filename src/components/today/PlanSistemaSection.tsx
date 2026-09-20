@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { ChevronDown } from "lucide-react";
 import { HABIT_META } from "@/lib/areaSystemsMap";
 import {
   formatTimeDisplay,
@@ -23,14 +24,15 @@ const SYSTEM_FALLBACK: Record<string, { emoji: string; name: string }> = {
 };
 
 function systemsForBlock(block: RoutineBlock): string[] {
-  const id = block.id;
   const t = block.title.toLowerCase();
 
-  if (t.includes("desactivacion")) return ["rutina-desactivacion", "habit-skincare-pm"];
+  if (t.includes("desactivacion"))
+    return ["rutina-desactivacion", "habit-skincare-pm", "skincare-noche"];
   if (t.includes("sueno")) return ["horario-regular", "habit-sueno"];
   if (t.includes("activacion")) return ["rutina-activacion"];
   if (t.includes("gym") || t.includes("entrenamiento")) return ["gym", "pre-entreno"];
-  if (t.includes("alistamiento") || t.includes("desayuno")) return ["alistamiento-desayuno", "desayuno"];
+  if (t.includes("alistamiento") || t.includes("desayuno"))
+    return ["alistamiento-desayuno", "desayuno", "banarme-vestirme", "skincare-manana"];
   if (t.includes("lectura")) return ["lectura"];
   if (t.includes("ajedrez") && t.includes("almuerzo")) return ["ajedrez", "almuerzo"];
   if (t.includes("ajedrez")) return ["ajedrez"];
@@ -44,6 +46,21 @@ function systemsForBlock(block: RoutineBlock): string[] {
   return [];
 }
 
+function blockCovers(block: RoutineBlock, time: string): boolean {
+  const start = parseTime(block.startTime);
+  let end = parseTime(block.endTime);
+  if (end <= start) end += 24 * 60;
+  const target = parseTime(time);
+  return target >= start && target < end;
+}
+
+function planSystems(block: RoutineBlock): string[] {
+  const ids = systemsForBlock(block);
+  if (blockCovers(block, "10:30") && !ids.includes("merienda-1")) ids.push("merienda-1");
+  if (blockCovers(block, "17:00") && !ids.includes("merienda-2")) ids.push("merienda-2");
+  return ids;
+}
+
 function chipFor(id: string) {
   const meta = HABIT_META[id];
   const fallback = SYSTEM_FALLBACK[id];
@@ -54,6 +71,7 @@ function chipFor(id: string) {
 
 export function PlanSistemaSection() {
   const { blocks, isLoaded, routineInfo } = useRoutineBlocks();
+  const [open, setOpen] = useState(false);
 
   const nowMinutes = useMemo(
     () => new Date().getHours() * 60 + new Date().getMinutes(),
@@ -76,112 +94,125 @@ export function PlanSistemaSection() {
 
   if (!isLoaded) return null;
 
+  const sleepChip = HABIT_META["horario-regular"];
+  const sleepStart = routineInfo?.sleepTime ?? "22:30";
+
   return (
     <Card className="border-0 bg-gradient-to-br from-blue-500/10 via-background to-background backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className="p-4 space-y-3">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            📋 Plan Sistema
-          </h2>
-          {routineInfo && (
-            <span className="px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-bold text-[9px]">
-              {routineInfo.icon} {routineInfo.label} · {routineInfo.wakeTime}–{routineInfo.sleepTime}
-            </span>
-          )}
-          <span className="ml-auto text-[9px] font-semibold text-muted-foreground">
-            Bloque {Math.min(status.done + 1, blocks.length)} de {blocks.length}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 p-4 text-left hover:bg-foreground/[0.03] transition-colors"
+      >
+        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          📋 Plan Sistema
+        </h2>
+        {routineInfo && (
+          <span className="px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-bold text-[9px]">
+            {routineInfo.icon} {routineInfo.label} · {routineInfo.wakeTime}–{routineInfo.sleepTime}
           </span>
-        </div>
-
-        <Progress
-          value={blocks.length > 0 ? (status.done / blocks.length) * 100 : 0}
-          className="h-1.5"
-          indicatorClassName="bg-primary"
+        )}
+        <span className="ml-auto text-[9px] font-semibold text-muted-foreground">
+          {open ? "Ocultar" : "Ver"} plan
+        </span>
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")}
         />
+      </button>
 
-        <p className="text-[10px] leading-relaxed text-muted-foreground">
-          No pienses en los sistemas: solo sigue cada bloque de la rutina. Cada bloque completa sus
-          sistemas y al final del día todo queda hecho.
-        </p>
+      {open && (
+        <div className="px-4 pb-4 space-y-3">
+          <div className="flex items-center gap-1.5 flex-wrap text-[9px] border border-border/60 rounded-xl bg-background/70 px-2.5 py-2">
+            <span className="font-bold uppercase tracking-wider text-muted-foreground">Sueño</span>
+            <span className="px-2 py-0.5 rounded-lg bg-foreground/5 text-muted-foreground font-medium border border-border/60">
+              {sleepChip.emoji} {sleepChip.name} · dormir antes de {sleepStart}
+            </span>
+          </div>
 
-        <ol className="space-y-1.5">
-          {blocks.map((block, index) => {
-            const systems = systemsForBlock(block);
-            const start = parseTime(block.startTime);
-            let end = parseTime(block.endTime);
-            if (end <= start) end += 24 * 60;
-            const past = nowMinutes >= end;
-            const current = nowMinutes >= start && nowMinutes < end;
+          <Progress
+            value={blocks.length > 0 ? (status.done / blocks.length) * 100 : 0}
+            className="h-1.5"
+            indicatorClassName="bg-primary"
+          />
 
-            return (
-              <li
-                key={block.id}
-                className={cn(
-                  "flex items-start gap-2 rounded-xl border px-2.5 py-2 transition-colors",
-                  current
-                    ? "border-primary bg-primary/10"
-                    : past
-                    ? "border-border/40 bg-background/40 opacity-60"
-                    : "border-border/60 bg-background/70"
-                )}
-              >
-                <span className="w-[68px] shrink-0 text-[9px] font-bold text-muted-foreground pt-0.5">
-                  {formatTimeDisplay(block.startTime)}–{formatTimeDisplay(block.endTime)}
-                </span>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    {current && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-bold uppercase tracking-wide">
-                        Ahora
+          <p className="text-[10px] leading-relaxed text-muted-foreground">
+            No pienses en los sistemas: solo sigue cada bloque de la rutina. Cada bloque completa sus
+            sistemas y al final del día todo queda hecho.
+          </p>
+
+          <ol className="space-y-1.5">
+            {blocks.map((block, index) => {
+              const systems = planSystems(block);
+              const start = parseTime(block.startTime);
+              let end = parseTime(block.endTime);
+              if (end <= start) end += 24 * 60;
+              const past = nowMinutes >= end;
+              const current = nowMinutes >= start && nowMinutes < end;
+
+              return (
+                <li
+                  key={block.id}
+                  className={cn(
+                    "flex items-start gap-2 rounded-xl border px-2.5 py-2 transition-colors",
+                    current
+                      ? "border-primary bg-primary/10"
+                      : past
+                      ? "border-border/40 bg-background/40 opacity-60"
+                      : "border-border/60 bg-background/70"
+                  )}
+                >
+                  <span className="w-[68px] shrink-0 text-[9px] font-bold text-muted-foreground pt-0.5">
+                    {formatTimeDisplay(block.startTime)}–{formatTimeDisplay(block.endTime)}
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      {current && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-bold uppercase tracking-wide">
+                          Ahora
+                        </span>
+                      )}
+                      {past && (
+                        <span className="text-[10px] font-bold text-emerald-500 shrink-0">✓</span>
+                      )}
+                      <span
+                        className={cn(
+                          "text-[11px] font-semibold truncate",
+                          current ? "text-primary" : past ? "text-muted-foreground" : "text-foreground"
+                        )}
+                      >
+                        {block.title}
+                      </span>
+                    </div>
+                    {systems.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {systems.map(id => {
+                          const chip = chipFor(id);
+                          return (
+                            <span
+                              key={id}
+                              className={cn(
+                                "px-2 py-0.5 rounded-lg text-[9px] font-medium border",
+                                current
+                                  ? "bg-background/80 border-primary/30 text-primary"
+                                  : "bg-foreground/5 border-border/60 text-muted-foreground"
+                              )}
+                            >
+                              {chip.emoji} {chip.name}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground/70 font-medium">
+                        🧘 Descanso libre · sin sistema
                       </span>
                     )}
-                    {past && (
-                      <span className="text-[10px] font-bold text-emerald-500 shrink-0">✓</span>
-                    )}
-                    <span
-                      className={cn(
-                        "text-[11px] font-semibold truncate",
-                        current ? "text-primary" : past ? "text-muted-foreground" : "text-foreground"
-                      )}
-                    >
-                      {block.title}
-                    </span>
                   </div>
-                  {systems.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {systems.map(id => {
-                        const chip = chipFor(id);
-                        return (
-                          <span
-                            key={id}
-                            className={cn(
-                              "px-2 py-0.5 rounded-lg text-[9px] font-medium border",
-                              current
-                                ? "bg-background/80 border-primary/30 text-primary"
-                                : "bg-foreground/5 border-border/60 text-muted-foreground"
-                            )}
-                          >
-                            {chip.emoji} {chip.name}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <span className="text-[9px] text-muted-foreground/70 font-medium">
-                      🧘 Descanso libre · sin sistema
-                    </span>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-
-        <p className="text-[9px] text-muted-foreground">
-          💡 En los bloques de Deep Work / Focus elige universidad, emprendimiento o proyectos al
-          iniciar, y registra tus minutos cuando termines.
-        </p>
-      </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
     </Card>
   );
 }

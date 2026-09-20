@@ -18,7 +18,7 @@ import { systemMinForSpeed } from "@/lib/daySystems";
 import { POINT_B_AREAS } from "@/data/pointB2027";
 import type { PointBArea } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, Hammer, Layers, Trophy, LayoutGrid } from "lucide-react";
+import { Hammer, Layers, Trophy, LayoutGrid } from "lucide-react";
 import AreaSystemCard, { type AreaInteraction } from "./systems/AreaSystemCard";
 
 const GROUP_ORDER: PointBGroup[] = ["cimientos", "construccion", "recompensas"];
@@ -69,7 +69,7 @@ export function DaySystemsSection({
 }) {
   const { getSpeed, setSpeed } = useSystemSpeed();
   const covers = useAreaCovers();
-  const { scores, loading, subStats } = useAreaScores("month", "ambos");
+  const { scores, subStats } = useAreaScores("month", "ambos");
   const { streaks } = useSystemStreaks(ALL_TRACKABLE_IDS);
   const { sparks, weekTotals } = useWeekSparks(ALL_TRACKABLE_IDS);
   const { items: todayItems, generalTasks, refresh: refreshToday } = useTodayFocusItems();
@@ -166,8 +166,6 @@ export function DaySystemsSection({
 
   return (
     <div className="space-y-5">
-      <ChaosBanner scores={scores} loading={loading} />
-
       {/* ─── Divisiones del Punto B: toques la división y te salen sus áreas ─── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <button
@@ -244,65 +242,13 @@ export function DaySystemsSection({
                   score={scoreById[area.id]}
                   trackables={getAreaTrackableHabits(area.id)}
                   interaction={interaction}
+                  hideCover={area.group === "cimientos"}
                 />
               ))}
             </div>
           </section>
         );
       })}
-    </div>
-  );
-}
-
-function ChaosBanner({
-  scores,
-  loading,
-}: {
-  scores: ReturnType<typeof useAreaScores>["scores"];
-  loading: boolean;
-}) {
-  const onFire = useMemo(() => {
-    if (loading) return [];
-    return scores
-      .map(s => {
-        const area = POINT_B_AREAS.find(a => a.id === s.id);
-        if (!area) return null;
-        return { area, diagnosis: diagnoseArea(s.esfuerzo, s.resultados) };
-      })
-      .filter((x): x is NonNullable<typeof x> => !!x)
-      .filter(x => x.diagnosis.key === "abandonado" || x.diagnosis.key === "roto");
-  }, [scores, loading]);
-
-  if (onFire.length === 0) {
-    if (loading) return null;
-    if (scores.some(s => s.esfuerzo > 0 || s.resultados > 0)) {
-      return (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 flex items-center gap-2 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          Todo en marcha: ningún sistema roto ni abandonado.
-        </div>
-      );
-    }
-    return null;
-  }
-
-  return (
-    <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-3 space-y-2">
-      <p className="text-[10px] font-bold text-red-500 flex items-center gap-1.5">
-        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-        Áreas que necesitan atención
-      </p>
-      <div className="flex flex-wrap gap-1.5">
-        {onFire.map(({ area, diagnosis }) => (
-          <span
-            key={area.id}
-            className="px-2 py-1 rounded-lg border text-[9px] font-bold bg-background/70"
-          >
-            {diagnosis.icon} {area.label}
-            <span className="text-muted-foreground font-medium"> · {diagnosis.short}</span>
-          </span>
-        ))}
-      </div>
     </div>
   );
 }

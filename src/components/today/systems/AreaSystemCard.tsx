@@ -61,6 +61,7 @@ interface AreaSystemCardProps {
   score?: AreaScore;
   trackables: HabitMeta[];
   interaction: AreaInteraction;
+  hideCover?: boolean;
 }
 
 function DiagnosisBadge({ diagnosis }: { diagnosis: AreaDiagnosis }) {
@@ -73,7 +74,7 @@ function DiagnosisBadge({ diagnosis }: { diagnosis: AreaDiagnosis }) {
   );
 }
 
-export default function AreaSystemCard({ area, score, trackables, interaction }: AreaSystemCardProps) {
+export default function AreaSystemCard({ area, score, trackables, interaction, hideCover }: AreaSystemCardProps) {
   const config = AREA_SYSTEMS[area.id];
   const group = GROUP_CONFIG[area.group as keyof typeof GROUP_CONFIG] ?? GROUP_CONFIG.construccion;
   const coverUrl = interaction.covers[coverKey("area", area.id)] ?? null;
@@ -156,7 +157,11 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
       <div className="p-3 border-b border-border/40 space-y-2">
         <div className="flex items-center gap-2.5">
           <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0 relative bg-gradient-to-br border border-border/40">
-            {coverUrl ? (
+            {hideCover ? (
+              <div className="absolute inset-0 grid place-items-center">
+                <span className="text-lg">{area.icon}</span>
+              </div>
+            ) : coverUrl ? (
               <img src={coverUrl} alt={area.label} className="absolute inset-0 w-full h-full object-cover" />
             ) : (
               <div className="absolute inset-0 grid place-items-center">
