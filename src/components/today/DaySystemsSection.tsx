@@ -5,6 +5,7 @@ import { useAreaCovers } from "@/hooks/useAreaCovers";
 import { useAreaScores } from "@/hooks/useAreaScores";
 import { useSystemSpeed } from "@/hooks/useSystemSpeed";
 import { useSystemStreaks } from "@/hooks/useSystemStreaks";
+import { useWeekSparks } from "@/hooks/useWeekSparks";
 import {
   ALL_TRACKABLE_IDS,
   GROUP_CONFIG,
@@ -70,6 +71,7 @@ export function DaySystemsSection({
   const covers = useAreaCovers();
   const { scores, averages, loading } = useAreaScores("month", "ambos");
   const { streaks } = useSystemStreaks(ALL_TRACKABLE_IDS);
+  const { sparks, weekTotals } = useWeekSparks(ALL_TRACKABLE_IDS);
 
   const [activeGroup, setActiveGroup] = useState<PointBGroup | "todas">("todas");
 
@@ -149,6 +151,8 @@ export function DaySystemsSection({
     workoutIntensity,
     streaks,
     metaMinutesById,
+    sparks,
+    weekTotals,
     getSpeed,
     setSpeed,
     covers: covers.covers,

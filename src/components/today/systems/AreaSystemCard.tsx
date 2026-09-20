@@ -31,6 +31,8 @@ export interface AreaInteraction {
   workoutIntensity?: string;
   streaks?: Record<string, SystemStreak>;
   metaMinutesById: Record<string, number>;
+  sparks?: Record<string, number[]>;
+  weekTotals?: Record<string, number>;
   getSpeed: (id: string) => SystemSpeed;
   setSpeed: (id: string, s: SystemSpeed) => void;
   covers: Record<string, string>;
@@ -161,12 +163,15 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
                 <span className="text-[9px] text-muted-foreground ml-auto">{trackableMinutes} min hoy</span>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {trackables.map(meta => {
                 const sys = meta.system;
                 const actual = sys
                   ? systemActualMinutes(sys, { timeData: interaction.timeData })
                   : (interaction.timeData[meta.id] ?? 0);
+                const weekRaw = interaction.sparks?.[meta.id] ?? [];
+                const weekTotal = (interaction.weekTotals?.[meta.id] ?? 0) + Math.max(0, actual - (weekRaw[6] ?? 0));
+                const spark = weekRaw.length === 7 ? [...weekRaw.slice(0, 6), actual] : weekRaw;
                 return (
                   <HabitSystemCard
                     key={meta.id}
@@ -177,6 +182,8 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
                     metaMinutes={interaction.metaMinutesById[meta.id] ?? 0}
                     count={sys?.countKey ? interaction.countData?.[sys.countKey] ?? 0 : undefined}
                     speed={interaction.getSpeed(meta.id)}
+                    spark={spark}
+                    weekTotal={weekTotal}
                     waterDone={!!interaction.waterData?.[meta.id]}
                     mealUrl={interaction.mealPhotos?.[meta.id]}
                     wakeTime={interaction.wakeTime}
