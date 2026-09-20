@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ChevronDown } from "lucide-react";
@@ -61,6 +61,13 @@ function planSystems(block: RoutineBlock): string[] {
   return ids;
 }
 
+function blockRange(block: RoutineBlock): { start: number; end: number } {
+  const start = parseTime(block.startTime);
+  let end = parseTime(block.endTime);
+  if (end <= start) end += 24 * 60;
+  return { start, end };
+}
+
 function chipFor(id: string) {
   const meta = HABIT_META[id];
   const fallback = SYSTEM_FALLBACK[id];
@@ -72,20 +79,23 @@ function chipFor(id: string) {
 export function PlanSistemaSection() {
   const { blocks, isLoaded, routineInfo } = useRoutineBlocks();
   const [open, setOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const nowMinutes = useMemo(
-    () => new Date().getHours() * 60 + new Date().getMinutes(),
-    []
+    () => now.getHours() * 60 + now.getMinutes(),
+    [now]
   );
 
   const status = useMemo(() => {
     let activeIndex = -1;
     let done = 0;
     for (let i = 0; i < blocks.length; i++) {
-      const block = blocks[i];
-      const start = parseTime(block.startTime);
-      let end = parseTime(block.endTime);
-      if (end <= start) end += 24 * 60;
+      const { start, end } = blockRange(blocks[i]);
       if (nowMinutes >= end) done++;
       if (nowMinutes >= start && nowMinutes < end && activeIndex === -1) activeIndex = i;
     }
@@ -93,6 +103,14 @@ export function PlanSistemaSection() {
   }, [blocks, nowMinutes]);
 
   if (!isLoaded) return null;
+
+  const currentBlock = status.activeIndex >= 0 ? blocks[status.activeIndex] : null;
+  const currentRange = currentBlock ? blockRange(currentBlock) : null;
+  const currentPct = currentRange
+    ? Math.round(
+        Math.min(100, Math.max(0, ((nowMinutes - currentRange.start) / (currentRange.end - currentRange.start)) * 100))
+      )
+    : 0;
 
   const sleepChip = HABIT_META["horario-regular"];
   const sleepStart = routineInfo?.sleepTime ?? "22:30";
@@ -121,6 +139,25 @@ export function PlanSistemaSection() {
 
       {open && (
         <div className="px-4 pb-4 space-y-3">
+          <div className="flex items-center gap-1.5 flex-wrap rounded-xl border border-border/60 bg-background/70 px-2.5 py-2 text-[9px]">
+            <span className="font-bold uppercase tracking-wider text-muted-foreground">
+              🕒 Hora actual
+            </span>
+            <span className="px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-bold">
+              {formatTimeDisplay(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`)}
+            </span>
+            {currentBlock ? (
+              <span className="text-muted-foreground font-medium">
+                Estás en <b className="text-foreground">{currentBlock.title}</b> ({currentPct}%)
+              </span>
+            ) : (
+              <span className="text-muted-foreground font-medium">Fuera de la rutina</span>
+            )}
+            <span className="ml-auto font-semibold text-muted-foreground">
+              Bloque {Math.min(status.done + 1, blocks.length)} de {blocks.length}
+            </span>
+          </div>
+
           <div className="flex items-center gap-1.5 flex-wrap text-[9px] border border-border/60 rounded-xl bg-background/70 px-2.5 py-2">
             <span className="font-bold uppercase tracking-wider text-muted-foreground">Sueño</span>
             <span className="px-2 py-0.5 rounded-lg bg-foreground/5 text-muted-foreground font-medium border border-border/60">
@@ -142,11 +179,12 @@ export function PlanSistemaSection() {
           <ol className="space-y-1.5">
             {blocks.map((block, index) => {
               const systems = planSystems(block);
-              const start = parseTime(block.startTime);
-              let end = parseTime(block.endTime);
-              if (end <= start) end += 24 * 60;
+              const { start, end } = blockRange(block);
               const past = nowMinutes >= end;
               const current = nowMinutes >= start && nowMinutes < end;
+              const blockPct = current
+                ? Math.round(Math.min(100, Math.max(0, ((nowMinutes - start) / (end - start)) * 100)))
+                : 0;
 
               return (
                 <li
@@ -167,7 +205,7 @@ export function PlanSistemaSection() {
                     <div className="flex items-center gap-1.5">
                       {current && (
                         <span className="px-1.5 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-bold uppercase tracking-wide">
-                          Ahora
+                          Ahora · {blockPct}%
                         </span>
                       )}
                       {past && (

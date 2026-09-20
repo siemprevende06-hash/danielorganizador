@@ -132,8 +132,10 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         workoutIntensity={interaction.workoutIntensity}
         streak={interaction.streaks?.[meta.id]}
         coverUrl={
-          interaction.covers[coverKey(meta.cover?.type ?? "area", meta.cover?.id ?? meta.id)] ??
-          coverUrl
+          hideCover
+            ? undefined
+            : interaction.covers[coverKey(meta.cover?.type ?? "area", meta.cover?.id ?? meta.id)] ??
+              coverUrl
         }
         onToggle={() => interaction.onToggle(meta.id)}
         onSkip={() => interaction.onSkipToggle?.(meta.id)}
