@@ -211,7 +211,7 @@ export default function HabitSystemCard({
         )}
 
         {/* ─── Agregar datos ─── */}
-        <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border/40">
           <button
             onClick={onToggle}
             className={cn(

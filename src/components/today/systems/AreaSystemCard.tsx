@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Maximize2 } from "lucide-react";
@@ -93,6 +94,67 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
     return sum + actual;
   }, 0);
 
+  const ordered = useMemo(() => {
+    const idsOrder = config?.habitOrder;
+    if (!idsOrder || idsOrder.length === 0) return trackables;
+    const byId = new Map(trackables.map(t => [t.id, t]));
+    const first = idsOrder.filter(id => byId.has(id)).map(id => byId.get(id)!);
+    const restTrack = trackables.filter(t => !idsOrder.includes(t.id));
+    return [...first, ...restTrack];
+  }, [trackables, config]);
+
+  const splitAt = config?.fullWidthFromIndex ?? 0;
+  const topRow = splitAt > 0 ? ordered.slice(0, splitAt) : [];
+  const rest = splitAt > 0 ? ordered.slice(splitAt) : ordered;
+
+  const renderHabit = (meta: HabitMeta) => {
+    const sys = meta.system;
+    const actual = sys
+      ? systemActualMinutes(sys, { timeData: interaction.timeData })
+      : (interaction.timeData[meta.id] ?? 0);
+    const weekRaw = interaction.sparks?.[meta.id] ?? [];
+    const weekTotal = (interaction.weekTotals?.[meta.id] ?? 0) + Math.max(0, actual - (weekRaw[6] ?? 0));
+    const spark = weekRaw.length === 7 ? [...weekRaw.slice(0, 6), actual] : weekRaw;
+    return (
+      <HabitSystemCard
+        key={meta.id}
+        meta={meta}
+        done={!!interaction.completions[meta.id]}
+        isSkipped={!!interaction.skipped?.[meta.id]}
+        actualMinutes={actual}
+        metaMinutes={interaction.metaMinutesById[meta.id] ?? 0}
+        count={sys?.countKey ? interaction.countData?.[sys.countKey] ?? 0 : undefined}
+        speed={interaction.getSpeed(meta.id)}
+        spark={spark}
+        weekTotal={weekTotal}
+        waterDone={!!interaction.waterData?.[meta.id]}
+        mealUrl={interaction.mealPhotos?.[meta.id]}
+        wakeTime={interaction.wakeTime}
+        sleepTime={interaction.sleepTime}
+        workoutDuration={interaction.workoutDuration}
+        workoutIntensity={interaction.workoutIntensity}
+        streak={interaction.streaks?.[meta.id]}
+        coverUrl={
+          interaction.covers[coverKey(meta.cover?.type ?? "area", meta.cover?.id ?? meta.id)] ??
+          coverUrl
+        }
+        onToggle={() => interaction.onToggle(meta.id)}
+        onSkip={() => interaction.onSkipToggle?.(meta.id)}
+        onWater={() => interaction.onWaterToggle?.(meta.id)}
+        onMealPhotoUpload={interaction.onMealPhotoUpload}
+        onTimeChange={(v) => interaction.onTimeChange(meta.id, v)}
+        onCountChange={
+          sys?.countKey ? (v) => interaction.onCountChange?.(sys.countKey!, v) : undefined
+        }
+        onSpeedChange={(s) => interaction.setSpeed(meta.id, s)}
+        onWorkoutDurationChange={interaction.onWorkoutDurationChange}
+        onWorkoutIntensityChange={interaction.onWorkoutIntensityChange}
+        onWakeTimeChange={interaction.onWakeTimeChange}
+        onSleepTimeChange={interaction.onSleepTimeChange}
+      />
+    );
+  };
+
   return (
     <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
       <div className="p-3 border-b border-border/40 space-y-2">
@@ -163,55 +225,22 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
                 <span className="text-[9px] text-muted-foreground ml-auto">{trackableMinutes} min hoy</span>
               )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {trackables.map(meta => {
-                const sys = meta.system;
-                const actual = sys
-                  ? systemActualMinutes(sys, { timeData: interaction.timeData })
-                  : (interaction.timeData[meta.id] ?? 0);
-                const weekRaw = interaction.sparks?.[meta.id] ?? [];
-                const weekTotal = (interaction.weekTotals?.[meta.id] ?? 0) + Math.max(0, actual - (weekRaw[6] ?? 0));
-                const spark = weekRaw.length === 7 ? [...weekRaw.slice(0, 6), actual] : weekRaw;
-                return (
-                  <HabitSystemCard
-                    key={meta.id}
-                    meta={meta}
-                    done={!!interaction.completions[meta.id]}
-                    isSkipped={!!interaction.skipped?.[meta.id]}
-                    actualMinutes={actual}
-                    metaMinutes={interaction.metaMinutesById[meta.id] ?? 0}
-                    count={sys?.countKey ? interaction.countData?.[sys.countKey] ?? 0 : undefined}
-                    speed={interaction.getSpeed(meta.id)}
-                    spark={spark}
-                    weekTotal={weekTotal}
-                    waterDone={!!interaction.waterData?.[meta.id]}
-                    mealUrl={interaction.mealPhotos?.[meta.id]}
-                    wakeTime={interaction.wakeTime}
-                    sleepTime={interaction.sleepTime}
-                    workoutDuration={interaction.workoutDuration}
-                    workoutIntensity={interaction.workoutIntensity}
-                    streak={interaction.streaks?.[meta.id]}
-                    coverUrl={
-                      interaction.covers[coverKey(meta.cover?.type ?? "area", meta.cover?.id ?? meta.id)] ??
-                      coverUrl
-                    }
-                    onToggle={() => interaction.onToggle(meta.id)}
-                    onSkip={() => interaction.onSkipToggle?.(meta.id)}
-                    onWater={() => interaction.onWaterToggle?.(meta.id)}
-                    onMealPhotoUpload={interaction.onMealPhotoUpload}
-                    onTimeChange={(v) => interaction.onTimeChange(meta.id, v)}
-                    onCountChange={
-                      sys?.countKey ? (v) => interaction.onCountChange?.(sys.countKey!, v) : undefined
-                    }
-                    onSpeedChange={(s) => interaction.setSpeed(meta.id, s)}
-                    onWorkoutDurationChange={interaction.onWorkoutDurationChange}
-                    onWorkoutIntensityChange={interaction.onWorkoutIntensityChange}
-                    onWakeTimeChange={interaction.onWakeTimeChange}
-                    onSleepTimeChange={interaction.onSleepTimeChange}
-                  />
-                );
-              })}
-            </div>
+            {topRow.length > 0 ? (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  {topRow.map(renderHabit)}
+                </div>
+                {rest.map(m => (
+                  <div key={m.id} className="grid grid-cols-1 gap-2">
+                    {renderHabit(m)}
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {ordered.map(renderHabit)}
+              </div>
+            )}
           </div>
         ) : (
           <div

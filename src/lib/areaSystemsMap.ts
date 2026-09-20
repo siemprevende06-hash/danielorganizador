@@ -20,8 +20,12 @@ export interface AreaSystemConfig {
   vision: string;
   /** "La garantía" del sistema: qué resultado produce si se cumple. */
   promise?: string;
-  /** Nota para áreas sin sistema diario propio. */
+  /** Los sistemas del día (DAY_SYSTEMS) se fusionan con los hábitos de Sostén. */
   systemNote?: string;
+  /** Orden de visualización de los hábitos dentro de la tarjeta de área. */
+  habitOrder?: string[];
+  /** Cuántos hábitos van en la primera fila de 3 columnas; el resto ocupa fila entera. */
+  fullWidthFromIndex?: number;
 }
 
 export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
@@ -87,6 +91,8 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
   desarrollo: {
     habits: ["musica", "idiomas", "game", "ajedrez", "lectura"],
     hierarchyAreas: ["musica", "lectura", "ajedrez", "ingles", "italiano", "game"],
+    habitOrder: ["lectura", "ajedrez", "game", "idiomas", "musica"],
+    fullWidthFromIndex: 3,
     vision: "Tocar música de forma avanzada, +24 libros/año y dominio de inglés e italiano",
     promise:
       "30 min de música (mín 15) ⇒ aprendes canciones. 15 min de lectura/ajedrez/idiomas ⇒ dominio acumulativo.",
