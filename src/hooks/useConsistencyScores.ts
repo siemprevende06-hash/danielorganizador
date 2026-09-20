@@ -134,7 +134,7 @@ export function useConsistencyScores(
         return
       }
 
-      const dailyRates: number[] = []
+      const dailyRates = new Map<string, number[]>()
       const seen = new Set<string>()
 
       for (const row of data) {
@@ -144,26 +144,33 @@ export function useConsistencyScores(
 
         const doneSet = completionsMap.get(row.stat_date)
         const completed = doneSet?.has(row.area_id) ?? false
+        let rate: number
         if (completed) {
-          dailyRates.push(100)
-          continue
+          rate = 100
+        } else {
+          const goal = row.time_goal_minutes || 30
+          const spent = row.time_spent_minutes || 0
+          rate = Math.min(100, Math.round((spent / goal) * 100))
         }
-
-        const goal = row.time_goal_minutes || 30
-        const spent = row.time_spent_minutes || 0
-        const rate = Math.min(100, Math.round((spent / goal) * 100))
-        dailyRates.push(rate)
+        const arr = dailyRates.get(row.stat_date) ?? []
+        arr.push(rate)
+        dailyRates.set(row.stat_date, arr)
       }
 
-      if (dailyRates.length === 0) {
+      // Tasa diaria = promedio de las filas del día; el % es suma de tasas
+      // diarias / total de días (días sin registrar cuentan 0 → nada da 100% falso).
+      if (dailyRates.size === 0) {
         setScore(0)
         setDaysWithData(0)
       } else {
-        const avg = Math.round(dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length)
         const days = dayCount(start, end)
-        const consistency = Math.min(100, Math.round(avg * (dailyRates.length / days)))
+        const totalPoints = Array.from(dailyRates.values()).reduce(
+          (s, arr) => s + arr.reduce((a, b) => a + b, 0) / arr.length,
+          0
+        )
+        const consistency = Math.min(100, Math.round(totalPoints / days))
         setScore(consistency)
-        setDaysWithData(dailyRates.length)
+        setDaysWithData(dailyRates.size)
       }
     } catch (err) {
       console.warn("[useConsistencyScores] exception:", err)
@@ -254,7 +261,7 @@ export function useMultiConsistencyScores(
         }
 
         const seen = new Set<string>()
-        const rates: number[] = []
+        const dailyRates = new Map<string, number[]>()
 
         for (const row of groupData) {
           const key = `${row.area_id}|${row.stat_date}`
@@ -263,21 +270,28 @@ export function useMultiConsistencyScores(
 
           const doneSet = completionsMap.get(row.stat_date)
           const completed = doneSet?.has(row.area_id) ?? false
+          let rate: number
           if (completed) {
-            rates.push(100)
-            continue
+            rate = 100
+          } else {
+            const goal = row.time_goal_minutes || 30
+            const spent = row.time_spent_minutes || 0
+            rate = Math.min(100, Math.round((spent / goal) * 100))
           }
-
-          const goal = row.time_goal_minutes || 30
-          const spent = row.time_spent_minutes || 0
-          const rate = Math.min(100, Math.round((spent / goal) * 100))
-          rates.push(rate)
+          const arr = dailyRates.get(row.stat_date) ?? []
+          arr.push(rate)
+          dailyRates.set(row.stat_date, arr)
         }
 
-        result[groupName] =
-          rates.length > 0
-            ? Math.min(100, Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * (rates.length / dayCount(start, end))))
-            : 0
+        // Misma corrección que useConsistencyScores: por día, no por fila.
+        result[groupName] = dailyRates.size > 0
+          ? Math.min(100, Math.round(
+              Array.from(dailyRates.values()).reduce(
+                (s, arr) => s + arr.reduce((a, b) => a + b, 0) / arr.length,
+                0
+              ) / dayCount(start, end)
+            ))
+          : 0
       }
 
       setScores(result)

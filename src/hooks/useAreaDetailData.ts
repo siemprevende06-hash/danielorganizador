@@ -143,17 +143,29 @@ export function useAreaDetailData(areaId: string) {
 
       const rate = (r: (typeof rows)[number]) => (r.done ? 100 : Math.min(100, Math.round((r.spent / (r.goal || 30)) * 100)));
 
-      // Consistencia por ventana (misma fórmula que useConsistencyScores/useMultiConsistencyScores)
+      // Consistencia por ventana: tasa diaria = promedio de las filas de ese día;
+      // el % de la ventana es la suma de tasas diarias / total de días (días sin
+      // registrar cuentan 0, así nadie muestra 100% falso).
       const cons: Record<EffortWindow, number> = { hoy: 0, semana: 0, mes: 0, trimestre: 0, anio: 0 };
       (Object.keys(WINDOW_DAYS) as EffortWindow[]).forEach(w => {
         const range = windowRange(w);
-        const inRange = rows.filter(r => r.date >= range.start && r.date <= range.end);
-        if (inRange.length === 0) {
+        const days = dayCount(range.start, range.end);
+        const byDay = new Map<string, number[]>();
+        for (const r of rows) {
+          if (r.date < range.start || r.date > range.end) continue;
+          const arr = byDay.get(r.date) ?? [];
+          arr.push(rate(r));
+          byDay.set(r.date, arr);
+        }
+        if (byDay.size === 0) {
           cons[w] = 0;
           return;
         }
-        const avg = inRange.reduce((s, r) => s + rate(r), 0) / inRange.length;
-        cons[w] = Math.min(100, Math.round(avg * (inRange.length / dayCount(range.start, range.end))));
+        const totalPoints = Array.from(byDay.values()).reduce(
+          (s, arr) => s + arr.reduce((a, b) => a + b, 0) / arr.length,
+          0
+        );
+        cons[w] = Math.min(100, Math.round(totalPoints / days));
       });
       setConsistency(cons);
 

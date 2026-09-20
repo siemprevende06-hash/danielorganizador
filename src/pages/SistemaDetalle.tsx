@@ -47,6 +47,7 @@ import {
   type EffortWindow,
 } from "@/hooks/useAreaDetailData";
 import { MejoraProcessPanel } from "@/components/mejora/MejoraProcessPanel";
+import { FocusProcessPanel } from "@/components/focus/FocusProcessPanel";
 import { cn } from "@/lib/utils";
 
 function flattenSub(scores: SubAreaScore[]): SubAreaScore[] {
@@ -340,8 +341,11 @@ export default function SistemaDetalle() {
           </div>
         </Card>
 
-        {/* ─── Esfuerzo de mejora: selector lectura/música/ajedrez/idiomas/game/gym ─── */}
-        <MejoraProcessPanel />
+        {/* ─── Esfuerzo de la sección Mejora: solo desarrollo personal ─── */}
+        {area.id === "desarrollo" && <MejoraProcessPanel />}
+
+        {/* ─── Esfuerzo profesional/académico: solo área profesional ─── */}
+        {area.id === "profesional" && <FocusProcessPanel />}
 
         {/* ─── Objetivos semana / mes / trimestre / año ─── */}
         <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl p-4 space-y-3">

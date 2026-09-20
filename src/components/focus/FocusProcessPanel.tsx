@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { AreaChart, Area, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ProgressRing } from '@/components/monthly-planning/ProgressRing';
 import { getDayGoalEffective, getWeekGoalEffective, getMonthGoal, getQuarterGoal, getWeekId } from '@/lib/hierarchy';
-import { AlertTriangle, ArrowLeft, Briefcase, FolderKanban, Clock, Flame, GraduationCap, Target, TrendingUp, Trophy, Activity, CheckCircle2, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Briefcase, FolderKanban, Clock, Flame, GraduationCap, Target, TrendingUp, Trophy, Activity, CheckCircle2, BarChart3, type LucideIcon } from 'lucide-react';
 
 type FocusAreaId = 'universidad' | 'emprendimiento' | 'proyectos';
 
@@ -131,15 +131,38 @@ interface Props {
 
 export function FocusProcessPanel({ todayMinutes, anchorDate, children }: Props) {
   const [selected, setSelected] = useState<FocusAreaId | null>(null);
+  const [history, setHistory] = useState<any[] | null>(null);
+  const [areaStats, setAreaStats] = useState<any[] | null>(null);
   const anchor = anchorDate ?? new Date();
+  const anchorStr = format(anchor, 'yyyy-MM-dd');
+
+  useEffect(() => {
+    let active = true;
+    const start = format(subDays(anchor, 119), 'yyyy-MM-dd');
+    const fetchData = async () => {
+      const [tracking, stats] = await Promise.allSettled([
+        supabase.from('daily_systems_tracking').select('tracking_date, time_data').gte('tracking_date', start).order('tracking_date', { ascending: true }),
+        supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', start),
+      ]);
+      if (!active) return;
+      setHistory(tracking.status === 'fulfilled' ? tracking.value.data || [] : []);
+      setAreaStats(stats.status === 'fulfilled' ? stats.value.data || [] : []);
+    };
+    fetchData();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchorStr]);
 
   return (
     <div className="space-y-3">
       <AreaSelector selected={selected} onSelect={setSelected} />
       {selected ? (
-        <AreaDetail area={selected} todayMinutes={todayMinutes} anchor={anchor} onBack={() => setSelected(null)} />
+        <AreaDetail area={selected} todayMinutes={todayMinutes} anchor={anchor} history={history} areaStats={areaStats} onBack={() => setSelected(null)} />
       ) : (
-        children
+        <>
+          <FocusOverview anchor={anchor} history={history} areaStats={areaStats} todayMinutes={todayMinutes} />
+          {children}
+        </>
       )}
     </div>
   );
@@ -176,30 +199,10 @@ function AreaSelector({ selected, onSelect }: { selected: FocusAreaId | null; on
   );
 }
 
-function AreaDetail({ area, todayMinutes, anchor, onBack }: { area: FocusAreaId; todayMinutes?: Record<FocusAreaId, number>; anchor: Date; onBack: () => void }) {
+function AreaDetail({ area, todayMinutes, anchor, history, areaStats, onBack }: { area: FocusAreaId; todayMinutes?: Record<FocusAreaId, number>; anchor: Date; history: any[] | null; areaStats: any[] | null; onBack: () => void }) {
   const meta = FOCUS_AREAS.find((a) => a.id === area)!;
   const anchorStr = format(anchor, 'yyyy-MM-dd');
   const isTodayAnchor = anchorStr === format(new Date(), 'yyyy-MM-dd');
-  const [history, setHistory] = useState<any[] | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    const start = format(subDays(anchor, 119), 'yyyy-MM-dd');
-    const fetchData = async () => {
-      const [tracking, stats] = await Promise.allSettled([
-        supabase.from('daily_systems_tracking').select('tracking_date, time_data').gte('tracking_date', start).order('tracking_date', { ascending: true }),
-        supabase.from('daily_area_stats').select('area_id, stat_date, time_spent_minutes').gte('stat_date', start),
-      ]);
-      if (!active) return;
-      setHistory(tracking.status === 'fulfilled' ? tracking.value.data || [] : []);
-      setAreaStats(stats.status === 'fulfilled' ? stats.value.data || [] : []);
-    };
-    fetchData();
-    return () => { active = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchorStr]);
-
-  const [areaStats, setAreaStats] = useState<any[] | null>(null);
 
   const series = useMemo(() => {
     if (!history) return null;
@@ -557,6 +560,150 @@ function AreaDetail({ area, todayMinutes, anchor, onBack }: { area: FocusAreaId;
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ============ Resumen de esfuerzo profesional (vista general) ============
+
+function FocusOverview({ anchor, history, areaStats, todayMinutes }: { anchor: Date; history: any[] | null; areaStats: any[] | null; todayMinutes?: Record<FocusAreaId, number> }) {
+  const anchorStr = format(anchor, 'yyyy-MM-dd');
+  const isTodayAnchor = anchorStr === format(new Date(), 'yyyy-MM-dd');
+
+  const daily = useMemo(() => {
+    if (!history) return null;
+    const arr: { date: string; total: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = subDays(anchor, i);
+      const key = format(d, 'yyyy-MM-dd');
+      const row = history.find((r) => r.tracking_date === key);
+      let total = 0;
+      FOCUS_AREAS.forEach((a) => {
+        const dbMin = row ? getFocusMinutes(row, a.id) : 0;
+        const statMin = (areaStats || []).filter(s => s.stat_date === key && s.area_id === a.id).reduce((acc, s) => acc + (Number(s.time_spent_minutes) || 0), 0);
+        const liveMin = isTodayAnchor && todayMinutes ? (todayMinutes[a.id] || 0) : 0;
+        total += Math.max(dbMin, statMin, liveMin);
+      });
+      arr.push({ date: key, total });
+    }
+    return arr;
+  }, [history, areaStats, anchorStr, isTodayAnchor, todayMinutes]);
+
+  const stats = useMemo(() => {
+    if (!daily) return null;
+    const activeDays = daily.filter((d) => d.total > 0).length;
+    const total = daily.reduce((a, d) => a + d.total, 0);
+    const goalPerDay = FOCUS_AREAS.reduce((a, m) => a + m.dailyTarget, 0);
+    return { activeDays, total, goalPerDay };
+  }, [daily]);
+
+  const perArea = useMemo(() => {
+    if (!history) return null;
+    const totals: Record<string, number> = {};
+    const from30 = format(subDays(anchor, 29), 'yyyy-MM-dd');
+    history.slice(-30).forEach((row) => {
+      FOCUS_AREAS.forEach((a) => {
+        totals[a.id] = (totals[a.id] || 0) + getFocusMinutes(row, a.id);
+      });
+    });
+    (areaStats || []).forEach((s) => {
+      if (s.stat_date >= from30 && FOCUS_AREAS.some(f => f.id === s.area_id)) {
+        totals[s.area_id] = Math.max(totals[s.area_id] || 0, Number(s.time_spent_minutes) || 0);
+      }
+    });
+    return totals;
+  }, [history, areaStats, anchor]);
+
+  const weeklyChart = useMemo(() => {
+    if (!daily) return null;
+    const weeks: { label: string; total: number; goal: number }[] = [];
+    for (let w = 7; w >= 0; w--) {
+      const end = subDays(anchor, w * 7);
+      const start = subDays(end, 6);
+      const sKey = format(start, 'yyyy-MM-dd');
+      const eKey = format(end, 'yyyy-MM-dd');
+      const total = daily.filter((d) => d.date >= sKey && d.date <= eKey).reduce((a, d) => a + d.total, 0);
+      const weeklyGoal = FOCUS_AREAS.reduce((a, m) => a + (getWeekGoalEffective(start, m.id) || 0), 0);
+      weeks.push({ label: getWeekId(start), total, goal: weeklyGoal });
+    }
+    return weeks;
+  }, [daily, anchor]);
+
+  if (!daily || !stats) return null;
+
+  const topArea = FOCUS_AREAS.map(a => ({ meta: a, total: perArea?.[a.id] || 0 })).sort((a, b) => b.total - a.total)[0];
+
+  return (
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-400" />
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-blue-500" />
+          <h2 className="text-sm font-bold">Resumen Esfuerzo Profesional · {format(anchor, 'MMMM yyyy', { locale: es })}</h2>
+          <Badge variant="outline" className="text-[10px] font-mono ml-auto">últimos 30 días</Badge>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="rounded-xl bg-blue-500/10 p-3 text-center">
+            <p className="text-xl font-extrabold text-blue-500">{stats.total}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Min Profesional 30d</p>
+          </div>
+          <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
+            <p className="text-xl font-extrabold text-emerald-500">{stats.activeDays}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Días activos 30d</p>
+          </div>
+          <div className="rounded-xl bg-muted/40 p-3 text-center">
+            <p className="text-xl font-extrabold">{stats.goalPerDay}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Meta ideal / día</p>
+          </div>
+          {topArea && (
+            <div className="rounded-xl bg-muted/40 p-3 text-center">
+              <topArea.meta.icon className="h-5 w-5 mx-auto mb-1" />
+              <p className="text-base font-extrabold">{Math.round(topArea.total)}</p>
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Top: {topArea.meta.label}</p>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Tendencia diaria — profesional (min)</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={daily} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+              <defs>
+                <linearGradient id="gradFocusOverview" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.14)" />
+              <XAxis dataKey="date" tick={{ fontSize: 7, fill: 'currentColor' }} interval={4} tickFormatter={(v) => format(new Date(v), 'dd/MM')} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 8, fill: 'currentColor' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ fontSize: 11 }} formatter={(v: number) => [`${v} min`]} labelFormatter={(d: string) => format(new Date(d), 'EEEE dd/MM', { locale: es })} />
+              <ReferenceLine y={stats.goalPerDay} stroke="#10b981" strokeDasharray="5 4" strokeOpacity={0.6} />
+              <Area type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} fill="url(#gradFocusOverview)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Semanas vs objetivo (min)</p>
+          {weeklyChart ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={weeklyChart} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.14)" />
+                <XAxis dataKey="label" tick={{ fontSize: 7, fill: 'currentColor' }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(-2)} />
+                <YAxis tick={{ fontSize: 8, fill: 'currentColor' }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Bar dataKey="total" radius={[5, 5, 0, 0]}>
+                  {weeklyChart.map((w: any, i: number) => (
+                    <Cell key={i} fill={w.total >= w.goal && w.goal > 0 ? '#10b981' : w.total >= (w.goal || 0) * 0.6 ? '#3b82f6' : '#ef4444'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
