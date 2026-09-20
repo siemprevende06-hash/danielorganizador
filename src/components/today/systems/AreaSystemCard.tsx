@@ -178,36 +178,25 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5 text-[9px]">
-          <div className="rounded-lg bg-foreground/5 px-2 py-1.5 space-y-1">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>Esfuerzo (30d)</span>
-              <span className="font-bold">{score?.esfuerzo ?? 0}%</span>
+<div className="grid grid-cols-2 gap-1.5 text-[9px]">
+            <div className="rounded-lg bg-foreground/5 px-2 py-1.5 space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Esfuerzo (30d)</span>
+                <span className="font-bold">{score?.esfuerzo ?? 0}%</span>
+              </div>
+              <Progress value={Math.min(100, score?.esfuerzo ?? 0)} className="h-1" indicatorClassName="bg-blue-500" />
             </div>
-            <Progress value={Math.min(100, score?.esfuerzo ?? 0)} className="h-1" indicatorClassName="bg-blue-500" />
-          </div>
-          <div className="rounded-lg bg-foreground/5 px-2 py-1.5 space-y-1">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>Resultado (Punto B)</span>
-              <span className="font-bold">{score?.resultados ?? 0}%</span>
+            <div className="rounded-lg bg-foreground/5 px-2 py-1.5 space-y-1">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Resultado (Punto B)</span>
+                <span className="font-bold">{score?.resultados ?? 0}%</span>
+              </div>
+              <Progress value={Math.min(100, score?.resultados ?? 0)} className="h-1" indicatorClassName={group.bar} />
             </div>
-            <Progress value={Math.min(100, score?.resultados ?? 0)} className="h-1" indicatorClassName={group.bar} />
           </div>
-        </div>
-
-        <p className={cn("text-[9px] leading-relaxed", tone.text)}>
-          {diagnosis.message}
-        </p>
       </div>
 
       <div className="p-3 space-y-4">
-        {config?.promise && (
-          <p className="text-[10px] leading-relaxed text-muted-foreground bg-foreground/5 rounded-lg px-2.5 py-2">
-            <span className="font-bold text-foreground">🎯 El sistema </span>
-            {config.promise}
-          </p>
-        )}
-
         {trackables.length > 0 ? (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">

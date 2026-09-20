@@ -1,6 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { useAreaCovers } from "@/hooks/useAreaCovers";
 import { useAreaScores } from "@/hooks/useAreaScores";
 import { useSystemSpeed } from "@/hooks/useSystemSpeed";
@@ -16,11 +14,11 @@ import {
   getAreaTrackableHabits,
   type PointBGroup,
 } from "@/lib/areaSystemsMap";
-import { systemActualMinutes, systemMinForSpeed } from "@/lib/daySystems";
+import { systemMinForSpeed } from "@/lib/daySystems";
 import { POINT_B_AREAS } from "@/data/pointB2027";
 import type { PointBArea } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
-import { Zap, AlertTriangle, CheckCircle2, Hammer, Layers, Trophy, LayoutGrid } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Hammer, Layers, Trophy, LayoutGrid } from "lucide-react";
 import AreaSystemCard, { type AreaInteraction } from "./systems/AreaSystemCard";
 
 const GROUP_ORDER: PointBGroup[] = ["cimientos", "construccion", "recompensas"];
@@ -71,7 +69,7 @@ export function DaySystemsSection({
 }) {
   const { getSpeed, setSpeed } = useSystemSpeed();
   const covers = useAreaCovers();
-  const { scores, averages, loading, subStats } = useAreaScores("month", "ambos");
+  const { scores, loading, subStats } = useAreaScores("month", "ambos");
   const { streaks } = useSystemStreaks(ALL_TRACKABLE_IDS);
   const { sparks, weekTotals } = useWeekSparks(ALL_TRACKABLE_IDS);
   const { items: todayItems, generalTasks, refresh: refreshToday } = useTodayFocusItems();
@@ -101,23 +99,6 @@ export function DaySystemsSection({
     }
     return m;
   }, [getSpeed]);
-
-  const todayDone = useMemo(
-    () => ALL_TRACKABLE_IDS.filter(id => completions[id]).length,
-    [completions]
-  );
-
-  const todayMinutes = useMemo(() => {
-    let total = 0;
-    for (const id of ALL_TRACKABLE_IDS) {
-      const meta = HABIT_META[id];
-      if (!meta) continue;
-      total += meta.system
-        ? systemActualMinutes(meta.system, { timeData })
-        : (timeData[id] ?? 0);
-    }
-    return total;
-  }, [timeData]);
 
   const groups = useMemo(() => {
     const g: Record<PointBGroup, PointBArea[]> = {
@@ -185,15 +166,6 @@ export function DaySystemsSection({
 
   return (
     <div className="space-y-5">
-      <SummaryHeader
-        averages={averages}
-        scores={scores}
-        loading={loading}
-        todayDone={todayDone}
-        todayTotal={ALL_TRACKABLE_IDS.length}
-        todayMinutes={todayMinutes}
-      />
-
       <ChaosBanner scores={scores} loading={loading} />
 
       {/* ─── Divisiones del Punto B: toques la división y te salen sus áreas ─── */}
@@ -279,96 +251,6 @@ export function DaySystemsSection({
         );
       })}
     </div>
-  );
-}
-
-function SummaryHeader({
-  averages,
-  scores,
-  loading,
-  todayDone,
-  todayTotal,
-  todayMinutes,
-}: {
-  averages: { esfuerzo: number; resultados: number };
-  scores: ReturnType<typeof useAreaScores>["scores"];
-  loading: boolean;
-  todayDone: number;
-  todayTotal: number;
-  todayMinutes: number;
-}) {
-  const counts = useMemo(() => {
-    let funcionando = 0;
-    let roto = 0;
-    let caos = 0;
-    let heredado = 0;
-    for (const s of scores) {
-      const d = diagnoseArea(s.esfuerzo, s.resultados);
-      if (d.key === "funcionando") funcionando++;
-      else if (d.key === "roto") roto++;
-      else if (d.key === "abandonado") caos++;
-      else if (d.key === "heredado") heredado++;
-    }
-    return { funcionando, roto, caos, heredado };
-  }, [scores]);
-
-  return (
-    <Card className="border-0 bg-gradient-to-br from-primary/15 via-background to-background backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
-      <div className="p-4 space-y-3">
-        <div className="flex items-center gap-1.5">
-          <Zap className="h-3.5 w-3.5 text-primary" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Sistemas y Resultados
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-background/80 dark:bg-zinc-950/40 border border-border/50 p-2.5 space-y-1">
-            <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-              <span>Punto B global</span>
-              <span className="font-bold text-foreground">{averages.resultados}%</span>
-            </div>
-            <Progress value={Math.min(100, averages.resultados)} className="h-1.5" indicatorClassName="bg-primary" />
-          </div>
-          <div className="rounded-xl bg-background/80 dark:bg-zinc-950/40 border border-border/50 p-2.5 space-y-1">
-            <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-              <span>Esfuerzo 30 días</span>
-              <span className="font-bold text-foreground">{averages.esfuerzo}%</span>
-            </div>
-            <Progress value={Math.min(100, averages.esfuerzo)} className="h-1.5" indicatorClassName="bg-blue-500" />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-          <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
-            Hoy {todayDone}/{todayTotal} ✓
-          </span>
-          <span className="px-2 py-1 rounded-lg bg-foreground/5 text-muted-foreground font-semibold">
-            {todayMinutes} min
-          </span>
-          {!loading ? (
-            <>
-              <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
-                ✅ {counts.funcionando}
-              </span>
-              <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">
-                ⚙️ {counts.roto}
-              </span>
-              <span className="px-2 py-1 rounded-lg bg-red-500/10 text-red-500 font-semibold">
-                🧨 {counts.caos}
-              </span>
-              <span className="px-2 py-1 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 font-semibold">
-                🎓 {counts.heredado}
-              </span>
-            </>
-          ) : (
-            <span className="px-2 py-1 rounded-lg bg-foreground/5 text-muted-foreground animate-pulse">
-              Diagnóstico…
-            </span>
-          )}
-        </div>
-      </div>
-    </Card>
   );
 }
 

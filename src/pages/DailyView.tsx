@@ -34,6 +34,7 @@ import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/cont
 import { ResultadosDia } from '@/components/resultados/ResultadosDia';
 import { DaySystemsSection } from '@/components/today/DaySystemsSection';
 import { DaySpeedSection } from '@/components/today/DaySpeedSection';
+import { PlanSistemaSection } from '@/components/today/PlanSistemaSection';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
@@ -611,8 +612,10 @@ export default function DailyView() {
         ) : viewMode === 'autocritica' ? (
           <AutocriticaSection start={selectedDate} end={selectedDate} scope="day" planGoals={planGoals} />
         ) : viewMode === 'sistemas' ? (
-          <DaySystemsSection
-            completions={data.completions}
+          <>
+            <PlanSistemaSection />
+            <DaySystemsSection
+              completions={data.completions}
             timeData={data.timeData}
             workoutDuration={data.workoutDuration}
             onToggle={toggleCompletion}
@@ -633,6 +636,7 @@ export default function DailyView() {
             onWorkoutIntensityChange={v => update('workoutIntensity', v)}
             onWorkoutDurationChange={v => update('workoutDuration', v)}
           />
+          </>
         ) : (
           <ResultadosDia date={selectedDate} />
         )}
