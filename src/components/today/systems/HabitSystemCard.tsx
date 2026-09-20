@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { getCoverGradient } from "@/components/areas/AreaCover";
 import { systemSpeedOptions, type SpeedOption, type SystemSpeed } from "@/lib/daySystems";
 import type { HabitMeta } from "@/lib/areaSystemsMap";
+import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -72,6 +73,7 @@ export interface HabitSystemCardProps {
   coverUrl?: string | null;
   spark?: number[];
   weekTotal?: number;
+  today?: TodayStripItem;
   onToggle: () => void;
   onSkip: () => void;
   onWater: () => void;
@@ -103,6 +105,7 @@ export default function HabitSystemCard({
   coverUrl,
   spark,
   weekTotal,
+  today,
   onToggle,
   onSkip,
   onWater,
@@ -126,6 +129,37 @@ export default function HabitSystemCard({
   const showMinutes = isSystem || meta.hasTime || meta.isWorkout;
   const pct = metaMinutes > 0 ? Math.round((actualMinutes / metaMinutes) * 100) : 0;
   const sparkMax = Math.max(1, metaMinutes, ...(spark ?? []));
+
+  const todayEmoji =
+    today && today.kind === "libro"
+      ? "📖"
+      : today && today.kind === "cancion"
+        ? "🎹"
+        : today && today.kind === "materia"
+          ? "🎓"
+          : today && today.kind === "emprendimiento"
+            ? "🚀"
+            : "📦";
+
+  const todayTitle = today
+    ? today.kind === "libro"
+      ? today.title
+      : today.kind === "cancion"
+        ? today.title
+        : today.name
+    : "";
+
+  const todayLabel = today
+    ? today.kind === "libro"
+      ? today.pagesTotal
+        ? `${today.pagesRead}/${today.pagesTotal} págs`
+        : `${today.pagesRead} págs`
+      : today.kind === "cancion"
+        ? `${today.instrument ? today.instrument + " · " : ""}${today.practiceMinutes ?? 0} min`
+        : today.kind === "materia" || today.kind === "emprendimiento"
+          ? `${today.doneTasks}/${today.totalTasks} tareas · ${today.blockCount} bloques hoy`
+          : `${today.doneTasks}/${today.totalTasks} tareas esta semana`
+    : "";
 
   const handlePhotoUpload = async (file: File) => {
     if (!onMealPhotoUpload) return;
@@ -208,6 +242,27 @@ export default function HabitSystemCard({
               Semana: {weekTotal ?? 0} min{meta.system?.countKey ? ` · ${count ?? 0} ${meta.system.countLabel || "repeticiones"}` : ""}
             </p>
           </>
+        )}
+
+        {/* ─── Hoy me toca: ítem planificado del día ─── */}
+        {today && (
+          <div className="flex items-center gap-2 rounded-lg bg-foreground/5 px-2 py-1.5">
+            {today.kind === "libro" && today.cover ? (
+              <img
+                src={today.cover}
+                alt={today.title}
+                className="h-8 w-6 rounded object-cover shrink-0 border border-border/40"
+              />
+            ) : (
+              <span className="text-sm shrink-0 leading-none">{todayEmoji}</span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-bold leading-tight truncate">{todayTitle}</p>
+              {todayLabel && (
+                <p className="text-[8px] text-muted-foreground leading-tight truncate">{todayLabel}</p>
+              )}
+            </div>
+          </div>
         )}
 
         {/* ─── Agregar datos ─── */}
