@@ -112,7 +112,10 @@ export function DaySystemsSection({
       construccion: [],
       recompensas: [],
     };
-    for (const area of POINT_B_AREAS) g[area.group].push(area);
+    for (const area of POINT_B_AREAS) {
+      if (area.id === "proposito") continue;
+      g[area.group].push(area);
+    }
     return g;
   }, []);
 
@@ -124,7 +127,7 @@ export function DaySystemsSection({
     };
     for (const s of scores) {
       const area = POINT_B_AREAS.find(a => a.id === s.id);
-      if (!area) continue;
+      if (!area || area.id === "proposito") continue;
       const d = diagnoseArea(s.esfuerzo, s.resultados);
       h[area.group].total++;
       if (d.key === "roto" || d.key === "abandonado") h[area.group].atencion++;
@@ -242,7 +245,7 @@ export function DaySystemsSection({
               </h2>
               <span className="text-[9px] text-muted-foreground hidden sm:inline">{cfg.sectionNote}</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               {areas.map(area => (
                 <AreaSystemCard
                   key={area.id}
