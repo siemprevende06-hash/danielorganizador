@@ -46,6 +46,7 @@ import {
   useAreaDetailData,
   type EffortWindow,
 } from "@/hooks/useAreaDetailData";
+import { MejoraProcessPanel } from "@/components/mejora/MejoraProcessPanel";
 import { cn } from "@/lib/utils";
 
 function flattenSub(scores: SubAreaScore[]): SubAreaScore[] {
@@ -231,7 +232,7 @@ export default function SistemaDetalle() {
               </p>
             </div>
             <div className="rounded-xl bg-foreground/5 px-2 py-3">
-              <div className="text-lg font-bold tabular-nums text-amber-500">
+              <div className="text-lg font-bold tabular-nums text-blue-500">
                 {score?.esfuerzo ?? 0}%
               </div>
               <p className="text-[10px] text-muted-foreground mt-0.5">Esfuerzo (30d)</p>
@@ -264,7 +265,7 @@ export default function SistemaDetalle() {
         {/* ─── Esfuerzo ─── */}
         <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-amber-500" />
+            <TrendingUp className="h-4 w-4 text-blue-500" />
             <h2 className="text-sm font-bold uppercase tracking-wider">Datos de esfuerzo</h2>
           </div>
 
@@ -283,7 +284,7 @@ export default function SistemaDetalle() {
                 <Progress
                   value={Math.min(100, consistency[w.key])}
                   className="h-1"
-                  indicatorClassName="bg-amber-500"
+                  indicatorClassName="bg-blue-500"
                 />
               </div>
             ))}
@@ -296,8 +297,8 @@ export default function SistemaDetalle() {
                 <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
                   <defs>
                     <linearGradient id="esfuerzoGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--warning))" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="hsl(var(--warning))" stopOpacity={0} />
+                      <stop offset="0%" stopColor="hsl(var(--info))" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="hsl(var(--info))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -327,7 +328,7 @@ export default function SistemaDetalle() {
                   <Area
                     type="monotone"
                     dataKey="esfuerzo"
-                    stroke="hsl(var(--warning))"
+                    stroke="hsl(var(--info))"
                     strokeWidth={2}
                     fill="url(#esfuerzoGrad)"
                     connectNulls
@@ -338,6 +339,9 @@ export default function SistemaDetalle() {
             </div>
           </div>
         </Card>
+
+        {/* ─── Esfuerzo de mejora: selector lectura/música/ajedrez/idiomas/game/gym ─── */}
+        <MejoraProcessPanel />
 
         {/* ─── Objetivos semana / mes / trimestre / año ─── */}
         <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl p-4 space-y-3">

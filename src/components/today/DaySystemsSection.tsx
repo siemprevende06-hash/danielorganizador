@@ -238,7 +238,7 @@ function SummaryHeader({
               <span>Esfuerzo 30 días</span>
               <span className="font-bold text-foreground">{averages.esfuerzo}%</span>
             </div>
-            <Progress value={Math.min(100, averages.esfuerzo)} className="h-1.5" indicatorClassName="bg-amber-500" />
+            <Progress value={Math.min(100, averages.esfuerzo)} className="h-1.5" indicatorClassName="bg-blue-500" />
           </div>
         </div>
 

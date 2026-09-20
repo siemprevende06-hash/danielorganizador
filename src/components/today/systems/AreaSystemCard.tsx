@@ -124,7 +124,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
               <span>Esfuerzo (30d)</span>
               <span className="font-bold">{score?.esfuerzo ?? 0}%</span>
             </div>
-            <Progress value={Math.min(100, score?.esfuerzo ?? 0)} className="h-1" indicatorClassName="bg-amber-500" />
+            <Progress value={Math.min(100, score?.esfuerzo ?? 0)} className="h-1" indicatorClassName="bg-blue-500" />
           </div>
           <div className="rounded-lg bg-foreground/5 px-2 py-1.5 space-y-1">
             <div className="flex items-center justify-between text-muted-foreground">
