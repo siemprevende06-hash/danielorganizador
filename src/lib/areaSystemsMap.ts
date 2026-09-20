@@ -26,6 +26,8 @@ export interface AreaSystemConfig {
   habitOrder?: string[];
   /** Cuántos hábitos van en la primera fila de 3 columnas; el resto ocupa fila entera. */
   fullWidthFromIndex?: number;
+  /** Tarjetas especiales al final del área (checklist/tareas virtuales). */
+  specialSections?: Array<"tareas-generales" | "organizacion">;
 }
 
 export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
@@ -85,6 +87,7 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
   apariencia: {
     habits: ["skincare-manana", "skincare-noche", "banarme-vestirse"],
     hierarchyAreas: [],
+    specialSections: ["organizacion"],
     vision: "Presencia impecable en cada detalle del día",
     promise: "Skin care AM/PM + higiene diaria ⇒ presencia y confianza que abren puertas.",
   },
@@ -100,6 +103,9 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
   profesional: {
     habits: ["universidad", "emprendimiento", "proyectos"],
     hierarchyAreas: ["universidad", "proyectos", "emprendimiento"],
+    habitOrder: ["universidad", "emprendimiento", "proyectos"],
+    fullWidthFromIndex: 3,
+    specialSections: ["tareas-generales"],
     vision: "Graduado en Ingeniería Automática y AUTEC estable generando ingresos",
     promise:
       "Bloques de 80–240 min en universidad y emprendimiento ⇒ semestre al día y AUTEC con ingresos recurrentes.",
@@ -306,6 +312,10 @@ export interface HabitMeta {
 
 const EXTRA_HABITS: Record<string, { name: string; emoji?: string }> = {
   proyectos: { name: "Proyectos" },
+  "organizacion-cuarto": { name: "Recoger cuarto", emoji: "🛏️" },
+  "organizacion-bano": { name: "Recoger baño", emoji: "🚿" },
+  "organizacion-sala": { name: "Recoger sala", emoji: "🛋️" },
+  "organizacion-platos": { name: "Fregar platos propios", emoji: "🍽️" },
 };
 
 function buildHabitMeta(): Record<string, HabitMeta> {
