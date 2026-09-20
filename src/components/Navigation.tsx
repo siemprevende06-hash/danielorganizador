@@ -30,7 +30,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
   {
     label: 'RUEDA DE LA VIDA',
     items: [
-      { path: '/areas-de-vida', label: 'Ãreas de Vida', icon: LayoutDashboard },
+      { path: '/areas-de-vida', label: 'Áreas de Vida', icon: LayoutDashboard },
       { path: '/mapa-de-vida', label: 'Mapa de Vida', icon: Network },
       { path: '/recompensas', label: 'Recompensas', icon: Sparkles },
     ]
@@ -42,7 +42,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/inicio-2', label: 'Inicio 2.0', icon: LayoutDashboard },
       { path: '/control-room', label: 'Control Room', icon: Gauge },
       { path: '/focus', label: 'Focus', icon: Focus },
-      { path: '/routine-day', label: 'Rutina del DÃ­a', icon: LayoutList },
+      { path: '/routine-day', label: 'Rutina del Día', icon: LayoutList },
     ]
   },
   {
@@ -57,17 +57,17 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
   {
     label: 'EXTRAS TIEMPO',
     items: [
-      { path: '/linea-de-tiempo', label: 'LÃ­nea de Tiempo', icon: Timeline },
+      { path: '/linea-de-tiempo', label: 'Línea de Tiempo', icon: Timeline },
       { path: '/weeks', label: 'Semanas', icon: CalendarDays },
       { path: '/goals', label: 'Metas', icon: Goal },
       { path: '/objetivo-prioritario', label: 'Objetivo Prioritario', icon: Milestone },
       { path: '/destino-a-llegar', label: 'Destino a Llegar', icon: MapPin },
       { path: '/estadisticas-esfuerzo', label: 'Esfuerzo', icon: Activity },
-      { path: '/conector-energia', label: 'Conector de EnergÃ­a', icon: Zap },
+      { path: '/conector-energia', label: 'Conector de Energía', icon: Zap },
     ]
   },
   {
-    label: 'LÃNEA DE TIEMPO',
+    label: 'LíNEA DE TIEMPO',
     items: [
       { path: '/ahora-mismo', label: 'Ahora Mismo', icon: Clock },
       { path: '/daily', label: 'Hoy', icon: CalendarDays },
@@ -75,13 +75,13 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/weekly', label: 'Semana', icon: CalendarRange },
       { path: '/monthly', label: 'Mes', icon: Calendar },
       { path: '/12-week-year', label: '3 Meses', icon: CalendarRange },
-      { path: '/anual', label: 'AÃ±o', icon: CalendarDays },
-      { path: '/cinco-anos', label: '5 AÃ±os', icon: CalendarRange },
-      { path: '/algun-dia', label: 'AlgÃºn DÃ­a', icon: Star },
+      { path: '/anual', label: 'Año', icon: CalendarDays },
+      { path: '/cinco-anos', label: '5 Años', icon: CalendarRange },
+      { path: '/algun-dia', label: 'Algún Día', icon: Star },
     ]
   },
   {
-    label: 'ÃREAS',
+    label: 'ÁREAS',
     items: [
       { path: '/entrepreneurship', label: 'Emprendimiento', icon: Briefcase },
       { path: '/university', label: 'Universidad', icon: GraduationCap },
@@ -93,9 +93,9 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
   {
     label: 'SEGUIMIENTO',
     items: [
-      { path: '/habits', label: 'HÃ¡bitos', icon: CheckSquare },
+      { path: '/habits', label: 'Hábitos', icon: CheckSquare },
       { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
-      { path: '/self-review', label: 'AutocrÃ­tica', icon: ClipboardCheck },
+      { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
       { path: '/journaling', label: 'Diario', icon: BookOpen },
     ]
   },
@@ -103,17 +103,17 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     label: 'RUTINAS',
     items: [
       { path: '/daily-routine', label: 'Rutina Diaria', icon: Calendar },
-      { path: '/activation-routine', label: 'ActivaciÃ³n', icon: Zap },
+      { path: '/activation-routine', label: 'Activación', icon: Zap },
       { path: '/morning-prep', label: 'Alistamiento', icon: Shirt },
-      { path: '/deactivation-routine', label: 'DesactivaciÃ³n', icon: Moon },
+      { path: '/deactivation-routine', label: 'Desactivación', icon: Moon },
       { path: '/weekend-routine', label: 'Fin de Semana', icon: Sun },
-      { path: '/organizacion', label: 'OrganizaciÃ³n', icon: LayoutList },
+      { path: '/organizacion', label: 'Organización', icon: LayoutList },
     ]
   },
   {
-    label: 'PÃGINAS',
+    label: 'PÁGINAS',
     items: [
-      { path: '/paginas', label: 'Todas las PÃ¡ginas', icon: FileText },
+      { path: '/paginas', label: 'Todas las Páginas', icon: FileText },
     ]
   },
   {
@@ -121,14 +121,14 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     items: [
       { path: '/languages-dashboard', label: 'Idiomas', icon: BookOpen },
       { path: '/reading-library', label: 'Biblioteca', icon: BookOpen },
-      { path: '/music-dashboard', label: 'MÃºsica', icon: BookOpen },
+      { path: '/music-dashboard', label: 'Música', icon: BookOpen },
       { path: '/chess', label: 'Ajedrez', icon: Crown },
     ]
   },
   {
     label: 'CUERPO Y MENTE',
     items: [
-      { path: '/alimentacion', label: 'AlimentaciÃ³n', icon: Utensils },
+      { path: '/alimentacion', label: 'Alimentación', icon: Utensils },
       { path: '/gym', label: 'Gimnasio', icon: Dumbbell },
       { path: '/gym-2-0', label: 'GYM 2.0', icon: Dumbbell },
       { path: '/grocery', label: 'Despensa', icon: Package },
@@ -148,17 +148,17 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { label: 'Motivos', icon: Heart, submenu: [
         { path: '/motivos', label: 'Motivos' },
         { path: '/motivos/realidad', label: 'Realidad' },
-        { path: '/objetivo-vision-1-ano', label: 'VisiÃ³n 1 AÃ±o' },
-        { path: '/vision-vs-realidad', label: 'VisiÃ³n vs Realidad' },
+        { path: '/objetivo-vision-1-ano', label: 'Visión 1 Año' },
+        { path: '/vision-vs-realidad', label: 'Visión vs Realidad' },
       ]},
       { path: '/ruta-2026', label: 'Ruta 2026', icon: Target },
       { path: '/punto-partida', label: 'Punto Partida', icon: Activity },
-      { path: '/goal-alignment', label: 'ConexiÃ³n Total', icon: Compass },
-      { path: '/life-alignment', label: 'AlineaciÃ³n', icon: Heart },
+      { path: '/goal-alignment', label: 'Conexión Total', icon: Compass },
+      { path: '/life-alignment', label: 'Alineación', icon: Heart },
       { path: '/confidence-steps', label: 'Escalones', icon: Target },
       { path: '/sprint', label: 'Sprint', icon: Target },
-      { path: '/vida-daniel', label: 'EstadÃ­sticas', icon: BarChart3 },
-      { path: '/periodic-review', label: 'RevisiÃ³n PeriÃ³dica', icon: Sparkles },
+      { path: '/vida-daniel', label: 'Estadísticas', icon: BarChart3 },
+      { path: '/periodic-review', label: 'Revisión Periódica', icon: Sparkles },
       { path: '/performance-modes', label: 'Modos', icon: Zap },
       { path: '/novia', label: 'Novia', icon: Heart },
       { path: '/tools', label: 'Herramientas', icon: Wrench },
@@ -168,7 +168,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
   {
     label: null,
     items: [
-      { path: '/settings', label: 'ConfiguraciÃ³n', icon: Settings },
+      { path: '/settings', label: 'Configuración', icon: Settings },
     ]
   },
 ];
@@ -180,7 +180,7 @@ function getPageTitle(pathname: string, customName?: string): string {
     return customName;
   }
   if (pathname.startsWith('/paginas')) {
-    return 'PÃ¡ginas';
+    return 'Páginas';
   }
   for (const item of allNavItems) {
     if (item.path === pathname) return item.label;
@@ -223,7 +223,7 @@ export const Navigation = () => {
         const raw = localStorage.getItem('pages_meta');
         if (raw) {
           const all = JSON.parse(raw) as any[];
-          setFavoritePages(all.filter((p: any) => p.is_favorite).map((p: any) => ({ id: p.id, title: p.title, icon: p.icon || 'ðŸ“„' })));
+          setFavoritePages(all.filter((p: any) => p.is_favorite).map((p: any) => ({ id: p.id, title: p.title, icon: p.icon || '📄' })));
         } else {
           setFavoritePages([]);
         }
@@ -374,7 +374,7 @@ export const Navigation = () => {
             {favoritePages.length > 0 && (
               <div className="pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-3 pb-1">
-                  â­ Favoritos
+                  ⭐ Favoritos
                 </p>
                 <div className="space-y-0.5">
                   {favoritePages.map(p => (
@@ -456,7 +456,7 @@ export const Navigation = () => {
           {favoritePages.length > 0 && !collapsed && (
             <div className="pt-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-3 pb-1">
-                â­ Favoritos
+                ⭐ Favoritos
               </p>
               <div className="space-y-0.5">
                 {favoritePages.map(p => (
