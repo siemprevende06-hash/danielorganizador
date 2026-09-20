@@ -66,6 +66,12 @@ const HOBBY_SMALL: SpeedOption[] = [
   { id: "extra", label: "Extra", minutes: 60 },
 ];
 
+const SEDUCCION_AJEDREZ: SpeedOption[] = [
+  { id: "minimo", label: "Mín", minutes: 10 },
+  { id: "maximo", label: "Máx", minutes: 20 },
+  { id: "extra", label: "Extra", minutes: 60 },
+];
+
 export const DAY_SYSTEMS: DaySystemArea[] = [
   {
     id: "prof-acad",
@@ -115,14 +121,14 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
         name: "Game (Seducción)",
         cover: { type: "sub", id: "game" },
         streakMinutes: 5,
-        speedOptions: HOBBY_SMALL,
+        speedOptions: SEDUCCION_AJEDREZ,
       },
       {
         id: "ajedrez",
         name: "Ajedrez",
         cover: { type: "sub", id: "ajedrez" },
         streakMinutes: 5,
-        speedOptions: HOBBY_SMALL,
+        speedOptions: SEDUCCION_AJEDREZ,
         countKey: "ajedrez",
         countLabel: "partidas",
       },
