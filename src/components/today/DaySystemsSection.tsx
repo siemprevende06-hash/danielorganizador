@@ -71,7 +71,7 @@ export function DaySystemsSection({
 }) {
   const { getSpeed, setSpeed } = useSystemSpeed();
   const covers = useAreaCovers();
-  const { scores, averages, loading } = useAreaScores("month", "ambos");
+  const { scores, averages, loading, subStats } = useAreaScores("month", "ambos");
   const { streaks } = useSystemStreaks(ALL_TRACKABLE_IDS);
   const { sparks, weekTotals } = useWeekSparks(ALL_TRACKABLE_IDS);
   const { items: todayItems, generalTasks, refresh: refreshToday } = useTodayFocusItems();
@@ -167,6 +167,7 @@ export function DaySystemsSection({
     todayItems,
     generalTasks,
     onToggleGeneralTask: toggleGeneralTask,
+    subStats,
     getSpeed,
     setSpeed,
     covers: covers.covers,

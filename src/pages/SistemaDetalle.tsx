@@ -40,8 +40,10 @@ import {
   getQuarterGoal,
   getWeekGoalEffective,
 } from "@/lib/hierarchy";
-import { useAreaScores, type SubAreaScore } from "@/hooks/useAreaScores";
+import { useAreaScores, type AreaScore } from "@/hooks/useAreaScores";
 import { usePuntoPartida } from "@/hooks/usePuntoPartida";
+import { buildResultLeaves } from "@/lib/resultConnections";
+import { ResultLeaves } from "@/components/today/systems/ResultLeaves";
 import {
   useAreaDetailData,
   type EffortWindow,
@@ -49,15 +51,6 @@ import {
 import { MejoraProcessPanel } from "@/components/mejora/MejoraProcessPanel";
 import { FocusProcessPanel } from "@/components/focus/FocusProcessPanel";
 import { cn } from "@/lib/utils";
-
-function flattenSub(scores: SubAreaScore[]): SubAreaScore[] {
-  const out: SubAreaScore[] = [];
-  for (const s of scores) {
-    if (s.children && s.children.length > 0) out.push(...flattenSub(s.children));
-    else out.push(s);
-  }
-  return out;
-}
 
 function flattenPointB(subs: PointBSubAxis[]): PointBSubAxis[] {
   const out: PointBSubAxis[] = [];
@@ -111,8 +104,9 @@ export default function SistemaDetalle() {
     ? GROUP_CONFIG[area.group as keyof typeof GROUP_CONFIG] ?? GROUP_CONFIG.construccion
     : GROUP_CONFIG.construccion;
 
-  const { consistency, series, today, minutesIn, loading } = useAreaDetailData(areaId ?? "");
-  const { scores: areaScores, loading: scoresLoading } = useAreaScores("month", "ambos");
+  const { consistency, series, today, todayCompletions, todayTimeData, minutesIn, loading } =
+    useAreaDetailData(areaId ?? "");
+  const { scores: areaScores, loading: scoresLoading, subStats } = useAreaScores("month", "ambos");
   const { entries: ppEntries, loading: ppLoading } = usePuntoPartida();
 
   const score = useMemo(
@@ -121,9 +115,19 @@ export default function SistemaDetalle() {
   );
 
   const resultLeaves = useMemo(() => {
-    if (!score) return [];
-    return flattenSub(score.sub);
-  }, [score]);
+    if (!score || !area) return [];
+    return buildResultLeaves({
+      area,
+      score,
+      currentOf: leafId => {
+        const v = ppEntries[area.id]?.sub_scores?.[leafId];
+        return typeof v === "number" ? v : undefined;
+      },
+      completions: todayCompletions,
+      timeData: todayTimeData,
+      subStats,
+    });
+  }, [area, score, ppEntries, todayCompletions, todayTimeData, subStats]);
 
   const pointBLeaves = useMemo(() => {
     if (!area) return [];
@@ -166,9 +170,6 @@ export default function SistemaDetalle() {
       </div>
     );
   }
-
-  const ppCurrent = (leaf: PointBSubAxis): number =>
-    ppEntries[area.id]?.sub_scores?.[leaf.id] ?? 0;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.05)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
@@ -445,29 +446,7 @@ export default function SistemaDetalle() {
           </div>
 
           {resultLeaves.length > 0 ? (
-            <div className="space-y-2">
-              {resultLeaves.map(leaf => {
-                const pb = pointBLeaves.find(p => p.id === leaf.id);
-                const current = pb ? ppCurrent(pb) : 0;
-                const pct = Math.min(100, Math.round(leaf.resultados));
-                return (
-                  <div key={leaf.id} className="flex items-center gap-2">
-                    <span className="text-[11px] font-medium w-32 truncate shrink-0">{leaf.label}</span>
-                    <Progress value={pct} className="h-2 flex-1" indicatorClassName={group.bar} />
-                    <div className="w-32 text-right shrink-0 space-y-0.5">
-                      <div className="text-[10px] font-bold tabular-nums">{leaf.resultados}%</div>
-                      <div className="text-[9px] text-muted-foreground tabular-nums">
-                        {pb && (pb.target > pb.start || current > pb.start)
-                          ? `${current}${pb.unit} → ${pb.target}${pb.unit}`
-                          : leaf.minutes > 0
-                            ? `${fmtMin(leaf.minutes)} en 30d`
-                            : ""}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ResultLeaves leaves={resultLeaves} group={group} />
           ) : (
             <p className="text-[10px] text-muted-foreground">
               Configura el Punto B para ver qué resultados produce esta área.

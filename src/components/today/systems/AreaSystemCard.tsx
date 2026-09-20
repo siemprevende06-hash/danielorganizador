@@ -14,13 +14,15 @@ import {
   type HabitMeta,
 } from "@/lib/areaSystemsMap";
 import type { PointBArea } from "@/lib/definitions";
-import type { AreaScore, SubAreaScore } from "@/hooks/useAreaScores";
+import type { AreaScore } from "@/hooks/useAreaScores";
 import type { SystemStreak } from "@/hooks/useSystemStreaks";
 import type { TodayStripItem, TodayTaskItem } from "@/hooks/useTodayFocusItems";
+import { buildResultLeaves } from "@/lib/resultConnections";
 import { cn } from "@/lib/utils";
 import HabitSystemCard from "./HabitSystemCard";
 import { OrganizacionCard } from "./OrganizacionCard";
 import { TareasGeneralesCard } from "./TareasGeneralesCard";
+import { ResultLeaves } from "./ResultLeaves";
 
 export interface AreaInteraction {
   completions: Record<string, boolean>;
@@ -40,6 +42,7 @@ export interface AreaInteraction {
   todayItems?: Record<string, TodayStripItem>;
   generalTasks?: { planned: TodayTaskItem[]; doneCount: number; totalCount: number };
   onToggleGeneralTask?: (id: string, done: boolean) => void;
+  subStats?: Record<string, { consistency: number; minutes: number }>;
   getSpeed: (id: string) => SystemSpeed;
   setSpeed: (id: string, s: SystemSpeed) => void;
   covers: Record<string, string>;
@@ -62,15 +65,6 @@ interface AreaSystemCardProps {
   interaction: AreaInteraction;
 }
 
-function flattenSub(scores: SubAreaScore[]): SubAreaScore[] {
-  const out: SubAreaScore[] = [];
-  for (const s of scores) {
-    if (s.children && s.children.length > 0) out.push(...flattenSub(s.children));
-    else out.push(s);
-  }
-  return out;
-}
-
 function DiagnosisBadge({ diagnosis }: { diagnosis: AreaDiagnosis }) {
   const tone = DIAGNOSIS_TONE[diagnosis.tone];
   return (
@@ -89,8 +83,16 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
   const diagnosis = score ? diagnoseArea(score.esfuerzo, score.resultados) : diagnoseArea(0, 0);
   const tone = DIAGNOSIS_TONE[diagnosis.tone];
 
-  const leaves = score ? flattenSub(score.sub) : [];
-  const resultLeaves = leaves.slice(0, 8);
+  const resultLeaves = useMemo(() => {
+    if (!score) return [];
+    return buildResultLeaves({
+      area,
+      score,
+      completions: interaction.completions,
+      timeData: interaction.timeData,
+      subStats: interaction.subStats,
+    });
+  }, [area, score, interaction.completions, interaction.timeData, interaction.subStats]);
 
   const doneCount = trackables.filter(t => interaction.completions[t.id]).length;
   const trackableMinutes = trackables.reduce((sum, t) => {
@@ -283,23 +285,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction }:
               <span className={cn("w-1.5 h-1.5 rounded-full", group.dot)} />
               Resultados que produce
             </h4>
-            <div className="space-y-1.5">
-              {resultLeaves.map((leaf) => {
-                const pct = Math.min(100, Math.round(leaf.resultados));
-                return (
-                  <div key={leaf.id} className="flex items-center gap-2">
-                    <span className="text-[9px] font-medium w-28 truncate shrink-0">{leaf.label}</span>
-                    <Progress value={pct} className="h-1.5 flex-1" indicatorClassName={group.bar} />
-                    <span className="text-[9px] text-muted-foreground w-12 text-right shrink-0">
-                      {leaf.resultados}%
-                      {leaf.minutes > 0 && (
-                        <span className="text-muted-foreground/60"> · {leaf.minutes}min</span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+            <ResultLeaves leaves={resultLeaves} group={group} maxResults={8} />
           </div>
         )}
       </div>

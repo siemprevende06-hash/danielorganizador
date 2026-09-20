@@ -70,6 +70,8 @@ export function useAreaDetailData(areaId: string) {
   });
   const [series, setSeries] = useState<EffortDay[]>([]);
   const [today, setToday] = useState({ done: 0, total: 0, minutes: 0 });
+  const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
+  const [todayTimeData, setTodayTimeData] = useState<Record<string, number>>({});
   const [minutesInWindow, setMinutesInWindow] = useState<Record<EffortWindow, Record<string, number>>>({
     hoy: {},
     semana: {},
@@ -191,6 +193,11 @@ export function useAreaDetailData(areaId: string) {
         minutes: seriesList[seriesList.length - 1]?.minutes ?? 0,
       });
 
+      setTodayCompletions(
+        Object.fromEntries([...(completionsMap.get(todayKey()) ?? [])].map(id => [id, true]))
+      );
+      setTodayTimeData(timeMap.get(todayKey()) ?? {});
+
       // Minutos reales por área de jerarquía en cada ventana (desde time_data)
       const minMap: Record<EffortWindow, Record<string, number>> = { hoy: {}, semana: {}, mes: {}, trimestre: {}, anio: {} };
       (Object.keys(WINDOW_DAYS) as EffortWindow[]).forEach(w => {
@@ -221,5 +228,5 @@ export function useAreaDetailData(areaId: string) {
     [minutesInWindow]
   );
 
-  return { loading, consistency, series, today, minutesIn };
+  return { loading, consistency, series, today, todayCompletions, todayTimeData, minutesIn };
 }
