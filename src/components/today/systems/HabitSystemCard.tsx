@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Clock, Droplets, Camera, ExternalLink, Sun, Moon, Flame, Trophy, Check } from "lucide-react";
+import { ReadingPagesInline } from "./ReadingPagesInline";
 
 type TierKey = "red" | "grey" | "blue" | "green" | "gold";
 
@@ -332,6 +333,11 @@ export default function HabitSystemCard({
             </button>
           </div>
         </div>
+
+        {/* Páginas leídas del libro activo (solo tarjeta de Lectura) */}
+        {meta.id === "lectura" && (
+          <ReadingPagesInline minutes={actualMinutes} onMinutesChange={onTimeChange} />
+        )}
 
         {/* Acciones extra */}
         {(meta.hasWater || meta.hasMealPhoto || meta.linkTo) && (

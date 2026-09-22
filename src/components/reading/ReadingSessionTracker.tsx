@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +66,10 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
   const [pageStart, setPageStart] = useState<number>(lastToday?.page_end ?? current?.pages_read ?? 0);
   const [pageEnd, setPageEnd] = useState<number>(lastToday?.page_end ?? current?.pages_read ?? 0);
 
+  // Evita registrar una sesión repetida si "Inicié en / Terminé en / tiempo" no cambiaron.
+  const lastSavedRef = useRef<{ minutes: number; start: number; end: number; bookId: string | null } | null>(null);
+  const savingRef = useRef(false);
+
   useEffect(() => setDraftMin(minutes), [minutes]);
   useEffect(() => {
     const base = lastToday?.page_end ?? current?.pages_read ?? 0;
@@ -76,33 +80,51 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
   const pages = Math.max(0, (Number(pageEnd) || 0) - (Number(pageStart) || 0));
 
   const handleSave = async () => {
-    if (draftMin <= 0 && pages <= 0) {
+    if (savingRef.current) return;
+    const start = Number(pageStart) || 0;
+    const end = Number(pageEnd) || 0;
+    const curMinutes = draftMin || 0;
+    if (curMinutes <= 0 && pages <= 0) {
       toast.info('Ingresa minutos o página inicio/fin');
       return;
     }
-    const start = Number(pageStart) || 0;
-    const end = Number(pageEnd) || 0;
-    const bookId = current?.id || null;
-    const saved = await saveSession({
-      minutes: draftMin || 0,
-      bookId,
-      pageStart: end >= start && end > 0 ? start : null,
-      pageEnd: end >= start && end > 0 ? end : null,
-    });
-    if (!saved) return;
+    const candidate = { minutes: curMinutes, start, end, bookId: current?.id ?? null };
+    const prev = lastSavedRef.current;
+    if (
+      prev &&
+      prev.end === end &&
+      prev.minutes === curMinutes &&
+      (prev.start === start || pages <= 0)
+    ) {
+      toast.info('Ya guardaste esta sesión');
+      return;
+    }
+    savingRef.current = true;
+    try {
+      const saved = await saveSession({
+        minutes: curMinutes,
+        bookId: current?.id || null,
+        pageStart: end >= start && end > 0 ? start : null,
+        pageEnd: end >= start && end > 0 ? end : null,
+      });
+      if (!saved) return;
 
-    // Sumar páginas al libro activo en la biblioteca
-    if (bookId && pages > 0) {
-      await updateBookProgress(bookId, (Number(current?.pages_read) || 0) + pages);
+      // Sumar páginas al libro activo en la biblioteca
+      if (current?.id && pages > 0) {
+        await updateBookProgress(current.id, (Number(current?.pages_read) || 0) + pages);
+      }
+      if (curMinutes > 0) {
+        onMinChange(curMinutes);
+      }
+      if (end > start && end > 0) {
+        setPageStart(end);
+        setPageEnd(end);
+      }
+      lastSavedRef.current = candidate;
+      onSaved?.();
+    } finally {
+      savingRef.current = false;
     }
-    if (draftMin > 0) {
-      onMinChange(draftMin);
-    }
-    if (end > start && end > 0) {
-      setPageStart(end);
-      setPageEnd(end);
-    }
-    onSaved?.();
   };
 
   return (

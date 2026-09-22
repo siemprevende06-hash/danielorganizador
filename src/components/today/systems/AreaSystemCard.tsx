@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import HabitSystemCard from "./HabitSystemCard";
 import { OrganizacionCard } from "./OrganizacionCard";
 import { TareasGeneralesCard } from "./TareasGeneralesCard";
+import { LanguageSkillCards } from "@/components/systems/LanguageSkillCards";
 
 export interface AreaInteraction {
   completions: Record<string, boolean>;
@@ -104,6 +105,21 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
   const rest = splitAt > 0 ? ordered.slice(splitAt) : ordered;
 
   const renderHabit = (meta: HabitMeta) => {
+    if (meta.id === 'idiomas') {
+      return (
+        <LanguageSkillCards
+          key={meta.id}
+          completions={interaction.completions}
+          onToggle={interaction.onToggle}
+          italianoTime={interaction.timeData?.italiano ?? 0}
+          inglesTime={interaction.timeData?.ingles ?? 0}
+          onItalianoTimeChange={(m) => interaction.onTimeChange('italiano', m)}
+          onInglesTimeChange={(m) => interaction.onTimeChange('ingles', m)}
+          skipped={interaction.skipped}
+          onSkipToggle={interaction.onSkipToggle}
+        />
+      );
+    }
     const sys = meta.system;
     const actual = sys
       ? systemActualMinutes(sys, { timeData: interaction.timeData })

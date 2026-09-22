@@ -205,7 +205,7 @@ const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 
 
 function getMejoraTime(td: Record<string, any> | undefined | null, habitId: string): number {
   if (!td) return 0
-  if (habitId === 'idiomas') return (Number(td.italiano) || 0) + (Number(td.ingles) || 0)
+  if (habitId === 'idiomas') return (Number(td.italiano) || 0) + (Number(td.ingles) || 0) + (Number(td.idiomas) || 0)
   return Number(td[habitId]) || 0
 }
 
