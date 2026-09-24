@@ -35,6 +35,7 @@ import { ResultadosDia } from '@/components/resultados/ResultadosDia';
 import { DaySystemsSection } from '@/components/today/DaySystemsSection';
 import { DaySpeedSection } from '@/components/today/DaySpeedSection';
 import { PlanSistemaSection } from '@/components/today/PlanSistemaSection';
+import { UniEntrepreneurshipProjectPanel } from '@/components/today/UniEntrepreneurshipProjectPanel';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
@@ -308,8 +309,13 @@ export default function DailyView() {
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
               <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
-              <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
-                <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} abcMap={abc.map} />
+              <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)] flex flex-col gap-3">
+                <div className="flex-1 min-h-0">
+                  <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} abcMap={abc.map} />
+                </div>
+                <div className="flex-1 min-h-0">
+                  <UniEntrepreneurshipProjectPanel />
+                </div>
               </div>
             </div>
 
@@ -628,10 +634,10 @@ export default function DailyView() {
             onWaterToggle={toggleWater}
             mealPhotos={data.mealPhotos}
             onMealPhotoUpload={setMealPhoto}
-            wakeTime={wakeTime}
-            sleepTime={sleepTime}
-            onWakeTimeChange={setWakeTime}
-            onSleepTimeChange={setSleepTime}
+            wakeTime={data.wakeTime}
+            sleepTime={data.sleepTime}
+            onWakeTimeChange={v => update('wakeTime', v)}
+            onSleepTimeChange={v => update('sleepTime', v)}
             workoutIntensity={data.workoutIntensity}
             onWorkoutIntensityChange={v => update('workoutIntensity', v)}
             onWorkoutDurationChange={v => update('workoutDuration', v)}
