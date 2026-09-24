@@ -155,7 +155,20 @@ const handleSave = async () => {
             <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
           </div>
 
-          <MonthBookSongOverview month={month} planData={planData} books={books.map(b => ({ id: b.id, title: b.title, author: b.author }))} songs={songs.map(s => ({ id: s.id, title: s.title, artist: s.artist, instrument: s.instrument }))} />
+          <MonthBookSongOverview
+            month={month}
+            planData={planData}
+            books={books.map(b => ({ id: b.id, title: b.title, author: b.author }))}
+            songs={songs.map(s => ({
+              id: s.id,
+              title: s.title,
+              artist: s.artist,
+              instrument: s.instrument,
+              learned_at: s.learned_at ?? null,
+              mastered_at: s.mastered_at ?? null,
+              recorded_at: s.recorded_at ?? null,
+            }))}
+          />
 
           <ScorecardMensual month={month} />
 

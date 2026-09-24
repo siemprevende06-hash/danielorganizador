@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus, Utensils, MoonStar, Brain, ClipboardList, HeartPulse, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SOSTEN_STRUCTURAL } from '@/lib/daySystems';
+import { calcSleepHours } from '@/lib/sleep';
 
 // ---------- Sostén ----------
 // Sincronizado con la cuadrícula de hoy (SOSTEN_STRUCTURAL de daySystems)
@@ -234,7 +235,7 @@ export default function EstadisticasEsfuerzo() {
       try {
         const [sysResult, areaResult, taskResult] = await Promise.allSettled([
           supabase.from('daily_systems_tracking')
-            .select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas')
+            .select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas, wake_time, sleep_time')
             .gte('tracking_date', startDate).lte('tracking_date', endDate)
             .order('tracking_date', { ascending: true })
             .limit(5000),
@@ -351,6 +352,7 @@ export default function EstadisticasEsfuerzo() {
       days: number;
       sosten: number; sostenTotal: number;
       mejoraMin: number;
+      sleepHours: number;
       focus: Record<string, number>;
       tareas: number;
       habitCompletions: Record<string, number>;
@@ -372,15 +374,16 @@ export default function EstadisticasEsfuerzo() {
       if (d < `${year}-01-01` || d > `${year}-12-31`) return;
       if (t.source === 'general' || (!t.source && !t.area_id)) {
         const wid = getWeekId(d);
-        if (!weeks[wid]) weeks[wid] = { days: 0, sosten: 0, sostenTotal: 0, mejoraMin: 0, focus: { universidad: 0, emprendimiento: 0, proyectos: 0 }, tareas: 0, habitCompletions: {}, habitMinutes: {} };
+        if (!weeks[wid]) weeks[wid] = { days: 0, sosten: 0, sostenTotal: 0, mejoraMin: 0, sleepHours: 0, focus: { universidad: 0, emprendimiento: 0, proyectos: 0 }, tareas: 0, habitCompletions: {}, habitMinutes: {} };
         weeks[wid].tareas++;
       }
     });
 
     allSystems.forEach(row => {
       const wid = getWeekId(row.tracking_date);
-      if (!weeks[wid]) weeks[wid] = { days: 0, sosten: 0, sostenTotal: 0, mejoraMin: 0, focus: { universidad: 0, emprendimiento: 0, proyectos: 0 }, tareas: 0, habitCompletions: {}, habitMinutes: {} };
+      if (!weeks[wid]) weeks[wid] = { days: 0, sosten: 0, sostenTotal: 0, mejoraMin: 0, sleepHours: 0, focus: { universidad: 0, emprendimiento: 0, proyectos: 0 }, tareas: 0, habitCompletions: {}, habitMinutes: {} };
       weeks[wid].days++;
+      weeks[wid].sleepHours += calcSleepHours(row.wake_time || '', row.sleep_time);
       const c = row.completions || {};
       ALL_SOSTEN_IDS.forEach(h => {
         if (c[h]) weeks[wid].sosten++;
@@ -417,6 +420,8 @@ export default function EstadisticasEsfuerzo() {
           ...data,
           sostenPct: data.sostenTotal > 0 ? Math.round((data.sosten / data.sostenTotal) * 100) : 0,
           focusTotal: data.focus.universidad + data.focus.emprendimiento + data.focus.proyectos,
+          avgSleep: Math.round((data.sleepHours / (data.days || 1)) * 10) / 10,
+          sleepTarget: 7,
           perHabitCompletions,
         };
       })
@@ -433,6 +438,22 @@ export default function EstadisticasEsfuerzo() {
   }, 0);
   const monthFocusMin = focusPerDay.reduce((s, d) => s + d.universidad + d.emprendimiento + d.proyectos, 0);
   const monthTareas = focusPerDay.reduce((s, d) => s + d.tareasGenerales, 0);
+
+  // ─── Sueño: horas registradas por día ───
+  const sleepByDay = useMemo(() => {
+    const map: Record<string, number> = {};
+    monthDays.forEach(d => {
+      const h = calcSleepHours(d.wake_time || '', d.sleep_time);
+      if (h > 0) map[d.tracking_date] = h;
+    });
+    return map;
+  }, [monthDays]);
+
+  const sleepDays = Object.keys(sleepByDay).length;
+  const monthSleepTotal = Object.values(sleepByDay).reduce((s, v) => s + v, 0);
+  const monthSleepAvg = sleepDays > 0 ? Math.round((monthSleepTotal / sleepDays) * 10) / 10 : 0;
+  const sleepOkDays = Object.entries(sleepByDay).filter(([, h]) => h >= 7).length;
+  const sleepOkPct = sleepDays > 0 ? Math.round((sleepOkDays / sleepDays) * 100) : 0;
 
   const bestDaySosten = monthDays.length > 0 ? Math.max(...monthDays.map(d => ALL_SOSTEN_IDS.filter(h => d.completions?.[h]).length)) : 0;
   const avgDaySosten = monthDays.length > 0 ? Math.round(monthTotalSosten / monthDays.length) : 0;
@@ -511,6 +532,7 @@ export default function EstadisticasEsfuerzo() {
                 { icon: Shield, label: 'Sostén prom./día', value: `${avgDaySosten}/${ALL_SOSTEN_IDS.length}`, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
                 { icon: TrendingUp, label: 'Total mejora', value: `${monthMejoraMin}min`, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-950/20' },
                 { icon: Target, label: 'Total enfoque', value: `${monthFocusMin}min`, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/20' },
+                { icon: MoonStar, label: 'Sueño promedio', value: monthSleepAvg > 0 ? `${monthSleepAvg}h` : '—', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-950/20' },
               ].map((s, i) => (
                 <Card key={i} className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl">
                   <CardContent className="p-3 text-center space-y-1">
@@ -553,6 +575,61 @@ export default function EstadisticasEsfuerzo() {
                 habits={SOSTEN_TABLE_SOBRANTES}
                 monthDays={monthDays}
               />
+
+              <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-indigo-500 to-violet-400" />
+                <CardContent className="p-0">
+                  <div className="flex items-center gap-2 p-3 border-b border-border/30">
+                    <MoonStar className="h-4 w-4 text-indigo-500" />
+                    <h3 className="text-sm font-bold">Horas de sueño</h3>
+                    <span className="text-[10px] text-muted-foreground/70">horas registradas · ≥7 h recomendado</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">prom: <span className={cn("font-bold", monthSleepAvg >= 7 ? "text-indigo-500" : "text-amber-500")}>{monthSleepAvg > 0 ? `${monthSleepAvg}h` : '—'}</span> · {sleepOkPct}% ≥7h</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[10px]" style={{ borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr className="bg-muted/20">
+                          <th className="sticky left-0 bg-muted/20 text-left px-2 py-1.5 font-medium text-muted-foreground min-w-[56px] z-10 border border-border/20">Día</th>
+                          <th className="text-center px-2 py-1.5 font-medium text-muted-foreground min-w-[60px] border border-border/20">Acostarse</th>
+                          <th className="text-center px-2 py-1.5 font-medium text-muted-foreground min-w-[60px] border border-border/20">Despertar</th>
+                          <th className="text-center px-2 py-1.5 font-medium text-muted-foreground min-w-[60px] border border-border/20">Horas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthDays.map((day, idx) => {
+                          const hours = calcSleepHours(day.wake_time || '', day.sleep_time);
+                          const hasData = !!day.wake_time || !!day.sleep_time;
+                          const ok = hasData && hours >= 7;
+                          return (
+                            <tr key={day.tracking_date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-950/50" : "bg-muted/5")}>
+                              <td className="sticky left-0 z-10 px-2 py-1 font-medium whitespace-nowrap border border-border/20" style={{ background: 'inherit' }}>
+                                {format(parseISO(day.tracking_date), 'EEE d', { locale: es })}
+                              </td>
+                              <td className={cn("text-center px-2 py-1 border border-border/20 tabular-nums", hasData ? "" : "text-muted-foreground/30")}>
+                                {day.sleep_time || '—'}
+                              </td>
+                              <td className={cn("text-center px-2 py-1 border border-border/20 tabular-nums", hasData ? "" : "text-muted-foreground/30")}>
+                                {day.wake_time || '—'}
+                              </td>
+                              <td className={cn("text-center px-2 py-1 border border-border/20 tabular-nums font-medium",
+                                hours > 0 && ok && "text-indigo-500",
+                                hours > 0 && !ok && "text-amber-500",
+                                hours === 0 && "text-muted-foreground/30")}>
+                                {hours > 0 ? `${hours}h` : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tr className="bg-muted/20 font-bold text-[9px]">
+                        <td className="sticky left-0 bg-muted/20 px-2 py-1.5 z-10 border border-border/20">Total mes</td>
+                        <td className="text-center px-2 py-1.5 border border-border/20" colSpan={2}>días con dato: {sleepDays}</td>
+                        <td className="text-center px-2 py-1.5 border border-border/20 text-indigo-500">{monthSleepTotal > 0 ? `${monthSleepTotal}h` : '—'}</td>
+                      </tr>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* --- Fuerza Mental --- */}
@@ -789,6 +866,11 @@ export default function EstadisticasEsfuerzo() {
                     <p className="text-xl font-bold text-blue-600">{bestDaySosten}/{ALL_SOSTEN_IDS.length}</p>
                     <p className="text-[9px] text-muted-foreground">promedio: {avgDaySosten}/{ALL_SOSTEN_IDS.length}</p>
                   </div>
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/30 dark:to-violet-950/30 text-center">
+                    <p className="text-[9px] text-indigo-600 font-medium uppercase tracking-wider">Sueño promedio</p>
+                    <p className="text-xl font-bold text-indigo-600">{monthSleepAvg > 0 ? `${monthSleepAvg}h` : '—'}</p>
+                    <p className="text-[9px] text-muted-foreground">{sleepOkPct}% de días ≥7h</p>
+                  </div>
                 </div>
 
                     {/* Weekly trend — Line charts */}
@@ -843,6 +925,25 @@ export default function EstadisticasEsfuerzo() {
                             <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
                             <Tooltip contentStyle={{ fontSize: 11 }} formatter={(v: number) => [`${v}%`, 'Sostén']} />
                             <Line type="monotone" dataKey="sostenPct" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <MoonStar className="h-3.5 w-3.5 text-muted-foreground" />
+                        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Evolución semanal — Sueño promedio (h)</h3>
+                      </div>
+                      <div className="w-full h-48 bg-muted/10 rounded-lg p-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={weeklyTrends} margin={{ top: 5, right: 8, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                            <YAxis tick={{ fontSize: 10 }} domain={[0, 12]} />
+                            <Tooltip contentStyle={{ fontSize: 11 }} formatter={(v: number) => [`${v} h`, 'Sueño']} />
+                            <Line type="monotone" dataKey="avgSleep" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                            <Line type="monotone" dataKey="sleepTarget" stroke="#f43f5e" strokeDasharray="4 4" strokeWidth={1} dot={false} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>

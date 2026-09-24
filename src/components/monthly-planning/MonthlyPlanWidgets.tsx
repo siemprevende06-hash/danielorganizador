@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProgressRing } from './ProgressRing';
 import { ItemSelector } from './ItemSelector';
 import { Book, Music, FolderKanban, GraduationCap, Calendar, Target, Plus, Trash2 } from 'lucide-react';
-import type { MonthlyPlanData } from '@/hooks/useMonthlyPlan';
+import type { MonthlyPlanData, SongPlanType } from '@/hooks/useMonthlyPlan';
 
 interface SelectableItem {
   id: string;
@@ -115,6 +116,12 @@ interface SongItem {
   instrument: string;
 }
 
+const PLAN_OPTIONS: { value: SongPlanType; label: string }[] = [
+  { value: 'learned', label: '🎵 Aprender' },
+  { value: 'mastered', label: '🏆 Dominar' },
+  { value: 'recorded', label: '🎥 Grabación' },
+];
+
 export function SongPlannerWidget({ planData, updatePlanData, items, monthKey }: WidgetProps & { items: SelectableItem[]; monthKey?: string }) {
   const [goalInput, setGoalInput] = useState(String(planData.songs.goal || ''));
   const isMonthMode = !!monthKey;
@@ -187,6 +194,38 @@ export function SongPlannerWidget({ planData, updatePlanData, items, monthKey }:
               searchPlaceholder="Buscar canción de guitarra..."
             />
           </div>
+
+          {currentIds.length > 0 && (
+            <div className="space-y-1.5 pt-1 border-t">
+              <p className="text-[10px] font-semibold text-muted-foreground">¿Cómo darás por completada cada canción?</p>
+              {currentIds.map(id => {
+                const item = songs.find(s => s.id === id);
+                if (!item) return null;
+                const plan = planData.songs_plan?.[id] || 'learned';
+                return (
+                  <div key={id} className="flex items-center gap-2">
+                    <span className="text-xs truncate flex-1 min-w-0">{item.title}</span>
+                    <Select
+                      value={plan}
+                      onValueChange={(v) => updatePlanData(p => ({
+                        ...p,
+                        songs_plan: { ...(p.songs_plan || {}), [id]: v as SongPlanType },
+                      }))}
+                    >
+                      <SelectTrigger className="h-7 w-auto text-[11px] flex-shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PLAN_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </WidgetCard>

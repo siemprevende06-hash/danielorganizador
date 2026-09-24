@@ -289,3 +289,44 @@ WHERE d.area_id = 'lectura'
   );
 
 COMMIT;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- [9/9] 20260922020000_add_hands_columns_music_practice_sessions.sql
+-- Práctica de música por canción desglosada por manos.
+-- Piano: minutos de mano izquierda / mano derecha / ambas manos.
+-- Guitarra: solo ambas manos.
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE public.music_practice_sessions
+  ADD COLUMN IF NOT EXISTS left_hand_minutes integer,
+  ADD COLUMN IF NOT EXISTS right_hand_minutes integer,
+  ADD COLUMN IF NOT EXISTS both_hands_minutes integer;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- [10/10] 20260924000000_music_song_progress.sql
+-- Progreso de canciones: duración + 3 puntos de control por canción
+-- (Aprendida / Dominada / Videograbada). Idempotente.
+-- ─────────────────────────────────────────────────────────────────────────────
+alter table public.music_repertoire
+  add column if not exists duration_seconds integer,
+  add column if not exists learned_at timestamptz,
+  add column if not exists mastered_at timestamptz,
+  add column if not exists recorded_at timestamptz;
+
+update public.music_repertoire
+  set mastered_at = coalesce(mastered_at, updated_at, now())
+  where status = 'mastered' and mastered_at is null;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- [10/10] 20260924000000_music_song_progress.sql
+-- Progreso de canciones: duración + 3 puntos de control (aprendida/dominada/
+-- videograbada). Una canción con los 3 checks está completamente lista.
+-- ─────────────────────────────────────────────────────────────────────────────
+alter table public.music_repertoire
+  add column if not exists duration_seconds integer,
+  add column if not exists learned_at timestamptz,
+  add column if not exists mastered_at timestamptz,
+  add column if not exists recorded_at timestamptz;
+
+update public.music_repertoire
+  set mastered_at = coalesce(mastered_at, updated_at, now())
+  where status = 'mastered' and mastered_at is null;

@@ -3,6 +3,7 @@ import { es } from 'date-fns/locale';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Piano, Guitar } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { MonthlyPlanData } from '@/hooks/useMonthlyPlan';
 
 interface BookDef {
@@ -16,6 +17,9 @@ interface SongDef {
   title: string;
   artist?: string | null;
   instrument: string;
+  learned_at?: string | null;
+  mastered_at?: string | null;
+  recorded_at?: string | null;
 }
 
 interface MonthBookSongOverviewProps {
@@ -135,6 +139,11 @@ export function MonthBookSongOverview({ month, planData, books, songs }: MonthBo
                         ? `Sem: ${wk.map(w => w.label).join(' · ')}`
                         : 'Sin asignar a una semana'}
                     </p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className={cn('text-[9px]', song.learned_at ? 'text-emerald-500' : 'text-muted-foreground/40')}>🎵A</span>
+                      <span className={cn('text-[9px]', song.mastered_at ? 'text-emerald-500' : 'text-muted-foreground/40')}>🏆D</span>
+                      <span className={cn('text-[9px]', song.recorded_at ? 'text-emerald-500' : 'text-muted-foreground/40')}>🎥V</span>
+                    </div>
                   </div>
                   <div className="text-right shrink-0 space-y-0.5">
                     {wk.length > 0 && (

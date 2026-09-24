@@ -22,6 +22,8 @@ import HabitSystemCard from "./HabitSystemCard";
 import { OrganizacionCard } from "./OrganizacionCard";
 import { TareasGeneralesCard } from "./TareasGeneralesCard";
 import { LanguageSkillCards } from "@/components/systems/LanguageSkillCards";
+import { WaterPomosCard } from "./WaterPomosCard";
+import { SleepThermostatCard } from "./SleepThermostatCard";
 
 export interface AreaInteraction {
   completions: Record<string, boolean>;
@@ -117,6 +119,41 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
           onInglesTimeChange={(m) => interaction.onTimeChange('ingles', m)}
           skipped={interaction.skipped}
           onSkipToggle={interaction.onSkipToggle}
+        />
+      );
+    }
+    if (meta.id === 'hidratacion') {
+      return (
+        <WaterPomosCard
+          key={meta.id}
+          done={!!interaction.completions[meta.id]}
+          isSkipped={!!interaction.skipped?.[meta.id]}
+          count={interaction.countData?.[meta.id] ?? (interaction.waterData?.[meta.id] ? 1 : 0)}
+          streak={interaction.streaks?.[meta.id]}
+          onToggle={() => interaction.onToggle(meta.id)}
+          onSkip={() => interaction.onSkipToggle?.(meta.id)}
+          onDrink={n => {
+            interaction.onCountChange?.(meta.id, n);
+            const hasWater = !!interaction.waterData?.[meta.id];
+            if (n > 0 && !hasWater) interaction.onWaterToggle?.(meta.id);
+            if (n === 0 && hasWater) interaction.onWaterToggle?.(meta.id);
+          }}
+        />
+      );
+    }
+    if (meta.isSleepSchedule) {
+      return (
+        <SleepThermostatCard
+          key={meta.id}
+          done={!!interaction.completions[meta.id]}
+          isSkipped={!!interaction.skipped?.[meta.id]}
+          wakeTime={interaction.wakeTime}
+          sleepTime={interaction.sleepTime}
+          streak={interaction.streaks?.[meta.id]}
+          onToggle={() => interaction.onToggle(meta.id)}
+          onSkip={() => interaction.onSkipToggle?.(meta.id)}
+          onWakeTimeChange={interaction.onWakeTimeChange}
+          onSleepTimeChange={interaction.onSleepTimeChange}
         />
       );
     }
@@ -239,6 +276,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
                   const secHabits = trackables.filter(t => sec.habitIds.includes(t.id));
                   if (secHabits.length === 0) return null;
                   const secDone = secHabits.filter(t => interaction.completions[t.id]).length;
+                  const stretch = secHabits.some(t => t.id === 'hidratacion' || t.isSleepSchedule);
                   return (
                     <div key={sec.id} className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
@@ -255,7 +293,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
                           {secDone}/{secHabits.length}
                         </span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className={cn("grid gap-2", stretch ? "grid-cols-1" : "grid-cols-3")}>
                         {secHabits.map(renderHabit)}
                       </div>
                     </div>

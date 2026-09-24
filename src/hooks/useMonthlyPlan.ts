@@ -13,9 +13,12 @@ export interface WeekBookSongDistribution {
   music_focus?: string;
 }
 
+export type SongPlanType = 'learned' | 'mastered' | 'recorded';
+
 export interface MonthlyPlanData {
   books: { goal: number; selected: string[] };
   songs: { goal: number; selected: string[] };
+  songs_plan?: Record<string, SongPlanType>;
   projects: string[];
   subjects: { subject_id: string; topics: string[] }[];
   events: string[];
@@ -23,7 +26,6 @@ export interface MonthlyPlanData {
   inherited_from?: { quarter: number; year: number };
   distribution?: Record<string, { books: string[]; songs: string[] }>;
   week_distribution?: Record<string, WeekBookSongDistribution>;
-
 }
 
 export interface TrimestralSummary {
@@ -49,7 +51,7 @@ const defaultPlanData: MonthlyPlanData = {
 const STORAGE_PREFIX = 'monthly_plan_';
 
 interface Book { id: string; title: string; author: string | null; status: string; }
-interface Song { id: string; title: string; artist: string | null; instrument: string; status: string; }
+interface Song { id: string; title: string; artist: string | null; instrument: string; status: string; learned_at: string | null; mastered_at: string | null; recorded_at: string | null; duration_seconds: number | null; }
 interface Project { id: string; name: string; tasks: any[]; }
 interface Subject { id: string; name: string; color: string | null; }
 interface Topic { id: string; title: string; subject_id: string | null; }
@@ -135,7 +137,7 @@ export function useMonthlyPlan(month: Date) {
       const mEnd = format(endOfMonth(month), 'yyyy-MM-dd');
       const [booksRes, songsRes, eventsRes] = await Promise.all([
         supabase.from('reading_library').select('id, title, author, status').order('title'),
-        supabase.from('music_repertoire').select('id, title, artist, instrument, status').order('title'),
+        supabase.from('music_repertoire').select('id, title, artist, instrument, status, learned_at, mastered_at, recorded_at, duration_seconds').order('title'),
         supabase.from('calendar_events').select('*')
           .gte('event_date', mStart)
           .lte('event_date', mEnd)

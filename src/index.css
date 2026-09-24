@@ -247,4 +247,31 @@
   .splash-brain-icon {
     animation: splash-icon-breathe 1.2s ease-in-out infinite;
   }
+
+  /* ─── Agua (pomos de hidratación) ─── */
+  @keyframes water-rise {
+    from { height: 0; }
+    to   { height: 100%; }
+  }
+  .water-fill {
+    animation: water-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes water-wave-slide {
+    0%   { transform: translateX(0); }
+    50%  { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+  }
+  .water-wave {
+    animation: water-wave-slide 2.4s ease-in-out infinite;
+  }
+
+  @keyframes water-bubble-rise {
+    0%   { transform: translateY(6px) scale(0.6); opacity: 0; }
+    30%  { opacity: 0.9; }
+    100% { transform: translateY(-16px) scale(1); opacity: 0; }
+  }
+  .water-bubble {
+    animation: water-bubble-rise 2.2s ease-in infinite;
+  }
 }

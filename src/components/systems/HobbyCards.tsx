@@ -301,6 +301,8 @@ const ChessCard = ({
   useEffect(() => setDraftGames(todayGames), [todayGames]);
 
   const todayPct = Math.min(100, Math.round((todayMin / MAX_GOAL) * 100));
+  const monthlyPct = goals?.target_games_per_month ? Math.min(100, Math.round((stats.month.games / goals.target_games_per_month) * 100)) : 0;
+  const eloGap = (goals?.target_elo || 0) - stats.currentElo;
 
   return (
     <Card className={cn("overflow-hidden p-0 ring-2 transition-all", sem.ring)}>
@@ -320,6 +322,19 @@ const ChessCard = ({
           <Link to="/chess">
             <Button size="sm" variant="outline" className="h-7 text-[11px]"><Plus className="h-3 w-3" /> Sesión</Button>
           </Link>
+        </div>
+
+        <div className="bg-card/80 backdrop-blur rounded-lg p-2 border space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Partidas del mes</span>
+            <span className={cn("text-[10px] font-bold", monthlyPct >= 100 ? "text-green-600" : "text-amber-600")}>
+              {stats.month.games}/{goals?.target_games_per_month ?? "?"}
+            </span>
+          </div>
+          <Progress value={monthlyPct} className="h-1.5" />
+          <p className={cn("text-[9px] text-center", eloGap > 0 ? "text-muted-foreground" : "text-green-600")}>
+            {eloGap > 0 ? `A ${eloGap} pts de tu ELO objetivo` : "ELO objetivo alcanzado ✓"}
+          </p>
         </div>
 
         <div className="bg-card/80 backdrop-blur rounded-lg p-2 border space-y-1.5">

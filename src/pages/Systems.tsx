@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Brain, Dumbbell, BookOpen, Sparkles, Utensils, LayoutGrid, Shield, TrendingUp, Target, GraduationCap, Briefcase, Code2, Languages, ListTodo, BarChart3, Gamepad2, Clock } from "lucide-react";
+import { Brain, Dumbbell, BookOpen, Sparkles, Utensils, LayoutGrid, Shield, TrendingUp, Target, GraduationCap, Briefcase, Code2, Languages, ListTodo, BarChart3, Gamepad2, Clock, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -358,28 +358,46 @@ export default function Systems() {
             />
           </div>
 
-          {/* Gaming */}
+          {/* Game (Seducción) */}
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Gaming</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Game (Seducción)</p>
             <Card className="p-3 ring-2 ring-purple-500/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Gamepad2 className="h-4 w-4 text-purple-500" />
-                  <span className="text-sm font-semibold">Gaming</span>
+              <div className="flex items-center gap-2">
+                <Gamepad2 className="h-4 w-4 text-purple-500" />
+                <span className="text-sm font-semibold">Game (Seducción)</span>
+                <span className="ml-auto text-[9px] text-muted-foreground uppercase tracking-wider">Hoy</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      min={0}
+                      value={data.timeData["game"] || ""}
+                      onChange={e => setTimeValue("game", parseInt(e.target.value) || 0)}
+                      placeholder="min"
+                      className="w-16 h-7 text-xs text-center"
+                    />
+                  </div>
+                  <p className="text-[9px] text-center text-muted-foreground mt-0.5">minutos</p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    min={0}
-                    value={data.timeData["game"] || ""}
-                    onChange={e => setTimeValue("game", parseInt(e.target.value) || 0)}
-                    placeholder="min"
-                    className="w-16 h-7 text-xs text-center"
-                  />
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      min={0}
+                      value={data.countData["game"] || ""}
+                      onChange={e => setCountValue("game", parseInt(e.target.value) || 0)}
+                      placeholder="vids"
+                      className="w-16 h-7 text-xs text-center"
+                    />
+                  </div>
+                  <p className="text-[9px] text-center text-muted-foreground mt-0.5">videos vistos</p>
                 </div>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Tiempo diario para aprender seducción</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Aprender seducción: videos + min/día de estudio</p>
             </Card>
           </div>
 

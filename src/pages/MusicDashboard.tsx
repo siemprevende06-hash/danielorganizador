@@ -13,7 +13,7 @@ import { MusicStatsTab } from '@/components/music/MusicStatsTab';
 import { MusicDailyIndicator } from '@/components/music/MusicDailyIndicator';
 
 export default function MusicDashboard() {
-  const { songs, loading, addSong, updateSong, markAsMastered, deleteSong, getSongsByInstrument, getStats } = useMusicRepertoire();
+  const { songs, loading, addSong, updateSong, toggleCheckpoint, deleteSong, getSongsByInstrument, getStats, handTotals, refreshHandTotals } = useMusicRepertoire();
   const { toast } = useToast();
 
   const [instrument, setInstrument] = useState<'piano' | 'guitar'>('piano');
@@ -59,6 +59,35 @@ export default function MusicDashboard() {
   // Practice sessions
   const [todayPractice, setTodayPractice] = useState(0);
   const dailyGoal = 30; // minutes
+
+  const handleLogPractice = async (song: Song, minutes: { left: number; right: number; both: number }) => {
+    const total = minutes.left + minutes.right + minutes.both;
+    if (total <= 0) return;
+
+    const { error } = await supabase.from('music_practice_sessions').insert({
+      song_id: song.id,
+      instrument: song.instrument,
+      duration_minutes: total,
+      left_hand_minutes: minutes.left > 0 ? minutes.left : null,
+      right_hand_minutes: minutes.right > 0 ? minutes.right : null,
+      both_hands_minutes: minutes.both > 0 ? minutes.both : null,
+    });
+
+    if (error) {
+      console.error(error);
+      toast({ title: 'Error', description: 'No se pudo guardar la práctica', variant: 'destructive' });
+      return;
+    }
+
+    const nextPractice = (song.practice_minutes ?? 0) + total;
+    await updateSong(song.id, {
+      practice_minutes: nextPractice,
+      last_practiced: new Date().toISOString().split('T')[0],
+    });
+    setTodayPractice(prev => prev + total);
+    await refreshHandTotals();
+    toast({ title: 'Práctica registrada', description: `${total} min — ${song.title}` });
+  };
 
   const loadTodayPractice = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -274,11 +303,16 @@ export default function MusicDashboard() {
               onFilterDifficultyChange={setFilterDifficulty}
               songsCountByInstrument={(inst) => getSongsByInstrument(inst).length}
               songs={filteredSongs}
+              handTotals={handTotals}
               onStartPractice={(songId) => {
                 setActiveTab('practice');
                 startPractice(songId);
               }}
-              onMarkMastered={markAsMastered}
+              onLogPractice={handleLogPractice}
+              onToggleCheckpoint={toggleCheckpoint}
+              onSaveDetails={async (songId, updates) => {
+                await updateSong(songId, updates);
+              }}
               onDelete={deleteSong}
               onUploadCover={handleUploadCover}
             />

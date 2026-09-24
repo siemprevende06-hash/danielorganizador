@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+
+export interface HandTotals {
+  left: number;
+  right: number;
+  both: number;
+}
+
+export type SongCheckpoint = 'learned' | 'mastered' | 'recorded';
 
 export interface Song {
   id: string;
@@ -15,13 +23,31 @@ export interface Song {
   notes: string | null;
   practice_minutes: number | null;
   last_practiced: string | null;
+  duration_seconds: number | null;
+  learned_at: string | null;
+  mastered_at: string | null;
+  recorded_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export function songCheckpoints(song: Pick<Song, 'learned_at' | 'mastered_at' | 'recorded_at'>) {
+  return {
+    learned: !!song.learned_at,
+    mastered: !!song.mastered_at,
+    recorded: !!song.recorded_at,
+  };
+}
+
+export function songIsFullyReady(song: Pick<Song, 'learned_at' | 'mastered_at' | 'recorded_at'>) {
+  const c = songCheckpoints(song);
+  return c.learned && c.mastered && c.recorded;
 }
 
 export const useMusicRepertoire = () => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
+  const [handTotals, setHandTotals] = useState<Record<string, HandTotals>>({});
   const { toast } = useToast();
 
   const fetchSongs = async () => {
@@ -38,9 +64,32 @@ export const useMusicRepertoire = () => {
     }
   };
 
+  const loadHandTotals = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('music_practice_sessions')
+        .select('song_id, left_hand_minutes, right_hand_minutes, both_hands_minutes');
+
+      if (error) throw error;
+
+      const map: Record<string, HandTotals> = {};
+      for (const s of (data ?? []) as any[]) {
+        if (!s.song_id) continue;
+        if (!map[s.song_id]) map[s.song_id] = { left: 0, right: 0, both: 0 };
+        map[s.song_id].left += s.left_hand_minutes || 0;
+        map[s.song_id].right += s.right_hand_minutes || 0;
+        map[s.song_id].both += s.both_hands_minutes || 0;
+      }
+      setHandTotals(map);
+    } catch (error) {
+      console.error('Error fetching hand totals:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchSongs();
-  }, []);
+    loadHandTotals();
+  }, [loadHandTotals]);
 
   const addSong = async (song: Partial<Song>) => {
     try {
@@ -104,6 +153,32 @@ export const useMusicRepertoire = () => {
     });
   };
 
+  const toggleCheckpoint = async (id: string, checkpoint: SongCheckpoint) => {
+    const song = songs.find(s => s.id === id);
+    if (!song) return;
+
+    const now = new Date().toISOString();
+    const field: 'learned_at' | 'mastered_at' | 'recorded_at' =
+      checkpoint === 'learned' ? 'learned_at' : checkpoint === 'mastered' ? 'mastered_at' : 'recorded_at';
+
+    const nextValue = song[field] ? null : now;
+    const updates: Partial<Song> = { [field]: nextValue };
+
+    if (checkpoint === 'mastered') {
+      updates.status = nextValue ? 'mastered' : 'learning';
+    }
+
+    await updateSong(id, updates);
+
+    const c = songCheckpoints({ ...song, [field]: nextValue } as Song);
+    if (c.learned && c.mastered && c.recorded) {
+      toast({
+        title: '¡Canción lista! 🎉',
+        description: 'Aprendida, dominada y videograbada',
+      });
+    }
+  };
+
   const deleteSong = async (id: string) => {
     try {
       const { error } = await supabase.from('music_repertoire').delete().eq('id', id);
@@ -147,13 +222,16 @@ export const useMusicRepertoire = () => {
   return {
     songs,
     loading,
+    handTotals,
     addSong,
     updateSong,
     markAsMastered,
+    toggleCheckpoint,
     deleteSong,
     getSongsByInstrument,
     getSongsByStatus,
     getStats,
     refetch: fetchSongs,
+    refreshHandTotals: loadHandTotals,
   };
 };
