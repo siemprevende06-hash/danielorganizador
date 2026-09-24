@@ -37,7 +37,7 @@ export interface RoutineInfo {
 
 export const ROUTINES: RoutineInfo[] = [
   { type: 'disciplina', label: 'Disciplina', shortLabel: 'Disciplina', wakeTime: '5:00', sleepTime: '22:00', icon: '🔥', color: 'orange', description: 'Máximo enfoque y estructura', totalBlocks: 17 },
-  { type: 'normal', label: 'Normal', shortLabel: 'Normal', wakeTime: '6:30', sleepTime: '10:30', icon: '⚖️', color: 'blue', description: 'Balance productivo diario', totalBlocks: 16 },
+  { type: 'normal', label: 'Normal', shortLabel: 'Normal', wakeTime: '6:30', sleepTime: '10:00', icon: '⚖️', color: 'blue', description: 'Balance productivo diario', totalBlocks: 16 },
   { type: 'descanso', label: 'Descanso', shortLabel: 'Descanso', wakeTime: '8:00', sleepTime: '10:30', icon: '🌿', color: 'green', description: 'Recuperación y ocio', totalBlocks: 14 },
 ];
 
@@ -169,13 +169,14 @@ const NORMAL_BLOCKS: RoutineBlock[] = [
   makeBlock('n-almuerzo', 'Almuerzo + Video + Ajedrez', '13:20', '14:00', 7, false, ['Almorzar', 'Ver video', 'Jugar ajedrez']),
   makeBlock('n-deep4', '4to Deep Work', '14:00', '15:20', 8, true, ['Tareas pendientes']),
   makeBlock('n-deep5', '5to Deep Work', '15:30', '16:50', 9, true, ['Finalizar tareas']),
-  makeBlock('n-trabajo', 'Bloque de Trabajo', '17:00', '18:30', 10, true, ['Trabajo', 'Tareas pendientes']),
-  makeBlock('n-bloque-extra', 'Bloque Extra', '18:30', '20:00', 11, false, ['Tareas pendientes', 'Estudio extra']),
-  makeBlock('n-idiomas', 'Idiomas', '20:00', '20:30', 12, false, ['Inglés', 'Italiano', 'Práctica']),
-  makeBlock('n-ocio', 'Ocio', '20:30', '21:30', 13, false, ['Entretenimiento', 'Descanso']),
-  makeBlock('n-musica', 'Música (Piano o Guitarra)', '21:30', '22:00', 14, false, ['Práctica musical']),
-  makeBlock('n-desactivacion', 'Rutina de Desactivación', '22:00', '22:30', 15, false, ['Skincare', 'Preparación para dormir']),
+  makeBlock('n-deep6', '6to Deep Work', '17:00', '18:30', 10, true, ['Tarea más importante']),
+  makeBlock('n-idiomas', 'Idiomas', '18:30', '19:00', 11, false, ['Inglés', 'Italiano', 'Práctica']),
+  makeBlock('n-bloque-extra', 'Bloque Extra', '19:00', '20:00', 12, false, ['Tareas pendientes', 'Estudio extra']),
+  makeBlock('n-ocio', 'Ocio', '20:00', '21:00', 13, false, ['Entretenimiento', 'Descanso']),
+  makeBlock('n-musica', 'Música (Piano o Guitarra)', '21:00', '21:30', 14, false, ['Práctica musical']),
+  makeBlock('n-desactivacion', 'Rutina de Desactivación', '21:30', '22:00', 15, false, ['Skincare', 'Preparación para dormir']),
 ];
+NORMAL_BLOCKS.find(b => b.id === 'n-bloque-extra')!.extraMode = 'focus';
 
 const DESCANSO_BLOCKS: RoutineBlock[] = [
   makeBlock('r-activacion', 'Rutina de Activación', '08:00', '08:30', 0, false, ['Despertar', 'Hidratación', 'Estiramientos']),
@@ -203,7 +204,7 @@ const ROUTINE_MAP: Record<RoutineType, RoutineBlock[]> = {
 const ROUTINE_TYPE_KEY = 'selectedRoutineType';
 const ROUTINE_BLOCKS_PREFIX = 'routineBlocks_';
 const ROUTINE_BLOCKS_VERSION_KEY = 'routineBlocksVersion';
-const ROUTINE_BLOCKS_VERSION = '2026-09-07-v1';
+const ROUTINE_BLOCKS_VERSION = '2026-09-24-v1';
 
 const isBlocksVersionCurrent = (): boolean => {
   try { return localStorage.getItem(ROUTINE_BLOCKS_VERSION_KEY) === ROUTINE_BLOCKS_VERSION; } catch { return false; }
@@ -212,8 +213,9 @@ const isBlocksVersionCurrent = (): boolean => {
 const ensureBlocksVersion = (): void => {
   if (isBlocksVersionCurrent()) return;
   try {
-    // Re-sembrar la rutina de Disciplina con su nuevo horario (descarta bloques viejos guardados).
+    // Re-sembrar las rutinas de Disciplina y Normal con sus nuevos horarios (descarta bloques viejos guardados).
     localStorage.removeItem(`${ROUTINE_BLOCKS_PREFIX}disciplina`);
+    localStorage.removeItem(`${ROUTINE_BLOCKS_PREFIX}normal`);
     localStorage.setItem(ROUTINE_BLOCKS_VERSION_KEY, ROUTINE_BLOCKS_VERSION);
   } catch {}
 };
