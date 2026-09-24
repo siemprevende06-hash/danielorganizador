@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
+import { getCoverGradient } from "@/components/areas/AreaCover";
 
 interface Skill {
   id: string;
@@ -36,6 +38,8 @@ interface Props {
 }
 
 export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange, skipped, onSkipToggle }: Props) => {
+  const { covers } = useAreaCovers();
+  const idiomasCover = covers[coverKey("sub", "idiomas")] ?? null;
   const [activeLang, setActiveLang] = useState<'italian' | 'english'>('italian');
   const langPrefix = activeLang === 'italian' ? 'idioma-italiano' : 'idioma-ingles';
   const currentTime = activeLang === 'italian' ? italianoTime : inglesTime;
@@ -107,6 +111,16 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
 
   return (
     <Card className={cn("p-3 ring-2 transition-all space-y-3", ring, "bg-emerald-500/5")}>
+      <div className={cn("relative -m-3 mb-3 h-14 overflow-hidden bg-gradient-to-br", getCoverGradient("idiomas"))}>
+        {idiomasCover ? (
+          <img src={idiomasCover} alt="Portada de Idiomas" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center">
+            <span className="text-2xl drop-shadow-sm">🌐</span>
+          </div>
+        )}
+        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent" />
+      </div>
       <div className="flex items-center gap-2">
         <div className="p-1.5 rounded-lg bg-emerald-500/20">
           <LangIcon className="h-4 w-4 text-emerald-600" />
