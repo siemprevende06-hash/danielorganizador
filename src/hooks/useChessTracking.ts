@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { CHESS_COUNT_KEYS, calculateChessElo } from "@/lib/daySystems";
 
 export interface ChessSession {
   id: string;
@@ -22,19 +23,41 @@ export interface ChessGoals {
   is_active: boolean;
 }
 
+interface DailyChessTotals {
+  games: number;
+  wins: number;
+  losses: number;
+}
+
+const EMPTY_DAILY_TOTALS: DailyChessTotals = { games: 0, wins: 0, losses: 0 };
+
+function readDailyCount(countData: unknown, key: string): number {
+  if (typeof countData !== "object" || countData === null || Array.isArray(countData)) return 0;
+  const value = Number((countData as Record<string, unknown>)[key]);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
 const todayKey = () => new Date().toISOString().split("T")[0];
 
 export const useChessTracking = () => {
   const [sessions, setSessions] = useState<ChessSession[]>([]);
   const [goals, setGoals] = useState<ChessGoals | null>(null);
+  const [dailyTotals, setDailyTotals] = useState<DailyChessTotals>(EMPTY_DAILY_TOTALS);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: ses }, { data: g }] = await Promise.all([
+    const [{ data: ses }, { data: g }, { data: tracking }] = await Promise.all([
       supabase.from("chess_sessions").select("*").order("session_date", { ascending: false }).limit(200),
       supabase.from("chess_goals").select("*").eq("is_active", true).maybeSingle(),
+      supabase.from("daily_systems_tracking").select("count_data"),
     ]);
+    const rows = (tracking as Array<{ count_data: unknown }> | null) ?? [];
+    setDailyTotals(rows.reduce<DailyChessTotals>((totals, row) => ({
+      games: totals.games + readDailyCount(row.count_data, CHESS_COUNT_KEYS.games),
+      wins: totals.wins + readDailyCount(row.count_data, CHESS_COUNT_KEYS.wins),
+      losses: totals.losses + readDailyCount(row.count_data, CHESS_COUNT_KEYS.losses),
+    }), EMPTY_DAILY_TOTALS));
     setSessions((ses as ChessSession[]) || []);
     setGoals(g as ChessGoals | null);
     setLoading(false);
@@ -63,10 +86,10 @@ export const useChessTracking = () => {
       return { error };
     } else {
       const { data, error } = await supabase.from("chess_goals").insert({
-        target_elo: g.target_elo || 1500,
-        target_games_per_month: g.target_games_per_month || 30,
-        target_minutes_per_day: g.target_minutes_per_day || 30,
-        starting_elo: g.starting_elo || 1000,
+        target_elo: g.target_elo ?? 1500,
+        target_games_per_month: g.target_games_per_month ?? 30,
+        target_minutes_per_day: g.target_minutes_per_day ?? 30,
+        starting_elo: g.starting_elo ?? 1000,
         notes: g.notes,
         is_active: true,
       }).select().single();
@@ -96,11 +119,17 @@ export const useChessTracking = () => {
 
   const sum = (arr: ChessSession[], k: keyof ChessSession) => arr.reduce((a, s) => a + (Number(s[k]) || 0), 0);
 
+  const eloBase = goals?.starting_elo ?? 1000;
+  const eloAdjustment = dailyTotals.wins * 8 - dailyTotals.losses * 8;
+
   const stats = {
     today: { minutes: sum(today, "duration_minutes"), games: sum(today, "games_played"), wins: sum(today, "games_won") },
     week:  { minutes: sum(week, "duration_minutes"),  games: sum(week, "games_played"),  wins: sum(week, "games_won") },
     month: { minutes: sum(month, "duration_minutes"), games: sum(month, "games_played"), wins: sum(month, "games_won") },
-    currentElo: sessions.find(s => s.current_elo)?.current_elo || goals?.starting_elo || 1000,
+    daily: dailyTotals,
+    eloBase,
+    eloAdjustment,
+    currentElo: calculateChessElo(eloBase, dailyTotals.wins, dailyTotals.losses),
   };
 
   return { sessions, goals, loading, addSession, upsertGoals, deleteSession, stats, refetch: load };

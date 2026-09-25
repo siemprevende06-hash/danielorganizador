@@ -1,6 +1,17 @@
 import type { SystemsData } from "@/hooks/useSystemsTracking";
 
 export type SystemSpeed = "minimo" | "maximo" | "extra" | "racha";
+export type ChessResultKey = "wins" | "losses";
+
+export const CHESS_COUNT_KEYS = {
+  games: "ajedrez",
+  wins: "ajedrez_victorias",
+  losses: "ajedrez_derrotas",
+} as const;
+
+export function calculateChessElo(baseElo: number, wins: number, losses: number): number {
+  return baseElo + wins * 8 - losses * 8;
+}
 
 export interface SpeedOption {
   id: SystemSpeed;

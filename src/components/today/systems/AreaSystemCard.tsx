@@ -4,7 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Maximize2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { coverKey } from "@/hooks/useAreaCovers";
-import { systemActualMinutes, type SystemSpeed } from "@/lib/daySystems";
+import { CHESS_COUNT_KEYS, systemActualMinutes, type ChessResultKey, type SystemSpeed } from "@/lib/daySystems";
 import {
   AREA_SYSTEMS,
   DIAGNOSIS_TONE,
@@ -50,6 +50,7 @@ export interface AreaInteraction {
   onToggle: (id: string) => void;
   onTimeChange: (id: string, minutes: number) => void;
   onCountChange?: (id: string, count: number) => void;
+  onChessResultChange?: (result: ChessResultKey, value: number) => void;
   onWaterToggle?: (id: string) => void;
   onMealPhotoUpload?: (id: string, url: string) => void;
   onSkipToggle?: (id: string) => void;
@@ -173,6 +174,8 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         actualMinutes={actual}
         metaMinutes={interaction.metaMinutesById[meta.id] ?? 0}
         count={sys?.countKey ? interaction.countData?.[sys.countKey] ?? 0 : undefined}
+        chessWins={meta.id === "ajedrez" ? interaction.countData?.[CHESS_COUNT_KEYS.wins] ?? 0 : undefined}
+        chessLosses={meta.id === "ajedrez" ? interaction.countData?.[CHESS_COUNT_KEYS.losses] ?? 0 : undefined}
         speed={interaction.getSpeed(meta.id)}
         spark={spark}
         weekTotal={weekTotal}
@@ -198,6 +201,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         onCountChange={
           sys?.countKey ? (v) => interaction.onCountChange?.(sys.countKey!, v) : undefined
         }
+        onChessResultChange={interaction.onChessResultChange}
         onSpeedChange={(s) => interaction.setSpeed(meta.id, s)}
         onWorkoutDurationChange={interaction.onWorkoutDurationChange}
         onWorkoutIntensityChange={interaction.onWorkoutIntensityChange}

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
 import { getCubaDate } from "@/lib/cubaTime";
+import { CHESS_COUNT_KEYS, type ChessResultKey } from "@/lib/daySystems";
 
 // Queries que reflejan datos de hábitos/sistemas y deben refrescarse al guardar.
 const INDICATOR_QUERY_KEYS = [
@@ -321,6 +322,16 @@ export function useSystemsTracking(targetDate?: Date) {
     }));
   }, []);
 
+  const setChessResultValue = useCallback((result: ChessResultKey, value: number) => {
+    setData(prev => ({
+      ...prev,
+      countData: {
+        ...prev.countData,
+        [CHESS_COUNT_KEYS[result]]: Math.max(0, Math.trunc(value) || 0),
+      },
+    }));
+  }, []);
+
   const toggleWater = useCallback((id: string) => {
     setData(prev => ({
       ...prev,
@@ -401,6 +412,7 @@ export function useSystemsTracking(targetDate?: Date) {
     toggleCompletion,
     setTimeValue,
     setCountValue,
+    setChessResultValue,
     toggleWater,
     setWorkAssignment,
     toggleBlock,

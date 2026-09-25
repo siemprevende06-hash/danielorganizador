@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { getCoverGradient } from "@/components/areas/AreaCover";
-import { systemSpeedOptions, type SpeedOption, type SystemSpeed } from "@/lib/daySystems";
+import { systemSpeedOptions, type ChessResultKey, type SpeedOption, type SystemSpeed } from "@/lib/daySystems";
 import type { HabitMeta } from "@/lib/areaSystemsMap";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,65 @@ const NS_DONE: Tier = { key: "green", label: "Hecho", border: "border-emerald-50
 const NS_SKIP: Tier = { key: "red", label: "Saltado", border: "border-red-500/40", bg: "bg-red-500/5", bar: "bg-red-500", text: "text-red-500", ring: "ring-red-500/40", dot: "bg-red-500" };
 const NS_IDLE: Tier = { key: "grey", label: "Sin hacer", border: "border-border/40", bg: "bg-white/50 dark:bg-zinc-950/50", bar: "bg-muted-foreground/40", text: "text-muted-foreground", ring: "ring-border/40", dot: "bg-gray-400" };
 
+interface ChessDailyResultsInlineProps {
+  games: number;
+  wins: number;
+  losses: number;
+  onGamesChange: (value: number) => void;
+  onResultChange: (result: ChessResultKey, value: number) => void;
+}
+
+function ChessDailyResultsInline({ games, wins, losses, onGamesChange, onResultChange }: ChessDailyResultsInlineProps) {
+  const readCount = (value: string) => Math.max(0, parseInt(value) || 0);
+
+  return (
+    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 space-y-1.5">
+      <div className="flex items-center justify-between text-[9px] font-semibold">
+        <span>Resultados diarios</span>
+        <span className="text-amber-600 dark:text-amber-400">+8 / −8 ELO</span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <label className="space-y-0.5">
+          <span className="text-[8px] text-muted-foreground">Partidas</span>
+          <Input
+            type="number"
+            min={0}
+            value={games || ""}
+            onChange={event => onGamesChange(readCount(event.target.value))}
+            placeholder="0"
+            aria-label="Partidas de ajedrez"
+            className="h-6 px-1 text-center text-[10px]"
+          />
+        </label>
+        <label className="space-y-0.5">
+          <span className="text-[8px] font-semibold text-emerald-600 dark:text-emerald-400">Victorias</span>
+          <Input
+            type="number"
+            min={0}
+            value={wins || ""}
+            onChange={event => onResultChange("wins", readCount(event.target.value))}
+            placeholder="0"
+            aria-label="Victorias de ajedrez"
+            className="h-6 px-1 text-center text-[10px] text-emerald-600 dark:text-emerald-400"
+          />
+        </label>
+        <label className="space-y-0.5">
+          <span className="text-[8px] font-semibold text-red-500">Derrotas</span>
+          <Input
+            type="number"
+            min={0}
+            value={losses || ""}
+            onChange={event => onResultChange("losses", readCount(event.target.value))}
+            placeholder="0"
+            aria-label="Derrotas de ajedrez"
+            className="h-6 px-1 text-center text-[10px] text-red-500"
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export interface HabitSystemCardProps {
   meta: HabitMeta;
   done: boolean;
@@ -63,6 +122,8 @@ export interface HabitSystemCardProps {
   actualMinutes: number;
   metaMinutes: number;
   count?: number;
+  chessWins?: number;
+  chessLosses?: number;
   speed?: SystemSpeed;
   waterDone: boolean;
   mealUrl?: string;
@@ -81,6 +142,7 @@ export interface HabitSystemCardProps {
   onMealPhotoUpload?: (id: string, url: string) => void;
   onTimeChange: (v: number) => void;
   onCountChange?: (v: number) => void;
+  onChessResultChange?: (result: ChessResultKey, value: number) => void;
   onSpeedChange?: (s: SystemSpeed) => void;
   onWorkoutDurationChange?: (v: number) => void;
   onWorkoutIntensityChange?: (v: string) => void;
@@ -95,6 +157,8 @@ export default function HabitSystemCard({
   actualMinutes,
   metaMinutes,
   count,
+  chessWins,
+  chessLosses,
   speed,
   waterDone,
   mealUrl,
@@ -113,6 +177,7 @@ export default function HabitSystemCard({
   onMealPhotoUpload,
   onTimeChange,
   onCountChange,
+  onChessResultChange,
   onSpeedChange,
   onWorkoutDurationChange,
   onWorkoutIntensityChange,
@@ -312,7 +377,7 @@ export default function HabitSystemCard({
                 />
               </>
             )}
-            {meta.system?.countKey && (
+            {meta.system?.countKey && meta.id !== "ajedrez" && (
               <>
                 <Input
                   type="number"
@@ -333,6 +398,16 @@ export default function HabitSystemCard({
             </button>
           </div>
         </div>
+
+        {meta.id === "ajedrez" && (
+          <ChessDailyResultsInline
+            games={count ?? 0}
+            wins={chessWins ?? 0}
+            losses={chessLosses ?? 0}
+            onGamesChange={value => onCountChange?.(value)}
+            onResultChange={(result, value) => onChessResultChange?.(result, value)}
+          />
+        )}
 
         {/* Páginas leídas del libro activo (solo tarjeta de Lectura) */}
         {meta.id === "lectura" && (

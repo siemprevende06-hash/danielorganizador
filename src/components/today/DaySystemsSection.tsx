@@ -14,7 +14,7 @@ import {
   getAreaTrackableHabits,
   type PointBGroup,
 } from "@/lib/areaSystemsMap";
-import { systemMinForSpeed } from "@/lib/daySystems";
+import { systemMinForSpeed, type ChessResultKey } from "@/lib/daySystems";
 import { POINT_B_AREAS } from "@/data/pointB2027";
 import type { PointBArea } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ export function DaySystemsSection({
   skipped,
   countData,
   onCountChange,
+  onChessResultChange,
   waterData,
   onWaterToggle,
   mealPhotos,
@@ -54,6 +55,7 @@ export function DaySystemsSection({
   streaks?: Record<string, { current: number; best: number }>;
   countData?: Record<string, number>;
   onCountChange?: (id: string, count: number) => void;
+  onChessResultChange?: (result: ChessResultKey, value: number) => void;
   waterData?: Record<string, boolean>;
   onWaterToggle?: (id: string) => void;
   mealPhotos?: Record<string, string>;
@@ -155,6 +157,7 @@ export function DaySystemsSection({
     onToggle,
     onTimeChange,
     onCountChange,
+    onChessResultChange,
     onWaterToggle,
     onMealPhotoUpload,
     onSkipToggle,

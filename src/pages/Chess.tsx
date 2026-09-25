@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ export default function Chess() {
   const [duration, setDuration] = useState(30);
   const [games, setGames] = useState(3);
   const [wins, setWins] = useState(0);
-  const [elo, setElo] = useState<number | "">("");
+  const [baseElo, setBaseElo] = useState<number | "">(1000);
   const [platform, setPlatform] = useState("chess.com");
 
   const [goalOpen, setGoalOpen] = useState(false);
@@ -26,17 +26,41 @@ export default function Chess() {
   const [tMin, setTMin] = useState(goals?.target_minutes_per_day || 30);
   const [sElo, setSElo] = useState(goals?.starting_elo || 1000);
 
+  useEffect(() => {
+    if (!goals) return;
+    setBaseElo(goals.starting_elo ?? 1000);
+    setSElo(goals.starting_elo ?? 1000);
+    setTElo(goals.target_elo ?? 1500);
+    setTGames(goals.target_games_per_month ?? 30);
+    setTMin(goals.target_minutes_per_day ?? 30);
+  }, [goals]);
+
   const handleSave = async () => {
-    await addSession({
+    const { error } = await addSession({
       duration_minutes: duration,
       games_played: games,
       games_won: wins,
-      current_elo: elo === "" ? null : Number(elo),
       platform,
     });
+    if (error) {
+      toast({ title: "No se pudo guardar la sesión", description: error.message });
+      return;
+    }
     toast({ title: "Sesión guardada" });
     setSessionOpen(false);
-    setDuration(30); setGames(3); setWins(0); setElo("");
+    setDuration(30); setGames(3); setWins(0);
+  };
+
+  const handleSaveElo = async () => {
+    if (baseElo === "") return;
+    const value = Math.max(0, Math.trunc(baseElo));
+    setBaseElo(value);
+    const { error } = await upsertGoals({ starting_elo: value });
+    if (error) {
+      toast({ title: "No se pudo guardar el ELO", description: error.message });
+      return;
+    }
+    toast({ title: "ELO base guardado" });
   };
 
   const handleSaveGoals = async () => {
@@ -52,8 +76,9 @@ export default function Chess() {
     return <div className="min-h-screen flex items-center justify-center pt-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   }
 
+  const eloRange = goals ? goals.target_elo - stats.eloBase : 0;
   const eloProgress = goals
-    ? Math.min(100, Math.round(((stats.currentElo - goals.starting_elo) / (goals.target_elo - goals.starting_elo)) * 100))
+    ? Math.max(0, Math.min(100, Math.round(eloRange === 0 ? 100 : ((stats.currentElo - stats.eloBase) / eloRange) * 100)))
     : 0;
 
   return (
@@ -71,15 +96,50 @@ export default function Chess() {
         <Card className="p-6 text-center bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/30">
           <p className="text-xs uppercase tracking-widest text-muted-foreground">ELO Actual</p>
           <p className="text-5xl font-extrabold text-amber-600">{stats.currentElo}</p>
+
+          <div className="mx-auto mt-5 flex max-w-sm items-end gap-2 text-left">
+            <div className="flex-1 space-y-1">
+              <Label htmlFor="elo-base">ELO base</Label>
+              <Input
+                id="elo-base"
+                type="number"
+                min={0}
+                step={1}
+                value={baseElo}
+                onChange={event => setBaseElo(event.target.value === "" ? "" : Number(event.target.value))}
+                onKeyDown={event => {
+                  if (event.key === "Enter") void handleSaveElo();
+                }}
+              />
+            </div>
+            <Button type="button" onClick={handleSaveElo} disabled={baseElo === ""}>
+              <Save className="h-4 w-4" /> Guardar
+            </Button>
+          </div>
+
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Base para calcular con todos los resultados registrados en Daily.
+          </p>
+
+          <div className="mx-auto mt-3 flex max-w-lg flex-wrap justify-center gap-2 text-[11px]">
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-semibold text-emerald-600 dark:text-emerald-400">
+              {stats.daily.wins} victorias × +8
+            </span>
+            <span className="rounded-full bg-red-500/10 px-2.5 py-1 font-semibold text-red-500">
+              {stats.daily.losses} derrotas × −8
+            </span>
+            <span className="rounded-full bg-amber-500/10 px-2.5 py-1 font-semibold text-amber-600 dark:text-amber-400">
+              Ajuste {stats.eloAdjustment > 0 ? "+" : ""}{stats.eloAdjustment}
+            </span>
+          </div>
+
           {goals && (
-            <>
-              <div className="mt-4">
-                <Progress value={eloProgress} className="h-2" />
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  {goals.starting_elo} → {goals.target_elo} ({eloProgress}% del camino)
-                </p>
-              </div>
-            </>
+            <div className="mt-4">
+              <Progress value={eloProgress} className="h-2" />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {stats.eloBase} → {goals.target_elo} ({eloProgress}% del camino)
+              </p>
+            </div>
           )}
         </Card>
 
@@ -94,10 +154,9 @@ export default function Chess() {
               <div className="space-y-3">
                 <div><Label>Duración (min)</Label><Input type="number" value={duration} onChange={e => setDuration(Number(e.target.value))} /></div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><Label>Partidas</Label><Input type="number" value={games} onChange={e => setGames(Number(e.target.value))} /></div>
-                  <div><Label>Victorias</Label><Input type="number" value={wins} onChange={e => setWins(Number(e.target.value))} /></div>
+                  <div><Label>Partidas</Label><Input type="number" min={0} value={games} onChange={e => setGames(Math.max(0, Number(e.target.value) || 0))} /></div>
+                  <div><Label>Victorias</Label><Input type="number" min={0} value={wins} onChange={e => setWins(Math.max(0, Number(e.target.value) || 0))} /></div>
                 </div>
-                <div><Label>ELO actual (opcional)</Label><Input type="number" value={elo} onChange={e => setElo(e.target.value === "" ? "" : Number(e.target.value))} /></div>
                 <div><Label>Plataforma</Label><Input value={platform} onChange={e => setPlatform(e.target.value)} /></div>
                 <Button onClick={handleSave} className="w-full"><Save className="h-4 w-4 mr-1" /> Guardar</Button>
               </div>
@@ -111,7 +170,7 @@ export default function Chess() {
             <DialogContent>
               <DialogHeader><DialogTitle>Objetivos de Ajedrez</DialogTitle></DialogHeader>
               <div className="space-y-3">
-                <div><Label>ELO inicial</Label><Input type="number" value={sElo} onChange={e => setSElo(Number(e.target.value))} /></div>
+                <div><Label>ELO base</Label><Input type="number" min={0} value={sElo} onChange={e => setSElo(Math.max(0, Number(e.target.value) || 0))} /></div>
                 <div><Label>ELO objetivo</Label><Input type="number" value={tElo} onChange={e => setTElo(Number(e.target.value))} /></div>
                 <div><Label>Partidas/mes</Label><Input type="number" value={tGames} onChange={e => setTGames(Number(e.target.value))} /></div>
                 <div><Label>Minutos diarios</Label><Input type="number" value={tMin} onChange={e => setTMin(Number(e.target.value))} /></div>

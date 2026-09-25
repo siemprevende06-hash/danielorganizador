@@ -122,7 +122,7 @@ export default function DailyView() {
   const dayOfYear = Math.ceil((selectedDate.getTime() - new Date(selectedDate.getFullYear(), 0, 1).getTime()) / 86400000);
   const yearProgress = Math.round((dayOfYear / 365) * 100);
 
-  const { data, loading, toggleCompletion, setTimeValue, setCountValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleActiveFocusArea } = useSystemsTracking(selectedDate);
+  const { data, loading, toggleCompletion, setTimeValue, setCountValue, setChessResultValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleActiveFocusArea } = useSystemsTracking(selectedDate);
 
   const dailyPlanData = useDailyPlanData(selectedDate);
   const {
@@ -630,6 +630,7 @@ export default function DailyView() {
             onSkipToggle={toggleSkip}
             countData={data.countData}
             onCountChange={setCountValue}
+            onChessResultChange={setChessResultValue}
             waterData={data.waterData}
             onWaterToggle={toggleWater}
             mealPhotos={data.mealPhotos}
