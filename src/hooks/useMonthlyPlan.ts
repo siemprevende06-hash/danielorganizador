@@ -147,7 +147,7 @@ export function useMonthlyPlan(month: Date) {
       if (songsRes.error) throw songsRes.error;
       if (eventsRes.error) throw eventsRes.error;
       if (booksRes.data) setBooks(booksRes.data);
-      if (songsRes.data) setSongs(songsRes.data);
+      if (songsRes.data) setSongs(songsRes.data as unknown as Song[]);
       if (eventsRes.data) setEvents(eventsRes.data);
 
       try {
