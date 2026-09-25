@@ -2088,41 +2088,32 @@ export type Database = {
       }
       music_practice_sessions: {
         Row: {
-          both_hands_minutes: number | null
           created_at: string | null
           duration_minutes: number
           id: string
           instrument: string
-          left_hand_minutes: number | null
           notes: string | null
           practice_date: string
-          right_hand_minutes: number | null
           song_id: string | null
           user_id: string | null
         }
         Insert: {
-          both_hands_minutes?: number | null
           created_at?: string | null
           duration_minutes?: number
           id?: string
           instrument: string
-          left_hand_minutes?: number | null
           notes?: string | null
           practice_date?: string
-          right_hand_minutes?: number | null
           song_id?: string | null
           user_id?: string | null
         }
         Update: {
-          both_hands_minutes?: number | null
           created_at?: string | null
           duration_minutes?: number
           id?: string
           instrument?: string
-          left_hand_minutes?: number | null
           notes?: string | null
           practice_date?: string
-          right_hand_minutes?: number | null
           song_id?: string | null
           user_id?: string | null
         }
@@ -2141,15 +2132,11 @@ export type Database = {
           artist: string | null
           created_at: string | null
           difficulty: string | null
-          duration_seconds: number | null
           id: string
           instrument: string
           last_practiced: string | null
-          learned_at: string | null
-          mastered_at: string | null
           notes: string | null
           practice_minutes: number | null
-          recorded_at: string | null
           status: string | null
           title: string
           updated_at: string | null
@@ -2160,15 +2147,11 @@ export type Database = {
           artist?: string | null
           created_at?: string | null
           difficulty?: string | null
-          duration_seconds?: number | null
           id?: string
           instrument: string
           last_practiced?: string | null
-          learned_at?: string | null
-          mastered_at?: string | null
           notes?: string | null
           practice_minutes?: number | null
-          recorded_at?: string | null
           status?: string | null
           title: string
           updated_at?: string | null
@@ -2179,15 +2162,11 @@ export type Database = {
           artist?: string | null
           created_at?: string | null
           difficulty?: string | null
-          duration_seconds?: number | null
           id?: string
           instrument?: string
           last_practiced?: string | null
-          learned_at?: string | null
-          mastered_at?: string | null
           notes?: string | null
           practice_minutes?: number | null
-          recorded_at?: string | null
           status?: string | null
           title?: string
           updated_at?: string | null
