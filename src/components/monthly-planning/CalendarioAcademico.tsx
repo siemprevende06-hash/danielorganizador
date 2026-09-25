@@ -70,7 +70,10 @@ export function CalendarioAcademico({ month }: { month: Date }) {
           category: ev.category ?? undefined,
         }));
 
-      const merged = [...exams, ...deliveries, ...events].sort((a, b) => a.date.localeCompare(b.date));
+      const merged = [...exams, ...deliveries, ...events]
+        .map(i => ({ ...i, date: String(i.date || '').slice(0, 10) }))
+        .filter(i => /^\d{4}-\d{2}-\d{2}$/.test(i.date) && !isNaN(new Date(i.date + 'T12:00:00').getTime()))
+        .sort((a, b) => a.date.localeCompare(b.date));
       setItems(merged);
       setLoading(false);
     };
