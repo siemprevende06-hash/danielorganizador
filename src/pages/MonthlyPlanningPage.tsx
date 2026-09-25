@@ -74,7 +74,11 @@ const handleSave = async () => {
   const eventItems = events.map(e => ({
     id: e.id,
     title: e.title,
-    subtitle: `${format(new Date(e.event_date), 'd MMM', { locale: es })} · ${e.category}`,
+    subtitle: (() => {
+      const d = e.event_date ? new Date(String(e.event_date).slice(0, 10) + 'T12:00:00') : null;
+      const label = d && !isNaN(d.getTime()) ? format(d, 'd MMM', { locale: es }) : 'Sin fecha';
+      return `${label} · ${e.category ?? ''}`;
+    })(),
   }));
 
   const monthStart = startOfMonth(month);
