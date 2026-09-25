@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Crown, Trophy, Target, Plus, Trash2, Save, TrendingUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useChessTracking } from "@/hooks/useChessTracking";
@@ -80,6 +81,10 @@ export default function Chess() {
   const eloProgress = goals
     ? Math.max(0, Math.min(100, Math.round(eloRange === 0 ? 100 : ((stats.currentElo - stats.eloBase) / eloRange) * 100)))
     : 0;
+  const eloValues = stats.eloHistory.map(point => point.elo);
+  const eloChartMin = Math.min(stats.eloBase, ...(goals ? [goals.target_elo] : []), ...eloValues) - 8;
+  const eloChartMax = Math.max(stats.eloBase, ...(goals ? [goals.target_elo] : []), ...eloValues) + 8;
+  const formatEloDate = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-4 md:p-8 pt-24">
@@ -139,6 +144,80 @@ export default function Chess() {
               <p className="text-[11px] text-muted-foreground mt-1">
                 {stats.eloBase} → {goals.target_elo} ({eloProgress}% del camino)
               </p>
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Evolución del ELO</h3>
+              <p className="text-[10px] text-muted-foreground">ELO acumulado según los resultados diarios</p>
+            </div>
+            <Badge variant="secondary">{stats.eloHistory.length} días</Badge>
+          </div>
+          {stats.eloHistory.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              Registra tus resultados diarios para ver la evolución.
+            </p>
+          ) : (
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stats.eloHistory} margin={{ top: 8, right: 8, left: -20, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={formatEloDate}
+                    tick={{ fontSize: 10 }}
+                    className="text-muted-foreground"
+                  />
+                  <YAxis
+                    domain={[eloChartMin, eloChartMax]}
+                    tick={{ fontSize: 10 }}
+                    className="text-muted-foreground"
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value: number) => [`${value} ELO`, "ELO"]}
+                  />
+                  {goals && (
+                    <ReferenceLine
+                      y={goals.target_elo}
+                      stroke="hsl(var(--primary))"
+                      strokeDasharray="5 5"
+                      label={{
+                        value: `Meta: ${goals.target_elo}`,
+                        position: "right",
+                        fontSize: 10,
+                        fill: "hsl(var(--primary))",
+                      }}
+                    />
+                  )}
+                  <ReferenceLine
+                    y={stats.eloBase}
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: `Base: ${stats.eloBase}`,
+                      position: "right",
+                      fontSize: 10,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="elo"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: "hsl(var(--primary))" }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           )}
         </Card>

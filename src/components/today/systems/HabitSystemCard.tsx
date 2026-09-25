@@ -9,6 +9,7 @@ import type { HabitMeta } from "@/lib/areaSystemsMap";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useChessTracking } from "@/hooks/useChessTracking";
 import { toast } from "sonner";
 import { Clock, Droplets, Camera, ExternalLink, Sun, Moon, Flame, Trophy, Check } from "lucide-react";
 import { ReadingPagesInline } from "./ReadingPagesInline";
@@ -65,14 +66,32 @@ interface ChessDailyResultsInlineProps {
 }
 
 function ChessDailyResultsInline({ games, wins, losses, onGamesChange, onResultChange }: ChessDailyResultsInlineProps) {
+  const { stats, goals, loading } = useChessTracking();
   const readCount = (value: string) => Math.max(0, parseInt(value) || 0);
 
   return (
     <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 space-y-1.5">
       <div className="flex items-center justify-between text-[9px] font-semibold">
-        <span>Resultados diarios</span>
+        <span>ELO y resultados diarios</span>
         <span className="text-amber-600 dark:text-amber-400">+8 / −8 ELO</span>
       </div>
+      <div className="flex items-end justify-between gap-2">
+        <div>
+          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">ELO actual</p>
+          <p className="text-lg font-extrabold leading-none tabular-nums text-amber-600 dark:text-amber-400">
+            {loading ? "—" : stats.currentElo}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Objetivo</p>
+          <p className="text-sm font-bold leading-none tabular-nums text-foreground">
+            {loading || !goals ? "—" : stats.eloTarget}
+          </p>
+        </div>
+      </div>
+      {goals && !loading && (
+        <Progress value={stats.eloProgress} className="h-1.5" indicatorClassName="bg-amber-500" />
+      )}
       <div className="grid grid-cols-3 gap-1.5">
         <label className="space-y-0.5">
           <span className="text-[8px] text-muted-foreground">Partidas</span>

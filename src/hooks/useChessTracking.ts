@@ -29,6 +29,15 @@ interface DailyChessTotals {
   losses: number;
 }
 
+interface DailyChessDay extends DailyChessTotals {
+  date: string;
+}
+
+export interface ChessEloPoint extends DailyChessTotals {
+  date: string;
+  elo: number;
+}
+
 const EMPTY_DAILY_TOTALS: DailyChessTotals = { games: 0, wins: 0, losses: 0 };
 
 function readDailyCount(countData: unknown, key: string): number {
@@ -42,7 +51,7 @@ const todayKey = () => new Date().toISOString().split("T")[0];
 export const useChessTracking = () => {
   const [sessions, setSessions] = useState<ChessSession[]>([]);
   const [goals, setGoals] = useState<ChessGoals | null>(null);
-  const [dailyTotals, setDailyTotals] = useState<DailyChessTotals>(EMPTY_DAILY_TOTALS);
+  const [dailyHistory, setDailyHistory] = useState<DailyChessDay[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -50,20 +59,31 @@ export const useChessTracking = () => {
     const [{ data: ses }, { data: g }, { data: tracking }] = await Promise.all([
       supabase.from("chess_sessions").select("*").order("session_date", { ascending: false }).limit(200),
       supabase.from("chess_goals").select("*").eq("is_active", true).maybeSingle(),
-      supabase.from("daily_systems_tracking").select("count_data"),
+      supabase.from("daily_systems_tracking").select("tracking_date, count_data").order("tracking_date", { ascending: true }),
     ]);
-    const rows = (tracking as Array<{ count_data: unknown }> | null) ?? [];
-    setDailyTotals(rows.reduce<DailyChessTotals>((totals, row) => ({
-      games: totals.games + readDailyCount(row.count_data, CHESS_COUNT_KEYS.games),
-      wins: totals.wins + readDailyCount(row.count_data, CHESS_COUNT_KEYS.wins),
-      losses: totals.losses + readDailyCount(row.count_data, CHESS_COUNT_KEYS.losses),
-    }), EMPTY_DAILY_TOTALS));
+    const rows = (tracking as Array<{ tracking_date: string; count_data: unknown }> | null) ?? [];
+    const history = rows
+      .map(row => ({
+        date: row.tracking_date,
+        games: readDailyCount(row.count_data, CHESS_COUNT_KEYS.games),
+        wins: readDailyCount(row.count_data, CHESS_COUNT_KEYS.wins),
+        losses: readDailyCount(row.count_data, CHESS_COUNT_KEYS.losses),
+      }))
+      .filter(row => !!row.date && (row.games > 0 || row.wins > 0 || row.losses > 0))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    setDailyHistory(history);
     setSessions((ses as ChessSession[]) || []);
     setGoals(g as ChessGoals | null);
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const dailyTotals = dailyHistory.reduce<DailyChessTotals>((totals, day) => ({
+    games: totals.games + day.games,
+    wins: totals.wins + day.wins,
+    losses: totals.losses + day.losses,
+  }), EMPTY_DAILY_TOTALS);
 
   const addSession = async (s: Partial<ChessSession>) => {
     const { data, error } = await supabase.from("chess_sessions").insert({
@@ -121,6 +141,28 @@ export const useChessTracking = () => {
 
   const eloBase = goals?.starting_elo ?? 1000;
   const eloAdjustment = dailyTotals.wins * 8 - dailyTotals.losses * 8;
+  const currentElo = calculateChessElo(eloBase, dailyTotals.wins, dailyTotals.losses);
+  const eloTarget = goals?.target_elo ?? null;
+  const eloProgress = eloTarget === null
+    ? 0
+    : eloTarget === eloBase
+      ? 100
+      : eloTarget > eloBase
+        ? Math.max(0, Math.min(100, Math.round(((currentElo - eloBase) / (eloTarget - eloBase)) * 100)))
+        : currentElo >= eloTarget ? 100 : 0;
+  const eloHistory = dailyHistory.reduce<ChessEloPoint[]>((points, day) => {
+    const previous = points[points.length - 1];
+    const wins = (previous?.wins ?? 0) + day.wins;
+    const losses = (previous?.losses ?? 0) + day.losses;
+    points.push({
+      date: day.date,
+      games: (previous?.games ?? 0) + day.games,
+      wins,
+      losses,
+      elo: calculateChessElo(eloBase, wins, losses),
+    });
+    return points;
+  }, []);
 
   const stats = {
     today: { minutes: sum(today, "duration_minutes"), games: sum(today, "games_played"), wins: sum(today, "games_won") },
@@ -128,8 +170,11 @@ export const useChessTracking = () => {
     month: { minutes: sum(month, "duration_minutes"), games: sum(month, "games_played"), wins: sum(month, "games_won") },
     daily: dailyTotals,
     eloBase,
+    eloTarget,
     eloAdjustment,
-    currentElo: calculateChessElo(eloBase, dailyTotals.wins, dailyTotals.losses),
+    eloProgress,
+    currentElo,
+    eloHistory,
   };
 
   return { sessions, goals, loading, addSession, upsertGoals, deleteSession, stats, refetch: load };
