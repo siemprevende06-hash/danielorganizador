@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/select';
 import {
   Search, BookOpen, Briefcase, FolderKanban, GraduationCap,
-  CalendarDays, Loader2, Rows3,
+  CalendarDays, Loader2, Rows3, GripVertical,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUniversity } from '@/hooks/useUniversity';
