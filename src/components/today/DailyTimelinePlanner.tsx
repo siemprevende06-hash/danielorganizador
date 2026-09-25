@@ -198,20 +198,38 @@ export function DailyTimelinePlanner({
     return () => clearInterval(interval);
   }, []);
 
+  const safeBlocks = Array.isArray(blocks) ? blocks : [];
+  const safeTasksByBlock = tasksByBlock || {};
   const sortedBlocks = useMemo(() => {
-    return [...blocks]
+    return [...safeBlocks]
       .filter(b => {
-        const startM = parseTime(b.startTime);
-        return startM >= 300;
+        try {
+          let startM = 0;
+          try { startM = parseTime(b.startTime || '0:00'); } catch (e) { startM = 0; }
+          return startM >= 300;
+        } catch (e) {
+          return false;
+        }
       })
-      .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
-  }, [blocks]);
+      .sort((a, b) => {
+        try {
+          return parseTime(a.startTime) - parseTime(b.startTime);
+        } catch (e) {
+          return 0;
+        }
+      });
+  }, [safeBlocks]);
 
   const currentBlockIndex = useMemo(() => {
     return sortedBlocks.findIndex(block => {
-      const startM = parseTime(block.startTime);
-      const endM = parseTime(block.endTime);
-      return currentMinutes >= startM && currentMinutes < endM;
+      try {
+        let startM = 0, endM = 0;
+        try { startM = parseTime(block.startTime || '0:00'); } catch (e) { startM = 0; }
+        try { endM = parseTime(block.endTime || '0:00'); } catch (e) { endM = 0; }
+        return currentMinutes >= startM && currentMinutes < endM;
+      } catch (e) {
+        return false;
+      }
     });
   }, [sortedBlocks, currentMinutes]);
 
@@ -279,26 +297,30 @@ export function DailyTimelinePlanner({
       const block = sortedBlocks[i];
       const rect = blockRects.find(r => r.blockId === block.id);
       if (!rect) continue;
-      const bStart = parseTime(block.startTime);
-      const bEnd = parseTime(block.endTime);
+      let bStart = 0, bEnd = 0;
+      try { bStart = parseTime(block.startTime || '0:00'); } catch (e) { bStart = 0; }
+      try { bEnd = parseTime(block.endTime || '0:00'); } catch (e) { bEnd = 0; }
       if (minutes >= bStart && minutes <= bEnd) {
         const pct = (minutes - bStart) / Math.max(bEnd - bStart, 1);
-        return rect.top + Math.max(0, Math.min(1, pct)) * rect.height;
+        const top = rect.top || 0;
+        const height = rect.height || 0;
+        return top + Math.max(0, Math.min(1, pct)) * height;
       }
       if (minutes < bStart) {
-        return rect.top;
+        return rect.top || 0;
       }
     }
     const lastBlock = sortedBlocks[sortedBlocks.length - 1];
-    const lastRect = blockRects.find(r => r.blockId === lastBlock.id);
-    return lastRect ? lastRect.top + lastRect.height : 0;
+    const lastRect = blockRects.find(r => r.blockId === lastBlock?.id);
+    if (!lastRect) return 0;
+    return (lastRect.top || 0) + (lastRect.height || 0);
   }, [blockRects, sortedBlocks]);
 
   const timelineBottom = blockRects.length > 0
-    ? Math.max(...blockRects.map(r => r.top + r.height))
+    ? Math.max(...blockRects.map(r => (r?.top || 0) + (r?.height || 0)))
     : 0;
-  const eventColLeft = blockRects.length > 0 ? blockRects[0].left : 48;
-  const eventColRight = blockRects.length > 0 ? blockRects[0].right : 12;
+  const eventColLeft = blockRects.length > 0 ? (blockRects[0]?.left || 48) : 48;
+  const eventColRight = blockRects.length > 0 ? (blockRects[0]?.right || 12) : 12;
 
   return (
     <Card className="p-3 md:p-4">
@@ -334,15 +356,16 @@ export function DailyTimelinePlanner({
       <div ref={timelineRef} data-blocks-root className="relative space-y-1">
         {sortedBlocks.map((block, index) => {
           const blockId = block.id;
-          const startM = parseTime(block.startTime);
-          const endM = parseTime(block.endTime);
+        let startM = 0, endM = 0;
+        try { startM = parseTime(block.startTime || '0:00'); } catch (e) { startM = 0; }
+        try { endM = parseTime(block.endTime || '0:00'); } catch (e) { endM = 0; }
           const completed = isBlockCompleted(blockId);
           const focusKey = getBlockFocus(block);
           const colors = FOCUS_COLORS[focusKey] || FOCUS_COLORS.default;
           const isCurrent = !isFutureView && index === currentBlockIndex;
           const isPast = !isFutureView && endM <= currentMinutes;
           const isDragOver = dragOverBlockId === blockId;
-          const tasks = tasksByBlock[blockId] || [];
+          const tasks = safeTasksByBlock[blockId] || [];
           const isDW = isDeepWork(block.title);
           const blockType = identifyBlockType(block.title);
 

@@ -41,26 +41,36 @@ export function TimePeriodSections({
   blocks: RoutineBlock[];
   tasksByBlock: Record<string, TaskItem[]>;
 }) {
+  const safeBlocks = Array.isArray(blocks) ? blocks : [];
+  const safeTasksByBlock = tasksByBlock || {};
   const grouped = useMemo(() => {
-    const sorted = [...blocks].sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+    const sorted = [...safeBlocks].sort((a, b) => {
+      try {
+        return parseTime(a.startTime || '0:00') - parseTime(b.startTime || '0:00');
+      } catch (e) { return 0; }
+    });
     return PERIODS.map((p) => {
       const periodBlocks = sorted.filter((b) => {
-        const s = parseTime(b.startTime);
-        return s >= p.start && s < p.end;
+        try {
+          const s = parseTime(b.startTime || '0:00');
+          return s >= p.start && s < p.end;
+        } catch (e) { return false; }
       });
       const minutes = periodBlocks.reduce((s, b) => {
-        let e = parseTime(b.endTime);
-        const st = parseTime(b.startTime);
-        if (e <= st) e += 24 * 60;
-        return s + (e - st);
+        try {
+          let e = parseTime(b.endTime || '0:00');
+          const st = parseTime(b.startTime || '0:00');
+          if (e <= st) e += 24 * 60;
+          return s + (e - st);
+        } catch (e) { return s; }
       }, 0);
       const tasks = periodBlocks.flatMap((b) =>
-        (tasksByBlock[b.id] || []).map((t) => ({ task: t, block: b }))
+        (safeTasksByBlock[b.id] || []).map((t) => ({ task: t, block: b }))
       );
       const completed = tasks.filter(({ task }) => task.completed).length;
       return { ...p, blocks: periodBlocks, tasks, minutes, completed };
     });
-  }, [blocks, tasksByBlock]);
+  }, [safeBlocks, safeTasksByBlock]);
 
   return (
     <section className="space-y-2">

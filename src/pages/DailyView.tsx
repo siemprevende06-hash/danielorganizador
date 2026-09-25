@@ -301,14 +301,14 @@ export default function DailyView() {
 
             <PlanGoalsCard date={selectedDate} planGoals={planGoals} planIntensity={planIntensity} plannedTasks={plannedTasksTotal.length} />
 
-            <TimePeriodSections blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} />
+            <TimePeriodSections blocks={(routineLoaded && Array.isArray(routineBlocks) && routineBlocks.length > 0 ? routineBlocks : (Array.isArray(adjustedBlocks) ? adjustedBlocks : [])) as any} tasksByBlock={tasksByBlock || {}} />
 
             <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
 
-            <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock} />
+            <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock || {}} />
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
+              <DailyTimelinePlanner blocks={(routineLoaded && Array.isArray(routineBlocks) && routineBlocks.length > 0 ? routineBlocks : (Array.isArray(adjustedBlocks) ? adjustedBlocks : [])) as any} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)] flex flex-col gap-3">
                 <div className="flex-1 min-h-0">
                   <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} abcMap={abc.map} />
@@ -458,10 +458,10 @@ export default function DailyView() {
 
             <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
 
-            <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock} />
+            <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock || {}} />
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-              <DailyTimelinePlanner blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any} tasksByBlock={tasksByBlock} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} />
+              <DailyTimelinePlanner blocks={(routineLoaded && Array.isArray(routineBlocks) && routineBlocks.length > 0 ? routineBlocks : (Array.isArray(adjustedBlocks) ? adjustedBlocks : [])) as any} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} />
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
                 <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} abcMap={abc.map} />
               </div>

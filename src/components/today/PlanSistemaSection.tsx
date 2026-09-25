@@ -78,6 +78,7 @@ function chipFor(id: string) {
 
 export function PlanSistemaSection() {
   const { blocks, isLoaded, routineInfo } = useRoutineBlocks();
+  const safeBlocks = Array.isArray(blocks) ? blocks : [];
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
@@ -94,17 +95,21 @@ export function PlanSistemaSection() {
   const status = useMemo(() => {
     let activeIndex = -1;
     let done = 0;
-    for (let i = 0; i < blocks.length; i++) {
-      const { start, end } = blockRange(blocks[i]);
-      if (nowMinutes >= end) done++;
-      if (nowMinutes >= start && nowMinutes < end && activeIndex === -1) activeIndex = i;
+    for (let i = 0; i < safeBlocks.length; i++) {
+      try {
+        const { start, end } = blockRange(safeBlocks[i]);
+        if (nowMinutes >= end) done++;
+        if (nowMinutes >= start && nowMinutes < end && activeIndex === -1) activeIndex = i;
+      } catch (e) {
+        continue;
+      }
     }
-    return { activeIndex, done, total: blocks.length };
-  }, [blocks, nowMinutes]);
+    return { activeIndex, done, total: safeBlocks.length };
+  }, [safeBlocks, nowMinutes]);
 
   if (!isLoaded) return null;
 
-  const currentBlock = status.activeIndex >= 0 ? blocks[status.activeIndex] : null;
+  const currentBlock = status.activeIndex >= 0 ? safeBlocks[status.activeIndex] : null;
   const currentRange = currentBlock ? blockRange(currentBlock) : null;
   const currentPct = currentRange
     ? Math.round(
@@ -177,7 +182,7 @@ export function PlanSistemaSection() {
           </p>
 
           <ol className="space-y-1.5">
-            {blocks.map((block, index) => {
+            {safeBlocks.map((block, index) => {
               const systems = planSystems(block);
               const { start, end } = blockRange(block);
               const past = nowMinutes >= end;
