@@ -192,7 +192,7 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
             const l = light(a.pct);
             const Dir = a.delta > 0.08 ? ArrowUpRight : a.delta < -0.08 ? ArrowDownRight : ArrowRight;
             const data = [...a.ys.map(v => ({ v: Math.round(v) })), ...Array.from({ length: 4 }, (_, k) => ({ f: Math.max(0, Math.round(a.ys[a.ys.length - 1] + a.slope * (k + 1))) }))];
-            data[a.ys.length - 1] = { ...data[a.ys.length - 1], f: data[a.ys.length - 1].v } as any;
+            data[a.ys.length - 1] = { ...data[a.ys.length - 1], f: (data[a.ys.length - 1] as any).v } as any;
             return (
               <div key={a.id} className="rounded-xl border border-border/60 p-2.5">
                 <div className="flex items-center gap-1.5 text-xs">
