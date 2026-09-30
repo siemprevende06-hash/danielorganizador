@@ -9,6 +9,8 @@ import { TodayWorkout } from '@/components/today/TodayWorkout';
 import { SystemHabitGroup, type SystemGroup } from '@/components/systems/SystemHabitGroup';
 
 import { EnfoqueSection } from '@/components/today/EnfoqueSection';
+import { DireccionBoard } from '@/components/today/DireccionBoard';
+import { PlanFocusPicker } from '@/components/today/PlanFocusPicker';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { HobbyCards } from '@/components/systems/HobbyCards';
 import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
@@ -44,7 +46,7 @@ import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutine
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Moon } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Moon, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { addDays, subDays } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -200,6 +202,7 @@ export default function DailyView() {
   }, [planRoutineType, setRoutineType]);
 
   const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten'>('tasks');
+  const [planEnfoqueOpen, setPlanEnfoqueOpen] = useState(false);
 
   const SOSTEN_HABIT_IDS = SOSTEN_GROUPS.flatMap(g => g.habits.map(h => h.id));
   const MEJORA_HABIT_IDS = ['lectura', 'musica', 'ajedrez', 'entrenamiento-fisico', 'italiano', 'ingles'];
@@ -225,6 +228,31 @@ export default function DailyView() {
   const plannedTasksTotal = useMemo(() => tasks.filter(t => plannedTaskIds.has(t.id)), [tasks, plannedTaskIds]);
   const plannedTasksDone = plannedTasksTotal.filter(t => t.completed).length;
   const plannedPct = plannedTasksTotal.length > 0 ? Math.round((plannedTasksDone / plannedTasksTotal.length) * 100) : 0;
+
+  // Bloques de rutina reales — fuente única para la línea de tiempo, Enfoque y Mis Sistemas
+  const planBlocks = useMemo(
+    () => (routineLoaded && Array.isArray(routineBlocks) && routineBlocks.length > 0
+      ? routineBlocks
+      : (Array.isArray(adjustedBlocks) ? adjustedBlocks : [])) as any,
+    [routineLoaded, routineBlocks, adjustedBlocks]
+  );
+
+  const activeFocusAreas = useMemo(
+    () => (Array.isArray(data.activeFocusAreas) ? data.activeFocusAreas : []),
+    [data.activeFocusAreas]
+  );
+
+  const enfoqueSectionProps = {
+    blocks: planBlocks,
+    tasksByBlock,
+    onRemoveTask: removeTaskFromBlock,
+    tasks,
+    activeFocusAreas,
+    onToggleActiveFocusArea: toggleActiveFocusArea,
+    skipped: data.skipped,
+    onSkipToggle: toggleSkip,
+    date: selectedDate,
+  };
   const SECTIONS = [
     { id: 'tasks' as const, label: 'Tareas y Horario', icon: <ListTodo className="h-4 w-4" />, pct: plannedPct, time: data.workoutDuration || 0 },
     { id: 'enfoque' as const, label: 'Enfoque', icon: <Focus className="h-4 w-4" />, pct: plannedPct, time: 0 },
@@ -301,14 +329,47 @@ export default function DailyView() {
 
             <PlanGoalsCard date={selectedDate} planGoals={planGoals} planIntensity={planIntensity} plannedTasks={plannedTasksTotal.length} />
 
-            <TimePeriodSections blocks={(routineLoaded && Array.isArray(routineBlocks) && routineBlocks.length > 0 ? routineBlocks : (Array.isArray(adjustedBlocks) ? adjustedBlocks : [])) as any} tasksByBlock={tasksByBlock || {}} />
+            {/* ===== SECCIÓN: ENFOQUE Y ACUMULATIVOS (acordeón) ===== */}
+            <button
+              type="button"
+              onClick={() => setPlanEnfoqueOpen(v => !v)}
+              aria-expanded={planEnfoqueOpen}
+              className="w-full flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm hover:shadow-md transition-all text-left"
+            >
+              <span className="shrink-0 w-8 h-8 rounded-xl bg-indigo-500/10 grid place-items-center">
+                <Focus className="h-4 w-4 text-indigo-500" />
+              </span>
+              <span className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-sm font-semibold tracking-tight">Enfoque y Acumulativos</span>
+                <span className="text-[10px] text-muted-foreground truncate">
+                  {activeFocusAreas.length > 0
+                    ? `${activeFocusAreas.length} ${activeFocusAreas.length === 1 ? 'área' : 'áreas'} activas`
+                    : 'Dirección, foco, velocidad y sistemas'}
+                </span>
+              </span>
+              {planEnfoqueOpen
+                ? <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto shrink-0" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto shrink-0" />}
+            </button>
+
+            {planEnfoqueOpen && (
+              <div className="flex flex-col gap-4">
+                <DireccionBoard />
+                <PlanFocusPicker activeFocusAreas={activeFocusAreas} />
+                <EnfoqueSection {...enfoqueSectionProps} />
+                <DaySpeedSection />
+                <MySystemsSection date={selectedDate} blocks={planBlocks} />
+              </div>
+            )}
+
+            <TimePeriodSections blocks={planBlocks} tasksByBlock={tasksByBlock || {}} />
 
             <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
 
             <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock || {}} />
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-              <DailyTimelinePlanner blocks={(routineLoaded && Array.isArray(routineBlocks) && routineBlocks.length > 0 ? routineBlocks : (Array.isArray(adjustedBlocks) ? adjustedBlocks : [])) as any} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
+              <DailyTimelinePlanner blocks={planBlocks} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)] flex flex-col gap-3">
                 <div className="flex-1 min-h-0">
                   <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} abcMap={abc.map} />
@@ -324,8 +385,6 @@ export default function DailyView() {
             <EisenhowerMatrix key={format(selectedDate, 'yyyy-MM-dd')} tasks={tasks} onToggle={toggleTaskDone} date={selectedDate} />
 
             <AbcKanbanBoard key={`abc-${format(selectedDate, 'yyyy-MM-dd')}`} tasks={tasks} onToggle={toggleTaskDone} map={abc.map} onMove={abc.move} onRotate={abc.rotate} />
-
-            <DaySpeedSection />
           </>
         ) : viewMode === 'esfuerzo' ? (
           <>
@@ -531,7 +590,7 @@ export default function DailyView() {
               </CardContent>
             </Card>
             <MejoraProcessPanel todayMinutes={todayMinutes}>
-              <MySystemsSection />
+              <MySystemsSection date={selectedDate} blocks={planBlocks} />
               <Card className="border-purple-500/20">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -595,16 +654,7 @@ export default function DailyView() {
         {activeSection === 'enfoque' && (
           <FocusProcessPanel todayMinutes={focusTodayMinutes}>
             <PeriodAreaTasks start={selectedDate} end={selectedDate} periodLabel="Hoy" />
-            <EnfoqueSection
-              blocks={routineLoaded && routineBlocks.length > 0 ? routineBlocks : adjustedBlocks as any}
-              tasksByBlock={tasksByBlock}
-              onRemoveTask={removeTaskFromBlock}
-              tasks={tasks}
-              activeFocusAreas={data.activeFocusAreas}
-              onToggleActiveFocusArea={toggleActiveFocusArea}
-              skipped={data.skipped}
-              onSkipToggle={toggleSkip}
-            />
+            <EnfoqueSection {...enfoqueSectionProps} />
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-wide">CALENDARIO MENSUAL</h2>

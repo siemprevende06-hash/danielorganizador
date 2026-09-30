@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -63,7 +63,7 @@ export const AREA_IDS = {
 
 export type AreaId = typeof AREA_IDS[keyof typeof AREA_IDS];
 
-const DEFAULT_GOALS: Partial<Record<AreaId, { time: number; pages?: number; exercises?: number }>> = {
+export const DEFAULT_GOALS: Partial<Record<AreaId, { time: number; pages?: number; exercises?: number }>> = {
   universidad: { time: 120 },
   emprendimiento: { time: 60 },
   proyectos: { time: 60 },
@@ -80,13 +80,13 @@ const DEFAULT_GOALS: Partial<Record<AreaId, { time: number; pages?: number; exer
   skincare_pm: { time: 10 },
 };
 
-export const useDailyAreaStats = () => {
+export const useDailyAreaStats = (targetDate?: Date) => {
   const [stats, setStats] = useState<Record<AreaId, DailyAreaStat | null>>({} as any);
   const [configs, setConfigs] = useState<Record<AreaId, AreaGoalsConfig | null>>({} as any);
   const [streaks, setStreaks] = useState<Record<AreaId, AreaStreak | null>>({} as any);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const today = format(new Date(), 'yyyy-MM-dd');
+
+  const today = useMemo(() => format(targetDate ?? new Date(), 'yyyy-MM-dd'), [targetDate]);
 
   const loadAllData = useCallback(async () => {
     setIsLoading(true);

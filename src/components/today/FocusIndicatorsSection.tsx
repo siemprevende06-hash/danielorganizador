@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -8,8 +8,9 @@ import { CalendarDays, GraduationCap, Briefcase, Code2, Clock, Target, Shield, L
 import { cn } from "@/lib/utils";
 import { useCombinedFocusTime } from "@/hooks/useCombinedFocusTime";
 import { useSystemsTracking } from "@/hooks/useSystemsTracking";
-import { useActiveSelection } from "@/hooks/useActiveSelection";
+import { useActiveSelections } from "@/hooks/useActiveSelections";
 import { useUniversity } from "@/hooks/useUniversity";
+import { useProjects } from "@/hooks/useProjects";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { DailyTaskSelector } from "@/components/routine/DailyTaskSelector";
@@ -31,10 +32,14 @@ interface ActiveInfo {
   route: string;
 }
 
-interface ProjectStored {
+interface EntRow {
   id: string;
   name: string;
-  tasks?: { completed?: boolean }[];
+}
+
+interface EntTaskRow {
+  entrepreneurship_id: string | null;
+  completed: boolean | null;
 }
 
 export function FocusIndicatorsSection() {
@@ -42,13 +47,14 @@ export function FocusIndicatorsSection() {
   const { areas, loading, setManualTime } = useCombinedFocusTime();
   const { data: systemsData, loading: systemsLoading } = useSystemsTracking();
   const { subjects } = useUniversity();
+  const { projects } = useProjects();
 
-  const { value: activeSubjectId } = useActiveSelection("activeSubjectId");
-  const { value: activeEntId } = useActiveSelection("activeEntrepreneurshipId");
-  const { value: activeProjectId } = useActiveSelection("selectedProjectId");
+  const { values: activeSubjectIds } = useActiveSelections("activeSubjects");
+  const { values: activeEntIds } = useActiveSelections("activeEntrepreneurships");
+  const { values: activeProjectIds } = useActiveSelections("activeProjects");
 
+  const [entrepreneurships, setEntrepreneurships] = useState<EntRow[]>([]);
   const [entInfo, setEntInfo] = useState<ActiveInfo | null>(null);
-  const [projectInfo, setProjectInfo] = useState<ActiveInfo | null>(null);
   const [generalTasks, setGeneralTasks] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
 
   // Plan del Día state (shared via localStorage with DailyRoutine)
@@ -133,64 +139,73 @@ export function FocusIndicatorsSection() {
     }
   }, [planDate]);
 
-  // Universidad — from active subject
-  const activeSubject = subjects.find((s) => s.id === activeSubjectId) || null;
-  const subjectInfo: ActiveInfo | null = activeSubject
-    ? {
-        name: activeSubject.name,
-        done: activeSubject.tasks.filter((t) => t.completed).length,
-        total: activeSubject.tasks.length,
-        route: "/university",
-      }
-    : null;
+  // Universidad: todas las asignaturas activas
+  const subjectInfo: ActiveInfo | null = useMemo(() => {
+    const active = subjects.filter((s) => activeSubjectIds.includes(s.id));
+    if (active.length === 0) return null;
+    return {
+      name: active.length === 1 ? active[0].name : `${active.length} asignaturas`,
+      done: active.reduce((n, s) => n + s.tasks.filter((t) => t.completed).length, 0),
+      total: active.reduce((n, s) => n + s.tasks.length, 0),
+      route: "/university",
+    };
+  }, [subjects, activeSubjectIds]);
 
-  // Emprendimiento — fetch active from Supabase
+  // Emprendimiento: todas las iniciativas activas
   useEffect(() => {
-    if (!activeEntId) { setEntInfo(null); return; }
+    let cancelled = false;
     (async () => {
-      const [{ data: ent }, { count: total }, { count: done }] = await Promise.all([
-        supabase.from("entrepreneurships").select("name").eq("id", activeEntId).maybeSingle(),
-        supabase.from("entrepreneurship_tasks").select("*", { count: "exact", head: true }).eq("entrepreneurship_id", activeEntId),
-        supabase.from("entrepreneurship_tasks").select("*", { count: "exact", head: true }).eq("entrepreneurship_id", activeEntId).eq("completed", true),
-      ]);
-      if (ent) setEntInfo({ name: ent.name, done: done || 0, total: total || 0, route: `/entrepreneurship/${activeEntId}` });
-      else setEntInfo(null);
+      const { data } = await supabase
+        .from("entrepreneurships")
+        .select("id, name")
+        .order("created_at", { ascending: true });
+      if (!cancelled) setEntrepreneurships((data as EntRow[]) || []);
     })();
-  }, [activeEntId]);
+    return () => { cancelled = true; };
+  }, []);
 
-  // Proyectos — from app_settings (Supabase) with localStorage fallback
   useEffect(() => {
-    if (!activeProjectId) { setProjectInfo(null); return; }
+    const active = entrepreneurships.filter((e) => activeEntIds.includes(e.id));
+    if (active.length === 0) { setEntInfo(null); return; }
+    let cancelled = false;
     (async () => {
-      try {
-        const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
-        let list: ProjectStored[] = [];
-        if (data?.setting_value && Array.isArray(data.setting_value)) {
-          list = data.setting_value as unknown as ProjectStored[];
-        } else {
-          const stored = localStorage.getItem("userProjects");
-          if (stored) list = JSON.parse(stored);
-        }
-        const p = list.find((x) => x.id === activeProjectId);
-        if (!p) { setProjectInfo(null); return; }
-        const total = p.tasks?.length || 0;
-        const done = p.tasks?.filter((t) => t.completed).length || 0;
-        setProjectInfo({ name: p.name, done, total, route: "/projects" });
-      } catch {
-        try {
-          const stored = localStorage.getItem("userProjects");
-          if (stored) {
-            const list = JSON.parse(stored) as ProjectStored[];
-            const p = list.find((x) => x.id === activeProjectId);
-            if (!p) { setProjectInfo(null); return; }
-            const total = p.tasks?.length || 0;
-            const done = p.tasks?.filter((t) => t.completed).length || 0;
-            setProjectInfo({ name: p.name, done, total, route: "/projects" });
-          } else { setProjectInfo(null); }
-        } catch { setProjectInfo(null); }
+      const ids = active.map((e) => e.id);
+      const { data: rows } = await supabase
+        .from("entrepreneurship_tasks")
+        .select("entrepreneurship_id, completed")
+        .in("entrepreneurship_id", ids);
+      if (cancelled) return;
+
+      const done: Record<string, number> = {};
+      const total: Record<string, number> = {};
+      for (const t of (rows as EntTaskRow[]) || []) {
+        const id = t.entrepreneurship_id;
+        if (!id) continue;
+        total[id] = (total[id] || 0) + 1;
+        if (t.completed) done[id] = (done[id] || 0) + 1;
       }
+
+      setEntInfo({
+        name: ids.length === 1 ? active[0].name : `${ids.length} iniciativas`,
+        done: ids.reduce((n, id) => n + (done[id] || 0), 0),
+        total: ids.reduce((n, id) => n + (total[id] || 0), 0),
+        route: ids.length === 1 ? `/entrepreneurship/${ids[0]}` : "/entrepreneurship",
+      });
     })();
-  }, [activeProjectId]);
+    return () => { cancelled = true; };
+  }, [entrepreneurships, activeEntIds]);
+
+  // Proyectos: desde la tabla real `projects`
+  const projectInfo: ActiveInfo | null = useMemo(() => {
+    const active = projects.filter((p) => activeProjectIds.includes(p.id));
+    if (active.length === 0) return null;
+    return {
+      name: active.length === 1 ? active[0].name : `${active.length} proyectos`,
+      done: active.reduce((n, p) => n + p.tasks.filter((t) => t.completed).length, 0),
+      total: active.reduce((n, p) => n + p.tasks.length, 0),
+      route: "/projects",
+    };
+  }, [projects, activeProjectIds]);
 
   // Tareas Generales — from tasks table for today with source='general'
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -6,13 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { getCached, setCache } from "@/lib/offlineCache";
 import { format, subDays } from "date-fns";
-import { es } from "date-fns/locale";
 import { Activity, Dumbbell, Brain, Languages, Music, Gamepad2, BookOpen, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "@/components/systems/WeekStreakBar";
 import { useMusicRepertoire } from "@/hooks/useMusicRepertoire";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { getCoverGradient } from "@/components/areas/AreaCover";
+import { useSystemSpeed } from "@/hooks/useSystemSpeed";
+import { DAY_SYSTEMS, systemActualMinutes, type DaySystem } from "@/lib/daySystems";
+import { DEFAULT_GOALS } from "@/hooks/useDailyAreaStats";
+import { parseTime, type RoutineBlock } from "@/hooks/useRoutineBlocksDB";
 
 interface SystemCard {
   id: string;
@@ -20,7 +23,7 @@ interface SystemCard {
   icon: any;
   cover?: { type: "area" | "sub"; id: string };
   route?: string;
-  schedule: string;
+  schedule?: string;
   todayValue: number;
   unit: string;
   minThreshold: number;
@@ -30,8 +33,6 @@ interface SystemCard {
   spark: number[];
 }
 
-const todayKey = () => new Date().toISOString().split("T")[0];
-
 const semaphore = (value: number, min: number, max: number) => {
   if (value > max) return { ring: "ring-amber-400/60", bg: "bg-amber-400/10", text: "text-amber-500", label: "Extra ✦", dot: "bg-amber-400" };
   if (value >= max) return { ring: "ring-green-500/60", bg: "bg-green-500/10", text: "text-green-600", label: "Máximo ✓", dot: "bg-green-500" };
@@ -39,6 +40,44 @@ const semaphore = (value: number, min: number, max: number) => {
   if (value > 0) return { ring: "ring-red-500/60", bg: "bg-red-500/5", text: "text-red-500", label: "Incompleto", dot: "bg-red-400" };
   return { ring: "ring-red-500/40", bg: "bg-red-500/5", text: "text-red-500", label: "Sin hacer", dot: "bg-gray-400" };
 };
+
+function findDaySystem(id: string): DaySystem | null {
+  for (const area of DAY_SYSTEMS) {
+    const s = area.systems.find((x) => x.id === id);
+    if (s) return s;
+  }
+  return null;
+}
+
+const fmtTime = (time: string) => {
+  const [h, m] = time.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, "0")} ${ampm}`;
+};
+
+/**
+ * Horario real del sistema, derivado de routine_blocks.
+ * Gym no vive en BlockFocus, así que se resuelve por título.
+ * Si el sistema no tiene bloques asignados devuelve undefined (la línea se oculta).
+ */
+function scheduleFromBlocks(systemId: string, blocks: RoutineBlock[] | undefined): string | undefined {
+  if (!blocks || blocks.length === 0) return undefined;
+  const matches = blocks
+    .filter((b) => {
+      const focus = b.currentFocus || b.defaultFocus;
+      if (focus && focus !== "none") return focus === systemId;
+      const t = b.title.toLowerCase();
+      if (systemId === "gym") return t.includes("gym") || t.includes("entreno");
+      if (systemId === "lectura") return t.includes("lectura");
+      if (systemId === "ajedrez") return t.includes("ajedrez");
+      return false;
+    })
+    .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+  if (matches.length === 0) return undefined;
+  return `${fmtTime(matches[0].startTime)} - ${fmtTime(matches[matches.length - 1].endTime)}`;
+}
+
 
 function SystemCardView({ c, covers }: { c: SystemCard; covers: Record<string, string> }) {
   const Icon = c.icon;
@@ -107,7 +146,12 @@ function SystemCardView({ c, covers }: { c: SystemCard; covers: Record<string, s
   );
 }
 
-export function MySystemsSection() {
+interface MySystemsSectionProps {
+  date?: Date;
+  blocks?: RoutineBlock[];
+}
+
+export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
   const [cards, setCards] = useState<SystemCard[]>([]);
   const [idiomasCard, setIdiomasCard] = useState<SystemCard | null>(null);
   const [gymCard, setGymCard] = useState<SystemCard | null>(null);
@@ -115,60 +159,37 @@ export function MySystemsSection() {
   const [loading, setLoading] = useState(true);
   const { getSongsByInstrument } = useMusicRepertoire();
   const { covers } = useAreaCovers();
+  const { getMinutes } = useSystemSpeed();
 
   const pianoLearning = getSongsByInstrument("piano").find(s => s.status === "learning");
   const guitarLearning = getSongsByInstrument("guitar").find(s => s.status === "learning");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const today = todayKey();
-        const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
-        const [trackingR, streaksR] = await Promise.all([
-          supabase.from("daily_systems_tracking").select("*").gte("tracking_date", start).lte("tracking_date", today),
-          supabase.from("system_habit_streaks").select("*"),
-        ]);
-        const rows = trackingR.data || [];
-        const streaks: Record<string, number> = {};
-        (streaksR.data || []).forEach((s: any) => streaks[s.habit_id] = s.current_streak || 0);
-        await setCache("daily_systems_tracking", `systems_7d_${today}`, rows);
-        await setCache("system_habit_streaks", "all", streaksR.data || []);
-        const todayRow = rows.find((r: any) => r.tracking_date === today);
-        const td = (todayRow?.time_data as any) || {};
-        setMusicaMin(Number(td["musica"]) || 0);
-        const result = buildCards(rows, streaks, today);
-        setCards(result.cards);
-        setIdiomasCard(result.idiomasCard);
-        setGymCard(result.gymCard);
-      } catch {
-        const today = todayKey();
-        const start = format(subDays(new Date(), 6), "yyyy-MM-dd");
-        const cachedRows = await getCached<any[]>("daily_systems_tracking", `systems_7d_${today}`);
-        const cachedStreaks = await getCached<any[]>("system_habit_streaks", "all");
-        if (cachedRows) {
-          const sMap: Record<string, number> = {};
-          (cachedStreaks || []).forEach((s: any) => sMap[s.habit_id] = s.current_streak || 0);
-          const todayRow = cachedRows.find((r: any) => r.tracking_date === today);
-          const td = (todayRow?.time_data as any) || {};
-          setMusicaMin(Number(td["musica"]) || 0);
-          const result = buildCards(cachedRows, sMap, today);
-          setCards(result.cards);
-          setIdiomasCard(result.idiomasCard);
-          setGymCard(result.gymCard);
-        }
-      }
-      setLoading(false);
-    })();
-  }, []);
+  const baseDate = useMemo(() => date ?? new Date(), [date]);
+  const dateKey = useMemo(() => format(baseDate, "yyyy-MM-dd"), [baseDate]);
 
-  function buildCards(rows: any[], streaks: Record<string, number>, today: string) {
-    const minutesByDay = (key: string) => {
+  // Umbrales reales: el max viene de la velocidad elegida en DaySpeedSection,
+  // el min de los minutos de racha. Gym no está en DAY_SYSTEMS -> DEFAULT_GOALS.
+  const thresholdsFor = useCallback((systemId: string) => {
+    const sys = findDaySystem(systemId);
+    if (sys) {
+      const speedMinutes = getMinutes(systemId);
+      return { min: sys.streakMinutes, max: speedMinutes || sys.streakMinutes };
+    }
+    return { min: 0, max: DEFAULT_GOALS[systemId as keyof typeof DEFAULT_GOALS]?.time ?? 30 };
+  }, [getMinutes]);
+
+  const musicaThresholds = thresholdsFor("musica");
+
+  const buildCards = useCallback((rows: any[], streaks: Record<string, number>, anchor: Date) => {
+    const minutesByDay = (systemId: string) => {
+      const sys = findDaySystem(systemId);
       const arr: number[] = [];
       for (let i = 6; i >= 0; i--) {
-        const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+        const d = format(subDays(anchor, i), "yyyy-MM-dd");
         const row = rows.find((r: any) => r.tracking_date === d);
-        const t = (row?.time_data as any) || {};
-        arr.push(Number(t[key]) || 0);
+        const timeData = (row?.time_data as any) || {};
+        // Usa el agregador real del sistema (idiomas = idiomas + italiano + ingles)
+        arr.push(sys ? systemActualMinutes(sys, { timeData }) : (Number(timeData[systemId]) || 0));
       }
       return arr;
     };
@@ -176,7 +197,7 @@ export function MySystemsSection() {
     const gymByDay = () => {
       const arr: number[] = [];
       for (let i = 6; i >= 0; i--) {
-        const d = format(subDays(new Date(), i), "yyyy-MM-dd");
+        const d = format(subDays(anchor, i), "yyyy-MM-dd");
         const row = rows.find((r: any) => r.tracking_date === d);
         arr.push(Number(row?.workout_duration) || 0);
       }
@@ -189,51 +210,81 @@ export function MySystemsSection() {
     const gameSpark = minutesByDay("game");
     const gymSpark = gymByDay();
 
+    const makeCard = (
+      id: string,
+      label: string,
+      icon: any,
+      route: string,
+      cover: { type: "area" | "sub"; id: string },
+      spark: number[]
+    ): SystemCard => {
+      const t = thresholdsFor(id);
+      return {
+        id, label, icon, route, cover, spark,
+        schedule: scheduleFromBlocks(id, blocks),
+        todayValue: last(spark), unit: "min",
+        minThreshold: t.min, maxThreshold: t.max,
+        weekTotal: sum(spark), streak: streaks[id] || 0,
+      };
+    };
+
     const cards: SystemCard[] = [
-      {
-        id: "lectura", label: "Lectura", icon: BookOpen, route: "/reading-library", cover: { type: "sub", id: "lectura" },
-        schedule: "8:30 - 9:00 AM",
-        todayValue: last(minutesByDay("lectura")), unit: "min",
-        minThreshold: 15, maxThreshold: 30,
-        weekTotal: sum(minutesByDay("lectura")), streak: streaks.lectura || 0, spark: minutesByDay("lectura"),
-      },
-      {
-        id: "ajedrez", label: "Ajedrez", icon: Crown, route: "/chess", cover: { type: "sub", id: "ajedrez" },
-        schedule: "1:20 - 2:00 PM",
-        todayValue: last(minutesByDay("ajedrez")), unit: "min",
-        minThreshold: 10, maxThreshold: 20,
-        weekTotal: sum(minutesByDay("ajedrez")), streak: streaks.ajedrez || 0, spark: minutesByDay("ajedrez"),
-      },
-      {
-        id: "game", label: "Game (Seducción)", icon: Gamepad2, route: "/systems", cover: { type: "sub", id: "game" },
-        schedule: "1:20 - 2:00 PM",
-        todayValue: last(gameSpark), unit: "min",
-        minThreshold: 10, maxThreshold: 20,
-        weekTotal: sum(gameSpark), streak: streaks.game || 0, spark: gameSpark,
-      },
+      makeCard("lectura", "Lectura", BookOpen, "/reading-library", { type: "sub", id: "lectura" }, minutesByDay("lectura")),
+      makeCard("ajedrez", "Ajedrez", Crown, "/chess", { type: "sub", id: "ajedrez" }, minutesByDay("ajedrez")),
+      makeCard("game", "Game (Seducción)", Gamepad2, "/systems", { type: "sub", id: "game" }, gameSpark),
     ];
 
     const idiomasSpark = minutesByDay("idiomas");
-    const iCard: SystemCard = {
-      id: "idiomas", label: "Idiomas", icon: Languages, route: "/languages-dashboard", cover: { type: "sub", id: "idiomas" },
-      schedule: "5:00 - 6:30 PM",
-      todayValue: last(idiomasSpark), unit: "min",
-      minThreshold: 30, maxThreshold: 90,
-      weekTotal: sum(idiomasSpark), streak: streaks.idiomas || 0, spark: idiomasSpark,
-    };
+    const iCard = makeCard("idiomas", "Idiomas", Languages, "/languages-dashboard", { type: "sub", id: "idiomas" }, idiomasSpark);
 
-    const gCard: SystemCard = {
-      id: "gym", label: "Gym", icon: Dumbbell, route: "/gym", cover: { type: "area", id: "salud" },
-      schedule: "6:00 - 7:00 PM",
-      todayValue: last(gymSpark), unit: "min",
-      minThreshold: 30, maxThreshold: 60,
-      weekTotal: sum(gymSpark), streak: streaks.gym || 0, spark: gymSpark,
-    };
+    const gCard = makeCard("gym", "Gym", Dumbbell, "/gym", { type: "area", id: "salud" }, gymSpark);
 
     return { cards, idiomasCard: iCard, gymCard: gCard };
-  }
+  }, [blocks, thresholdsFor]);
 
-  const musicaSem = semaphore(musicaMin, 15, 30);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const start = format(subDays(baseDate, 6), "yyyy-MM-dd");
+        const [trackingR, streaksR] = await Promise.all([
+          supabase.from("daily_systems_tracking").select("*").gte("tracking_date", start).lte("tracking_date", dateKey),
+          supabase.from("system_habit_streaks").select("*"),
+        ]);
+        if (cancelled) return;
+        const rows = trackingR.data || [];
+        const streaks: Record<string, number> = {};
+        (streaksR.data || []).forEach((s: any) => streaks[s.habit_id] = s.current_streak || 0);
+        await setCache("daily_systems_tracking", `systems_7d_${dateKey}`, rows);
+        await setCache("system_habit_streaks", "all", streaksR.data || []);
+        const todayRow = rows.find((r: any) => r.tracking_date === dateKey);
+        const td = (todayRow?.time_data as any) || {};
+        setMusicaMin(Number(td["musica"]) || 0);
+        const result = buildCards(rows, streaks, baseDate);
+        setCards(result.cards);
+        setIdiomasCard(result.idiomasCard);
+        setGymCard(result.gymCard);
+      } catch {
+        const cachedRows = await getCached<any[]>("daily_systems_tracking", `systems_7d_${dateKey}`);
+        const cachedStreaks = await getCached<any[]>("system_habit_streaks", "all");
+        if (cachedRows) {
+          const sMap: Record<string, number> = {};
+          (cachedStreaks || []).forEach((s: any) => sMap[s.habit_id] = s.current_streak || 0);
+          const todayRow = cachedRows.find((r: any) => r.tracking_date === dateKey);
+          const td = (todayRow?.time_data as any) || {};
+          setMusicaMin(Number(td["musica"]) || 0);
+          const result = buildCards(cachedRows, sMap, baseDate);
+          setCards(result.cards);
+          setIdiomasCard(result.idiomasCard);
+          setGymCard(result.gymCard);
+        }
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [baseDate, dateKey, buildCards]);
+
+  const musicaSem = semaphore(musicaMin, musicaThresholds.min, musicaThresholds.max);
 
   if (loading) return null;
 
@@ -319,7 +370,7 @@ export function MySystemsSection() {
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="font-bold">{musicaMin} <span className="text-[10px] text-muted-foreground font-normal">min hoy</span></span>
             </div>
-            <WeekStreakBar habitId="musica" todayValue={musicaMin} minThreshold={15} maxThreshold={30} compact hideStreak />
+            <WeekStreakBar habitId="musica" todayValue={musicaMin} minThreshold={musicaThresholds.min} maxThreshold={musicaThresholds.max} compact hideStreak />
           </Card>
         </Link>
       </div>

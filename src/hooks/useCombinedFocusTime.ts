@@ -18,18 +18,18 @@ const AREAS_CONFIG: { id: AreaId; name: string }[] = [
   { id: "proyectos", name: "Proyectos" },
 ];
 
-export function useCombinedFocusTime() {
+export function useCombinedFocusTime(targetDate?: Date) {
   const {
     data: systemsData,
     loading: systemsLoading,
     setTimeValue,
-  } = useSystemsTracking();
+  } = useSystemsTracking(targetDate);
 
   const {
     stats: areaStats,
     isLoading: areaStatsLoading,
     addTime,
-  } = useDailyAreaStats();
+  } = useDailyAreaStats(targetDate);
 
   const setManualTime = useCallback(
     (areaId: string, newValue: number) => {

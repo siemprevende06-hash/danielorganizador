@@ -12,8 +12,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCombinedFocusTime } from "@/hooks/useCombinedFocusTime";
-import { useActiveSelection } from "@/hooks/useActiveSelection";
+import { useActiveSelections } from "@/hooks/useActiveSelections";
 import { useUniversity } from "@/hooks/useUniversity";
+import { useProjects } from "@/hooks/useProjects";
 import { WeekStreakBar } from "@/components/systems/WeekStreakBar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,10 +29,14 @@ interface ActiveInfo {
   route: string;
 }
 
-interface ProjectStored {
+interface EntTaskRow {
+  entrepreneurship_id: string | null;
+  completed: boolean | null;
+}
+
+interface EntRow {
   id: string;
   name: string;
-  tasks?: { completed?: boolean }[];
 }
 
 interface EnfoqueSectionProps {
@@ -43,6 +48,7 @@ interface EnfoqueSectionProps {
   onToggleActiveFocusArea?: (areaId: string) => void;
   skipped?: Record<string, boolean>;
   onSkipToggle?: (id: string) => void;
+  date?: Date;
 }
 
 const AREA_CARD_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; gradient: string; color: string; bg: string; route: string; label: string }> = {
@@ -114,19 +120,33 @@ const parseTime = (timeStr: string): number => {
 // ============================================================
 //  ENFOQUE SECTION — Bloques + Tarjetas de enfoque
 // ============================================================
-export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: propTasks, activeFocusAreas, onToggleActiveFocusArea, skipped, onSkipToggle }: EnfoqueSectionProps) {
+export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: propTasks, activeFocusAreas, onToggleActiveFocusArea, skipped, onSkipToggle, date }: EnfoqueSectionProps) {
   const navigate = useNavigate();
   const tasks = propTasks ?? [];
-  const { areas, loading, setManualTime } = useCombinedFocusTime();
+  const { areas, loading, setManualTime } = useCombinedFocusTime(date);
   const { subjects } = useUniversity();
-  const { value: activeSubjectId } = useActiveSelection("activeSubjectId");
-  const { value: activeEntId } = useActiveSelection("activeEntrepreneurshipId");
-  const { value: activeProjectId } = useActiveSelection("selectedProjectId");
+  const { projects } = useProjects();
+  const { values: activeSubjectIds } = useActiveSelections("activeSubjects");
+  const { values: activeEntIds } = useActiveSelections("activeEntrepreneurships");
+  const { values: activeProjectIds } = useActiveSelections("activeProjects");
 
+  const [entrepreneurships, setEntrepreneurships] = useState<EntRow[]>([]);
   const [entInfo, setEntInfo] = useState<ActiveInfo | null>(null);
-  const [projectInfo, setProjectInfo] = useState<ActiveInfo | null>(null);
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = format(date ?? new Date(), 'yyyy-MM-dd');
+
+  // Iniciativas reales para resolver los nombres
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("entrepreneurships")
+        .select("id, name")
+        .order("created_at", { ascending: true });
+      if (!cancelled) setEntrepreneurships((data as EntRow[]) || []);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Tareas asignadas a bloques — se muestran siempre (son el plan de hoy)
   const todayTasksByBlock = useMemo(() => {
@@ -150,64 +170,65 @@ export function EnfoqueSection({ blocks, tasksByBlock, onRemoveTask, tasks: prop
     return tasks.filter(t => !assignedIds.has(t.id) && !t.completed && t.due_date && t.due_date.startsWith(todayStr));
   }, [tasks, tasksByBlock, todayStr]);
 
-  // Universidad — active subject info
-  const activeSubject = subjects.find((s) => s.id === activeSubjectId) || null;
-  const subjectInfo: ActiveInfo | null = activeSubject
-    ? {
-      name: activeSubject.name,
-      done: activeSubject.tasks.filter((t) => t.completed).length,
-      total: activeSubject.tasks.length,
+  // Universidad: todas las asignaturas activas
+  const subjectInfo: ActiveInfo | null = useMemo(() => {
+    const active = subjects.filter((s) => activeSubjectIds.includes(s.id));
+    if (active.length === 0) return null;
+    return {
+      name: active.length === 1 ? active[0].name : `${active.length} asignaturas`,
+      done: active.reduce((n, s) => n + s.tasks.filter((t) => t.completed).length, 0),
+      total: active.reduce((n, s) => n + s.tasks.length, 0),
       route: "/university",
-    }
-    : null;
+    };
+  }, [subjects, activeSubjectIds]);
 
-  // Emprendimiento — fetch active
-  useEffect(() => {
-    if (!activeEntId) { setEntInfo(null); return; }
-    (async () => {
-      const [{ data: ent }, { count: total }, { count: done }] = await Promise.all([
-        supabase.from("entrepreneurships").select("name").eq("id", activeEntId).maybeSingle(),
-        supabase.from("entrepreneurship_tasks").select("*", { count: "exact", head: true }).eq("entrepreneurship_id", activeEntId),
-        supabase.from("entrepreneurship_tasks").select("*", { count: "exact", head: true }).eq("entrepreneurship_id", activeEntId).eq("completed", true),
-      ]);
-      if (ent) setEntInfo({ name: ent.name, done: done || 0, total: total || 0, route: `/entrepreneurship/${activeEntId}` });
-      else setEntInfo(null);
-    })();
-  }, [activeEntId]);
+  // Emprendimiento: todas las iniciativas activas
+  const activeEntrepreneurships = useMemo(
+    () => entrepreneurships.filter((e) => activeEntIds.includes(e.id)),
+    [entrepreneurships, activeEntIds]
+  );
 
-  // Proyectos — from app_settings
   useEffect(() => {
-    if (!activeProjectId) { setProjectInfo(null); return; }
+    if (activeEntrepreneurships.length === 0) { setEntInfo(null); return; }
+    let cancelled = false;
     (async () => {
-      try {
-        const { data } = await supabase.from('app_settings').select('setting_value').eq('setting_key', 'user_projects').maybeSingle();
-        let list: ProjectStored[] = [];
-        if (data?.setting_value && Array.isArray(data.setting_value)) {
-          list = data.setting_value as unknown as ProjectStored[];
-        } else {
-          const stored = localStorage.getItem("userProjects");
-          if (stored) list = JSON.parse(stored);
-        }
-        const p = list.find((x) => x.id === activeProjectId);
-        if (!p) { setProjectInfo(null); return; }
-        const total = p.tasks?.length || 0;
-        const done = p.tasks?.filter((t) => t.completed).length || 0;
-        setProjectInfo({ name: p.name, done, total, route: "/projects" });
-      } catch {
-        try {
-          const stored = localStorage.getItem("userProjects");
-          if (stored) {
-            const list = JSON.parse(stored) as ProjectStored[];
-            const p = list.find((x) => x.id === activeProjectId);
-            if (!p) { setProjectInfo(null); return; }
-            const total = p.tasks?.length || 0;
-            const done = p.tasks?.filter((t) => t.completed).length || 0;
-            setProjectInfo({ name: p.name, done, total, route: "/projects" });
-          } else { setProjectInfo(null); }
-        } catch { setProjectInfo(null); }
+      const ids = activeEntrepreneurships.map((e) => e.id);
+      const { data: rows } = await supabase
+        .from("entrepreneurship_tasks")
+        .select("entrepreneurship_id, completed")
+        .in("entrepreneurship_id", ids);
+      if (cancelled) return;
+
+      const done: Record<string, number> = {};
+      const total: Record<string, number> = {};
+      for (const t of (rows as EntTaskRow[]) || []) {
+        const id = t.entrepreneurship_id;
+        if (!id) continue;
+        total[id] = (total[id] || 0) + 1;
+        if (t.completed) done[id] = (done[id] || 0) + 1;
       }
+
+      setEntInfo({
+        name: ids.length === 1 ? activeEntrepreneurships[0].name : `${ids.length} iniciativas`,
+        done: ids.reduce((n, id) => n + (done[id] || 0), 0),
+        total: ids.reduce((n, id) => n + (total[id] || 0), 0),
+        route: ids.length === 1 ? `/entrepreneurship/${ids[0]}` : "/entrepreneurship",
+      });
     })();
-  }, [activeProjectId]);
+    return () => { cancelled = true; };
+  }, [activeEntrepreneurships]);
+
+  // Proyectos: desde la tabla real `projects`
+  const projectInfo: ActiveInfo | null = useMemo(() => {
+    const active = projects.filter((p) => activeProjectIds.includes(p.id));
+    if (active.length === 0) return null;
+    return {
+      name: active.length === 1 ? active[0].name : `${active.length} proyectos`,
+      done: active.reduce((n, p) => n + p.tasks.filter((t) => t.completed).length, 0),
+      total: active.reduce((n, p) => n + p.tasks.length, 0),
+      route: "/projects",
+    };
+  }, [projects, activeProjectIds]);
 
   const infoByArea: Record<string, ActiveInfo | null> = {
     universidad: subjectInfo,
