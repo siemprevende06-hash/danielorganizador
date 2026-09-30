@@ -33,6 +33,7 @@ import { useAbcCategories } from '@/hooks/useAbcCategories';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { PronosticosPanel } from '@/components/pronosticos/PronosticosPanel';
 import { ResultadosDia } from '@/components/resultados/ResultadosDia';
 import { DaySystemsSection } from '@/components/today/DaySystemsSection';
 import { DaySpeedSection } from '@/components/today/DaySpeedSection';
@@ -665,6 +666,8 @@ export default function DailyView() {
         )}
 
           </>
+        ) : viewMode === 'pronosticos' ? (
+          <PronosticosPanel anchorDate={selectedDate} />
         ) : viewMode === 'autocritica' ? (
           <AutocriticaSection start={selectedDate} end={selectedDate} scope="day" planGoals={planGoals} />
         ) : viewMode === 'sistemas' ? (
