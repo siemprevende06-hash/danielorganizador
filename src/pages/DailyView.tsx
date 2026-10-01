@@ -55,6 +55,7 @@ import { TimePeriodSections } from '@/components/today/TimePeriodSections';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 import { PlanGoalsCard } from '@/components/today/PlanGoalsCard';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
+import { DireccionSection } from '@/components/direccion/DireccionSection';
 
 const SOSTEN_GROUPS: SystemGroup[] = [
   {
@@ -273,7 +274,7 @@ export default function DailyView() {
     <div className="min-h-screen bg-background p-3 md:p-6 pt-20 pb-24">
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica withDireccion withPronosticos />
         </div>
 
         <div className="flex items-center justify-between">
@@ -697,6 +698,8 @@ export default function DailyView() {
             onWorkoutDurationChange={v => update('workoutDuration', v)}
           />
           </>
+        ) : viewMode === 'direccion' ? (
+          <DireccionSection />
         ) : (
           <ResultadosDia date={selectedDate} />
         )}
