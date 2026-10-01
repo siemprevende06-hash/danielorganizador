@@ -354,7 +354,7 @@ export function forecastSeries(y: number[], options: ForecastOptions): ForecastR
   candidates.push(
     runBacktest(
       'sesional-naive',
-      trainSeries => ({
+      (trainSeries, steps) => ({
         predicted: hasSeasonality ? projectSeasonalNaive(trainSeries, steps, m) : projectNaive(trainSeries, steps),
         level: trainSeries[trainSeries.length - 1],
         trend: 0,
@@ -364,12 +364,12 @@ export function forecastSeries(y: number[], options: ForecastOptions): ForecastR
     ),
     runBacktest(
       'naive',
-      trainSeries => ({ predicted: projectNaive(trainSeries, steps), level: trainSeries[trainSeries.length - 1], trend: 0, seasonal: [] }),
+      (trainSeries, steps) => ({ predicted: projectNaive(trainSeries, steps), level: trainSeries[trainSeries.length - 1], trend: 0, seasonal: [] }),
       passthroughRefit,
     ),
     runBacktest(
       'drift',
-      trainSeries => ({ predicted: projectDrift(trainSeries, steps), level: trainSeries[trainSeries.length - 1], trend: 0, seasonal: [] }),
+      (trainSeries, steps) => ({ predicted: projectDrift(trainSeries, steps), level: trainSeries[trainSeries.length - 1], trend: 0, seasonal: [] }),
       passthroughRefit,
     ),
   );
