@@ -12,42 +12,8 @@ import { AreaCover, getCoverGradient } from "@/components/areas/AreaCover"
 import { useAreaCovers, coverKey, type CoverType } from "@/hooks/useAreaCovers"
 import { useImageUpload } from "@/hooks/useImageUpload"
 import { cn } from "@/lib/utils"
-import {
-  Anchor, Target, Sparkles, LayoutDashboard,
-} from "lucide-react"
-
-const SECTION_CONFIG = [
-  {
-    key: "cimientos",
-    title: "ÁREAS ESTRUCTURALES",
-    subtitle: "Cimientos de tu vida — la base sobre la que construyes todo",
-    icon: Anchor,
-    color: "from-blue-500/20 to-blue-500/5",
-    border: "border-blue-500/20",
-    badgeColor: "bg-blue-500/10 text-blue-600",
-    progressColor: "bg-blue-500",
-  },
-  {
-    key: "construccion",
-    title: "ÁREAS CENTRALES",
-    subtitle: "Construcción activa — donde pones tu energía para crecer",
-    icon: Target,
-    color: "from-amber-500/20 to-amber-500/5",
-    border: "border-amber-500/20",
-    badgeColor: "bg-amber-500/10 text-amber-600",
-    progressColor: "bg-amber-500",
-  },
-  {
-    key: "recompensas",
-    title: "ÁREAS DE RECOMPENSA",
-    subtitle: "El resultado de tu esfuerzo — lo que disfrutas al construir",
-    icon: Sparkles,
-    color: "from-emerald-500/20 to-emerald-500/5",
-    border: "border-emerald-500/20",
-    badgeColor: "bg-emerald-500/10 text-emerald-600",
-    progressColor: "bg-emerald-500",
-  },
-]
+import { LIFE_AREA_SECTIONS } from "@/data/lifeAreaSections"
+import { LayoutDashboard } from "lucide-react"
 
 function getScoreColor(score: number): string {
   if (score >= 70) return "text-green-500"
@@ -163,7 +129,7 @@ export default function AreasDeVida() {
       </div>
 
       {/* Sections */}
-      {SECTION_CONFIG.map((section) => {
+      {LIFE_AREA_SECTIONS.map((section) => {
         const sectionAreas = scores.filter((s) => s.group === section.key)
         if (sectionAreas.length === 0) return null
         const Icon = section.icon
