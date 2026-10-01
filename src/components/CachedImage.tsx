@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { getImageDataURL, getImageBlob, storeImageBlob } from "@/lib/imageStore";
+import { useEffect, useRef, useState } from "react";
+import { getImageBlob, storeImageBlob } from "@/lib/imageStore";
 import { cacheImageNow } from "@/lib/imageCache";
 import { isVideoUrl } from "@/lib/utils";
 
@@ -24,50 +24,37 @@ async function getFromCacheObject(url: string): Promise<string | null> {
   return null;
 }
 
-async function resolveCachedSource(src: string, isVideo: boolean): Promise<string | null> {
-  const stored = await getImageBlob(src);
-  if (stored && stored.size > 0) {
-    if (isVideo) return URL.createObjectURL(stored);
-    const dataUrl = await getImageDataURL(src);
-    if (dataUrl) return dataUrl;
-  }
-  return getFromCacheObject(src);
+async function resolveCachedSource(url: string): Promise<string | null> {
+  const stored = await getImageBlob(url);
+  if (stored && stored.size > 0) return URL.createObjectURL(stored);
+  return getFromCacheObject(url);
 }
 
 export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
   const [localSrc, setLocalSrc] = useState<string | null>(null);
-  const [status, setStatus] = useState<"loading" | "local" | "url">("loading");
   const loadedRef = useRef(false);
-  const objectUrlRef = useRef<string | null>(null);
+  const objectUrlsRef = useRef<string[]>([]);
   const isVideo = isVideoUrl(src);
 
   useEffect(() => {
     let active = true;
-    (async () => {
-      loadedRef.current = false;
-      objectUrlRef.current = null;
-      setLocalSrc(null);
-      setStatus("loading");
+    loadedRef.current = false;
+    setLocalSrc(null);
 
-      const cached = await resolveCachedSource(src, isVideo);
-      if (!active) return;
+    resolveCachedSource(src)
+      .then((local) => {
+        if (!active || !local) return;
+        objectUrlsRef.current.push(local);
+        setLocalSrc(local);
+      })
+      .catch(() => {});
 
-      if (cached) {
-        objectUrlRef.current = cached;
-        setLocalSrc(cached);
-        setStatus("local");
-      } else {
-        setStatus("url");
-      }
-    })();
     return () => {
       active = false;
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-        objectUrlRef.current = null;
-      }
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      objectUrlsRef.current = [];
     };
-  }, [src, isVideo]);
+  }, [src]);
 
   const persistToCaches = () => {
     try {
@@ -92,41 +79,50 @@ export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
   const handleLoad = () => {
     if (loadedRef.current) return;
     loadedRef.current = true;
-    if (status === "url") persistToCaches();
+    if (!localSrc) persistToCaches();
     onLoad?.();
   };
+
+  const handleError = () => {
+    // La copia local estaba corrupta: volver a la URL original.
+    if (localSrc) {
+      setLocalSrc(null);
+      return;
+    }
+    // Sin red o URL bloqueada: reintentar con la copia cacheada.
+    resolveCachedSource(src)
+      .then((local) => {
+        if (!local) return;
+        objectUrlsRef.current.push(local);
+        setLocalSrc(local);
+      })
+      .catch(() => {});
+  };
+
+  const displaySrc = localSrc ?? src;
 
   if (isVideo) {
     return (
       <video
-        src={status === "local" ? localSrc ?? undefined : src}
+        src={displaySrc}
         className={className}
         autoPlay
         loop
         muted
         playsInline
+        onError={handleError}
         onLoadedData={handleLoad}
       />
     );
   }
 
-  if (status === "local" && localSrc) {
-    return (
-      <img src={localSrc} alt={alt} className={className} onLoad={handleLoad} />
-    );
-  }
-
-  if (status === "url") {
-    return (
-      <img
-        src={src}
-        alt={alt}
-        className={className}
-        onLoad={handleLoad}
-        crossOrigin="anonymous"
-      />
-    );
-  }
-
-  return null;
+  return (
+    <img
+      src={displaySrc}
+      alt={alt}
+      className={className}
+      onError={handleError}
+      onLoad={handleLoad}
+    />
+  );
 }
