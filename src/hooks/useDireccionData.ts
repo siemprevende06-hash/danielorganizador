@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { eachDayOfInterval, format, startOfDay, subDays } from 'date-fns';
+import { eachDayOfInterval, format, parseISO, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { POINT_B_AREAS } from '@/data/pointB2027';
 import { useAreaScores } from '@/hooks/useAreaScores';
 import { ALL_TRACKABLE_IDS } from '@/lib/areaSystemsMap';
+import { getCubaDate } from '@/lib/cubaTime';
 import type { Timeframe } from '@/contexts/TimeframeContext';
 
 export const DIRECCION_WINDOW_DAYS = 120;
@@ -70,7 +71,7 @@ function toDateKey(d: Date): string {
 }
 
 export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData {
-  const end = useMemo(() => startOfDay(new Date()), []);
+  const end = useMemo(() => parseISO(getCubaDate()), []);
   const start = useMemo(() => subDays(end, DIRECCION_WINDOW_DAYS - 1), [end]);
   const startKey = toDateKey(start);
   const endKey = toDateKey(end);
@@ -95,7 +96,7 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
           .lte('stat_date', endKey),
         supabase
           .from('daily_systems_tracking')
-          .select('tracking_date, completions, time_data')
+          .select('tracking_date, completions, time_data, workout_duration')
           .gte('tracking_date', startKey)
           .lte('tracking_date', endKey),
       ]);
@@ -103,17 +104,32 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
       if (minutesRes.error) throw minutesRes.error;
       if (systemsRes.error) throw systemsRes.error;
 
-      const minutesByAreaDate = new Map<string, number>();
+      // Esfuerzo registra por sistema concreto (lectura, universidad, etc.),
+      // no por las áreas generales (desarrollo, profesional). Ambas tablas
+      // pueden contener el mismo dato por la sincronización de Sistemas, así
+      // que conservamos el máximo por día/sistema para no duplicar minutos.
+      const minutesByTrackingDate = new Map<string, number>();
+      const addMinutes = (date: string, trackingId: string, value: unknown) => {
+        const minutes = Number(value) || 0;
+        if (!date || !trackingId || minutes <= 0) return;
+        const key = `${trackingId}|${date}`;
+        minutesByTrackingDate.set(key, Math.max(minutesByTrackingDate.get(key) ?? 0, minutes));
+      };
+
       for (const row of minutesRes.data ?? []) {
-        const key = `${row.area_id}|${row.stat_date}`;
-        minutesByAreaDate.set(key, (minutesByAreaDate.get(key) ?? 0) + (row.time_spent_minutes ?? 0));
+        addMinutes(row.stat_date, row.area_id, row.time_spent_minutes);
       }
 
       const complianceByDate = new Map<string, number>();
       for (const row of systemsRes.data ?? []) {
+        const timeData = (row.time_data ?? {}) as Record<string, unknown>;
+        for (const [trackingId, minutes] of Object.entries(timeData)) {
+          addMinutes(row.tracking_date, trackingId, minutes);
+        }
+        addMinutes(row.tracking_date, 'gym', row.workout_duration);
         complianceByDate.set(
           row.tracking_date,
-          complianceFromRow(row.completions as Record<string, unknown>, row.time_data as Record<string, unknown>),
+          complianceFromRow(row.completions as Record<string, unknown>, timeData),
         );
       }
 
@@ -126,7 +142,11 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
 
       const areas: DireccionAreaSeries[] = POINT_B_AREAS.filter(a => a.group === CENTRAL_GROUP).map(area => {
         const points: DireccionPoint[] = dateKeys.map(date => {
-          const minutes = minutesByAreaDate.get(`${area.id}|${date}`) ?? 0;
+          const trackingIds = new Set([area.id, ...area.effortTrackingIds]);
+          const minutes = [...trackingIds].reduce(
+            (total, trackingId) => total + (minutesByTrackingDate.get(`${trackingId}|${date}`) ?? 0),
+            0,
+          );
           return { date, minutes, compliance: complianceByDate.get(date) ?? 0 };
         });
 
@@ -178,7 +198,7 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
     start,
     end,
     days: data?.days ?? DIRECCION_WINDOW_DAYS,
-    hasData: areas.some(a => a.totalMinutes > 0),
+    hasData: areas.some(a => a.totalMinutes > 0 || a.esfuerzo > 0 || a.resultados > 0),
     loading: isLoading,
   };
 }
