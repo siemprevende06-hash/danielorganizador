@@ -155,6 +155,8 @@ export interface HabitSystemCardProps {
   spark?: number[];
   weekTotal?: number;
   today?: TodayStripItem;
+  /** Botones rápidos de minutos (ej. [30, 80]) que suman al contador. */
+  quickAddMinutes?: number[];
   onToggle: () => void;
   onSkip: () => void;
   onWater: () => void;
@@ -190,6 +192,7 @@ export default function HabitSystemCard({
   spark,
   weekTotal,
   today,
+  quickAddMinutes,
   onToggle,
   onSkip,
   onWater,
@@ -363,6 +366,20 @@ export default function HabitSystemCard({
           >
             <Check className="h-3 w-3" /> Hecho
           </button>
+          {showMinutes && (quickAddMinutes?.length ?? 0) > 0 && (
+            <div className="flex items-center gap-0.5 shrink-0">
+              {quickAddMinutes!.map(m => (
+                <button
+                  key={m}
+                  onClick={() => onTimeChange(actualMinutes + m)}
+                  title={`Sumar ${m} min`}
+                  className="px-1.5 py-1 rounded-md text-[9px] font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors tabular-nums"
+                >
+                  +{m}
+                </button>
+              ))}
+            </div>
+          )}
           {isSystem && speedOptions.length > 0 && onSpeedChange && (
             <div className="flex items-center gap-0.5 shrink-0">
               {speedOptions.map(opt => {

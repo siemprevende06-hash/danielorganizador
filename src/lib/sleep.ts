@@ -23,3 +23,17 @@ export function formatSleepHours(hours: number): string {
   const total = whole + dec;
   return `${Number.isInteger(total) ? total : total.toFixed(1)} h`;
 }
+
+/** Convierte minutos desde medianoche (admite negativos / > 1440) a "HH:MM". */
+export function minutesToTime(minutes: number): string {
+  const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** Hora de acostarse para dormir `hours` cuando te levantas a `wakeTime`. */
+export function sleepTimeForHours(wakeTime: string, hours: number): string | null {
+  if (!wakeTime) return null;
+  const [wh, wm] = wakeTime.split(":").map(Number);
+  if (isNaN(wh) || isNaN(wm)) return null;
+  return minutesToTime(wh * 60 + wm - hours * 60);
+}

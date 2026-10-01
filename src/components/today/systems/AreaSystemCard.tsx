@@ -5,6 +5,7 @@ import { Maximize2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { coverKey } from "@/hooks/useAreaCovers";
 import { CHESS_COUNT_KEYS, systemActualMinutes, type ChessResultKey, type SystemSpeed } from "@/lib/daySystems";
+import { minutesToTime, sleepTimeForHours } from "@/lib/sleep";
 import {
   AREA_SYSTEMS,
   DIAGNOSIS_TONE,
@@ -24,6 +25,14 @@ import { TareasGeneralesCard } from "./TareasGeneralesCard";
 import { LanguageSkillCards } from "@/components/systems/LanguageSkillCards";
 import { WaterPomosCard } from "./WaterPomosCard";
 import { SleepThermostatCard } from "./SleepThermostatCard";
+import { MealsCompactCard } from "./MealsCompactCard";
+
+/** Sumas rápidas de minutos por hábito (bloques de universidad/emprendimiento). */
+const QUICK_ADD_MINUTES: Record<string, number[]> = {
+  universidad: [30, 80],
+  emprendimiento: [30, 80],
+  proyectos: [30, 80],
+};
 
 export interface AreaInteraction {
   completions: Record<string, boolean>;
@@ -155,6 +164,13 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
           onSkip={() => interaction.onSkipToggle?.(meta.id)}
           onWakeTimeChange={interaction.onWakeTimeChange}
           onSleepTimeChange={interaction.onSleepTimeChange}
+          onHoursChange={h => {
+            // La aguja del termostato fija las horas: recalculamos la hora de acostarse.
+            const wake = interaction.wakeTime || minutesToTime(new Date().getHours() * 60 + new Date().getMinutes());
+            if (!interaction.wakeTime && interaction.onWakeTimeChange) interaction.onWakeTimeChange(wake);
+            const bedtime = sleepTimeForHours(wake, h);
+            if (bedtime && bedtime !== interaction.sleepTime) interaction.onSleepTimeChange?.(bedtime);
+          }}
         />
       );
     }
@@ -180,6 +196,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         spark={spark}
         weekTotal={weekTotal}
         today={interaction.todayItems?.[meta.id]}
+        quickAddMinutes={QUICK_ADD_MINUTES[meta.id]}
         waterDone={!!interaction.waterData?.[meta.id]}
         mealUrl={interaction.mealPhotos?.[meta.id]}
         wakeTime={interaction.wakeTime}
@@ -281,6 +298,25 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
                   if (secHabits.length === 0) return null;
                   const secDone = secHabits.filter(t => interaction.completions[t.id]).length;
                   const stretch = secHabits.some(t => t.id === 'hidratacion' || t.isSleepSchedule);
+                  // Todas las comidas del área van juntas en una única tarjeta compacta.
+                  if (secHabits.filter(t => t.hasMealPhoto).length > 1) {
+                    return (
+                      <MealsCompactCard
+                        key={sec.id}
+                        meals={secHabits}
+                        title={sec.title}
+                        emoji={sec.emoji}
+                        completions={interaction.completions}
+                        waterData={interaction.waterData}
+                        mealPhotos={interaction.mealPhotos}
+                        skipped={interaction.skipped}
+                        onToggle={interaction.onToggle}
+                        onWaterToggle={interaction.onWaterToggle}
+                        onSkipToggle={interaction.onSkipToggle}
+                        onMealPhotoUpload={interaction.onMealPhotoUpload}
+                      />
+                    );
+                  }
                   return (
                     <div key={sec.id} className="space-y-1.5">
                       <div className="flex items-center gap-1.5">

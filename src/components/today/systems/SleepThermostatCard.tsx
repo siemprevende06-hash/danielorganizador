@@ -1,20 +1,30 @@
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Check, Moon, Sun, Flame, Trophy } from "lucide-react";
+import { Check, Moon, Sun, Flame, Trophy, Minus, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { calcSleepHours, formatSleepHours } from "@/lib/sleep";
+import { calcSleepHours, formatSleepHours, minutesToTime } from "@/lib/sleep";
 
 const MAX_HOURS = 12;
+const STEP_HOURS = 0.25;
 
-function ThermostatGauge({ hours }: { hours: number }) {
-  const clamped = Math.max(0, Math.min(MAX_HOURS, hours));
+function ThermostatGauge({
+  hours,
+  onHoursChange,
+}: {
+  hours: number;
+  onHoursChange: (hours: number) => void;
+}) {
   const cx = 100;
   const cy = 100;
   const r = 82;
   // Arco del termostato: de 180° (izquierda) a 0° (derecha), pasando por 90° (arriba)
   const startAngle = 180;
   const endAngle = 0;
-  const frac = clamped / MAX_HOURS;
-  const currentAngle = startAngle - (startAngle - endAngle) * frac;
+  const clamped = Math.max(0, Math.min(MAX_HOURS, hours));
+
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [dragging, setDragging] = useState<number | null>(null);
+  const shown = dragging ?? clamped;
 
   const polar = (angle: number, radius: number) => {
     const rad = (angle * Math.PI) / 180;
@@ -30,15 +40,77 @@ function ThermostatGauge({ hours }: { hours: number }) {
 
   const ticks = Array.from({ length: MAX_HOURS + 1 }, (_, h) => h);
   const majorTicks = [0, 3, 6, 9, 12];
-  const tip = polar(currentAngle, r - 22);
+  const tip = polar(startAngle - (startAngle - endAngle) * (shown / MAX_HOURS), r - 22);
+
+  const snap = (value: number) =>
+    Math.max(0, Math.min(MAX_HOURS, Math.round(value / STEP_HOURS) * STEP_HOURS));
+
+  const hoursFromPointer = (clientX: number, clientY: number): number | null => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    // viewBox 200x130 con preserveAspectRatio por defecto (meet): escala uniforme
+    const scale = Math.min(rect.width / 200, rect.height / 130);
+    const offsetX = (rect.width - 200 * scale) / 2;
+    const offsetY = (rect.height - 130 * scale) / 2;
+    const x = (clientX - rect.left - offsetX) / scale;
+    const y = (clientY - rect.top - offsetY) / scale;
+    const deg = (Math.atan2(cy - y, x - cx) * 180) / Math.PI;
+    return snap((Math.max(0, Math.min(180, deg)) / 180) * MAX_HOURS);
+  };
+
+  const commit = (value: number | null) => {
+    if (value === null) return;
+    if (Math.abs(value - clamped) > 0.001) onHoursChange(value);
+  };
 
   return (
-    <svg viewBox="0 0 200 130" className="w-full max-w-[240px] mx-auto">
+    <svg
+      ref={svgRef}
+      viewBox="0 0 200 130"
+      role="slider"
+      tabIndex={0}
+      aria-label="Horas de sueño"
+      aria-valuemin={0}
+      aria-valuemax={MAX_HOURS}
+      aria-valuenow={Number(shown.toFixed(2))}
+      className="w-full max-w-[240px] mx-auto cursor-pointer touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-lg"
+      onPointerDown={e => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setDragging(hoursFromPointer(e.clientX, e.clientY));
+      }}
+      onPointerMove={e => {
+        if (dragging === null) return;
+        setDragging(hoursFromPointer(e.clientX, e.clientY));
+      }}
+      onPointerUp={e => {
+        const value = hoursFromPointer(e.clientX, e.clientY) ?? dragging;
+        setDragging(null);
+        commit(value);
+      }}
+      onPointerCancel={() => setDragging(null)}
+      onKeyDown={e => {
+        if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+          e.preventDefault();
+          onHoursChange(snap(clamped + STEP_HOURS));
+        } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+          e.preventDefault();
+          onHoursChange(snap(clamped - STEP_HOURS));
+        } else if (e.key === "Home") {
+          e.preventDefault();
+          onHoursChange(0);
+        } else if (e.key === "End") {
+          e.preventDefault();
+          onHoursChange(MAX_HOURS);
+        }
+      }}
+    >
       {/* Track */}
       <path d={describeArc(startAngle, endAngle, r)} fill="none" stroke="hsl(var(--muted-foreground) / 0.2)" strokeWidth={10} strokeLinecap="round" />
       {/* Valor (horas dormidas) */}
       {clamped > 0 && (
-        <path d={describeArc(startAngle, currentAngle, r)} fill="none" stroke="#6366f1" strokeWidth={10} strokeLinecap="round" />
+        <path d={describeArc(startAngle, startAngle - (startAngle - endAngle) * (shown / MAX_HOURS), r)} fill="none" stroke="#6366f1" strokeWidth={10} strokeLinecap="round" />
       )}
       {/* Ticks */}
       {ticks.map(h => {
@@ -77,6 +149,7 @@ interface SleepThermostatCardProps {
   onSkip: () => void;
   onWakeTimeChange?: (v: string) => void;
   onSleepTimeChange?: (v: string) => void;
+  onHoursChange?: (hours: number) => void;
 }
 
 export function SleepThermostatCard({
@@ -89,6 +162,7 @@ export function SleepThermostatCard({
   onSkip,
   onWakeTimeChange,
   onSleepTimeChange,
+  onHoursChange,
 }: SleepThermostatCardProps) {
   const hours = calcSleepHours(wakeTime || "", sleepTime);
   const statusText = done ? "Hecho" : isSkipped ? "Saltado" : "Sin hacer";
@@ -102,6 +176,18 @@ export function SleepThermostatCard({
     : isSkipped
       ? "ring-red-500/40"
       : "ring-border/40";
+
+  const setHours = (value: number) => {
+    const next = Math.max(0, Math.min(MAX_HOURS, Math.round(value * 4) / 4));
+    if (next === hours) return;
+    if (onHoursChange) {
+      onHoursChange(next);
+      return;
+    }
+    // Fallback: recalcula la hora de acostarse desde la de despertar.
+    const [wh, wm] = (wakeTime || "").split(":").map(Number);
+    if (!isNaN(wh) && !isNaN(wm)) onSleepTimeChange?.(minutesToTime(wh * 60 + wm - next * 60));
+  };
 
   return (
     <div className={cn("relative rounded-2xl overflow-hidden ring-2 transition-all flex flex-col p-2.5 space-y-2", ringClass, isSkipped ? "bg-red-500/5 dark:bg-red-950/10" : "bg-white/80 dark:bg-zinc-950/80")}>
@@ -120,14 +206,31 @@ export function SleepThermostatCard({
         </span>
       )}
 
-      {/* Termostato */}
+      {/* Termostato: arrastra la aguja para fijar las horas */}
       <div className="relative">
-        <ThermostatGauge hours={hours} />
-        <div className="text-center mt-1">
-          <span className={cn("text-2xl font-extrabold tabular-nums leading-none", hours >= 7 ? "text-indigo-600 dark:text-indigo-400" : hours > 0 ? "text-amber-500" : "text-muted-foreground/50")}>
+        <ThermostatGauge hours={hours} onHoursChange={setHours} />
+        <div className="text-center mt-1 flex items-center justify-center gap-1.5">
+          <button
+            onClick={() => setHours(hours - 0.5)}
+            className="grid place-items-center size-5 rounded-md bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors"
+            title="Quitar 30 min"
+            aria-label="Quitar 30 minutos"
+          >
+            <Minus className="h-3 w-3" />
+          </button>
+          <span className={cn("text-2xl font-extrabold tabular-nums leading-none min-w-[52px]", hours >= 7 ? "text-indigo-600 dark:text-indigo-400" : hours > 0 ? "text-amber-500" : "text-muted-foreground/50")}>
             {formatSleepHours(hours)}
           </span>
+          <button
+            onClick={() => setHours(hours + 0.5)}
+            className="grid place-items-center size-5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            title="Sumar 30 min"
+            aria-label="Sumar 30 minutos"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
         </div>
+        <p className="text-center text-[8px] text-muted-foreground mt-0.5">Arrastra la aguja para fijar las horas</p>
       </div>
 
       {/* Horarios */}
