@@ -3,7 +3,7 @@ import { format, startOfWeek, startOfMonth, endOfMonth, addDays, isToday } from 
 import { es } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, Save, ListChecks, Plus, Trash2, Book, Music, FolderKanban, GraduationCap, Target,
-  Check, CheckCircle2, CalendarDays, Clock, Gauge, Flame, CalendarRange, TrendingUp,
+  Check, CircleCheckBig, CalendarDays, Clock, Gauge, Flame, CalendarRange, TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -853,7 +853,7 @@ export default function WeeklyPlanningPage() {
           <Card className="border-0 bg-background shadow-sm">
             <div className="p-3 space-y-2.5">
               <p className="text-[11px] font-semibold flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Progreso de la semana
+                <CircleCheckBig className="w-3.5 h-3.5 text-emerald-500" /> Progreso de la semana
               </p>
               <div className="flex items-center gap-3">
                 <div className="relative w-16 h-16 shrink-0">
