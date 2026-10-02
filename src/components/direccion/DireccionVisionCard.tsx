@@ -150,7 +150,7 @@ export function DireccionVisionCard({
     <Card className="overflow-hidden border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-xl hover:shadow-md transition-shadow">
       <AreaCover
         cover={coverUrl ?? null}
-        gradient={getCoverGradient(area.id)}
+        gradient={getCoverGradient(area.areaId)}
         label={area.label}
         icon={area.icon}
         showCamera
