@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
 import type { CoachVisual } from "@/components/coach/VisualCanvas";
 
 export interface CoachAccion {
@@ -30,9 +31,7 @@ export interface CoachMemory {
   importance: number | null;
 }
 
-const PROD_SUPABASE_URL = 'https://fuqmrtenzlslkeqgdjwy.supabase.co';
-const PROD_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1cW1ydGVuemxzbGtlcWdkand5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MTgxMzksImV4cCI6MjEwMDk5NDEzOX0.3Xxk0AiGLuCjnSJvm0sK9C1cIbpeWgkuhrFc3QnnuVc';
-const FN_URL = `${PROD_SUPABASE_URL}/functions/v1/life-coach`;
+const FN_URL = edgeFunctionUrl("life-coach");
 
 export function useCoachChat() {
   const [conversations, setConversations] = useState<CoachConversation[]>([]);
@@ -130,8 +129,8 @@ export function useCoachChat() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${PROD_SUPABASE_KEY}`,
-            apikey: PROD_SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+            apikey: SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({ message: trimmed, history }),
         });

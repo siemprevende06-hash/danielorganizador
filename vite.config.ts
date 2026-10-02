@@ -46,12 +46,6 @@ export default defineConfig(({ mode }) => ({
   ].filter(Boolean),
   resolve: {
     alias: [
-      // Fuerza el uso de la base de datos correcta, ignorando las variables
-      // de entorno del panel de despliegue.
-      {
-        find: /^@\/integrations\/supabase\/client$/,
-        replacement: path.resolve(__dirname, "./src/integrations/supabase/appClient.ts"),
-      },
       { find: "@", replacement: path.resolve(__dirname, "./src") },
     ],
   },

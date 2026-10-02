@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Bot, Send, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
 
 interface TaskInfo {
   id: string;
@@ -78,12 +79,12 @@ export function BlockAIAssistant({ dayContext }: BlockAIAssistantProps) {
 
     try {
       const response = await fetch(
-        `https://fuqmrtenzlslkeqgdjwy.supabase.co/functions/v1/daily-assistant`,
+        edgeFunctionUrl("daily-assistant"),
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1cW1ydGVuemxzbGtlcWdkand5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MTgxMzksImV4cCI6MjEwMDk5NDEzOX0.3Xxk0AiGLuCjnSJvm0sK9C1cIbpeWgkuhrFc3QnnuVc`,
+            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({ message: messageText, dayContext }),
         }

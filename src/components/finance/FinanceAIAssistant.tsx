@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Bot, Loader2, Mic, MicOff, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
 
 interface AIMessage {
   role: "user" | "assistant";
@@ -35,9 +36,7 @@ interface Props {
   }) => Promise<void> | void;
 }
 
-const PROD_SUPABASE_URL = 'https://fuqmrtenzlslkeqgdjwy.supabase.co';
-const PROD_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1cW1ydGVuemxzbGtlcWdkand5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MTgxMzksImV4cCI6MjEwMDk5NDEzOX0.3Xxk0AiGLuCjnSJvm0sK9C1cIbpeWgkuhrFc3QnnuVc';
-const FN_URL = `${PROD_SUPABASE_URL}/functions/v1/finance-ai`;
+const FN_URL = edgeFunctionUrl("finance-ai");
 
 const QUICK_PROMPTS = [
   "Compré café por 5 USD en Efectivo",
@@ -104,8 +103,8 @@ export function FinanceAIAssistant({ wallets, categories, onCreateTransaction }:
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${PROD_SUPABASE_KEY}`,
-          apikey: PROD_SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ message: trimmed, history, wallets, categories }),
       });

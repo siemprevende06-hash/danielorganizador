@@ -1,3 +1,5 @@
+import { SUPABASE_PROJECT_URL } from "@/integrations/supabase/env";
+
 let forcedOffline = false
 let verifiedOnline: boolean | null = null
 let lastCheck = 0
@@ -36,9 +38,7 @@ export const verifyOnline = async (): Promise<boolean> => {
   const timer = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const url = (import.meta.env.VITE_SUPABASE_URL ||
-      "https://fuqmrtenzlslkeqgdjwy.supabase.co")
-      .replace(/\/$/, "");
+    const url = SUPABASE_PROJECT_URL;
     const res = await fetch(`${url}/auth/v1/health`, {
       method: "HEAD",
       signal: controller.signal,

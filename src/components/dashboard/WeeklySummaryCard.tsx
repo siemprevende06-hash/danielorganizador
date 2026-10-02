@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
 import { useWeekComparison } from "@/hooks/useWeekComparison";
 
 export function WeeklySummaryCard() {
@@ -14,12 +15,12 @@ export function WeeklySummaryCard() {
     setLoading(true);
     try {
       const response = await fetch(
-        `https://fuqmrtenzlslkeqgdjwy.supabase.co/functions/v1/daily-assistant`,
+        edgeFunctionUrl("daily-assistant"),
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1cW1ydGVuemxzbGtlcWdkand5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MTgxMzksImV4cCI6MjEwMDk5NDEzOX0.3Xxk0AiGLuCjnSJvm0sK9C1cIbpeWgkuhrFc3QnnuVc`,
+            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
             message: `Hazme un resumen semanal breve (máx 4 oraciones). Esta semana: ${thisWeek.tasksCompleted} tareas, ${thisWeek.focusMinutes} min focus, ${thisWeek.blocksCompleted} bloques. Semana pasada: ${lastWeek.tasksCompleted} tareas, ${lastWeek.focusMinutes} min focus, ${lastWeek.blocksCompleted} bloques. Dame feedback directo y motivación.`,
