@@ -2,11 +2,25 @@ import { useState, useEffect, useCallback } from 'react';
 import { format, startOfWeek, getISOWeek } from 'date-fns';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 
+export type Priority = 'high' | 'medium' | 'low';
+
+export interface WeeklyOutcome {
+  id: string;
+  title: string;
+  successCriteria?: string;
+  completed: boolean;
+  priority?: Priority;
+}
+
 export interface WeeklyAction {
   id: string;
   title: string;
   category: string;
   completed: boolean;
+  estimatedMinutes?: number;
+  actualMinutes?: number;
+  assignedDay?: string; // 'yyyy-MM-dd'
+  priority?: Priority;
 }
 
 export interface WeeklyPlanData {
@@ -17,6 +31,9 @@ export interface WeeklyPlanData {
   personal_goals: { title: string; target?: string }[];
   actions: WeeklyAction[];
   weekNumber: number;
+  outcomes?: WeeklyOutcome[];
+  dailyCapacityMinutes?: Record<string, number>; // por día yyyy-MM-dd
+  notes?: string;
 }
 
 const makeDefault = (weekNumber: number): WeeklyPlanData => ({
@@ -27,6 +44,9 @@ const makeDefault = (weekNumber: number): WeeklyPlanData => ({
   personal_goals: [],
   actions: [],
   weekNumber,
+  outcomes: [],
+  dailyCapacityMinutes: {},
+  notes: '',
 });
 
 const STORAGE_PREFIX = 'weekly_plan_';
@@ -73,7 +93,19 @@ export function useWeeklyPlan(weekStart: Date) {
     await pullPlansIntoLocal();
     const local = loadFromLocal(weekId);
     const base = makeDefault(weekNumber);
-    setPlanData(local ? { ...base, ...local, actions: local.actions ?? [], weekNumber } : base);
+    setPlanData(
+      local
+        ? {
+            ...base,
+            ...local,
+            actions: Array.isArray(local.actions) ? local.actions : [],
+            outcomes: Array.isArray(local.outcomes) ? local.outcomes : [],
+            dailyCapacityMinutes: local.dailyCapacityMinutes ?? {},
+            notes: local.notes ?? '',
+            weekNumber,
+          }
+        : base
+    );
     setLoading(false);
   }, [weekId, weekNumber]);
 
@@ -117,10 +149,59 @@ export function useWeeklyPlan(weekStart: Date) {
     setPlanData(prev => ({ ...prev, actions: (prev.actions ?? []).filter(a => a.id !== id) }));
   }, []);
 
+  const updateAction = useCallback((id: string, updater: (a: WeeklyAction) => WeeklyAction) => {
+    setPlanData(prev => ({
+      ...prev,
+      actions: (prev.actions ?? []).map(a => (a.id === id ? updater(a) : a)),
+    }));
+  }, []);
+
+  const addOutcome = useCallback((outcome: Omit<WeeklyOutcome, 'id'>) => {
+    setPlanData(prev => ({
+      ...prev,
+      outcomes: [...(prev.outcomes ?? []), { ...outcome, id: genId() }],
+    }));
+  }, []);
+
+  const toggleOutcome = useCallback((id: string) => {
+    setPlanData(prev => ({
+      ...prev,
+      outcomes: (prev.outcomes ?? []).map(o => (o.id === id ? { ...o, completed: !o.completed } : o)),
+    }));
+  }, []);
+
+  const removeOutcome = useCallback((id: string) => {
+    setPlanData(prev => ({ ...prev, outcomes: (prev.outcomes ?? []).filter(o => o.id !== id) }));
+  }, []);
+
+  const updateOutcome = useCallback((id: string, updater: (o: WeeklyOutcome) => WeeklyOutcome) => {
+    setPlanData(prev => ({
+      ...prev,
+      outcomes: (prev.outcomes ?? []).map(o => (o.id === id ? updater(o) : o)),
+    }));
+  }, []);
+
+  const setDailyCapacity = useCallback((dayStr: string, minutes: number) => {
+    setPlanData(prev => ({
+      ...prev,
+      dailyCapacityMinutes: { ...(prev.dailyCapacityMinutes ?? {}), [dayStr]: Math.max(0, minutes) },
+    }));
+  }, []);
+
+  const removeDailyCapacity = useCallback((dayStr: string) => {
+    setPlanData(prev => {
+      const dc = { ...(prev.dailyCapacityMinutes ?? {}) };
+      delete dc[dayStr];
+      return { ...prev, dailyCapacityMinutes: dc };
+    });
+  }, []);
+
   return {
     planData, loading, saving, weekId,
     books, songs,
     updatePlanData, savePlan, fetchPlan,
-    addAction, toggleAction, removeAction,
+    addAction, toggleAction, removeAction, updateAction,
+    addOutcome, toggleOutcome, removeOutcome, updateOutcome,
+    setDailyCapacity, removeDailyCapacity,
   };
 }
