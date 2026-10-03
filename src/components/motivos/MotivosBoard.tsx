@@ -18,7 +18,7 @@ import {
   storeImageBlob,
 } from "@/lib/imageStore";
 import { useTextSection } from "@/hooks/useTextSection";
-import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2 } from "lucide-react";
+import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2, Play, Pause, ChevronLeft, ChevronRight } from "lucide-react";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { CachedImage } from "@/components/CachedImage";
 import { toast } from "sonner";
@@ -78,6 +78,12 @@ export default function MotivosBoard({
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const { uploadImage } = useImageUpload();
+  const [slideshowActive, setSlideshowActive] = useState<boolean>(false);
+  const [slideshowSectionId, setSlideshowSectionId] = useState<string | null>(null);
+  const [slideshowIndex, setSlideshowIndex] = useState<number>(0);
+  const [slideshowPlaying, setSlideshowPlaying] = useState<boolean>(true);
+  const [slideshowDuration, setSlideshowDuration] = useState<number>(2500);
+  const slideshowTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const valid = sections
@@ -192,6 +198,91 @@ export default function MotivosBoard({
     else inputRefs.current.delete(cardId);
   };
 
+  const stopSlideshow = useCallback(() => {
+    if (slideshowTimer.current) {
+      clearInterval(slideshowTimer.current);
+      slideshowTimer.current = null;
+    }
+    setSlideshowActive(false);
+    setSlideshowPlaying(false);
+    setSlideshowSectionId(null);
+    setSlideshowIndex(0);
+  }, []);
+
+  const getSlideshowImages = useCallback(() => {
+    if (slideshowSectionId === "all") {
+      return sections
+        .flatMap((s) => s.cards.map((c) => c.image_url).filter(Boolean))
+        .filter((v): v is string => Boolean(v));
+    }
+    if (slideshowSectionId) {
+      const s = sections.find((sec) => sec.id === slideshowSectionId);
+      return s?.cards.map((c) => c.image_url).filter(Boolean).filter((v): v is string => Boolean(v)) || [];
+    }
+    if (selectedSection) {
+      const s = sections.find((sec) => sec.id === selectedSection);
+      return s?.cards.map((c) => c.image_url).filter(Boolean).filter((v): v is string => Boolean(v)) || [];
+    }
+    return sections
+      .flatMap((s) => s.cards.map((c) => c.image_url).filter(Boolean))
+      .filter((v): v is string => Boolean(v));
+  }, [slideshowSectionId, selectedSection, sections]);
+
+  const images = getSlideshowImages();
+
+  useEffect(() => {
+    if (!slideshowActive || images.length <= 1 || !slideshowPlaying) {
+      if (slideshowTimer.current) {
+        clearInterval(slideshowTimer.current);
+        slideshowTimer.current = null;
+      }
+      return;
+    }
+    slideshowTimer.current = setInterval(() => {
+      setSlideshowIndex((prev) => (prev + 1) % images.length);
+    }, slideshowDuration);
+    return () => {
+      if (slideshowTimer.current) {
+        clearInterval(slideshowTimer.current);
+        slideshowTimer.current = null;
+      }
+    };
+  }, [slideshowActive, slideshowPlaying, images.length, slideshowDuration]);
+
+  useEffect(() => {
+    if (slideshowIndex >= images.length && images.length > 0) {
+      setSlideshowIndex(0);
+    }
+  }, [images.length, slideshowIndex]);
+
+  const startSlideshow = (sectionId: string | "all") => {
+    const imgs = sectionId === "all"
+      ? sections.flatMap((s) => s.cards.map((c) => c.image_url).filter(Boolean))
+      : sections.find((s) => s.id === sectionId)?.cards.map((c) => c.image_url).filter(Boolean);
+    if (!imgs || imgs.length === 0) {
+      toast.error("No hay imágenes en este grupo");
+      return;
+    }
+    setSlideshowSectionId(sectionId);
+    setSlideshowIndex(0);
+    setSlideshowPlaying(true);
+    setSlideshowActive(true);
+  };
+
+  const nextSlide = () => {
+    if (images.length === 0) return;
+    setSlideshowIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevSlide = () => {
+    if (images.length === 0) return;
+    setSlideshowIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const togglePlay = () => {
+    setSlideshowPlaying((prev) => !prev);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-4 md:p-6 pt-20 pb-24 flex items-center justify-center">
@@ -221,6 +312,12 @@ export default function MotivosBoard({
               </>
             )}
           </Button>
+          {sections.length > 0 && (
+            <Button variant="outline" onClick={() => startSlideshow("all")}>
+              <Play className="h-4 w-4 mr-1.5" />
+              Play General
+            </Button>
+          )}
           <Button onClick={addSection}>
             <Plus className="h-4 w-4 mr-1.5" />
             {newSectionLabel}
@@ -281,16 +378,26 @@ export default function MotivosBoard({
               <span className="text-xs text-muted-foreground/60">
                 ({section.rows * 3} tarjetas)
               </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="ml-auto text-destructive hover:text-destructive h-8 w-8"
-              onClick={() => removeSection(section.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+           </div>
+             <Button
+               variant="outline"
+               size="sm"
+               className="ml-auto"
+               onClick={() => startSlideshow(section.id)}
+               disabled={section.cards.filter((c) => c.image_url).length === 0}
+             >
+               <Play className="h-4 w-4 mr-1.5" />
+               Play
+             </Button>
+             <Button
+               variant="ghost"
+               size="icon"
+               className="text-destructive hover:text-destructive h-8 w-8"
+               onClick={() => removeSection(section.id)}
+             >
+               <Trash2 className="h-4 w-4" />
+             </Button>
+           </div>
 
           <div className="grid grid-cols-3 gap-2 md:gap-3">
             {section.cards.map((card) => {
@@ -373,6 +480,59 @@ export default function MotivosBoard({
       )}
 
       <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      {slideshowActive && images.length > 0 && (
+        <div className="fixed inset-0 z-[9999] bg-black">
+          <div className="relative w-full h-full flex items-center justify-center">
+            {images.map((src, idx) => (
+              <div
+                key={src + idx}
+                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-700 ease-in-out ${
+                  idx === slideshowIndex ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <img src={src} alt="" className="w-full h-full object-contain" />
+              </div>
+            ))}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full text-white text-sm backdrop-blur-sm">
+              <span>
+                {slideshowIndex + 1} / {images.length}
+              </span>
+            </div>
+            <button
+              onClick={stopSlideshow}
+              className="absolute top-4 right-4 h-9 w-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+              aria-label="Cerrar presentación"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {images.length > 1 && (
+              <>
+                <button
+                  onClick={prevSlide}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                  aria-label="Anterior"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                  aria-label="Siguiente"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+                <button
+                  onClick={togglePlay}
+                  className="absolute bottom-8 left-1/2 -translate-x-1/2 h-11 w-11 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                  aria-label={slideshowPlaying ? "Pausar" : "Reproducir"}
+                >
+                  {slideshowPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
