@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getImageBlob, storeImageBlob } from "@/lib/imageStore";
+import { getImageBlob, removeImageBlob, storeImageBlob } from "@/lib/imageStore";
 import { cacheImageNow } from "@/lib/imageCache";
 import { isVideoUrl } from "@/lib/utils";
 
@@ -24,10 +24,43 @@ async function getFromCacheObject(url: string): Promise<string | null> {
   return null;
 }
 
-async function resolveCachedSource(url: string): Promise<string | null> {
+// Chrome no inspecciona el contenido de un blob: sin MIME válido la <img> queda en blanco.
+function canDecode(objectUrl: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = new Image();
+    probe.onload = () => resolve(true);
+    probe.onerror = () => resolve(false);
+    probe.src = objectUrl;
+  });
+}
+
+async function purgeLocalCopies(url: string): Promise<void> {
+  await removeImageBlob(url);
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.delete(url);
+  } catch {
+    // Caché no disponible: la URL original ya está en pantalla.
+  }
+}
+
+async function localCandidate(url: string): Promise<string | null> {
   const stored = await getImageBlob(url);
   if (stored && stored.size > 0) return URL.createObjectURL(stored);
   return getFromCacheObject(url);
+}
+
+// La copia local solo se usa si el navegador logra pintarla; si no, se descarta
+// para que la URL original vuelva a mandar en vez de dejar un hueco en blanco.
+async function resolveCachedSource(url: string, validate: boolean): Promise<string | null> {
+  const local = await localCandidate(url);
+  if (!local) return null;
+  if (validate && !(await canDecode(local))) {
+    URL.revokeObjectURL(local);
+    await purgeLocalCopies(url);
+    return null;
+  }
+  return local;
 }
 
 export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
@@ -41,9 +74,13 @@ export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
     loadedRef.current = false;
     setLocalSrc(null);
 
-    resolveCachedSource(src)
+    resolveCachedSource(src, !isVideo)
       .then((local) => {
-        if (!active || !local) return;
+        if (!local) return;
+        if (!active) {
+          URL.revokeObjectURL(local);
+          return;
+        }
         objectUrlsRef.current.push(local);
         setLocalSrc(local);
       })
@@ -54,7 +91,7 @@ export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       objectUrlsRef.current = [];
     };
-  }, [src]);
+  }, [src, isVideo]);
 
   const persistToCaches = () => {
     try {
@@ -90,7 +127,7 @@ export function CachedImage({ src, alt, className, onLoad }: CachedImageProps) {
       return;
     }
     // Sin red o URL bloqueada: reintentar con la copia cacheada.
-    resolveCachedSource(src)
+    resolveCachedSource(src, !isVideo)
       .then((local) => {
         if (!local) return;
         objectUrlsRef.current.push(local);
