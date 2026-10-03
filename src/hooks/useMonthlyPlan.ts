@@ -4,9 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 import { syncMonthlyFromQuarter } from '@/lib/hierarchy';
 
+export interface DayRange {
+  startDay?: string | null;
+  endDay?: string | null;
+}
+
 export interface WeekBookSongDistribution {
   books: string[];
   songs: string[];
+  book_ranges?: Record<string, DayRange>;
+  song_ranges?: Record<string, DayRange>;
   book_pages?: number;
   book_minutes?: number;
   music_minutes?: number;

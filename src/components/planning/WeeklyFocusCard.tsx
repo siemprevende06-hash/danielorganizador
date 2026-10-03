@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { pullPlansIntoLocal } from '@/lib/planSync';
 import type { WeekBookSongDistribution } from '@/hooks/useMonthlyPlan';
+import { formatDayRange } from '@/components/planning/WeeklyBookSongDistribution';
 
 interface BookInfo {
   id: string;
@@ -142,6 +143,11 @@ export function WeeklyFocusCard({ weekStart }: { weekStart: Date }) {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
+                    {formatDayRange(dist!.book_ranges?.[id]) && (
+                      <Badge variant="secondary" className="text-[9px] px-1.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
+                        📅 {formatDayRange(dist!.book_ranges?.[id])}
+                      </Badge>
+                    )}
                     {(dist!.book_pages || 0) > 0 && (
                       <Badge variant="secondary" className="text-[9px] px-1.5">
                         📖 {dist!.book_pages} páginas
@@ -186,6 +192,11 @@ export function WeeklyFocusCard({ weekStart }: { weekStart: Date }) {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
+                    {formatDayRange(dist!.song_ranges?.[id]) && (
+                      <Badge variant="secondary" className="text-[9px] px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+                        📅 {formatDayRange(dist!.song_ranges?.[id])}
+                      </Badge>
+                    )}
                     {(dist!.music_minutes || 0) > 0 && (
                       <Badge variant="secondary" className="text-[9px] px-1.5">
                         🎹 {dist!.music_minutes} min
