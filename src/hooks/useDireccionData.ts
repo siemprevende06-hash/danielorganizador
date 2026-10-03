@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { addDays, eachDayOfInterval, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { POINT_B_AREAS } from '@/data/pointB2027';
-import { useAreaScores } from '@/hooks/useAreaScores';
+import { isDireccionExpandedArea } from '@/data/lifeAreaSections';
+import { useAreaScores, type SubAreaScore } from '@/hooks/useAreaScores';
 import { ALL_TRACKABLE_IDS } from '@/lib/areaSystemsMap';
 import { getCubaDate } from '@/lib/cubaTime';
 import type { PointBArea, PointBSubAxis } from '@/lib/definitions';
@@ -89,8 +90,24 @@ export interface DireccionAreaSeries {
   trackingCount: number;
 }
 
+/**
+ * Una sub-área (sub-eje del Punto B) con exactamente las mismas metricas que un
+ * área: Dirección las pinta como tarjetas propias, no como filas dentro de la
+ * tarjeta del área.
+ */
+export interface DireccionSubAxisSeries extends DireccionAreaSeries {
+  /** Id del área a la que pertenece esta sub-área. */
+  parentAreaId: string;
+  /** Punto de partida del Punto B. */
+  start: number;
+  target: number;
+  unit: string;
+}
+
 export interface DireccionData {
   areas: DireccionAreaSeries[];
+  /** Sub-áreas de las áreas desplegadas, ya aplanadas a hojas. */
+  subAreas: DireccionSubAxisSeries[];
   /** Serie global de minutos, suma de todas las areas centrales. */
   globalPoints: DireccionPoint[];
   start: Date;
@@ -137,6 +154,41 @@ function trackingIdsForArea(area: PointBArea): string[] {
 
 const AREA_TRACKING_IDS: Record<string, string[]> = Object.fromEntries(
   POINT_B_AREAS.map(area => [area.id, trackingIdsForArea(area)]),
+);
+
+/**
+ * Sub-ejes hoja de un área. Los nodos con `children` (Rutinas, Hábitos,
+ * Detox...) son contenedores: se muestran sus hijos, no ellos mismos.
+ */
+function leafSubAxes(sub: PointBSubAxis[]): PointBSubAxis[] {
+  const out: PointBSubAxis[] = [];
+  for (const s of sub) {
+    if (s.children && s.children.length > 0) out.push(...leafSubAxes(s.children));
+    else out.push(s);
+  }
+  return out;
+}
+
+interface SubAxisDef {
+  areaId: string;
+  group: string;
+  sub: PointBSubAxis;
+  trackingIds: string[];
+}
+
+/**
+ * Las sub-áreas que Dirección despliega: solo las de las áreas marcadas en
+ * DIRECCION_EXPANDED_AREA_IDS, aplanadas a hojas. Una sub-área sin trackingIds
+ * propios hereda los del área para no mostrar una tarjeta muerta.
+ */
+const EXPANDED_SUB_AXES: SubAxisDef[] = POINT_B_AREAS.filter(area => isDireccionExpandedArea(area.id)).flatMap(
+  area =>
+    leafSubAxes(area.sub).map(sub => ({
+      areaId: area.id,
+      group: area.group,
+      sub,
+      trackingIds: sub.trackingIds.length > 0 ? sub.trackingIds : area.effortTrackingIds,
+    })),
 );
 
 function toDateKey(d: Date): string {
@@ -288,9 +340,15 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
       const monday = startOfWeek(end, { weekStartsOn: 1 });
       const weekKeys = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(monday, i)));
 
-      const areas: DireccionAreaSeries[] = POINT_B_AREAS.map(area => {
-        const ids = AREA_TRACKING_IDS[area.id] ?? [area.id];
-
+      /**
+       * Toda la aritmética de una tarjeta (puntos diarios, racha, tira semanal,
+       * delta) depende solo de los tracking ids que la alimentan, así que áreas
+       * y sub-áreas comparten esta función y solo cambian los ids que pasan.
+       */
+      const buildSeries = (
+        ids: string[],
+        meta: { areaId: string; label: string; icon: string; group: string },
+      ): DireccionAreaSeries => {
         const points: DireccionPoint[] = dateKeys.map(date => {
           let minutes = 0;
           let rateSum = 0;
@@ -310,7 +368,7 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
           };
         });
 
-        const byDate = new Map(points.map((p, i) => [p.date, p]));
+        const byDate = new Map(points.map(p => [p.date, p]));
 
         let totalMinutes = 0;
         let activeDays = 0;
@@ -349,10 +407,10 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
           .reduce((s, p) => s + p.minutes, 0);
 
         return {
-          areaId: area.id,
-          label: area.label,
-          icon: area.icon,
-          group: area.group,
+          areaId: meta.areaId,
+          label: meta.label,
+          icon: meta.icon,
+          group: meta.group,
           points,
           totalMinutes,
           activeDayRate: points.length ? Math.round((activeDays / points.length) * 100) : 0,
@@ -375,14 +433,49 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
               : 0,
           trackingCount: ids.length,
         };
-      });
+      };
 
-      return { areas, globalPoints, days: days.length };
+      const areas: DireccionAreaSeries[] = POINT_B_AREAS.map(area =>
+        buildSeries(AREA_TRACKING_IDS[area.id] ?? [area.id], {
+          areaId: area.id,
+          label: area.label,
+          icon: area.icon,
+          group: area.group,
+        }),
+      );
+
+      const subAreas: DireccionSubAxisSeries[] = EXPANDED_SUB_AXES.map(def => ({
+        ...buildSeries(def.trackingIds, {
+          areaId: def.sub.id,
+          label: def.sub.label,
+          icon: '',
+          group: def.group,
+        }),
+        parentAreaId: def.areaId,
+        start: def.sub.start,
+        target: def.sub.target,
+        unit: def.sub.unit,
+      }));
+
+      return { areas, subAreas, globalPoints, days: days.length };
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const scoreById = useMemo(() => Object.fromEntries(scores.map(s => [s.id, s])), [scores]);
+
+  /** Esfuerzo/resultados por sub-área, indexados por el id del sub-eje hoja. */
+  const subScoreById = useMemo(() => {
+    const map: Record<string, { esfuerzo: number; resultados: number }> = {};
+    const walk = (nodes: SubAreaScore[]) => {
+      for (const node of nodes) {
+        if (node.children && node.children.length > 0) walk(node.children);
+        else map[node.id] = { esfuerzo: node.esfuerzo, resultados: node.resultados };
+      }
+    };
+    for (const area of scores) walk(area.sub);
+    return map;
+  }, [scores]);
 
   const areas = useMemo(() => {
     const base = data?.areas ?? [];
@@ -392,8 +485,17 @@ export function useDireccionData(timeframe: Timeframe = 'month'): DireccionData 
     });
   }, [data?.areas, scoreById]);
 
+  const subAreas = useMemo(() => {
+    const base = data?.subAreas ?? [];
+    return base.map(s => {
+      const score = subScoreById[s.areaId];
+      return score ? { ...s, esfuerzo: score.esfuerzo, resultados: score.resultados } : s;
+    });
+  }, [data?.subAreas, subScoreById]);
+
   return {
     areas,
+    subAreas,
     globalPoints: data?.globalPoints ?? [],
     start,
     end,

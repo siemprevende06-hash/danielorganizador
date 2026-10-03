@@ -57,3 +57,30 @@ export const LIFE_AREA_SECTIONS: LifeAreaSection[] = [
 export function getLifeAreaSection(group: string): LifeAreaSection | undefined {
   return LIFE_AREA_SECTIONS.find(s => s.key === group)
 }
+
+/**
+ * Áreas que Dirección despliega en sus sub-áreas (una tarjeta por sub-área).
+ * El resto se resume en un icono con su % de esfuerzo para no saturar la
+ * página: 10 áreas por sub-área serían ~50 tarjetas.
+ *
+ * Finanzas se queda fuera a propósito: sus sub-áreas (ingresos, gastos, ahorro,
+ * inversion, edu-financiera) no existen todavía en daily_systems_tracking, así
+ * que sus tarjetas saldrían todas en cero.
+ */
+export const DIRECCION_EXPANDED_AREA_IDS = ["desarrollo", "profesional"] as const
+
+export function isDireccionExpandedArea(areaId: string): boolean {
+  return (DIRECCION_EXPANDED_AREA_IDS as readonly string[]).includes(areaId)
+}
+
+/** Destino de cada área que Dirección muestra como icono (todas existen en el router). */
+export const DIRECCION_AREA_LINKS: Record<string, string> = {
+  salud: "/gym",
+  "fuerza-mental": "/habits",
+  proposito: "/proposito",
+  apariencia: "/identidad",
+  finanzas: "/finance",
+  familia: "/vida-social",
+  amor: "/novia",
+  ocio: "/chess",
+}

@@ -11,7 +11,6 @@ import {
   DIRECCION_HORIZON_DAYS,
   formatDayLabel,
   formatMinutes,
-  type DireccionAreaSeries,
   type DireccionPoint,
 } from '@/hooks/useDireccionData';
 
@@ -285,41 +284,6 @@ function StatBox({ label, value, sub, accent }: { label: string; value: string; 
         {value}
         {sub && <span className="text-[9px] font-normal text-muted-foreground ml-1">{sub}</span>}
       </p>
-    </div>
-  );
-}
-
-export function DireccionAreaSparkline({ area }: { area: DireccionAreaSeries }) {
-  const data = useMemo(() => area.points.slice(-30), [area.points]);
-  const result = useMemo(() => forecastSeries(data.map(p => p.minutes), { horizon: 7, minObservations: 14 }), [data]);
-
-  const chartData = useMemo(() => {
-    const historical = data.map((p, i) => ({ v: i > 0 ? Number(result.fitted[i]?.toFixed(1)) : p.minutes }));
-    const projected = result.forecast.map(v => ({ v: Number(v.toFixed(1)) }));
-    return [...historical, ...projected];
-  }, [data, result]);
-
-  return (
-    <div className="h-10">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id={`spark-${area.areaId}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
-          <Area
-            type="monotone"
-            dataKey="v"
-            stroke="#3b82f6"
-            strokeWidth={1.5}
-            fill={`url(#spark-${area.areaId})`}
-            dot={false}
-            isAnimationActive={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
     </div>
   );
 }

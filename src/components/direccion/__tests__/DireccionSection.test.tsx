@@ -73,6 +73,15 @@ vi.mock('sonner', () => ({
 
 import { DireccionSection } from '@/components/direccion/DireccionSection';
 
+// jsdom no implementa ResizeObserver y la gráfica global de trends lo necesita:
+// sin este stub el test revienta con "ResizeObserver is not defined".
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver = globalThis.ResizeObserver ?? (ResizeObserverStub as unknown as typeof ResizeObserver);
+
 function Wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
@@ -90,5 +99,31 @@ describe('DireccionSection crash repro', () => {
   it('renders the vision board with data without crashing', async () => {
     render(<DireccionSection />, { wrapper: Wrapper });
     await screen.findByText(/Tendencia de esfuerzo y pron/i, {}, { timeout: 8000 });
+  });
+
+  it('despliega las áreas centrales en sub-áreas', async () => {
+    render(<DireccionSection />, { wrapper: Wrapper });
+    await screen.findByText(/Tendencia de esfuerzo y pron/i, {}, { timeout: 8000 });
+
+    // Cabecera del área, dentro de la sección.
+    expect(screen.getByText('Desarrollo Personal')).toBeTruthy();
+    expect(screen.getByText('Profesional / Académico')).toBeTruthy();
+
+    // Las sub-áreas son las tarjetas que se pintan debajo.
+    expect(screen.getByText('Lectura')).toBeTruthy();
+    expect(screen.getByText('Ajedrez')).toBeTruthy();
+    expect(screen.getByText('Universidad')).toBeTruthy();
+  });
+
+  it('deja el resto de áreas como iconos, sin desplegar sus sub-áreas', async () => {
+    render(<DireccionSection />, { wrapper: Wrapper });
+    await screen.findByText(/Tendencia de esfuerzo y pron/i, {}, { timeout: 8000 });
+
+    expect(screen.getByText('Salud y Bienestar')).toBeTruthy();
+    expect(screen.getByText('Familia y Amistad')).toBeTruthy();
+
+    // Finanzas se queda como icono: sus sub-áreas no tienen tracking todavía.
+    expect(screen.queryByText('Control de gastos')).toBeNull();
+    expect(screen.queryByText('Educación financiera')).toBeNull();
   });
 });
