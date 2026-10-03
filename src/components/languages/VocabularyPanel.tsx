@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useVocabulary, VocabularyWord } from '@/hooks/useVocabulary';
+import { useVocabulary, VocabularyWord, VOCABULARY_CHANGED_EVENT } from '@/hooks/useVocabulary';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Trash2, Languages, BookOpenCheck, RotateCcw, Check, ChevronLeft, ChevronRight, Plus, FlipVertical2, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,19 @@ export default function VocabularyPanel() {
     };
     load();
   }, []);
+
+  // Refresca si se guarda una palabra desde el lector o al volver a la pestaña
+  useEffect(() => {
+    const refresh = () => { refetch(); };
+    window.addEventListener(VOCABULARY_CHANGED_EVENT, refresh);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener(VOCABULARY_CHANGED_EVENT, refresh);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [refetch]);
 
   const languagesPresent = useMemo(() => {
     const set = new Set((words || []).map(w => w.language || 'english'));
@@ -148,7 +161,7 @@ export default function VocabularyPanel() {
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
             <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">{words.length === 0 ? 'Aún no hay palabras. Abre un libro bilingüe y haz doble clic en una palabra para guardarla aquí.' : 'Sin resultados'}</p>
+            <p className="text-sm">{words.length === 0 ? 'Aún no hay palabras. Abre un libro bilingüe y toca una palabra para ver su traducción y guardarla aquí.' : 'Sin resultados'}</p>
           </CardContent>
         </Card>
       ) : (

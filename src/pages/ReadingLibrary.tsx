@@ -669,17 +669,17 @@ export default function ReadingLibrary() {
 
           {/* Book Detail/Notes Dialog - Full Screen */}
           <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
-            <DialogContent className="max-w-full w-screen h-screen sm:max-w-full sm:rounded-none p-0 overflow-hidden">
+            <DialogContent className="max-w-none w-full h-[100dvh] max-h-[100dvh] sm:rounded-none p-0 overflow-hidden">
 
               {selectedBook && (
                 <div className="flex flex-col md:flex-row h-full">
-                  {/* Left: Cover Image */}
-                  <div className="md:w-2/5 lg:w-1/3 bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center p-8 md:p-12 shrink-0">
+                  {/* Cover: hidden on mobile (thumbnail lives in the header), big panel on md+ */}
+                  <div className="hidden md:flex md:w-2/5 lg:w-1/3 bg-gradient-to-br from-muted to-muted/50 items-center justify-center p-8 md:p-12 shrink-0">
                     {selectedBook.cover_image_url ? (
                       <img
                         src={selectedBook.cover_image_url}
                         alt={selectedBook.title}
-                        className="max-h-[50vh] md:max-h-[70vh] w-auto object-contain rounded-lg shadow-2xl"
+                        className="max-h-[70vh] w-auto object-contain rounded-lg shadow-2xl"
                       />
                     ) : (
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -690,17 +690,30 @@ export default function ReadingLibrary() {
                   </div>
 
                   {/* Right: Content */}
-                  <div className="flex-1 flex flex-col overflow-hidden">
-                    {/* Header */}
-                    <DialogHeader className="p-6 pb-2 shrink-0">
-                      <DialogTitle className="text-xl md:text-2xl">{selectedBook.title}</DialogTitle>
-                      {selectedBook.author && (
-                        <p className="text-base text-muted-foreground">{selectedBook.author}</p>
-                      )}
+                  <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+                    {/* Header - on mobile the cover is a small inline thumbnail */}
+                    <DialogHeader className="px-4 sm:px-6 pt-4 pb-3 sm:pb-2 pr-12 shrink-0 border-b border-border">
+                      <div className="flex items-start gap-3">
+                        <div className="md:hidden w-16 h-24 shrink-0 bg-muted rounded overflow-hidden ring-1 ring-border">
+                          {selectedBook.cover_image_url ? (
+                            <img src={selectedBook.cover_image_url} alt={selectedBook.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <BookOpen className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <DialogTitle className="text-lg sm:text-xl md:text-2xl break-words">{selectedBook.title}</DialogTitle>
+                          {selectedBook.author && (
+                            <p className="text-sm sm:text-base text-muted-foreground">{selectedBook.author}</p>
+                          )}
+                        </div>
+                      </div>
                     </DialogHeader>
 
-                    {/* Scrollable content - flex column so flex-1 children fill space */}
-                    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto px-6 pb-4">
+                    {/* Single scroll container for the whole detail */}
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4">
                       {/* Rating */}
                       <div className="shrink-0 mb-4">
                         <label className="text-sm font-medium text-muted-foreground">Calificación</label>
@@ -715,27 +728,27 @@ export default function ReadingLibrary() {
                       </div>
 
                       {/* Info */}
-                      <div className="grid grid-cols-2 gap-3 text-sm shrink-0 mb-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-2 gap-2 sm:gap-3 text-sm shrink-0 mb-4">
                         {selectedBook.pages_total && (
-                          <div className="bg-muted/50 rounded-lg p-3">
+                          <div className="bg-muted/50 rounded-lg p-2.5 sm:p-3">
                             <p className="text-muted-foreground text-xs">Páginas</p>
                             <p className="font-medium">{selectedBook.pages_total}</p>
                           </div>
                         )}
                         {selectedBook.genre && (
-                          <div className="bg-muted/50 rounded-lg p-3">
+                          <div className="bg-muted/50 rounded-lg p-2.5 sm:p-3">
                             <p className="text-muted-foreground text-xs">Género</p>
                             <p className="font-medium">{selectedBook.genre}</p>
                           </div>
                         )}
                         {selectedBook.start_date && (
-                          <div className="bg-muted/50 rounded-lg p-3">
+                          <div className="bg-muted/50 rounded-lg p-2.5 sm:p-3">
                             <p className="text-muted-foreground text-xs">Empezado</p>
                             <p className="font-medium">{format(new Date(selectedBook.start_date), "d MMM yyyy", { locale: es })}</p>
                           </div>
                         )}
                         {selectedBook.finish_date && (
-                          <div className="bg-muted/50 rounded-lg p-3">
+                          <div className="bg-muted/50 rounded-lg p-2.5 sm:p-3">
                             <p className="text-muted-foreground text-xs">Terminado</p>
                             <p className="font-medium">{format(new Date(selectedBook.finish_date), "d MMM yyyy", { locale: es })}</p>
                           </div>
@@ -743,8 +756,8 @@ export default function ReadingLibrary() {
                       </div>
 
                       {/* Contenido del libro: resumen/enseñanzas + acciones prácticas */}
-                      <div className="flex-1 flex flex-col min-h-0">
-                        <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
                           <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                             <StickyNote className="w-4 h-4" /> Contenido del libro
                           </label>
@@ -761,9 +774,9 @@ export default function ReadingLibrary() {
                               value={editingNotes}
                               onChange={(e) => setEditingNotes(e.target.value)}
                               placeholder="Contenido en Markdown: resumen extenso, enseñanzas y luego la sección «## 🎯 Acciones prácticas» con las acciones."
-                              className="flex-1 resize-none min-h-0 text-sm"
+                              className="min-h-[45vh] resize-y text-sm"
                             />
-                            <div className="flex justify-end gap-2 mt-2 shrink-0">
+                            <div className="flex justify-end gap-2 mt-2">
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -784,15 +797,13 @@ export default function ReadingLibrary() {
                             </div>
                           </>
                         ) : (
-                          <div className="flex-1 overflow-y-auto min-h-0 pr-1">
-                            <BookContent notes={selectedBook.notes} />
-                          </div>
+                          <BookContent notes={selectedBook.notes} />
                         )}
                       </div>
                     </div>
 
                     {/* Fixed bottom: Actions */}
-                    <div className="flex gap-2 px-6 py-4 border-t border-border shrink-0 bg-background">
+                    <div className="flex gap-2 px-4 sm:px-6 py-3 sm:py-4 border-t border-border shrink-0 bg-background">
                       <Button size="sm" variant="outline" onClick={() => { openEditDialog(selectedBook); setNotesOpen(false); }}>
                         <Edit2 className="w-3 h-3 mr-1.5" /> Editar libro
                       </Button>

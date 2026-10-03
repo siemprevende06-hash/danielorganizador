@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useVocabulary } from '@/hooks/useVocabulary';
 import { Book } from '@/hooks/useReadingLibrary';
-import { X, Plus, Minus, Languages, BookOpenCheck, Loader2, ChevronLeft, ChevronRight, BookMarked, ScrollText } from 'lucide-react';
+import { X, Plus, Minus, Languages, BookOpenCheck, Loader2, ChevronLeft, ChevronRight, BookMarked, ScrollText, AlignLeft, AlignJustify, AlignCenter } from 'lucide-react';
 
 export interface LinePair {
   en: string;
@@ -21,10 +20,18 @@ export interface BookPage {
 }
 
 type ReaderMode = 'book' | 'scroll';
+type TextAlign = 'left' | 'justify' | 'center';
 
 const STORAGE_POS_PREFIX = 'bil-reader-pos-';
 const STORAGE_MODE_PREFIX = 'bil-reader-mode-';
+const STORAGE_ALIGN_PREFIX = 'bil-reader-align-';
 const PAIRS_PER_PAGE = 25;
+
+const ALIGN_OPTIONS: { value: TextAlign; label: string; Icon: typeof AlignLeft }[] = [
+  { value: 'left', label: 'Alinear a la izquierda', Icon: AlignLeft },
+  { value: 'justify', label: 'Justificar párrafo', Icon: AlignJustify },
+  { value: 'center', label: 'Centrar texto', Icon: AlignCenter },
+];
 
 const isSeparator = (line: string) => /^[^\p{L}\p{N}]+$/u.test(line.trim()) && line.trim().length > 0;
 
@@ -175,6 +182,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   const [pageIndex, setPageIndex] = useState(0);
   const [currentPair, setCurrentPair] = useState(0);
   const [fontSize, setFontSize] = useState(17);
+  const [align, setAlign] = useState<TextAlign>('justify');
   const [showTranslation, setShowTranslation] = useState(true);
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [translation, setTranslation] = useState('');
@@ -213,6 +221,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   const goToPage = useCallback((target: number) => {
     const r = ranges[target];
     if (!r) return;
+    setPopover(null);
     setPageIndex(target);
     setCurrentPair(Math.min(r.start, totalPairs - 1));
     persistProgress(Math.min(r.start, totalPairs - 1));
@@ -220,6 +229,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
 
   const changeMode = useCallback((m: ReaderMode) => {
     setMode(m);
+    setPopover(null);
     try {
       localStorage.setItem(`${STORAGE_MODE_PREFIX}${book.id}`, m);
     } catch {
@@ -229,6 +239,21 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
       restoreRef.current = true;
     }
   }, [book.id]);
+
+  const cycleAlign = useCallback(() => {
+    setAlign(prev => {
+      const idx = ALIGN_OPTIONS.findIndex(o => o.value === prev);
+      const next = ALIGN_OPTIONS[(idx + 1) % ALIGN_OPTIONS.length].value;
+      try {
+        localStorage.setItem(`${STORAGE_ALIGN_PREFIX}${book.id}`, next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, [book.id]);
+
+  const activeAlign = ALIGN_OPTIONS.find(o => o.value === align) || ALIGN_OPTIONS[0];
 
   // Al abrir: restaurar posición (BD → localStorage) y modo
   useEffect(() => {
@@ -256,6 +281,14 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
     }
     setMode(savedMode);
     restoreRef.current = savedMode === 'scroll';
+    let savedAlign: TextAlign = 'justify';
+    try {
+      const stored = localStorage.getItem(`${STORAGE_ALIGN_PREFIX}${book.id}`) as TextAlign | null;
+      if (stored && ALIGN_OPTIONS.some(o => o.value === stored)) savedAlign = stored;
+    } catch {
+      /* ignore */
+    }
+    setAlign(savedAlign);
   }, [open, book.id, book.reading_pair_index, totalPairs, pageIndexForPair]);
 
   // Scroll hasta la posición restaurada (modo scroll)
@@ -356,6 +389,11 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
     setTranslation('');
   };
 
+  // Tocar el texto o la barra inferior cierra la pestaña de definición
+  const handleBackgroundPointerDown = () => {
+    if (popover) closePopover();
+  };
+
   const handleClose = () => {
     let pos = currentPair;
     if (mode === 'book' && ranges[pageIndex]) pos = Math.min(ranges[pageIndex].start, totalPairs ? totalPairs - 1 : 0);
@@ -375,7 +413,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent
-        className="max-w-full w-screen h-screen sm:max-w-full sm:rounded-none p-0 overflow-hidden flex flex-col [&>button:last-child]:hidden"
+        className="max-w-none w-full h-[100dvh] max-h-[100dvh] sm:rounded-none p-0 overflow-hidden flex flex-col [&>button:last-child]:hidden"
         onEscapeKeyDown={(e) => { if (popover) { e.preventDefault(); closePopover(); } }}
       >
         {/* Header */}
@@ -414,6 +452,16 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
             <Button size="sm" variant="outline" onClick={() => setFontSize(f => Math.min(24, f + 1))} title="Agrandar texto">
               <Plus className="w-4 h-4" />
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={cycleAlign}
+              title={activeAlign.label}
+              aria-label={activeAlign.label}
+            >
+              <activeAlign.Icon className="w-4 h-4" />
+              <span className="hidden lg:inline text-xs">{activeAlign.label}</span>
+            </Button>
             <Button size="sm" variant="ghost" onClick={handleClose} title="Salir (Esc)" className="text-muted-foreground hover:text-foreground">
               <X className="w-5 h-5" />{" "}
               <span className="hidden sm:inline text-sm">Salir</span>
@@ -433,7 +481,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
 
         {/* Reading body */}
         {mode === 'book' ? (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" onPointerDown={handleBackgroundPointerDown}>
             <div className="max-w-3xl mx-auto px-5 md:px-8 py-6 pb-10">
               <div className="space-y-5">
                 {(pages[pageIndex]?.pairs ?? []).map((pair, i) => (
@@ -441,12 +489,12 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
                     <p
                       onClick={(e) => handleEnLineClick(e, pair)}
                       className="text-foreground font-medium cursor-text select-text"
-                      style={{ fontSize }}
+                      style={{ fontSize, textAlign: align, hyphens: 'auto' }}
                     >
                       {pair.en}
                     </p>
                     {showTranslation && pair.es && (
-                      <p className="text-muted-foreground/80 italic mt-0.5 select-none" style={{ fontSize: esFont }}>
+                      <p className="text-muted-foreground/80 italic mt-0.5 select-none" style={{ fontSize: esFont, textAlign: align, hyphens: 'auto' }}>
                         {pair.es}
                       </p>
                     )}
@@ -459,7 +507,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
             </div>
           </div>
         ) : (
-          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+          <div ref={scrollRef} onScroll={handleScroll} onPointerDown={handleBackgroundPointerDown} className="flex-1 overflow-y-auto">
             <div className="max-w-3xl mx-auto px-5 md:px-8 py-6 pb-10">
               <div className="space-y-5">
                 {allPairs.map((pair, i) => (
@@ -467,12 +515,12 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
                     <p
                       onClick={(e) => handleEnLineClick(e, pair)}
                       className="text-foreground font-medium cursor-text select-text"
-                      style={{ fontSize }}
+                      style={{ fontSize, textAlign: align, hyphens: 'auto' }}
                     >
                       {pair.en}
                     </p>
                     {showTranslation && pair.es && (
-                      <p className="text-muted-foreground/80 italic mt-0.5 select-none" style={{ fontSize: esFont }}>
+                      <p className="text-muted-foreground/80 italic mt-0.5 select-none" style={{ fontSize: esFont, textAlign: align, hyphens: 'auto' }}>
                         {pair.es}
                       </p>
                     )}
@@ -487,7 +535,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
         )}
 
         {/* Bottom bar */}
-        <div className="shrink-0 border-t border-border bg-background/95 backdrop-blur z-10">
+        <div className="shrink-0 border-t border-border bg-background/95 backdrop-blur z-10" onPointerDown={handleBackgroundPointerDown}>
           {mode === 'book' ? (
             <div className="px-4 py-2.5 flex items-center justify-between gap-3">
               <Button size="sm" variant="outline" onClick={() => goToPage(pageIndex - 1)} disabled={totalPages === 0 || pageIndex <= 0}>
@@ -510,46 +558,50 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
           <Progress value={progressPercent} className="h-1" />
         </div>
 
-        {/* Vocabulary popover */}
-        {popover && createPortal(
-          <>
-            <div className="fixed inset-0 z-[99]" onClick={closePopover} title="Cerrar" />
-            <div
-              className="fixed z-[100] w-80 bg-popover text-popover-foreground rounded-xl border border-border shadow-xl p-4"
-              style={{ top: Math.min(popover.y, window.innerHeight - 240), left: Math.min(popover.x, window.innerWidth - 340) }}
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="min-w-0">
-                  <p className="font-semibold text-base break-words">{popover.word}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 italic">"{popover.es}"</p>
-                </div>
-                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={closePopover}>
-                  <X className="w-4 h-4" />
-                </Button>
+        {/* Vocabulary popover - rendered inside DialogContent (never portaled to body):
+            Radix Dialog blocks pointer events outside its content subtree, so a body portal
+            would leave "Guardar"/"Cerrar" and click-outside completely dead. */}
+        {popover && (
+          <div
+            role="dialog"
+            aria-label={`Definición de ${popover.word}`}
+            className="fixed z-30 w-[min(20rem,calc(100vw-1rem))] pointer-events-auto bg-popover text-popover-foreground rounded-xl border border-border shadow-xl p-4"
+            style={{
+              top: Math.max(8, Math.min(popover.y, window.innerHeight - 250)),
+              left: Math.max(8, Math.min(popover.x, window.innerWidth - Math.min(336, window.innerWidth - 16) - 8)),
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-base break-words">{popover.word}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 italic">"{popover.es}"</p>
               </div>
-              <div className="flex gap-2">
-                <Input
-                  value={translation}
-                  onChange={(e) => setTranslation(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') saveVocab(); }}
-                  placeholder={translating ? 'Traduciendo…' : 'Traducción…'}
-                  className="h-9 text-sm flex-1"
-                />
-                <Button size="sm" disabled={savingVocab} onClick={saveVocab}>
-                  {savingVocab ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpenCheck className="w-4 h-4" />}
-                  Guardar
-                </Button>
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <Badge variant="outline" className="text-[10px]">vocabulario inglés</Badge>
-                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  {translating && <Loader2 className="w-3 h-3 animate-spin" />}
-                  Toca fuera o Esc para cerrar
-                </p>
-              </div>
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={closePopover} title="Cerrar" aria-label="Cerrar">
+                <X className="w-4 h-4" />
+              </Button>
             </div>
-          </>,
-          document.body
+            <div className="flex gap-2">
+              <Input
+                value={translation}
+                onChange={(e) => setTranslation(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveVocab(); }}
+                placeholder={translating ? 'Traduciendo…' : 'Traducción…'}
+                className="h-9 text-sm flex-1"
+              />
+              <Button size="sm" disabled={savingVocab} onClick={saveVocab}>
+                {savingVocab ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpenCheck className="w-4 h-4" />}
+                Guardar
+              </Button>
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <Badge variant="outline" className="text-[10px]">vocabulario inglés</Badge>
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                {translating && <Loader2 className="w-3 h-3 animate-spin" />}
+                Toca fuera o Esc para cerrar
+              </p>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>

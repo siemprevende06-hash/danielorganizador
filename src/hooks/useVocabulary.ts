@@ -20,6 +20,23 @@ export interface VocabularyWord {
 
 export type VocabStatus = 'new' | 'learning' | 'learned';
 
+// Notifica al resto de paneles (p.ej. la pestaña Vocabulario de Idiomas) que la lista cambió
+export const VOCABULARY_CHANGED_EVENT = 'vocabulary:changed';
+
+const notifyVocabularyChanged = () => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(VOCABULARY_CHANGED_EVENT));
+};
+
+const resolveUserId = async (): Promise<string | null> => {
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+};
+
 export const useVocabulary = () => {
   const [words, setWords] = useState<VocabularyWord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +77,7 @@ export const useVocabulary = () => {
     );
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id ?? null;
+      const userId = await resolveUserId();
 
       if (existing) {
         const { error } = await supabase
@@ -78,6 +94,7 @@ export const useVocabulary = () => {
 
         if (error) throw error;
         setWords(prev => prev.map(w => w.id === existing.id ? { ...w, ...input, review_count: (w.review_count || 0) + 1 } : w));
+        notifyVocabularyChanged();
         toast({ title: 'Palabra actualizada', description: `"${existing.word}" ya estaba en tu vocabulario` });
         return existing;
       }
@@ -101,6 +118,7 @@ export const useVocabulary = () => {
 
       if (error) throw error;
       setWords(prev => [data as unknown as VocabularyWord, ...prev]);
+      notifyVocabularyChanged();
       toast({ title: 'Guardada en vocabulario 📚', description: `"${input.word}" agregada a tu lista` });
       return data;
     } catch (error) {
@@ -119,6 +137,7 @@ export const useVocabulary = () => {
 
       if (error) throw error;
       setWords(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w));
+      notifyVocabularyChanged();
     } catch (error) {
       console.error('Error updating vocabulary word:', error);
       toast({ title: 'Error', description: 'No se pudo actualizar la palabra', variant: 'destructive' });
@@ -134,6 +153,7 @@ export const useVocabulary = () => {
 
       if (error) throw error;
       setWords(prev => prev.filter(w => w.id !== id));
+      notifyVocabularyChanged();
     } catch (error) {
       console.error('Error deleting vocabulary word:', error);
     }
