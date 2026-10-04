@@ -9,7 +9,13 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, AlarmClock, TrendingUp, BookOpen } from 'lucide-react';
+import { Clock, AlarmClock, TrendingUp, BookOpen, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState } from 'react';
 
 interface StudyByDay {
   day: string;
@@ -25,6 +31,12 @@ interface StudyByTask {
   estimated?: number;
 }
 
+interface StudyTask {
+  id: string;
+  title: string;
+  subjectName: string;
+}
+
 interface StudySessionsSectionProps {
   todayMinutes: number;
   studyByDay: StudyByDay[];
@@ -32,6 +44,8 @@ interface StudySessionsSectionProps {
   minutesTotal: number;
   targetTotal: number;
   byTask: StudyByTask[];
+  studyTasks?: StudyTask[];
+  onAddSession?: (taskId: string, minutes: number, dateIso: string) => void;
 }
 
 export function StudySessionsSection({
@@ -41,14 +55,42 @@ export function StudySessionsSection({
   minutesTotal,
   targetTotal,
   byTask,
+  studyTasks = [],
+  onAddSession,
 }: StudySessionsSectionProps) {
   const studyTotalPeriod = studyByDay.reduce((sum, d) => sum + d.minutes, 0);
   const hoursPeriod = Math.round((studyTotalPeriod / 60) * 10) / 10;
   const hoursTotal = Math.round((minutesTotal / 60) * 10) / 10;
   const progressPct = targetTotal > 0 ? Math.min(100, Math.round((minutesTotal / targetTotal) * 100)) : 0;
 
+  const [open, setOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [minutes, setMinutes] = useState(30);
+  const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 16));
+
+  const handleAdd = () => {
+    if (!selectedTaskId || minutes <= 0) return;
+    const date = new Date(sessionDate);
+    onAddSession?.(selectedTaskId, Math.round(minutes), date.toISOString());
+    setOpen(false);
+    setSelectedTaskId('');
+    setMinutes(30);
+    setSessionDate(new Date().toISOString().slice(0, 16));
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          Sesiones de estudio
+        </h3>
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Registrar sesión
+        </Button>
+      </div>
+
       {/* Quick stats estudio */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-sky-500 text-white p-3 shadow-sm">
@@ -119,7 +161,7 @@ export function StudySessionsSection({
       {/* Desglose por tareas de estudio */}
       {byTask.length > 0 && (
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-primary" />
               Sesiones por tarea de estudio
@@ -140,9 +182,23 @@ export function StudySessionsSection({
                       <p className="text-xs font-medium truncate">{bt.taskTitle}</p>
                       <p className="text-[10px] text-muted-foreground truncate">{bt.subjectName}</p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-semibold tabular-nums">{bt.minutes} min</p>
-                      <p className="text-[10px] text-muted-foreground">{bt.count} sesión(es)</p>
+                    <div className="flex items-start gap-2">
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-semibold tabular-nums">{bt.minutes} min</p>
+                        <p className="text-[10px] text-muted-foreground">{bt.count} sesión(es)</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2"
+                        onClick={() => {
+                          setSelectedTaskId(bt.taskId);
+                          setOpen(true);
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Sesión
+                      </Button>
                     </div>
                   </div>
                   {bt.estimated && bt.estimated > 0 && (
@@ -166,11 +222,71 @@ export function StudySessionsSection({
             <Clock className="h-6 w-6 text-muted-foreground mb-2" />
             <p className="text-sm font-medium">Aún no hay sesiones de estudio registradas</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Inicia un temporizador o marca tareas de estudio para ver tus estadísticas aquí
+              Inicia un temporizador o registra una sesión manualmente
             </p>
+            <Button className="mt-3" size="sm" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Registrar primera sesión
+            </Button>
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar sesión de estudio</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Tarea de estudio</Label>
+              <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar tarea" />
+                </SelectTrigger>
+                <SelectContent>
+                  {studyTasks.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.title} {t.subjectName && `· ${t.subjectName}`}
+                    </SelectItem>
+                  ))}
+                  {studyTasks.length === 0 && (
+                    <SelectItem value="" disabled>
+                      No hay tareas de estudio
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Minutos</Label>
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                value={minutes}
+                onChange={(e) => setMinutes(Number(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Fecha y hora</Label>
+              <Input
+                type="datetime-local"
+                value={sessionDate}
+                onChange={(e) => setSessionDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAdd} disabled={!selectedTaskId || minutes <= 0}>
+              Guardar sesión
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
