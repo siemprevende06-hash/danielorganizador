@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, Save, ListChecks, Plus, Trash2, Book, Music, FolderKanban, GraduationCap, Target,
   Check, CircleCheckBig, CalendarDays, Clock, Gauge, Flame, CalendarRange, TrendingUp,
+  Briefcase,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,16 +14,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useWeeklyPlan, type Priority } from '@/hooks/useWeeklyPlan';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
+import { useWeeklyPlanData } from '@/hooks/useWeeklyPlanData';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { cn } from '@/lib/utils';
-import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
 import { WeeklyBookSongDistribution, type WeekDistribution } from '@/components/planning/WeeklyBookSongDistribution';
+import { WeekMinutesRings } from '@/components/plan/WeekMinutesRings';
+import { WeekEventsCalendar } from '@/components/plan/WeekEventsCalendar';
+import { UniversityRow } from '@/components/plan/UniversityRow';
+import { AreaRow } from '@/components/plan/AreaRow';
+import { PersonalDevelopment } from '@/components/plan/PersonalDevelopment';
 import {
   setWeekGoal,
   getWeekGoalEffective,
-  getWeekGoalSum,
-  ALL_HIERARCHY_AREAS,
-  AREA_LABELS,
 } from '@/lib/hierarchy';
 
 const CATEGORY_META: Record<string, { icon: ReactNode; color: string; chip: string }> = {
@@ -81,6 +84,9 @@ export default function WeeklyPlanningPage() {
     setDailyCapacity,
     updatePlanData,
     savePlan,
+    setAreaResult,
+    setWeekBook,
+    setLecturaPagesGoal,
   } = useWeeklyPlan(weekDate);
   const month = new Date(weekDate.getFullYear(), weekDate.getMonth(), 1);
   const {
@@ -95,8 +101,11 @@ export default function WeeklyPlanningPage() {
   const { toast } = useToast();
 
   const weekStart = startOfWeek(weekDate, { weekStartsOn: 1 });
+  const weekEnd = addDays(weekStart, 6);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekLabel = `${format(weekDays[0], 'd MMM', { locale: es })} - ${format(weekDays[6], 'd MMM', { locale: es })}`;
+  const areaData = useWeeklyPlanData(weekStart, weekEnd);
+  const [goalsVersion, setGoalsVersion] = useState(0);
 
   const monthWeeks = (() => {
     const first = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
@@ -190,13 +199,49 @@ export default function WeeklyPlanningPage() {
   const openOutcomes = outcomes.filter(o => !o.completed);
   const openActions = actions.filter(a => !a.completed);
 
+  /** Resultados disponibles (sección Resultados de daily / semana / mes) para dirigir el esfuerzo */
+  const resultOptions = outcomes.map(o => ({ id: o.id, title: o.title, done: o.completed }));
+
+  const areaMinutes: Record<string, number> = {
+    universidad: areaData.week.universidadMinutes + areaData.studySessions.reduce((a, s) => a + s.minutesDone, 0),
+    emprendimiento: areaData.week.emprendimientoMinutes,
+    proyectos: areaData.week.proyectosMinutes,
+    general: areaData.week.generalMinutes,
+    lectura: areaData.reading.minutes,
+    musica: areaData.musica.minutes,
+    ajedrez: areaData.ajedrez.minutes,
+    ingles: areaData.idiomas.inglesMinutes,
+    italiano: areaData.idiomas.italianoMinutes,
+    game: areaData.game.minutos,
+    gym: areaData.gym.minutes,
+  };
+
+  const RING_META: Record<string, { label: string; color: string }> = {
+    universidad: { label: 'Universidad', color: '#3b82f6' },
+    emprendimiento: { label: 'Emprendimiento', color: '#a855f7' },
+    proyectos: { label: 'Proyectos', color: '#f59e0b' },
+    general: { label: 'Tareas grales.', color: '#64748b' },
+    lectura: { label: 'Lectura', color: '#06b6d4' },
+    musica: { label: 'Música', color: '#ec4899' },
+    ajedrez: { label: 'Ajedrez', color: '#f59e0b' },
+    ingles: { label: 'Inglés', color: '#0ea5e9' },
+    italiano: { label: 'Italiano', color: '#6366f1' },
+    game: { label: 'Seducción', color: '#f43f5e' },
+    gym: { label: 'Gym', color: '#10b981' },
+  };
+
+  const weekRings = Object.keys(RING_META).map(area => ({
+    area,
+    label: RING_META[area].label,
+    color: RING_META[area].color,
+    actualMinutes: areaMinutes[area] ?? 0,
+  }));
+
   const [newAction, setNewAction] = useState('');
   const [newActionCategory, setNewActionCategory] = useState('personal');
   const [newActionMinutes, setNewActionMinutes] = useState('');
   const [newOutcome, setNewOutcome] = useState('');
   const [openNotes, setOpenNotes] = useState(false);
-
-  const [goalsVersion, setGoalsVersion] = useState(0);
 
   const applyWeekGoal = (area: string, value: string) => {
     const mins = Math.max(0, parseInt(value) || 0);
@@ -204,9 +249,6 @@ export default function WeeklyPlanningPage() {
     setGoalsVersion(v => v + 1);
   };
 
-  const weekGoalSum = getWeekGoalSum(weekStart);
-
-  const weekEnd = addDays(weekStart, 6);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const weekStartStr = format(weekStart, 'yyyy-MM-dd');
   const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
@@ -358,6 +400,92 @@ export default function WeeklyPlanningPage() {
           />
         </div>
       )}
+
+      {/* ===== Áreas del plan: esfuerzo en minutos → resultados ===== */}
+      <div className="mb-4 space-y-4">
+        {/* Minutos de la semana como círculos indicadores */}
+        <WeekMinutesRings weekStart={weekStart} rings={weekRings} onChanged={() => setGoalsVersion(v => v + 1)} />
+
+        {/* Universidad: fila completa con el título profesional/académico */}
+        <UniversityRow
+          sessions={areaData.studySessions}
+          counts={areaData.month.universidad}
+          minutesThisWeek={areaMinutes.universidad}
+          minutesGoal={getWeekGoalEffective(weekStart, 'universidad')}
+          subjects={areaData.subjects}
+          results={resultOptions}
+          resultId={planData.areaResults?.universidad ?? ''}
+          onResultChange={v => setAreaResult('universidad', v)}
+          onMinutesGoalChange={v => applyWeekGoal('universidad', String(v))}
+          onRefresh={areaData.refresh}
+        />
+
+        {/* Emprendimiento y Proyectos */}
+        <div className="grid gap-4 xl:grid-cols-2">
+          <AreaRow
+            title="Emprendimiento"
+            subtitle="Negocios y sus metas"
+            icon={<Briefcase className="w-4 h-4" />}
+            accent="text-purple-500"
+            border="border-purple-500/30"
+            counts={areaData.month.emprendimiento}
+            minutesThisWeek={areaMinutes.emprendimiento}
+            minutesGoal={getWeekGoalEffective(weekStart, 'emprendimiento')}
+            onMinutesGoalChange={v => applyWeekGoal('emprendimiento', String(v))}
+            result={planData.areaResults?.emprendimiento ?? ''}
+            results={resultOptions}
+            onResultChange={v => setAreaResult('emprendimiento', v)}
+          />
+          <AreaRow
+            title="Proyectos"
+            subtitle="Proyectos activos"
+            icon={<FolderKanban className="w-4 h-4" />}
+            accent="text-amber-500"
+            border="border-amber-500/30"
+            counts={areaData.month.proyectos}
+            minutesThisWeek={areaMinutes.proyectos}
+            minutesGoal={getWeekGoalEffective(weekStart, 'proyectos')}
+            onMinutesGoalChange={v => applyWeekGoal('proyectos', String(v))}
+            result={planData.areaResults?.proyectos ?? ''}
+            results={resultOptions}
+            onResultChange={v => setAreaResult('proyectos', v)}
+          />
+        </div>
+
+        {/* Tareas generales + calendario semanal de eventos */}
+        <div className="space-y-3">
+          <AreaRow
+            title="Tareas generales"
+            subtitle="Todo lo que no pertenece a un área concreta"
+            icon={<ListChecks className="w-4 h-4" />}
+            accent="text-slate-500"
+            border="border-slate-400/40"
+            counts={areaData.month.general}
+            minutesThisWeek={areaMinutes.general}
+            minutesGoal={getWeekGoalEffective(weekStart, 'general')}
+            onMinutesGoalChange={v => applyWeekGoal('general', String(v))}
+            result={planData.areaResults?.general ?? ''}
+            results={resultOptions}
+            onResultChange={v => setAreaResult('general', v)}
+          />
+          <WeekEventsCalendar
+            weekStart={weekStart}
+            weekEnd={weekEnd}
+            events={areaData.events}
+            onRefresh={areaData.refresh}
+          />
+        </div>
+
+        {/* Desarrollo personal: lectura, idiomas, ajedrez, seducción y música */}
+        <PersonalDevelopment
+          weekStart={weekStart}
+          data={areaData}
+          weekBookId={planData.weekBookId ?? ''}
+          pagesGoal={planData.lecturaPagesGoal ?? 0}
+          onBookChange={setWeekBook}
+          onPagesGoalChange={setLecturaPagesGoal}
+        />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
@@ -826,29 +954,6 @@ export default function WeeklyPlanningPage() {
               </div>
             </Card>
           )}
-
-          <Card className="border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/20">
-            <div className="p-3">
-              <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 mb-1.5 flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5" /> Metas de minutos de la semana
-              </p>
-              <div className="space-y-1.5">
-                {ALL_HIERARCHY_AREAS.map(area => (
-                  <div key={area} className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] text-muted-foreground">{AREA_LABELS[area]}</span>
-                    <MinutesGoalInput
-                      value={getWeekGoalEffective(weekStart, area)}
-                      onApply={v => applyWeekGoal(area, v)}
-                      className="h-6 w-20 text-[10px]"
-                    />
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mt-2">
-                Total semana: {weekGoalSum} min
-              </p>
-            </div>
-          </Card>
 
           <Card className="border-0 bg-background shadow-sm">
             <div className="p-3 space-y-2.5">

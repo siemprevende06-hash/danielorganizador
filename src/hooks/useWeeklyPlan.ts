@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { format, startOfWeek, getISOWeek } from 'date-fns';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 
@@ -21,6 +21,9 @@ export interface WeeklyAction {
   actualMinutes?: number;
   assignedDay?: string; // 'yyyy-MM-dd'
   priority?: Priority;
+  area?: string;
+  minutes?: number;
+  targetResult?: string;
 }
 
 export interface WeeklyPlanData {
@@ -32,8 +35,14 @@ export interface WeeklyPlanData {
   actions: WeeklyAction[];
   weekNumber: number;
   outcomes?: WeeklyOutcome[];
-  dailyCapacityMinutes?: Record<string, number>; // por día yyyy-MM-dd
+  dailyCapacityMinutes?: Record<string, number>; // por d��a yyyy-MM-dd
   notes?: string;
+  /** Resultado al que se dirige el esfuerzo de cada area (id de outcome o texto libre) */
+  areaResults?: Record<string, string>;
+  /** Libro de la semana (id de reading_library) */
+  weekBookId?: string;
+  /** Paginas que se espera leer esta semana */
+  lecturaPagesGoal?: number;
 }
 
 const makeDefault = (weekNumber: number): WeeklyPlanData => ({
@@ -47,6 +56,9 @@ const makeDefault = (weekNumber: number): WeeklyPlanData => ({
   outcomes: [],
   dailyCapacityMinutes: {},
   notes: '',
+  areaResults: {},
+  weekBookId: '',
+  lecturaPagesGoal: 0,
 });
 
 const STORAGE_PREFIX = 'weekly_plan_';
@@ -103,6 +115,9 @@ export function useWeeklyPlan(weekStart: Date) {
             dailyCapacityMinutes: local.dailyCapacityMinutes ?? {},
             notes: local.notes ?? '',
             weekNumber,
+            areaResults: local.areaResults ?? {},
+            weekBookId: local.weekBookId ?? '',
+            lecturaPagesGoal: local.lecturaPagesGoal ?? 0,
           }
         : base
     );
@@ -196,6 +211,18 @@ export function useWeeklyPlan(weekStart: Date) {
     });
   }, []);
 
+  const setAreaResult = useCallback((area: string, value: string) => {
+    setPlanData(prev => ({ ...prev, areaResults: { ...(prev.areaResults ?? {}), [area]: value } }));
+  }, []);
+
+  const setWeekBook = useCallback((bookId: string) => {
+    setPlanData(prev => ({ ...prev, weekBookId: bookId }));
+  }, []);
+
+  const setLecturaPagesGoal = useCallback((pages: number) => {
+    setPlanData(prev => ({ ...prev, lecturaPagesGoal: Math.max(0, pages) }));
+  }, []);
+
   return {
     planData, loading, saving, weekId,
     books, songs,
@@ -203,5 +230,6 @@ export function useWeeklyPlan(weekStart: Date) {
     addAction, toggleAction, removeAction, updateAction,
     addOutcome, toggleOutcome, removeOutcome, updateOutcome,
     setDailyCapacity, removeDailyCapacity,
+    setAreaResult, setWeekBook, setLecturaPagesGoal,
   };
 }
