@@ -669,10 +669,10 @@ export default function ReadingLibrary() {
 
           {/* Book Detail/Notes Dialog - Full Screen */}
           <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
-            <DialogContent className="max-w-none w-full h-[100dvh] max-h-[100dvh] sm:rounded-none p-0 overflow-hidden">
+            <DialogContent className="!flex flex-col max-w-none w-full h-[100dvh] max-h-[100dvh] sm:rounded-none p-0 overflow-hidden">
 
               {selectedBook && (
-                <div className="flex flex-col md:flex-row h-full">
+                <div className="flex flex-col md:flex-row flex-1 min-h-0">
                   {/* Cover: hidden on mobile (thumbnail lives in the header), big panel on md+ */}
                   <div className="hidden md:flex md:w-2/5 lg:w-1/3 bg-gradient-to-br from-muted to-muted/50 items-center justify-center p-8 md:p-12 shrink-0">
                     {selectedBook.cover_image_url ? (
@@ -713,7 +713,7 @@ export default function ReadingLibrary() {
                     </DialogHeader>
 
                     {/* Single scroll container for the whole detail */}
-                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4">
+                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 sm:px-6 py-4">
                       {/* Rating */}
                       <div className="shrink-0 mb-4">
                         <label className="text-sm font-medium text-muted-foreground">Calificación</label>
@@ -756,7 +756,7 @@ export default function ReadingLibrary() {
                       </div>
 
                       {/* Contenido del libro: resumen/enseñanzas + acciones prácticas */}
-                      <div>
+                      <div className="min-w-0 break-words">
                         <div className="flex items-center justify-between gap-2 mb-3">
                           <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                             <StickyNote className="w-4 h-4" /> Contenido del libro

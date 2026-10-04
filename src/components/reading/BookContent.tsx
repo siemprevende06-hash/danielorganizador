@@ -73,7 +73,7 @@ export function BookContent({ notes, className }: BookContentProps) {
   const hasSummary = summary.length > 0;
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-4 min-w-0 break-words", className)}>
       {hasSummary && (
         <Card className="border-primary/20">
           <CardContent className="p-4">

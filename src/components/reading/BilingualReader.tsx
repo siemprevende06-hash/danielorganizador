@@ -413,7 +413,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent
-        className="max-w-none w-full h-[100dvh] max-h-[100dvh] sm:rounded-none p-0 overflow-hidden flex flex-col [&>button:last-child]:hidden"
+        className="!flex flex-col max-w-none w-full h-[100dvh] max-h-[100dvh] sm:rounded-none p-0 overflow-hidden [&>button:last-child]:hidden"
         onEscapeKeyDown={(e) => { if (popover) { e.preventDefault(); closePopover(); } }}
       >
         {/* Header */}
@@ -481,7 +481,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
 
         {/* Reading body */}
         {mode === 'book' ? (
-          <div className="flex-1 overflow-y-auto" onPointerDown={handleBackgroundPointerDown}>
+          <div className="flex-1 min-h-0 overflow-y-auto" onPointerDown={handleBackgroundPointerDown}>
             <div className="max-w-3xl mx-auto px-5 md:px-8 py-6 pb-10">
               <div className="space-y-5">
                 {(pages[pageIndex]?.pairs ?? []).map((pair, i) => (
@@ -507,7 +507,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
             </div>
           </div>
         ) : (
-          <div ref={scrollRef} onScroll={handleScroll} onPointerDown={handleBackgroundPointerDown} className="flex-1 overflow-y-auto">
+          <div ref={scrollRef} onScroll={handleScroll} onPointerDown={handleBackgroundPointerDown} className="flex-1 min-h-0 overflow-y-auto">
             <div className="max-w-3xl mx-auto px-5 md:px-8 py-6 pb-10">
               <div className="space-y-5">
                 {allPairs.map((pair, i) => (
