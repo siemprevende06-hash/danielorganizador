@@ -51,6 +51,8 @@ import {
   effectiveRoutineId,
   workoutVolume,
   cleanupSg,
+  fmtSec,
+  parseMinSec,
 } from "../lib/history";
 import { estimate1RM, best1RM, REP_CAP } from "../lib/onerm";
 import {
@@ -1233,14 +1235,17 @@ function ExConfigContent({
     if (c.inc && c.inc > 0) prog.inc = c.inc;
     const flags: Partial<ExConfig> = {};
     if (bw !== isBodyweightEq(ex.id)) flags.bodyweight = bw;
+    const rest = Math.max(0, Math.round(c.rest || 0));
+    const restCfg = rest > 0 ? { rest } : {};
     if (cardio)
-      onSave({ sets, min: Math.max(1, Math.round(c.min || 0) || 20), speed: Math.max(0, c.speed || 8) });
+      onSave({ sets, min: Math.max(1, Math.round(c.min || 0) || 20), speed: Math.max(0, c.speed || 8), ...restCfg });
     else if (mode === "time")
       onSave({
         sets,
         mode: "time",
         sec: Math.max(1, Math.round(c.sec || 0) || 45),
         weight: Math.max(0, c.weight || 0),
+        ...restCfg,
         ...flags,
         ...prog,
       });
@@ -1252,6 +1257,7 @@ function ExConfigContent({
         mode: "reps",
         reps,
         weight: Math.max(0, c.weight || 0),
+        ...restCfg,
         ...flags,
         ...(perSide ? { side: true } : {}),
         ...prog,
@@ -1306,6 +1312,22 @@ function ExConfigContent({
             )}
           </>
         )}
+      </div>
+      <div className="mt-3 mb-1">
+        <Stepper
+          label="Descanso tras cada serie"
+          value={c.rest || 0}
+          step={15}
+          decimal={false}
+          max={3600}
+          fmt={fmtSec}
+          parse={parseMinSec}
+          onChange={(v) => set1((x) => ({ ...x, rest: v }))}
+        />
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Escribe minutos: <b>3</b> son 3 minutos, <b>2.30</b> son 2 min 30 s. Con 0 se
+          usa el descanso por defecto de Ajustes.
+        </p>
       </div>
       {mode === "time" && !bw && (
         <p className="mb-4 text-xs text-muted-foreground">

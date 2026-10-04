@@ -32,6 +32,25 @@ export function fmtSec(sec: number | undefined) {
   return Math.floor(n / 60) + ":" + String(n % 60).padStart(2, "0");
 }
 
+/**
+ * Descanso escrito en minutos. "3" son 3 minutos enteros; "2.30", "2:30" o
+ * "2,30" son 2 minutos y 30 segundos. Devuelve segundos.
+ */
+export function parseMinSec(raw: string): number | null {
+  const t = String(raw || "")
+    .trim()
+    .replace(",", ".");
+  if (!t) return null;
+  const parts = /^(\d{1,3})\s*[:.]\s*(\d{1,2})$/.exec(t);
+  if (parts) {
+    const sec = Math.min(59, parseInt(parts[2], 10));
+    return Math.min(3600, parseInt(parts[1], 10) * 60 + sec);
+  }
+  const n = parseFloat(t);
+  if (!isFinite(n) || n < 0) return null;
+  return Math.min(3600, Math.round(n * 60));
+}
+
 export const EFFORT: Record<
   string,
   { f: string; hd: string; step: number; min: number; max: number }
@@ -100,13 +119,14 @@ export function exLine(cfg: ExConfig, unit: string) {
   const load = cfg.weight
     ? " · " + (isBw(cfg) ? "+" : "") + fmtNum(cfg.weight) + " " + unit
     : "";
+  const rest = cfg.rest && cfg.rest > 0 ? " · " + fmtSec(cfg.rest) + " desc." : "";
   if (mode === "cardio")
-    return `${n} × ${cfg.min || 20} min @ ${fmtNum(cfg.speed || 8)} km/h`;
-  if (mode === "time") return `${n} × ${fmtSec(cfg.sec || 45)}${load}`;
+    return `${n} × ${cfg.min || 20} min @ ${fmtNum(cfg.speed || 8)} km/h${rest}`;
+  if (mode === "time") return `${n} × ${fmtSec(cfg.sec || 45)}${load}${rest}`;
   const split = isPerSide(cfg)
     ? " · " + fmtNum(sideReps(cfg.reps)) + "/lado"
     : "";
-  return `${n} × ${cfg.reps}${load}${split}`;
+  return `${n} × ${cfg.reps}${load}${split}${rest}`;
 }
 
 export function cleanupSg(ex: ExConfig[]) {
@@ -167,6 +187,12 @@ export function buildSets(S: GymState, cfg: ExConfig): SetRec[] {
   const sets: SetRec[] = [];
   const prevAt = (i: number) =>
     last ? last.sets[i] || last.sets[last.sets.length - 1] : null;
+  // Descanso heredado de la última vez; si no, el configurado en la rutina.
+  const restOf = (i: number) => {
+    const prev = prevAt(i);
+    const r = prev && prev.rest && prev.rest > 0 ? prev.rest : cfg.rest;
+    return r && r > 0 ? Math.round(r) : undefined;
+  };
 
   if (mode === "cardio") {
     for (let i = 0; i < n; i++) {
@@ -174,6 +200,7 @@ export function buildSets(S: GymState, cfg: ExConfig): SetRec[] {
       sets.push({
         min: prev ? prev.min : (cfg.min || 20),
         speed: prev ? prev.speed : (cfg.speed || 8),
+        rest: restOf(i),
         done: false,
       });
     }
@@ -186,6 +213,7 @@ export function buildSets(S: GymState, cfg: ExConfig): SetRec[] {
       sets.push({
         sec: carried ? carried.sec : (cfg.sec || 45),
         w: carried ? carried.w || 0 : (cfg.weight || 0),
+        rest: restOf(i),
         done: false,
       });
     }
@@ -196,7 +224,7 @@ export function buildSets(S: GymState, cfg: ExConfig): SetRec[] {
     const prev = prevAt(i);
     const usable = prev && prev.r && prev.r > 0 ? prev : null;
     const w = conf && conf.w > 0 ? conf.w : usable ? usable.w : cfg.weight;
-    sets.push({ w, r: usable ? usable.r : cfg.reps, done: false });
+    sets.push({ w, r: usable ? usable.r : cfg.reps, rest: restOf(i), done: false });
   }
   return sets;
 }

@@ -10,6 +10,10 @@ interface StepperProps {
   decimal?: boolean;
   min?: number;
   max?: number;
+  /** Texto mostrado (por defecto el número redondeado). */
+  fmt?: (v: number) => string;
+  /** Convierte lo que se escribe; si no, se usa parseFloat. */
+  parse?: (raw: string) => number | null;
   onChange: (v: number) => void;
   className?: string;
 }
@@ -21,6 +25,8 @@ export function Stepper({
   decimal = true,
   min = 0,
   max = 100000,
+  fmt,
+  parse,
   onChange,
   className,
 }: StepperProps) {
@@ -31,8 +37,8 @@ export function Stepper({
     (decimal ? 10 : 1);
 
   const commit = (raw: string) => {
-    const x = parseFloat(raw);
-    if (!isFinite(x)) {
+    const x = parse ? parse(raw) : parseFloat(raw);
+    if (x == null || !isFinite(x)) {
       setEditing(null);
       return;
     }
@@ -40,7 +46,7 @@ export function Stepper({
     setEditing(null);
   };
 
-  const display = decimal ? fmtNum(value) : String(Math.round(value || 0));
+  const display = fmt ? fmt(value) : decimal ? fmtNum(value) : String(Math.round(value || 0));
 
   const btn =
     "flex h-9 w-8 shrink-0 items-center justify-center rounded-lg border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40 sm:w-9";
@@ -65,7 +71,8 @@ export function Stepper({
         {editing !== null ? (
           <input
             autoFocus
-            className="h-9 w-12 rounded-lg border bg-background text-center text-sm font-semibold tabular-nums outline-none ring-1 ring-ring sm:w-14"
+            inputMode="decimal"
+            className="h-9 w-16 rounded-lg border bg-background text-center text-sm font-semibold tabular-nums outline-none ring-1 ring-ring"
             value={editing}
             onChange={(e) => setEditing(e.target.value)}
             onBlur={(e) => commit(e.target.value)}

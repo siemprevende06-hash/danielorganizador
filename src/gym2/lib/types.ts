@@ -15,6 +15,8 @@ export interface ExConfig {
   sec?: number;
   min?: number;
   speed?: number;
+  /** Descanso tras esta serie, en segundos. */
+  rest?: number;
   sg?: string;
 }
 
@@ -32,6 +34,8 @@ export interface SetRec {
   sec?: number;
   min?: number;
   speed?: number;
+  /** Descanso tras esta serie, en segundos. */
+  rest?: number;
   done?: boolean;
   rir?: number;
   rpe?: number;

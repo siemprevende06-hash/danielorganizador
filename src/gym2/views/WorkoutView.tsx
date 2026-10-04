@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -6,15 +6,11 @@ import {
   Play,
   Check,
   X,
-  ChevronLeft,
-  ChevronRight,
   Plus,
   Minus,
   Info,
   Shuffle,
   Link2,
-  Timer,
-  Moon,
   Flag,
 } from "lucide-react";
 import { useGym, getGym } from "../store";
@@ -35,6 +31,8 @@ import {
   isPerSide,
   sideReps,
   repStep,
+  fmtSec,
+  parseMinSec,
   EFFORT,
   effortOf,
   stepEffort,
@@ -155,33 +153,42 @@ function Elapsed({ start }: { start: number }) {
 function NumVal({
   value,
   decimal,
-  nullable,
   onCommit,
+  fmt,
+  parse,
+  cls,
 }: {
   value: number | null | undefined;
   decimal: boolean;
-  nullable?: boolean;
   onCommit: (v: number | null) => void;
+  fmt?: (n: number) => string;
+  parse?: (raw: string) => number | null;
+  cls?: string;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const read = (raw: string) => {
+    if (parse) return parse(raw);
+    const x = parseFloat(raw);
+    return isFinite(x) ? x : null;
+  };
+  const commit = (raw: string) => {
+    onCommit(read(raw));
+    setEditing(null);
+  };
   if (editing !== null)
     return (
       <input
         autoFocus
-        className="h-8 w-12 rounded-md border bg-background text-center text-sm font-semibold tabular-nums outline-none ring-1 ring-ring sm:w-14"
+        inputMode="decimal"
+        className={cn(
+          "h-8 w-full min-w-0 rounded-md border bg-background px-1 text-center text-sm font-semibold tabular-nums outline-none ring-1 ring-ring",
+          cls
+        )}
         value={editing}
         onChange={(e) => setEditing(e.target.value)}
-        onBlur={(e) => {
-          const x = parseFloat(e.target.value);
-          onCommit(isFinite(x) ? x : null);
-          setEditing(null);
-        }}
+        onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            const x = parseFloat((e.target as HTMLInputElement).value);
-            onCommit(isFinite(x) ? x : null);
-            setEditing(null);
-          }
+          if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
           if (e.key === "Escape") setEditing(null);
         }}
       />
@@ -190,18 +197,25 @@ function NumVal({
     return (
       <button
         type="button"
-        className="h-8 min-w-11 rounded-md border bg-background text-sm font-semibold text-muted-foreground hover:bg-accent sm:min-w-14"
+        className={cn(
+          "h-8 w-full min-w-0 rounded-md border bg-background text-sm font-semibold text-muted-foreground hover:bg-accent",
+          cls
+        )}
         onClick={() => onCommit(null)}
       >
         —
       </button>
     );
-  const display = decimal ? fmtNum(value) : String(Math.round(value || 0));
+  const display = fmt ? fmt(value) : decimal ? fmtNum(value) : String(Math.round(value || 0));
   return (
     <button
       type="button"
-      className="h-8 min-w-11 rounded-md border bg-background px-1.5 text-sm font-semibold tabular-nums hover:bg-accent sm:min-w-14 sm:px-2"
+      className={cn(
+        "h-8 w-full min-w-0 rounded-md border bg-background px-1 text-sm font-semibold tabular-nums hover:bg-accent",
+        cls
+        )}
       onClick={() => setEditing(display)}
+      title="Toca para escribir"
     >
       {display}
     </button>
@@ -210,16 +224,28 @@ function NumVal({
 
 /* ---------- bloque de ejercicio ---------- */
 interface Col {
-  f: "w" | "r" | "min" | "sec" | "speed" | "rir" | "rpe";
+  f: "w" | "r" | "min" | "sec" | "speed" | "rir" | "rpe" | "rest";
   step: number;
   dec: boolean;
   hd: string;
   eff?: string;
   opt?: boolean;
+  fmt?: (n: number) => string;
+  parse?: (raw: string) => number | null;
+  wide?: boolean;
+  /** Ayuda al pasar el ratón por la cabecera. */
+  tip?: string;
+  /** Valor mostrado cuando la serie no tiene nada guardado (p. ej. el descanso global). */
+  fallback?: number;
 }
+
+/** Ancho mínimo de la tabla para que las celdas no se aplasten. */
+const ROW_MIN = "min-w-[336px]";
 
 function ExerciseBlock({
   entryIdx,
+  ordinal,
+  total,
   compact,
   onToggle,
   onField,
@@ -228,6 +254,8 @@ function ExerciseBlock({
   onStartTimed,
 }: {
   entryIdx: number;
+  ordinal: number;
+  total: number;
   compact?: boolean;
   onToggle: (i: number) => void;
   onField: (i: number, f: string, v: number | null) => void;
@@ -257,28 +285,42 @@ function ExerciseBlock({
     hd: bw ? "Añadido (" + S.unit + ")" : "Peso (" + S.unit + ")",
   };
   const repCol: Col = { f: "r", step: repStep(cfg), dec: false, hd: "Reps" };
-  const col1: Col = cardio
-    ? { f: "min", step: 1, dec: false, hd: "Duración (min)" }
-    : timed
-    ? { f: "sec", step: 5, dec: false, hd: "Segundos" }
-    : bw && !added
-    ? repCol
-    : loadCol;
-  const col2: Col | null = cardio
-    ? { f: "speed", step: 0.5, dec: true, hd: "Velocidad (km/h)" }
-    : timed
-    ? bw && !added
-      ? null
-      : loadCol
-    : bw && !added
-    ? null
-    : repCol;
+  const restCol: Col = {
+    f: "rest",
+    step: 15,
+    dec: false,
+    hd: "Descanso",
+    fmt: fmtSec,
+    parse: parseMinSec,
+    wide: true,
+    tip: "Minutos. Escribe 3 para 3 min o 2.30 para 2 min 30 s",
+    fallback: S.restSec,
+  };
+  const cols: Col[] = [];
+  // Reps · Peso · [RIR/RPE] · Descanso
+  if (cardio) {
+    cols.push({ f: "min", step: 1, dec: false, hd: "Duración (min)" });
+    cols.push({ f: "speed", step: 0.5, dec: true, hd: "Veloc. (km/h)" });
+  } else if (timed) {
+    cols.push({ f: "sec", step: 5, dec: false, hd: "Segundos" });
+    if (!(bw && !added)) cols.push(loadCol);
+  } else if (bw && !added) {
+    cols.push(repCol);
+  } else {
+    cols.push(repCol, loadCol);
+  }
   const kind = effortOf(S);
   const eff = EFFORT[kind];
-  const col3: Col | null =
-    mode === "reps" && eff
-      ? ({ ...eff, eff: kind, dec: true, opt: true, hd: eff.hd } as Col)
-      : null;
+  if (mode === "reps" && eff)
+    cols.push({ ...eff, eff: kind, dec: true, opt: true, hd: eff.hd } as Col);
+  cols.push(restCol);
+
+  const gridTpl = [
+    "1.25rem",
+    ...cols.map((c) => (c.wide ? "minmax(0,1.3fr)" : "minmax(0,1fr)")),
+    ...(timed ? ["1.75rem"] : []),
+    "1.75rem",
+  ].join(" ");
 
   const bump = (s: SetRec, i: number, col: Col, dir: number) => {
     if (col.eff) {
@@ -288,44 +330,43 @@ function ExerciseBlock({
     const raw = ((s[col.f] as number) || 0) + dir * col.step;
     onField(i, col.f, Math.max(0, Math.round(raw * 100) / 100));
   };
-  const cell = (s: SetRec, i: number, col: Col, cls: string) => {
+  const cell = (s: SetRec, i: number, col: Col) => {
     if (col.eff)
       return (
-        <div className={cn("flex items-center", cls)}>
-          <button
-            type="button"
-            className="flex h-8 min-w-11 items-center justify-center rounded-md border bg-background px-1 text-sm font-semibold tabular-nums hover:bg-accent sm:min-w-12 sm:px-1.5"
-            onClick={() => bump(s, i, col, 1)}
-            title="Toca para cambiar"
-            aria-label={col.hd}
-          >
-            {s[col.f] == null ? "–" : fmtNum(s[col.f] as number)}
-          </button>
-        </div>
-      );
-    return (
-      <div className={cn("flex items-center gap-1", cls)}>
         <button
           type="button"
-          className="flex h-8 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40 sm:w-7"
+          className="h-8 w-full min-w-0 rounded-md border bg-background px-1 text-sm font-semibold tabular-nums hover:bg-accent"
+          onClick={() => bump(s, i, col, 1)}
+          title="Toca para cambiar"
+          aria-label={col.hd}
+        >
+          {s[col.f] == null ? "–" : fmtNum(s[col.f] as number)}
+        </button>
+      );
+    return (
+      <div className="flex items-center justify-center gap-0.5">
+        <button
+          type="button"
+          className="flex h-8 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent"
           onClick={() => bump(s, i, col, -1)}
-          aria-label="Disminuir"
+          aria-label={"Quitar " + col.step + " a " + col.hd}
         >
           <Minus className="h-3.5 w-3.5" />
         </button>
         <NumVal
-          value={s[col.f] as number | null}
+          value={(s[col.f] as number | null) ?? col.fallback ?? null}
           decimal={col.dec}
-          nullable={col.opt}
+          fmt={col.fmt}
+          parse={col.parse}
           onCommit={(v) =>
             onField(i, col.f, col.eff ? capEffort(col.eff, v) : v)
           }
         />
         <button
           type="button"
-          className="flex h-8 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40 sm:w-7"
+          className="flex h-8 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent"
           onClick={() => bump(s, i, col, 1)}
-          aria-label="Aumentar"
+          aria-label={"Añadir " + col.step + " a " + col.hd}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -336,11 +377,18 @@ function ExerciseBlock({
   return (
     <>
       <ExerciseImg ex={ex} />
-      <div className="mb-1.5 flex items-center justify-between">
-        <div className="text-lg font-bold capitalize leading-tight tracking-tight">{esName(ex)}</div>
+      <div className="mb-1.5 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            Ejercicio {ordinal} / {total}
+          </div>
+          <div className="text-lg font-bold capitalize leading-tight tracking-tight">
+            {esName(ex)}
+          </div>
+        </div>
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent"
           aria-label="Detalles"
           onClick={() => exerciseDetailSheet(ex)}
         >
@@ -397,55 +445,66 @@ function ExerciseBlock({
       )}
       <div className="mt-2 rounded-2xl border bg-card p-2 shadow-sm">
         <div className="overflow-x-auto">
-          <div className="grid grid-cols-[1.75rem_1fr_1fr_auto] items-center gap-x-2 px-2 pb-1 text-[10px] font-semibold uppercase text-muted-foreground sm:grid-cols-[2rem_1fr_1fr_auto]">
+          <div
+            className={cn(
+              ROW_MIN,
+              "grid items-center gap-x-1 px-1 pb-1 text-[9px] font-semibold uppercase leading-tight text-muted-foreground sm:text-[10px]"
+            )}
+            style={{ gridTemplateColumns: gridTpl }}
+          >
+            <span className="text-center">#</span>
+            {cols.map((c, k) => (
+              <span key={k} className="truncate text-center" title={c.tip}>
+                {c.hd}
+              </span>
+            ))}
+            {timed && <span />}
             <span />
-            <span className={cn(compact && "text-[9px]")}>{col1.hd}</span>
-            {col2 && <span>{col2.hd}</span>}
-            <span className="w-8" />
           </div>
-          {entry.sets.map((s, i) => {
-            return (
-              <div
-                key={i}
-                className={cn(
-                  "flex items-center gap-1.5 px-2 py-1.5 sm:gap-2",
-                  s.done && "opacity-50"
-                )}
-              >
-                <div className="w-4 shrink-0 text-center text-xs font-semibold text-muted-foreground">
-                  {i + 1}
-                </div>
-                {cell(s, i, col1, "w grow")}
-                {col2 && cell(s, i, col2, "r grow")}
-                {col3 && cell(s, i, col3, "eff grow")}
-                {timed && (
-                  <button
-                    type="button"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary disabled:opacity-40"
-                    aria-label="Empezar serie"
-                    disabled={!!s.done || !!work}
-                    onClick={() => onStartTimed(i)}
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                  </button>
-                )}
+          {entry.sets.map((s, i) => (
+            <div
+              key={i}
+              className={cn(
+                ROW_MIN,
+                "grid items-center gap-x-1 px-1 py-1.5",
+                s.done && "opacity-50"
+              )}
+              style={{ gridTemplateColumns: gridTpl }}
+            >
+              <span className="text-center text-xs font-semibold text-muted-foreground">
+                {i + 1}
+              </span>
+              {cols.map((c, k) => (
+                <div key={k}>{cell(s, i, c)}</div>
+              ))}
+              {timed && (
                 <button
                   type="button"
-                  role="checkbox"
-                  aria-checked={!!s.done}
-                  className={cn(
-                    "ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
-                    s.done
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border text-transparent hover:bg-accent"
-                  )}
-                  onClick={() => onToggle(i)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary disabled:opacity-40"
+                  aria-label="Empezar serie"
+                  disabled={!!s.done || !!work}
+                  onClick={() => onStartTimed(i)}
                 >
-                  <Check className="h-4 w-4" />
+                  <Play className="h-3.5 w-3.5" />
                 </button>
-              </div>
-            );
-          })}
+              )}
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={!!s.done}
+                aria-label="Marcar serie"
+                className={cn(
+                  "mx-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                  s.done
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border text-transparent hover:bg-accent"
+                )}
+                onClick={() => onToggle(i)}
+              >
+                <Check className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
         </div>
         <div className="mt-1 flex gap-2">
           <Button size="sm" variant="outline" disabled={entry.sets.length <= 1} onClick={onRemoveSet}>
@@ -456,6 +515,7 @@ function ExerciseBlock({
           </Button>
         </div>
       </div>
+      {compact && <div className="h-1" />}
     </>
   );
 }
@@ -469,10 +529,26 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
   const cur = Math.min(A.cur, Math.max(0, A.entries.length - 1));
   const unit = A.entries.length ? unitOf(units, cur) : [];
   const unitIdx = units.findIndex((u) => u === unit);
-  const isSuperset = unit.length > 1;
 
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0);
   const done = setsDoneActive(A);
+
+  // Scroll hasta el ejercicio en curso (al terminar uno se avanza solo).
+  const refs = useRef<Record<number, HTMLDivElement | null>>({});
+  const blockRef = useCallback(
+    (idx: number) => (el: HTMLDivElement | null) => {
+      refs.current[idx] = el;
+    },
+    []
+  );
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    refs.current[cur]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [cur]);
 
   const mutEntry = (idx: number, fn: (e: Entry) => void) =>
     getGym().update((s) => {
@@ -482,6 +558,10 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
     mutEntry(idx, (e) => {
       if (v == null) delete (e.sets[i] as Record<string, unknown>)[field];
       else (e.sets[i] as Record<string, unknown>)[field] = v;
+      // El peso que pones en una serie se copia a las siguientes:pones 60 en la
+      // primera y el resto ya nas 60 (luego puedes bajar la que quieras).
+      if (field === "w" && v != null)
+        for (let j = i + 1; j < e.sets.length; j++) e.sets[j].w = v as number;
     });
   const modeAt = (idx: number) =>
     modeOf({ ...(A.entries[idx].target || {}), id: A.entries[idx].id });
@@ -489,11 +569,12 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
     mutEntry(idx, (e) => {
       const l = e.sets[e.sets.length - 1];
       const m = modeOf({ ...(e.target || {}), id: e.id });
+      const rest = l ? l.rest : e.target?.rest;
       if (m === "cardio")
-        e.sets.push({ min: l ? l.min : e.target?.min || 20, speed: l ? l.speed : e.target?.speed || 8, done: false });
+        e.sets.push({ min: l ? l.min : e.target?.min || 20, speed: l ? l.speed : e.target?.speed || 8, rest, done: false });
       else if (m === "time")
-        e.sets.push({ sec: l ? l.sec : e.target?.sec || 45, w: l ? l.w || 0 : e.target?.weight || 0, done: false });
-      else e.sets.push({ w: l ? l.w : 0, r: l ? l.r : e.target?.reps, done: false });
+        e.sets.push({ sec: l ? l.sec : e.target?.sec || 45, w: l ? l.w || 0 : e.target?.weight || 0, rest, done: false });
+      else e.sets.push({ w: l ? l.w : 0, r: l ? l.r : e.target?.reps, rest, done: false });
     });
   const removeSet = (idx: number) =>
     mutEntry(idx, (e) => {
@@ -517,18 +598,24 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
     const isLastUnit = unitIdx >= units.length - 1;
     let askTop = false;
     let exJustDone = false;
+    let lastExInUnit = false;
     let workoutDone = false;
     mutEntry(idx, (e) => {
       e.sets[i].done = !e.sets[i].done;
       if (e.sets[i].done) {
         beep(S.sound, 1040, 0.12);
         vibrate(30);
-        const isLastExInUnit = idx === unit[unit.length - 1];
+        const isLastEx = idx === unit[unit.length - 1];
+        lastExInUnit = isLastEx;
         const unitDone = unit.every((ui) =>
           (ui === idx ? e : (getGym().S.active!.entries[ui])).sets.every((x) => x.done)
         );
-        if (isLastExInUnit && !unitDone) startRest(S.restSec);
-        else if (unitDone) stopRest();
+        // Descanso de la serie marcada; si no tiene uno, el global de ajustes.
+        const rs = e.sets[i].rest ?? S.restSec;
+        if (isLastEx && !unitDone) {
+          if (rs > 0) startRest(rs);
+          else stopRest();
+        } else if (unitDone) stopRest();
         if (unitDone && isLastUnit) workoutDone = true;
         const loaded =
           m === "reps" &&
@@ -546,6 +633,14 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
     else if (workoutDone) workoutCompleteSheet();
     else if (exJustDone && cardioEntry) toast("Cardio registrado");
     else if (exJustDone && m === "time") toast("Tiempo registrado");
+    // La lista entera se ve: al cerrar un ejercicio saltamos al siguiente.
+    if (!askTop && !workoutDone && exJustDone && lastExInUnit) {
+      const next = units[unitIdx + 1];
+      if (next && next[0] !== A.cur)
+        getGym().update((s) => {
+          s.active!.cur = next[0];
+        });
+    }
   };
 
   return (
@@ -596,45 +691,54 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
       </div>
 
       {A.entries.length > 0 ? (
-        <>
-          <div className="mb-1.5 text-xs text-muted-foreground">
-            {isSuperset
-              ? "Superset " + (unitIdx + 1) + " / " + units.length
-              : "Ejercicio " + (unitIdx + 1) + " / " + units.length}
-          </div>
-          {isSuperset ? (
-            <div className="rounded-2xl border bg-card p-3 shadow-sm">
-              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-primary">
-                <Link2 className="h-3.5 w-3.5" /> Superset — hazlos seguidos, descansa al terminar ambos
-              </div>
-              <div className="space-y-4">
-                {unit.map((idx, k) => (
-                  <div key={idx}>
-                    {k > 0 && <div className="mb-1 text-center text-lg font-bold text-muted-foreground">+</div>}
-                    <ExerciseBlock
-                      entryIdx={idx}
-                      compact
-                      onToggle={(i) => toggle(idx, i)}
-                      onField={(i, f, v) => setField(idx, i, f, v)}
-                      onAddSet={() => addSet(idx)}
-                      onRemoveSet={() => removeSet(idx)}
-                      onStartTimed={(i) => startTimed(idx, i)}
-                    />
+        <div className="space-y-4">
+          {units.map((u, ui) => {
+            const sg = u.length > 1;
+            return (
+              <div
+                key={ui}
+                className={cn(sg && "rounded-2xl border bg-card p-3 shadow-sm")}
+              >
+                {sg && (
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-primary">
+                    <Link2 className="h-3.5 w-3.5" /> Superset {ui + 1} / {units.length}
+                    <span className="font-normal text-muted-foreground">
+                      — hazlos seguidos, descansa al terminar ambos
+                    </span>
                   </div>
-                ))}
+                )}
+                <div className={cn(sg && "space-y-5")}>
+                  {u.map((idx, k) => (
+                    <div
+                      key={idx}
+                      ref={blockRef(idx)}
+                      className={cn("scroll-mt-20", idx === cur && "rounded-xl")}
+                    >
+                      {sg && k > 0 && (
+                        <div className="mb-1 text-center text-lg font-bold text-muted-foreground">
+                          +
+                        </div>
+                      )}
+                      <div className={cn(idx === cur && "rounded-xl ring-1 ring-primary/40")}>
+                        <ExerciseBlock
+                          entryIdx={idx}
+                          ordinal={idx + 1}
+                          total={A.entries.length}
+                          compact={sg}
+                          onToggle={(i) => toggle(idx, i)}
+                          onField={(i, f, v) => setField(idx, i, f, v)}
+                          onAddSet={() => addSet(idx)}
+                          onRemoveSet={() => removeSet(idx)}
+                          onStartTimed={(i) => startTimed(idx, i)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            <ExerciseBlock
-              entryIdx={cur}
-              onToggle={(i) => toggle(cur, i)}
-              onField={(i, f, v) => setField(cur, i, f, v)}
-              onAddSet={() => addSet(cur)}
-              onRemoveSet={() => removeSet(cur)}
-              onStartTimed={(i) => startTimed(cur, i)}
-            />
-          )}
-        </>
+            );
+          })}
+        </div>
       ) : (
         <div className="rounded-2xl border py-10 text-center">
           <Shuffle className="mx-auto h-8 w-8 text-muted-foreground" />
@@ -644,33 +748,7 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
         </div>
       )}
 
-      <div className="mt-3 flex gap-2">
-        <Button
-          variant="outline"
-          className="flex-1"
-          disabled={unitIdx <= 0}
-          onClick={() =>
-            getGym().update((s) => {
-              s.active!.cur = units[unitIdx - 1][0];
-            })
-          }
-        >
-          <ChevronLeft className="h-4 w-4" /> Anterior
-        </Button>
-        <Button
-          variant="outline"
-          className="flex-1"
-          disabled={unitIdx < 0 || unitIdx >= units.length - 1}
-          onClick={() =>
-            getGym().update((s) => {
-              s.active!.cur = units[unitIdx + 1][0];
-            })
-          }
-        >
-          Siguiente <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="h-1.5" />
+      <div className="h-3" />
       <Button
         variant="outline"
         className="w-full"
