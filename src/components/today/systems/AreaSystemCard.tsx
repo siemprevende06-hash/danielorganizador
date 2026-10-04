@@ -15,6 +15,7 @@ import {
   type HabitMeta,
 } from "@/lib/areaSystemsMap";
 import type { PointBArea } from "@/lib/definitions";
+import { useMiniHabits } from "@/hooks/useMiniHabits";
 import type { AreaScore } from "@/hooks/useAreaScores";
 import type { SystemStreak } from "@/hooks/useSystemStreaks";
 import type { TodayStripItem, TodayTaskItem } from "@/hooks/useTodayFocusItems";
@@ -91,6 +92,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
   const config = AREA_SYSTEMS[area.id];
   const group = GROUP_CONFIG[area.group as keyof typeof GROUP_CONFIG] ?? GROUP_CONFIG.construccion;
   const coverUrl = interaction.covers[coverKey("area", area.id)] ?? null;
+  const { ids: miniHabitIds } = useMiniHabits();
 
   const diagnosis = score ? diagnoseArea(score.esfuerzo, score.resultados) : diagnoseArea(0, 0);
   const tone = DIAGNOSIS_TONE[diagnosis.tone];
@@ -281,7 +283,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         {trackables.length > 0 ? (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <h4 className="text-[13px] font-extrabold uppercase tracking-wide text-foreground">
                 Sistema diario
               </h4>
               <span className={cn("text-[9px] font-medium", doneCount === trackables.length ? "text-emerald-500" : "text-muted-foreground")}>
@@ -294,10 +296,21 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
             {config?.habitSections ? (
               <div className="space-y-3">
                 {config.habitSections.map(sec => {
-                  const secHabits = trackables.filter(t => sec.habitIds.includes(t.id));
+                  let secHabits = trackables.filter(t => sec.habitIds.includes(t.id));
+                  // "Hábitos" = exactamente los mini hábitos de la página Hábitos.
+                  // Los que salen ahí no se repiten dentro de "Detox".
+                  if (sec.id === "habitos") {
+                    secHabits = trackables.filter(t => miniHabitIds.includes(t.id));
+                  } else if (sec.id === "detox" && miniHabitIds.length > 0) {
+                    secHabits = secHabits.filter(t => !miniHabitIds.includes(t.id));
+                  }
                   if (secHabits.length === 0) return null;
                   const secDone = secHabits.filter(t => interaction.completions[t.id]).length;
-                  const stretch = secHabits.some(t => t.id === 'hidratacion' || t.isSleepSchedule);
+                  // Gym, hidratación y sueño ocupan la fila completa: necesitan ancho
+                  // para el entrenamiento, el termostato y los dos horarios.
+                  const stretch = secHabits.some(
+                    t => t.id === "gym" || t.id === "hidratacion" || t.isSleepSchedule
+                  );
                   // Todas las comidas del área van juntas en una única tarjeta compacta.
                   if (secHabits.filter(t => t.hasMealPhoto).length > 1) {
                     return (
@@ -319,14 +332,14 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
                   }
                   return (
                     <div key={sec.id} className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          {sec.emoji && <span className="mr-1">{sec.emoji}</span>}
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-extrabold uppercase tracking-wide text-foreground flex items-center gap-1.5">
+                          {sec.emoji && <span className="text-base leading-none">{sec.emoji}</span>}
                           {sec.title}
-                        </span>
+                        </h4>
                         <span
                           className={cn(
-                            "text-[9px] font-medium",
+                            "text-[10px] font-bold tabular-nums",
                             secDone === secHabits.length ? "text-emerald-500" : "text-muted-foreground"
                           )}
                         >

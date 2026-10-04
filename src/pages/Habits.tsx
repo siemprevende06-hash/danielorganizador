@@ -10,22 +10,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCached } from "@/lib/offlineCache";
 import { cachedMutation } from "@/lib/supabaseCache";
 import { getSetting, setSetting } from "@/lib/settings";
+import {
+  DEFAULT_MINI_HABITS,
+  MINI_HABITS_SETTING as MINI_HABITS_SETTING_KEY,
+  type MiniHabitDef,
+} from "@/hooks/useMiniHabits";
 import { Dumbbell, Moon, Zap, Droplet, Target, Shirt, GraduationCap, Code, Briefcase, Book, Music, Globe, Crown, Plus, Trash2, Sparkles, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const MINI_HABITS_SETTING = "mini_habits_defs";
+const MINI_HABITS_SETTING = MINI_HABITS_SETTING_KEY;
 
-interface MiniHabit {
-  id: string;
-  label: string;
-  emoji: string;
-}
-
-const DEFAULT_MINI_HABITS: MiniHabit[] = [
-  { id: "mini-nofap", label: "No FAP", emoji: "🚫" },
-  { id: "mini-nosocial", label: "No Redes Sociales +30min", emoji: "📵" },
-];
+type MiniHabit = MiniHabitDef;
 
 const STRUCTURAL_HABITS = [
   { id: "habit-sueno", title: "Horario regular de sueño", icon: Moon, area: "sueno" },

@@ -233,15 +233,31 @@ export function SleepThermostatCard({
         <p className="text-center text-[8px] text-muted-foreground mt-0.5">Arrastra la aguja para fijar las horas</p>
       </div>
 
-      {/* Horarios */}
-      <div className="grid grid-cols-2 gap-1.5 text-[9px] pt-1 border-t border-border/40">
-        <div className="flex items-center gap-1">
-          <Sun className="h-2.5 w-2.5 text-amber-500" />
-          <Input type="time" value={wakeTime || ""} onChange={e => onWakeTimeChange?.(e.target.value)} className="h-6 w-full text-[9px] px-1" title="Hora de despertar" />
+      {/* Horarios: hora en que me dormí (día anterior) y hora en que me levanté (hoy) */}
+      <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-border/40">
+        <div className="space-y-0.5">
+          <span className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-indigo-500">
+            <Moon className="h-2.5 w-2.5" /> Me dormí (día anterior)
+          </span>
+          <Input
+            type="time"
+            value={sleepTime || ""}
+            onChange={e => onSleepTimeChange?.(e.target.value)}
+            className="h-7 w-full text-[11px] px-1.5"
+            title="Hora en que me dormí el día anterior"
+          />
         </div>
-        <div className="flex items-center gap-1">
-          <Moon className="h-2.5 w-2.5 text-indigo-500" />
-          <Input type="time" value={sleepTime || ""} onChange={e => onSleepTimeChange?.(e.target.value)} className="h-6 w-full text-[9px] px-1" title="Hora de acostarse" />
+        <div className="space-y-0.5">
+          <span className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-amber-500">
+            <Sun className="h-2.5 w-2.5" /> Me levanté (hoy)
+          </span>
+          <Input
+            type="time"
+            value={wakeTime || ""}
+            onChange={e => onWakeTimeChange?.(e.target.value)}
+            className="h-7 w-full text-[11px] px-1.5"
+            title="Hora en que me levanté hoy"
+          />
         </div>
       </div>
 

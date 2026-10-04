@@ -526,12 +526,30 @@ export default function HabitSystemCard({
         {meta.isSleepSchedule && (
           <div className="space-y-1 text-[9px]">
             <div className="flex items-center gap-1">
-              <Sun className="h-2.5 w-2.5 text-amber-500" />
-              <Input type="time" value={wakeTime || ""} onChange={e => onWakeTimeChange?.(e.target.value)} className="h-5 w-20 text-[9px]" />
+              <Moon className="h-2.5 w-2.5 text-indigo-500" />
+              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Dormí (día anterior)
+              </span>
+              <Input
+                type="time"
+                value={sleepTime || ""}
+                onChange={e => onSleepTimeChange?.(e.target.value)}
+                className="h-5 w-20 text-[9px]"
+                title="Hora en que me dormí el día anterior"
+              />
             </div>
             <div className="flex items-center gap-1">
-              <Moon className="h-2.5 w-2.5 text-indigo-500" />
-              <Input type="time" value={sleepTime || ""} onChange={e => onSleepTimeChange?.(e.target.value)} className="h-5 w-20 text-[9px]" />
+              <Sun className="h-2.5 w-2.5 text-amber-500" />
+              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Levanté (hoy)
+              </span>
+              <Input
+                type="time"
+                value={wakeTime || ""}
+                onChange={e => onWakeTimeChange?.(e.target.value)}
+                className="h-5 w-20 text-[9px]"
+                title="Hora en que me levanté hoy"
+              />
             </div>
           </div>
         )}

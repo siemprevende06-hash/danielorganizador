@@ -266,6 +266,50 @@ export const GROUP_LABELS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Estado visual de un área (4 colores): verde = dando resultados,
+// rojo = roto/abandonado, azul = resultado heredado, gris = sin datos.
+// ---------------------------------------------------------------------------
+
+export type AreaStateColor = "green" | "red" | "blue" | "grey";
+
+export const AREA_STATE_COLOR: Record<AreaStateColor, { chip: string; dot: string; label: string }> = {
+  green: {
+    chip: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40",
+    dot: "bg-emerald-500",
+    label: "Dando resultados",
+  },
+  red: {
+    chip: "bg-red-500/15 text-red-500 border-red-500/40",
+    dot: "bg-red-500",
+    label: "Roto o abandonado",
+  },
+  blue: {
+    chip: "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/40",
+    dot: "bg-sky-500",
+    label: "Esfuerzo pasado",
+  },
+  grey: {
+    chip: "bg-muted text-muted-foreground border-border/60",
+    dot: "bg-muted-foreground/60",
+    label: "Sin datos",
+  },
+};
+
+/** Colapsa el tono del diagnóstico a los 4 colores de estado. */
+export function areaStateColor(diagnosis: { tone: DiagnosisTone }): AreaStateColor {
+  switch (diagnosis.tone) {
+    case "green":
+      return "green";
+    case "blue":
+      return "blue";
+    case "grey":
+      return "grey";
+    default:
+      return "red";
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Diagnóstico por área: "si no hay resultados es porque el sistema está roto
 // o no lo estás cumpliendo".
 // ---------------------------------------------------------------------------
