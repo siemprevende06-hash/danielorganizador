@@ -11,6 +11,7 @@ import { LanguageResourcesCard } from '@/components/languages/LanguageResourcesC
 import { LanguageStatsTab } from '@/components/languages/LanguageStatsTab';
 import { LanguageTipCard } from '@/components/languages/LanguageTipCard';
 import VocabularyPanel from '@/components/languages/VocabularyPanel';
+import { LanguageTutorPanel } from '@/components/languages/LanguageTutorPanel';
 import { LANGUAGE_SKILLS, type LanguageSkillId } from '@/components/languages/skills';
 
 export default function LanguagesDashboard() {
@@ -100,12 +101,15 @@ export default function LanguagesDashboard() {
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="today" className="text-xs sm:text-sm">
               📝 Hoy
             </TabsTrigger>
             <TabsTrigger value="practice" className="text-xs sm:text-sm">
               ⏱️ Práctica
+            </TabsTrigger>
+            <TabsTrigger value="tutor" className="text-xs sm:text-sm">
+              🎓 Tutor IA
             </TabsTrigger>
             <TabsTrigger value="stats" className="text-xs sm:text-sm">
               📊 Stats
@@ -145,6 +149,14 @@ export default function LanguagesDashboard() {
             />
 
             <LanguageResourcesCard />
+          </TabsContent>
+
+          <TabsContent value="tutor" className="space-y-4">
+            <LanguageTutorPanel
+              language={currentLanguage}
+              level={currentLanguage === 'italian' ? settings?.italianLevel || 'beginner' : settings?.englishLevel || 'intermediate'}
+              onLogPractice={logPracticeMinutes}
+            />
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-4">

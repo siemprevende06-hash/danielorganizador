@@ -132,12 +132,12 @@ export function VisualBlock({ visual }: { visual: CoachVisual }) {
   );
 }
 
-export function VisualCanvas({ visuals }: { visuals: CoachVisual[] }) {
+export function VisualCanvas({ visuals, emptyText }: { visuals: CoachVisual[]; emptyText?: string }) {
   if (visuals.length === 0) {
     return (
       <div className="h-full flex items-center justify-center p-6 text-center">
         <p className="text-sm text-muted-foreground">
-          Aquí aparecerán gráficos, pasos, tablas y fuentes que el coach use para explicarte.
+          {emptyText || 'Aquí aparecerán gráficos, pasos, tablas y fuentes que el coach use para explicarte.'}
         </p>
       </div>
     );

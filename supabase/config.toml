@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.life-coach]
 verify_jwt = false
 
+[functions.language-tutor]
+verify_jwt = false
+
 [functions.finance-ai]
 verify_jwt = false
 
