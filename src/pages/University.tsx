@@ -26,6 +26,7 @@ import { ExamCalendar } from '@/components/university/ExamCalendar';
 import { AcademicAnalytics } from '@/components/university/AcademicAnalytics';
 import { UniversityDashboard } from '@/components/university/UniversityDashboard';
 import { RoutineBlockSchedule } from '@/components/university/RoutineBlockSchedule';
+import { StudySessionsSection } from '@/components/university/StudySessionsSection';
 import { AssignTaskToBlockDialog } from '@/components/university/AssignTaskToBlockDialog';
 import { useAreaCovers, coverKey } from '@/hooks/useAreaCovers';
 import { useImageUpload } from '@/hooks/useImageUpload';
@@ -107,9 +108,14 @@ export default function UniversityPage() {
     const sessions = studyTasks.reduce((acc, t) => acc + (t.studySessions?.count || 0), 0);
     const minutes = studyTasks.reduce((acc, t) => acc + (t.studySessions?.minutes || 0), 0);
     const target = studyTasks.reduce((acc, t) => acc + (t.estimated_minutes || 0), 0);
-    const byTask: Record<string, { count: number; minutes: number }> = {};
+    const byTask: Record<string, { taskId: string; count: number; minutes: number }> = {};
     studyTasks.forEach(t => {
-      if (t.studySessions && t.studySessions.count > 0) byTask[t.id] = t.studySessions;
+      const sessionsData = t.studySessions || { count: 0, minutes: 0 };
+      byTask[t.id] = {
+        taskId: t.id,
+        count: sessionsData.count,
+        minutes: sessionsData.minutes,
+      };
     });
     return { sessions, minutes, target, byTask };
   }, [subjects]);
@@ -272,6 +278,7 @@ export default function UniversityPage() {
           <TabsTrigger value="tasks" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Tareas</TabsTrigger>
           <TabsTrigger value="exams" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Exámenes</TabsTrigger>
           <TabsTrigger value="analytics" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Analytics</TabsTrigger>
+          <TabsTrigger value="study" className="flex-1 min-w-fit whitespace-nowrap text-xs sm:text-sm">Estudio</TabsTrigger>
         </TabsList>
 
         {/* === OVERVIEW TAB === */}
@@ -699,6 +706,29 @@ export default function UniversityPage() {
         {/* === ANALYTICS TAB === */}
         <TabsContent value="analytics" className="mt-6">
           <AcademicAnalytics subjects={currentSemesterSubjects} gpaData={gpaData} />
+        </TabsContent>
+
+        {/* === STUDY SESSIONS TAB === */}
+        <TabsContent value="study" className="mt-6">
+          <StudySessionsSection
+            todayMinutes={todayStudyMinutes}
+            studyByDay={studyByDay}
+            sessionsTotal={studyMeta.sessions}
+            minutesTotal={studyMeta.minutes}
+            targetTotal={studyMeta.target}
+            byTask={Object.values(studyMeta.byTask).map(bt => {
+              const task = totalTasks.find(t => t.id === bt.taskId);
+              const subject = subjects.find(s => s.tasks.some(t => t.id === bt.taskId));
+              return {
+                taskId: bt.taskId,
+                taskTitle: task?.title || 'Tarea de estudio',
+                subjectName: subject?.name || 'Asignatura',
+                count: bt.count,
+                minutes: bt.minutes,
+                estimated: task?.estimated_minutes,
+              };
+            })}
+          />
         </TabsContent>
       </Tabs>
 
