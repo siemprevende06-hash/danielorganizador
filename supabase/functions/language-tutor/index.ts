@@ -50,7 +50,7 @@ const MODOS: Record<string, string> = {
   grammar: "GRAMÁTICA: explica la regla de forma sencilla, da 3-5 ejemplos del idioma objetivo y luego 4-5 ejercicios para que él los intente.",
   vocabulary: "VOCABULARIO: trabaja con palabras útiles del tema que pida, da definición, ejemplo y una frase con contexto. Repite palabras que ya Haya guardado con guardar_palabra.",
   reading: "LECTURA: dale un texto corto del nivel correcto, luego pregúntale preguntas de comprensión y al final explica las palabras difíciles.",
-  listening: "ESCUCHA: simula una situación hablada (diálogo, podcast, anuncio) en el idioma objetivo. Transcribe lo que dirías y luego explica cómo mejoraría la comprensión oral.",
+  listening: "ESCUCHA: tu respuesta se va a LEER EN VOZ ALTA por el navegador de Daniel, así que el material debe ir en el TEXTO de tu respuesta, nunca dentro de mostrar_visual. Escribe entre 6 y 10 líneas de diálogo con etiquetas (Ana:, Marco:), frases cortas y naturalidad de una conversación real. NO uses tablas, NO uses markdown, NO uses listas con guiones, NO pongas emojis ni símbolos, y NO traduzcas entre paréntesis lo que se dice en el idioma objetivo, porque el altavoz lo leería tal cual. Separa el material hablado del resto con una línea con tres guiones, y pon las notas y aclaraciones en español DESPUÉS de esa línea. Al final pregúntale en español qué entendió para comprobar su comprensión. Si quieres mostrar vocabulario, usa mostrar_visual SOLO para ese resumen posterior, nunca para el diálogo.",
   speaking: "SPEAKING:Conversación oral. Haz SIEMPRE UNA SOLA pregunta o enunciado por turno y espera su respuesta. Cuando responda, corrige sus errores uno por uno (error → versión corregida → explicación en español) y sigue con la siguiente pregunta. Al final pide un resumen oral de 4 frases.",
   writing: "ESCRITURA: pídele un texto (redacción, correo, descripción) del nivel correcto. Cuando lo escriba, devuelve la versión corregida y una tabla con cada error, cómo corregirlo y por qué.",
 };
@@ -458,6 +458,7 @@ FORMATO:
 - Respuestas en markdown, concisas (máx ~220 palabras por turno).
 - Termina siempre con un ejercicio o pregunta concreta para que practique ahora.
 - En correcciones usa el formato: ✗ lo que escribió → ✓ lo correcto → por qué (en español).
+- IMPORTANTE: cada respuesta tuya tiene un botón de altavoz y puede leerse en voz alta. Cuando el material esté pensado para escuchar (diálogos, frases para repetir, pronunciación), escríbelo como texto hablado limpio, sin tablas ni markdown ni emojis, porque el altavoz lo leerá tal cual.
 
 CONTEXTO REAL DE SU ${info.nombre.toUpperCase()} (JSON):
 ${JSON.stringify(ctx).slice(0, 40000)}`;

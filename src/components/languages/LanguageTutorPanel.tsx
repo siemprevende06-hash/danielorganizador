@@ -20,10 +20,13 @@ import {
   Sparkles,
   SquarePen,
   Trash2,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VisualBlock, VisualCanvas } from '@/components/coach/VisualCanvas';
 import { useLanguageTutor } from '@/hooks/useLanguageTutor';
+import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import type { Language } from '@/hooks/useLanguageLearning';
 import { TUTOR_EMPTY, TUTOR_GENERAL, TUTOR_HEADER, TUTOR_MODES, type TutorModeDef, type TutorSkill } from './tutorModes';
 
@@ -81,9 +84,16 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const recRef = useRef<any>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const autoSpokenRef = useRef<string | null>(null);
 
   const { conversations, conversationId, messages, memories, loading, error, sendMessage, openConversation, newConversation, deleteMemory } =
     useLanguageTutor(language, level, mode);
+
+  const speechLang = language === 'italian' ? 'it-IT' : 'en-US';
+  const { supported: speechSupported, speakingId, isSpeaking, speak, stop: stopSpeak, autoSpeak, setAutoSpeak } = useSpeechSynthesis(
+    speechLang,
+    mode === 'listening' ? 0.9 : 0.95
+  );
 
   const header = TUTOR_HEADER[language];
   const activeMode: TutorModeDef | null = TUTOR_MODES.find(m => m.id === mode) ?? null;
@@ -104,7 +114,32 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     setLogged([]);
     setMode(null);
     setInput('');
+    autoSpokenRef.current = null;
   }, [language]);
+
+  // Lectura automática: al terminar una respuesta del tutor, suéltala en voz alta
+  useEffect(() => {
+    if (!autoSpeak || loading) return;
+    const last = [...messages].reverse().find(m => m.role === 'assistant');
+    if (!last || autoSpokenRef.current === last.id) return;
+    autoSpokenRef.current = last.id;
+    speak(last.id, last.content);
+  }, [messages, loading, autoSpeak, speak]);
+
+  const applyMode = (next: TutorSkill | null) => {
+    setMode(next);
+    setAutoSpeak(next === 'listening');
+    if (next !== 'listening') stopSpeak();
+  };
+
+  const toggleSpeak = (id: string, text: string) => {
+    if (isSpeaking(id)) {
+      stopSpeak();
+      return;
+    }
+    setAutoSpeak(false);
+    speak(id, text);
+  };
 
   const stopRecognition = useCallback(() => {
     try {
@@ -124,9 +159,10 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
+    stopSpeak();
     const rec = new SR();
     recRef.current = rec;
-    rec.lang = language === 'italian' ? 'it-IT' : 'en-US';
+    rec.lang = speechLang;
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     rec.onresult = (e: any) => {
@@ -141,6 +177,8 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
 
   const submit = (text: string) => {
     if (!text.trim() || loading) return;
+    stopSpeak();
+    autoSpokenRef.current = null;
     sendMessage(text);
     setInput('');
     setListening(false);
@@ -168,7 +206,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
           variant={mode === null ? 'default' : 'outline'}
           size="sm"
           className="h-8 text-xs"
-          onClick={() => setMode(null)}
+          onClick={() => applyMode(null)}
         >
           <Sparkles className="w-3.5 h-3.5 mr-1" />
           Chat libre
@@ -179,12 +217,28 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             variant={mode === m.id ? 'default' : 'outline'}
             size="sm"
             className="h-8 text-xs"
-            onClick={() => setMode(mode === m.id ? null : m.id)}
+            onClick={() => applyMode(mode === m.id ? null : m.id)}
           >
             <m.Icon className="w-3.5 h-3.5 mr-1" />
             {m.label}
+            {m.id === 'listening' && (
+              <Volume2 className={cn('w-3 h-3 ml-1', mode === m.id ? 'opacity-90' : 'text-muted-foreground')} />
+            )}
           </Button>
         ))}
+
+        {speechSupported && (
+          <Button
+            variant={autoSpeak ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs ml-auto"
+            onClick={() => (autoSpeak ? (setAutoSpeak(false), stopSpeak()) : setAutoSpeak(true))}
+            title={autoSpeak ? 'La IA lee sus respuestas en voz alta' : 'Activar lectura en voz alta'}
+          >
+            {autoSpeak ? <Volume2 className="w-3.5 h-3.5 mr-1 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5 mr-1" />}
+            {autoSpeak ? 'Voz on' : 'Voz off'}
+          </Button>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-[1fr_340px] gap-3">
@@ -200,9 +254,19 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               </p>
               <p className="text-[11px] text-muted-foreground leading-tight">
                 Nivel {level} · {activeMode ? activeMode.label : 'Chat libre'}
+                {speechSupported && autoSpeak ? ' · leyendo en voz alta' : ''}
               </p>
             </div>
-            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={newConversation}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                stopSpeak();
+                autoSpokenRef.current = null;
+                newConversation();
+              }}
+            >
               <Plus className="w-3.5 h-3.5 mr-1" /> Nuevo
             </Button>
             <Sheet>
@@ -230,7 +294,11 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                         {conversations.map(c => (
                           <button
                             key={c.id}
-                            onClick={() => openConversation(c.id)}
+                            onClick={() => {
+                              stopSpeak();
+                              autoSpokenRef.current = null;
+                              openConversation(c.id);
+                            }}
                             className={cn(
                               'w-full text-left text-sm px-2 py-2 rounded-md hover:bg-muted transition-colors',
                               c.id === conversationId && 'bg-muted font-medium'
@@ -292,10 +360,24 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <div className="text-sm">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={md}>
-                          {m.content}
-                        </ReactMarkdown>
+                      <div className="flex items-start gap-2">
+                        <div className="text-sm flex-1">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={md}>
+                            {m.content}
+                          </ReactMarkdown>
+                        </div>
+                        {speechSupported && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn('h-7 w-7 p-0 flex-shrink-0 mt-0.5', isSpeaking(m.id) && 'text-primary animate-pulse')}
+                            onClick={() => toggleSpeak(m.id, m.content)}
+                            aria-label={isSpeaking(m.id) ? 'Detener lectura' : 'Escuchar en voz alta'}
+                            title={isSpeaking(m.id) ? 'Detener lectura' : `Escuchar en ${speechLang}`}
+                          >
+                            {isSpeaking(m.id) ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                          </Button>
+                        )}
                       </div>
 
                       {m.acciones.length > 0 && (
