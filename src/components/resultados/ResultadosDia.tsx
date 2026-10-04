@@ -105,6 +105,7 @@ export function ResultadosDia({ date }: { date: Date }) {
           {/* Proyectos */}
           <AreaRowCols
             title="Proyectos"
+            singleColumn
             color={AREA_COLORS.proyectos}
             cover={coverFor('proyectos')}
             plan={<><ProyectosPlan data={r.projects.list} /><OtherTasksList tasks={r.projects.otherTasks} /></>}

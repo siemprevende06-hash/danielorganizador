@@ -6,7 +6,11 @@ import { cn } from '@/lib/utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle2, Circle, BookOpen, Music, Target, ClipboardList, AlarmClock, CalendarDays, ChevronDown } from 'lucide-react';
+import {
+  CheckCircle2, Circle, BookOpen, Music, Target, ClipboardList, AlarmClock, CalendarDays, ChevronDown,
+  GraduationCap, Briefcase, FolderKanban, Languages, Dumbbell, Crown, Gamepad2, ListTodo,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { PlanBook, PlanSong, UniversitySubjectResult, BusinessResult, ProjectResult } from '@/hooks/useResultadosPeriodo';
 
 export const AREA_COLORS: Record<string, string> = {
@@ -20,6 +24,20 @@ export const AREA_COLORS: Record<string, string> = {
   gym: 'from-red-500 to-orange-500',
   game: 'from-rose-500 to-red-500',
   idiomas: 'from-teal-500 to-emerald-500',
+};
+
+/** Icono y color de cada área (sección de resultados de Día/Semana/Mes/Trimestre/Año) */
+const AREA_ICONS: Record<string, { icon: LucideIcon; className: string }> = {
+  'Universidad': { icon: GraduationCap, className: 'text-blue-600 dark:text-blue-400' },
+  'Emprendimiento': { icon: Briefcase, className: 'text-purple-600 dark:text-purple-400' },
+  'Proyectos': { icon: FolderKanban, className: 'text-amber-600 dark:text-amber-400' },
+  'Idiomas': { icon: Languages, className: 'text-teal-600 dark:text-teal-400' },
+  'Gym': { icon: Dumbbell, className: 'text-red-600 dark:text-red-400' },
+  'Lectura': { icon: BookOpen, className: 'text-cyan-600 dark:text-cyan-400' },
+  'Música': { icon: Music, className: 'text-pink-600 dark:text-pink-400' },
+  'Ajedrez': { icon: Crown, className: 'text-slate-700 dark:text-slate-300' },
+  'Game': { icon: Gamepad2, className: 'text-rose-600 dark:text-rose-400' },
+  'Tareas generales': { icon: ListTodo, className: 'text-emerald-600 dark:text-emerald-400' },
 };
 
 export function AreaCard({ title, icon, color, children }: {
@@ -82,14 +100,18 @@ export function GrupoResultados({ label, children }: { label: string; children: 
   );
 }
 
-/** Fila de área: título arriba y su contenido repartido en las 2 columnas (planificado | objetivos) */
-export function AreaRowCols({ title, color, cover, plan, objetivo }: {
+/** Fila de área: título arriba y su contenido repartido en las 2 columnas (planificado | objetivos).
+ *  `singleColumn` lo usa Proyectos para apilar todo en una sola columna. */
+export function AreaRowCols({ title, color, cover, plan, objetivo, singleColumn }: {
   title: string;
   color?: string;
   cover?: string | null;
   plan: React.ReactNode;
   objetivo: React.ReactNode;
+  singleColumn?: boolean;
 }) {
+  const meta = AREA_ICONS[title];
+  const Icon = meta?.icon;
   return (
     <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
       {cover ? (
@@ -100,8 +122,15 @@ export function AreaRowCols({ title, color, cover, plan, objetivo }: {
         <div className={cn('h-1 bg-gradient-to-r', color)} />
       ) : null}
       <CardContent className="p-4">
-        <h3 className="text-lg sm:text-xl font-extrabold tracking-tight mb-3">{title}</h3>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight mb-3 flex items-center gap-2.5">
+          {Icon && (
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted/60">
+              <Icon className={cn('h-5 w-5', meta.className)} />
+            </span>
+          )}
+          <span className="min-w-0">{title}</span>
+        </h3>
+        <div className={cn('grid gap-4', !singleColumn && 'lg:grid-cols-2')}>
           <div className="space-y-2 min-w-0">{plan}</div>
           <div className="space-y-2 min-w-0">{objetivo}</div>
         </div>
@@ -279,7 +308,7 @@ export function ProyectosPlan({ data }: { data: ProjectResult[] }) {
     <div className="space-y-3">
       {data.map(p => {
         const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
-        const isCollapsed = !!collapsed[p.id];
+        const isCollapsed = collapsed[p.id] ?? true;
         return (
           <div key={p.id} className="rounded-xl border border-muted/50 overflow-hidden">
             {p.cover ? (
