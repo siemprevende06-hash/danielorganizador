@@ -233,7 +233,7 @@ export function StudySessionsSection({
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Registrar sesión de estudio</DialogTitle>
           </DialogHeader>
@@ -251,7 +251,7 @@ export function StudySessionsSection({
                     </SelectItem>
                   ))}
                   {studyTasks.length === 0 && (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="none" disabled>
                       No hay tareas de estudio
                     </SelectItem>
                   )}
