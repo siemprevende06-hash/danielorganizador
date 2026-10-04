@@ -11,17 +11,27 @@ interface PageIconPickerProps {
   onSelect: (icon: string | null) => void
 }
 
+function normalize(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
 export function PageIconPicker({ currentIcon, onSelect }: PageIconPickerProps) {
   const [search, setSearch] = useState('')
 
   const categories = useMemo(() => {
-    if (!search.trim()) return emojiCategories()
-    
-    const query = search.toLowerCase()
+    const query = normalize(search.trim())
+    if (!query) return emojiCategories()
+
     return emojiCategories()
       .map(cat => ({
         name: cat.name,
-        emojis: cat.emojis.filter(() => true),
+        keywords: cat.keywords,
+        emojis: cat.emojis.filter(
+          emoji => normalize(cat.keywords[emoji]?.join(' ') ?? '').includes(query),
+        ),
       }))
       .filter(cat => cat.emojis.length > 0)
   }, [search])
@@ -54,6 +64,11 @@ export function PageIconPicker({ currentIcon, onSelect }: PageIconPickerProps) {
 
       <ScrollArea className="h-64">
         <div className="space-y-3 pr-2">
+          {categories.length === 0 && (
+            <p className="px-1 py-4 text-center text-xs text-muted-foreground">
+              Sin resultados para "{search.trim()}"
+            </p>
+          )}
           {categories.map((category) => (
             <div key={category.name}>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 px-1 mb-1">
@@ -63,6 +78,8 @@ export function PageIconPicker({ currentIcon, onSelect }: PageIconPickerProps) {
                 {category.emojis.map((emoji) => (
                   <button
                     key={emoji}
+                    type="button"
+                    aria-label={category.keywords[emoji]?.[0] ?? emoji}
                     className={cn(
                       'w-8 h-8 flex items-center justify-center rounded-md text-lg transition-colors',
                       'hover:bg-accent',
