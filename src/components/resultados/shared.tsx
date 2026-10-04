@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -5,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle2, Circle, BookOpen, Music, Target, ClipboardList, AlarmClock, CalendarDays } from 'lucide-react';
+import { CheckCircle2, Circle, BookOpen, Music, Target, ClipboardList, AlarmClock, CalendarDays, ChevronDown } from 'lucide-react';
 import type { PlanBook, PlanSong, UniversitySubjectResult, BusinessResult, ProjectResult } from '@/hooks/useResultadosPeriodo';
 
 export const AREA_COLORS: Record<string, string> = {
@@ -33,7 +34,7 @@ export function AreaCard({ title, icon, color, children }: {
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-base leading-none">{icon}</span>
-          <h3 className="text-sm font-bold tracking-tight">{title}</h3>
+          <h3 className="text-base sm:text-lg font-extrabold tracking-tight">{title}</h3>
         </div>
         {children}
       </CardContent>
@@ -99,7 +100,7 @@ export function AreaRowCols({ title, color, cover, plan, objetivo }: {
         <div className={cn('h-1 bg-gradient-to-r', color)} />
       ) : null}
       <CardContent className="p-4">
-        <h3 className="text-sm font-bold tracking-tight mb-3">{title}</h3>
+        <h3 className="text-lg sm:text-xl font-extrabold tracking-tight mb-3">{title}</h3>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2 min-w-0">{plan}</div>
           <div className="space-y-2 min-w-0">{objetivo}</div>
@@ -269,13 +270,16 @@ export function EntObjetivos({ data }: { data: BusinessResult[] }) {
   );
 }
 
-/** Planificado de Proyectos: proyectos activos con sus tareas */
+/** Planificado de Proyectos: proyectos activos con sus tareas (desplegables) */
 export function ProyectosPlan({ data }: { data: ProjectResult[] }) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggle = (id: string) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
   if (data.length === 0) return <AreaEmpty>Activa proyectos desde su página</AreaEmpty>;
   return (
     <div className="space-y-3">
       {data.map(p => {
         const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
+        const isCollapsed = !!collapsed[p.id];
         return (
           <div key={p.id} className="rounded-xl border border-muted/50 overflow-hidden">
             {p.cover ? (
@@ -286,12 +290,20 @@ export function ProyectosPlan({ data }: { data: ProjectResult[] }) {
             <div className="p-2.5 space-y-1.5">
               <Progress value={pct} className={cn('h-1.5', pct >= 100 && 'bg-emerald-500/20')} />
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold truncate">{p.name}</p>
+                <button
+                  type="button"
+                  onClick={() => toggle(p.id)}
+                  className="flex items-center gap-1 min-w-0 text-left rounded-md -mx-1 px-1 py-0.5 hover:bg-muted/40 transition-colors"
+                  aria-expanded={!isCollapsed}
+                >
+                  <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', isCollapsed && '-rotate-90')} />
+                  <span className="text-xs font-semibold truncate">{p.name}</span>
+                </button>
                 <Badge variant={pct >= 100 ? 'secondary' : 'outline'} className="text-[8px] shrink-0">{p.done}/{p.total}</Badge>
               </div>
-              {p.tasks.length > 0 ? <TaskPlanList area={{ tasks: p.tasks }} /> : (
+              {!isCollapsed && (p.tasks.length > 0 ? <TaskPlanList area={{ tasks: p.tasks }} /> : (
                 <p className="text-[10px] italic text-muted-foreground">Sin tareas aún</p>
-              )}
+              ))}
             </div>
           </div>
         );

@@ -7,6 +7,16 @@ export function formatTime(seconds: number) {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+/** Formatea una duración en minutos (admite decimales) como "X min" o "Xs" si es menor a 1 minuto. */
+export function formatMinutesTotal(minutes: number | null | undefined) {
+  const totalSeconds = Math.round((minutes ?? 0) * 60);
+  if (totalSeconds <= 0) return '0 min';
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return s > 0 ? `${m}m ${s}s` : `${m} min`;
+}
+
 export function difficultyLabel(difficulty: Song['difficulty'] | string | null | undefined) {
   switch (difficulty) {
     case 'beginner':

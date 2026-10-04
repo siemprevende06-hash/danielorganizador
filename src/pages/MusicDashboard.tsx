@@ -124,7 +124,7 @@ export default function MusicDashboard() {
   const stopPractice = async () => {
     setPracticeActive(false);
 
-    const minutes = Math.ceil(practiceSeconds / 60);
+    const minutes = practiceSeconds / 60;
     if (minutes <= 0) {
       setPracticeSeconds(0);
       setPracticeSongId(null);

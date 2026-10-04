@@ -4,6 +4,47 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Song } from '@/hooks/useMusicRepertoire';
+import { formatMinutesTotal } from './musicUtils';
+
+function DurationInput({
+  label,
+  minutes,
+  seconds,
+  onMinutes,
+  onSeconds,
+}: {
+  label: string;
+  minutes: string;
+  seconds: string;
+  onMinutes: (v: string) => void;
+  onSeconds: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Label className="text-xs w-20 shrink-0">{label}</Label>
+      <Input
+        type="number"
+        min={0}
+        inputMode="numeric"
+        placeholder="min"
+        className="h-8 text-center"
+        value={minutes}
+        onChange={(e) => onMinutes(e.target.value)}
+      />
+      <span className="text-muted-foreground">:</span>
+      <Input
+        type="number"
+        min={0}
+        max={59}
+        inputMode="numeric"
+        placeholder="seg"
+        className="h-8 text-center"
+        value={seconds}
+        onChange={(e) => onSeconds(e.target.value)}
+      />
+    </div>
+  );
+}
 
 export function MusicLogPracticeDialog({
   open,
@@ -19,30 +60,38 @@ export function MusicLogPracticeDialog({
   onSave: (song: Song, minutes: { left: number; right: number; both: number }) => Promise<void>;
 }) {
   const [left, setLeft] = useState('');
+  const [leftSec, setLeftSec] = useState('');
   const [right, setRight] = useState('');
+  const [rightSec, setRightSec] = useState('');
   const [both, setBoth] = useState('');
+  const [bothSec, setBothSec] = useState('');
 
   useEffect(() => {
     if (open) {
       setLeft('');
+      setLeftSec('');
       setRight('');
+      setRightSec('');
       setBoth('');
+      setBothSec('');
     }
   }, [open, song]);
 
   if (!song) return null;
 
   const toInt = (v: string) => Math.max(0, parseInt(v, 10) || 0);
+  const toSeconds = (min: string, sec: string) => toInt(min) * 60 + toInt(sec);
   const isPiano = song.instrument === 'piano';
-  const l = isPiano ? toInt(left) : 0;
-  const r = isPiano ? toInt(right) : 0;
-  const b = toInt(both);
-  const total = l + r + b;
-  const canSave = total > 0 && !saving;
+  const lSec = isPiano ? toSeconds(left, leftSec) : 0;
+  const rSec = isPiano ? toSeconds(right, rightSec) : 0;
+  const bSec = toSeconds(both, bothSec);
+  const totalSec = lSec + rSec + bSec;
+  const totalMin = totalSec / 60;
+  const canSave = totalSec > 0 && !saving;
 
   const handleSave = async () => {
     if (!canSave) return;
-    await onSave(song, { left: isPiano ? l : 0, right: isPiano ? r : 0, both: b });
+    await onSave(song, { left: lSec / 60, right: rSec / 60, both: bSec / 60 });
   };
 
   return (
@@ -58,58 +107,42 @@ export function MusicLogPracticeDialog({
 
         <div className="space-y-3 pt-1">
           {isPiano ? (
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Izquierda</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  placeholder="min"
-                  value={left}
-                  onChange={(e) => setLeft(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Derecha</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  placeholder="min"
-                  value={right}
-                  onChange={(e) => setRight(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Ambas</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  inputMode="numeric"
-                  placeholder="min"
-                  value={both}
-                  onChange={(e) => setBoth(e.target.value)}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <Label className="text-xs">Ambas manos</Label>
-              <Input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                placeholder="min"
-                value={both}
-                onChange={(e) => setBoth(e.target.value)}
+            <div className="space-y-2">
+              <DurationInput
+                label="Izquierda"
+                minutes={left}
+                seconds={leftSec}
+                onMinutes={setLeft}
+                onSeconds={setLeftSec}
+              />
+              <DurationInput
+                label="Derecha"
+                minutes={right}
+                seconds={rightSec}
+                onMinutes={setRight}
+                onSeconds={setRightSec}
+              />
+              <DurationInput
+                label="Ambas"
+                minutes={both}
+                seconds={bothSec}
+                onMinutes={setBoth}
+                onSeconds={setBothSec}
               />
             </div>
+          ) : (
+            <DurationInput
+              label="Ambas manos"
+              minutes={both}
+              seconds={bothSec}
+              onMinutes={setBoth}
+              onSeconds={setBothSec}
+            />
           )}
 
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Total</span>
-            <span className="font-bold">{total} min</span>
+            <span className="font-bold">{formatMinutesTotal(totalMin)}</span>
           </div>
         </div>
 

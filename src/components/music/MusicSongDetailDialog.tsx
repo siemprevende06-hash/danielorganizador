@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ExternalLink, Music, Save } from 'lucide-react';
 import type { Song, SongCheckpoint } from '@/hooks/useMusicRepertoire';
-import { difficultyBadgeClass, difficultyLabel } from './musicUtils';
+import { difficultyBadgeClass, difficultyLabel, formatMinutesTotal } from './musicUtils';
 
 const CHECKPOINTS: { key: SongCheckpoint; label: string; desc: string; emoji: string }[] = [
   { key: 'learned', label: 'Aprendida', desc: 'Ya sé tocar la canción', emoji: '🎵' },
@@ -32,7 +32,8 @@ export function MusicSongDetailDialog({
 }) {
   const [minInput, setMinInput] = useState('');
   const [secInput, setSecInput] = useState('');
-  const [practiceInput, setPracticeInput] = useState('');
+  const [practiceMinInput, setPracticeMinInput] = useState('');
+  const [practiceSecInput, setPracticeSecInput] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -41,7 +42,9 @@ export function MusicSongDetailDialog({
       const ss = song.duration_seconds ? song.duration_seconds % 60 : 0;
       setMinInput(mm > 0 ? String(mm) : '');
       setSecInput(ss > 0 ? String(ss) : '');
-      setPracticeInput(song.practice_minutes ? String(song.practice_minutes) : '');
+      const practiceTotalSec = Math.round((song.practice_minutes ?? 0) * 60);
+      setPracticeMinInput(practiceTotalSec >= 60 ? String(Math.floor(practiceTotalSec / 60)) : '');
+      setPracticeSecInput(practiceTotalSec % 60 > 0 ? String(practiceTotalSec % 60) : '');
     }
   }, [open, song]);
 
@@ -58,9 +61,10 @@ export function MusicSongDetailDialog({
   const durationMin = (parseInt(minInput, 10) || 0) * 60 + (parseInt(secInput, 10) || 0);
   const durationMinutesFloat = song.duration_seconds ? song.duration_seconds / 60 : 0;
   const practiced = song.practice_minutes || 0;
+  const practiceLocal =
+    (parseInt(practiceMinInput, 10) || 0) + (parseInt(practiceSecInput, 10) || 0) / 60;
   const progressPct =
-    durationMinutesFloat > 0 ? Math.min(Math.round(((parseInt(practiceInput, 10) || 0) / durationMinutesFloat) * 100), 100) : 0;
-  const practiceLocal = parseInt(practiceInput, 10) || 0;
+    durationMinutesFloat > 0 ? Math.min(Math.round((practiceLocal / durationMinutesFloat) * 100), 100) : 0;
   const effectivePct = Number.isFinite(progressPct) ? progressPct : 0;
 
   const durLabel = song.duration_seconds
@@ -119,7 +123,7 @@ export function MusicSongDetailDialog({
           <div className="rounded-lg bg-muted/50 p-3 space-y-2">
             <p className="text-xs font-semibold text-muted-foreground">Tiempos</p>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-2">
               <div className="space-y-1">
                 <Label className="text-xs">Duración de la canción</Label>
                 <div className="flex items-center gap-1">
@@ -141,14 +145,24 @@ export function MusicSongDetailDialog({
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Tiempo aprendido (min)</Label>
-                <Input
-                  type="number" min={0} inputMode="numeric"
-                  className="h-8 text-center"
-                  placeholder="0"
-                  value={practiceInput}
-                  onChange={(e) => setPracticeInput(e.target.value)}
-                />
+                <Label className="text-xs">Tiempo aprendido</Label>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number" min={0} inputMode="numeric"
+                    className="h-8 text-center"
+                    placeholder="min"
+                    value={practiceMinInput}
+                    onChange={(e) => setPracticeMinInput(e.target.value)}
+                  />
+                  <span className="text-muted-foreground">:</span>
+                  <Input
+                    type="number" min={0} max={59} inputMode="numeric"
+                    className="h-8 text-center"
+                    placeholder="seg"
+                    value={practiceSecInput}
+                    onChange={(e) => setPracticeSecInput(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
@@ -156,7 +170,7 @@ export function MusicSongDetailDialog({
               <div className="pt-1 space-y-1">
                 <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span>⏱ Canción: {durLabel}</span>
-                  <span>{practiceLocal} min aprendidos</span>
+                  <span>{formatMinutesTotal(practiceLocal)} aprendidos</span>
                 </div>
                 <Progress value={effectivePct} className="h-1.5" />
                 <p className="text-[10px] text-muted-foreground">

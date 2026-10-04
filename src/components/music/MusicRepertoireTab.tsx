@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { ExternalLink, Music, PencilLine, Play, Search, Star, Trash2, Upload } from 'lucide-react';
 import type { HandTotals, Song, SongCheckpoint } from '@/hooks/useMusicRepertoire';
 import { songCheckpoints, songIsFullyReady } from '@/hooks/useMusicRepertoire';
-import { difficultyBadgeClass, difficultyLabel, masteredCardClass } from './musicUtils';
+import { difficultyBadgeClass, difficultyLabel, formatMinutesTotal, masteredCardClass } from './musicUtils';
 import { MusicLogPracticeDialog } from './MusicLogPracticeDialog';
 import { MusicSongDetailDialog } from './MusicSongDetailDialog';
 
@@ -191,7 +191,7 @@ export function MusicRepertoireTab({
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between text-[10px] text-muted-foreground">
                       <span>
-                        🕐 {practiceMinutes} min practicados
+                        🕐 {formatMinutesTotal(practiceMinutes)} practicados
                         {durationLabel && <span className="ml-1">· ⏱ {durationLabel}</span>}
                       </span>
                       <span>{song.status === 'mastered' ? '✓ Dominada' : `Meta: ${goal} min`}</span>

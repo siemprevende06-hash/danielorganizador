@@ -330,3 +330,17 @@ alter table public.music_repertoire
 update public.music_repertoire
   set mastered_at = coalesce(mastered_at, updated_at, now())
   where status = 'mastered' and mastered_at is null;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- [11/11] 20261003000000_music_practice_seconds.sql
+-- Permite registrar práctica con segundos (menos de 1 minuto): las columnas
+-- de minutos pasan a numeric para admitir fracciones (0.5 = 30 s).
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE public.music_practice_sessions
+  ALTER COLUMN duration_minutes TYPE numeric(10,2) USING duration_minutes::numeric,
+  ALTER COLUMN left_hand_minutes TYPE numeric(10,2) USING left_hand_minutes::numeric,
+  ALTER COLUMN right_hand_minutes TYPE numeric(10,2) USING right_hand_minutes::numeric,
+  ALTER COLUMN both_hands_minutes TYPE numeric(10,2) USING both_hands_minutes::numeric;
+
+ALTER TABLE public.music_repertoire
+  ALTER COLUMN practice_minutes TYPE numeric(10,2) USING practice_minutes::numeric;
