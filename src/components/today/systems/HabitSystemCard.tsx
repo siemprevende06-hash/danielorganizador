@@ -212,7 +212,9 @@ export default function HabitSystemCard({
   const isSystem = !!meta.system;
   const speedOptions = isSystem ? systemSpeedOptions(meta.system!) : [];
   const tier = isSystem ? getTier(actualMinutes, isSkipped, metaMinutes, speedOptions) : null;
-  const st = tier ?? (done ? NS_DONE : isSkipped ? NS_SKIP : NS_IDLE);
+  const baseSt = tier ?? (done ? NS_DONE : isSkipped ? NS_SKIP : NS_IDLE);
+  const isGym = meta.id === "entrenamiento-fisico" || meta.id === "gym";
+  const st = (isSkipped && isGym) ? { ...NS_SKIP, label: "Descanso" } : baseSt;
 
   const showMinutes = isSystem || meta.hasTime || meta.isWorkout;
   const pct = metaMinutes > 0 ? Math.round((actualMinutes / metaMinutes) * 100) : 0;
@@ -428,9 +430,9 @@ export default function HabitSystemCard({
             <button
               onClick={onSkip}
               className="px-1.5 py-1 rounded-md text-[9px] font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-              title={isSkipped ? "Desmarcar salteado" : "Saltear hoy"}
+              title={isSkipped ? (isGym ? "Quitar día de descanso" : "Desmarcar salteado") : (isGym ? "Marcar día de descanso" : "Saltear hoy")}
             >
-              {isSkipped ? "Volver" : "Saltar"}
+              {isSkipped ? "Volver" : (isGym ? "Descanso" : "Saltar")}
             </button>
           </div>
         </div>

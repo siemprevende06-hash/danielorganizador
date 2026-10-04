@@ -114,7 +114,7 @@ export const WorkoutVisual = ({
             )}
           >
             <XCircle className="h-3.5 w-3.5" />
-            {skipped ? "Saltado" : "No hice"}
+            {skipped ? "Descanso" : "Día de descanso"}
           </button>
           <span className="text-[9px] text-muted-foreground">Marca si entrenaste o no hoy</span>
         </div>
