@@ -11,6 +11,7 @@ import {
   Info,
   Shuffle,
   Link2,
+  Timer,
   Flag,
 } from "lucide-react";
 import { useGym, getGym } from "../store";
@@ -297,13 +298,11 @@ function ExerciseBlock({
     fallback: S.restSec,
   };
   const cols: Col[] = [];
-  // Reps · Peso · [RIR/RPE] · Descanso
+  // La primera columna siempre es Repeticiones. Los segundos de los ejercicios
+  // a tiempo no son columna: van en el temporizador de arriba.
   if (cardio) {
     cols.push({ f: "min", step: 1, dec: false, hd: "Duración (min)" });
     cols.push({ f: "speed", step: 0.5, dec: true, hd: "Veloc. (km/h)" });
-  } else if (timed) {
-    cols.push({ f: "sec", step: 5, dec: false, hd: "Segundos" });
-    if (!(bw && !added)) cols.push(loadCol);
   } else if (bw && !added) {
     cols.push(repCol);
   } else {
@@ -321,6 +320,11 @@ function ExerciseBlock({
     ...(timed ? ["1.75rem"] : []),
     "1.75rem",
   ].join(" ");
+
+  // Objetivo de segundos para los ejercicios a tiempo (no es una columna).
+  const secTarget = entry.sets[0]?.sec ?? entry.target?.sec ?? 45;
+  const bumpSec = (dir: number) =>
+    onField(0, "sec", Math.max(1, Math.round(secTarget + dir * 5)));
 
   const bump = (s: SetRec, i: number, col: Col, dir: number) => {
     if (col.eff) {
@@ -443,6 +447,38 @@ function ExerciseBlock({
           <span>{plan.why.join(" ")}</span>
         </div>
       )}
+      {timed && (
+        <div className="mt-2 flex items-center gap-2 rounded-xl border bg-card px-2 py-1.5">
+          <Timer className="h-4 w-4 shrink-0 text-primary" />
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Objetivo
+          </span>
+          <div className="ml-auto flex items-center gap-0.5">
+            <button
+              type="button"
+              className="flex h-8 w-5 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+              onClick={() => bumpSec(-5)}
+              aria-label="Quitar 5 segundos"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <NumVal
+              value={secTarget}
+              decimal={false}
+              onCommit={(v) => onField(0, "sec", v == null || v <= 0 ? 45 : v)}
+            />
+            <button
+              type="button"
+              className="flex h-8 w-5 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+              onClick={() => bumpSec(5)}
+              aria-label="Añadir 5 segundos"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <span className="ml-1 text-xs text-muted-foreground">s</span>
+          </div>
+        </div>
+      )}
       <div className="mt-2 rounded-2xl border bg-card p-2 shadow-sm">
         <div className="overflow-x-auto">
           <div
@@ -458,7 +494,7 @@ function ExerciseBlock({
                 {c.hd}
               </span>
             ))}
-            {timed && <span />}
+            {timed && <span className="text-center">Timer</span>}
             <span />
           </div>
           {entry.sets.map((s, i) => (
@@ -558,10 +594,11 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
     mutEntry(idx, (e) => {
       if (v == null) delete (e.sets[i] as Record<string, unknown>)[field];
       else (e.sets[i] as Record<string, unknown>)[field] = v;
-      // El peso que pones en una serie se copia a las siguientes:pones 60 en la
-      // primera y el resto ya nas 60 (luego puedes bajar la que quieras).
-      if (field === "w" && v != null)
-        for (let j = i + 1; j < e.sets.length; j++) e.sets[j].w = v as number;
+      // El peso (y el objetivo de segundos) que pones en una serie se copia a
+      // las siguientes: pones 60 en la primera y el resto ya van a 60.
+      if (v != null && (field === "w" || field === "sec"))
+        for (let j = i + 1; j < e.sets.length; j++)
+          (e.sets[j] as Record<string, unknown>)[field] = v;
     });
   const modeAt = (idx: number) =>
     modeOf({ ...(A.entries[idx].target || {}), id: A.entries[idx].id });
