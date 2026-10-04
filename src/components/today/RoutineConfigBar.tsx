@@ -107,7 +107,7 @@ export function RoutineConfigBar({
             )}
           >
             <Clock className="h-3 w-3" />
-            {lateWake ? `Desperté ${lateWake}` : '😴 Tardío'}
+            {lateWake ? `Despertó ${lateWake}` : 'Tardío'}
           </button>
 
           <Music className="h-3.5 w-3.5 text-pink-500 ml-1" />

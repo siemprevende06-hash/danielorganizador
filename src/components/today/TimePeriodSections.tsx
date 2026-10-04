@@ -43,6 +43,11 @@ export function TimePeriodSections({
 }) {
   const safeBlocks = Array.isArray(blocks) ? blocks : [];
   const safeTasksByBlock = tasksByBlock || {};
+  
+  // Get current time to determine active period
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  
   const grouped = useMemo(() => {
     const sorted = [...safeBlocks].sort((a, b) => {
       try {
@@ -68,9 +73,11 @@ export function TimePeriodSections({
         (safeTasksByBlock[b.id] || []).map((t) => ({ task: t, block: b }))
       );
       const completed = tasks.filter(({ task }) => task.completed).length;
-      return { ...p, blocks: periodBlocks, tasks, minutes, completed };
+      // Check if current time is in this period
+      const isActive = currentMinutes >= p.start && currentMinutes < p.end;
+      return { ...p, blocks: periodBlocks, tasks, minutes, completed, isActive };
     });
-  }, [safeBlocks, safeTasksByBlock]);
+  }, [safeBlocks, safeTasksByBlock, currentMinutes]);
 
   return (
     <section className="space-y-2">
@@ -82,12 +89,13 @@ export function TimePeriodSections({
         {grouped.map((p) => {
           const empty = p.blocks.length === 0;
           return (
-            <Card key={p.id} className={cn("p-3 space-y-2", empty && "opacity-60")}>
+              <Card key={p.id} className={cn("p-3 space-y-2 transition-all duration-200", empty && "opacity-60", p.isActive && "ring-2 ring-primary/50 shadow-md border-primary/30")}>
               <div className="flex items-center gap-2">
-                <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-foreground/5 text-foreground">
+                <span className={cn("flex items-center justify-center h-7 w-7 rounded-lg", p.isActive ? "bg-primary/10 text-primary" : "bg-foreground/5 text-foreground")}>
                   {p.icon}
                 </span>
                 <span className="text-sm font-bold">{p.label}</span>
+                {p.isActive && <span className="text-[8px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">ACTUAL</span>}
                 <span className="text-[10px] font-mono text-muted-foreground">{p.range}</span>
                 <span className="ml-auto text-[10px] font-mono text-muted-foreground">
                   {p.minutes > 0 ? formatTotal(p.minutes) : "—"}
