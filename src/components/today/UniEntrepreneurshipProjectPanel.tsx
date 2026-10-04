@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,13 +26,15 @@ interface Props {
   activeSubjectsProp?: { id: string; name: string }[];
 }
 
+const EMPTY_SUBJECTS: { id: string; name: string }[] = [];
+
 const SOURCE_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   university: { label: 'Universidad', color: 'text-emerald-400', icon: <BookOpen className="h-3 w-3" /> },
   entrepreneurship: { label: 'Emprendimiento', color: 'text-purple-400', icon: <Briefcase className="h-3 w-3" /> },
   project: { label: 'Proyecto', color: 'text-orange-400', icon: <FolderKanban className="h-3 w-3" /> },
 };
 
-export function UniEntrepreneurshipProjectPanel({ activeSubjectsProp = [] }: Props) {
+export function UniEntrepreneurshipProjectPanel({ activeSubjectsProp = EMPTY_SUBJECTS }: Props) {
   const { getSubjectsByCurrentSemester } = useUniversity();
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +50,9 @@ export function UniEntrepreneurshipProjectPanel({ activeSubjectsProp = [] }: Pro
       .map(s => ({ id: s.id, name: s.name }));
   }, [activeSubjectsProp, getSubjectsByCurrentSemester]);
 
+  const activeSubjectsRef = useRef(activeSubjects);
+  activeSubjectsRef.current = activeSubjects;
+
   const loadTasks = useCallback(async () => {
     setLoading(true);
     const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -57,12 +62,14 @@ export function UniEntrepreneurshipProjectPanel({ activeSubjectsProp = [] }: Pro
           .from('entrepreneurship_tasks')
           .select('id, title, entrepreneurship_id, entrepreneurships(name)')
           .eq('completed', false)
+          .not('due_date', 'is', null)
           .lte('due_date', `${todayStr}T23:59:59`),
         supabase
           .from('tasks')
           .select('id, title')
           .eq('source', 'project')
           .eq('completed', false)
+          .not('due_date', 'is', null)
           .lte('due_date', `${todayStr}T23:59:59`),
       ];
 
@@ -74,11 +81,16 @@ export function UniEntrepreneurshipProjectPanel({ activeSubjectsProp = [] }: Pro
             .eq('source', 'university')
             .eq('source_id', selectedSubjectId)
             .eq('completed', false)
+            .not('due_date', 'is', null)
             .lte('due_date', `${todayStr}T23:59:59`)
         );
       }
 
       const [entRes, projRes, uniRes] = await Promise.all(queries);
+
+      if (entRes.error) console.error('Error loading entrepreneurship tasks:', entRes.error);
+      if (projRes.error) console.error('Error loading project tasks:', projRes.error);
+      if (uniRes?.error) console.error('Error loading university tasks:', uniRes.error);
 
       setEntrepreneurshipTasks((entRes.data || []).map((t: any) => ({
         id: t.id,
@@ -97,7 +109,7 @@ export function UniEntrepreneurshipProjectPanel({ activeSubjectsProp = [] }: Pro
               id: t.id,
               title: t.title,
               source: 'university' as const,
-              sourceName: activeSubjects.find(s => s.id === selectedSubjectId)?.name,
+              sourceName: activeSubjectsRef.current.find(s => s.id === selectedSubjectId)?.name,
             }))
           : []
       );
@@ -106,7 +118,7 @@ export function UniEntrepreneurshipProjectPanel({ activeSubjectsProp = [] }: Pro
     } finally {
       setLoading(false);
     }
-  }, [selectedSubjectId, activeSubjects]);
+  }, [selectedSubjectId]);
 
   useEffect(() => {
     loadTasks();
