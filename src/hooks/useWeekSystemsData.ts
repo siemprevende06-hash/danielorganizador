@@ -70,12 +70,13 @@ export function useWeekSystemsData(
     setLoading(true);
     (async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("daily_systems_tracking")
-          .select("tracking_date, completions, time_data, count_data, workout_duration, skipped")
+          .select("*")
           .gte("tracking_date", startKey)
           .lte("tracking_date", endKey);
-        if (alive) setRows((data ?? []) as WeekRow[]);
+        if (error) throw error;
+        if (alive) setRows((data ?? []) as unknown as WeekRow[]);
       } catch {
         if (alive) setRows([]);
       } finally {
