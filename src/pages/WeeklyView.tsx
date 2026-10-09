@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, ListChecks, RefreshCw, AlertTriangle } from 
 import { WeeklyTimeBreakdown } from '@/components/weekly/WeeklyTimeBreakdown';
 import { WeeklyAgenda } from '@/components/weekly/WeeklyAgenda';
 import { WeeklySystemsStats } from '@/components/systems/WeeklySystemsStats';
+import { WeekSystemsSection } from '@/components/weekly/WeekSystemsSection';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -343,9 +344,7 @@ export default function WeeklyView() {
         ) : viewMode === 'sistemas' ? (
           <section className="space-y-4">
             <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
-            <div className="bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl p-4">
-              <WeeklySystemsStats weekStart={weekStart} />
-            </div>
+            <WeekSystemsSection weekStart={weekStart} weekEnd={weekEnd} />
           </section>
         ) : viewMode === 'autocritica' ? (
           <AutocriticaSection />
