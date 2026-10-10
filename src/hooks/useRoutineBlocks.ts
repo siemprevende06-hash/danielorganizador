@@ -21,6 +21,7 @@ export interface RoutineBlock {
   currentFocus?: string;
   defaultFocus?: string;
   extraMode?: ExtraMode;
+  coverImage?: string;
 }
 
 export interface RoutineInfo {
@@ -344,6 +345,13 @@ export const useRoutineBlocks = () => {
     saveBlocks(newBlocks);
   }, [rawBlocks, saveBlocks]);
 
+  const updateBlockCover = useCallback((blockId: string, coverImage: string) => {
+    const newBlocks = rawBlocks.map(block =>
+      block.id === blockId ? { ...block, coverImage } : block
+    );
+    saveBlocks(newBlocks);
+  }, [rawBlocks, saveBlocks]);
+
   const extraMode: ExtraMode =
     (rawBlocks.find(b => b.id === 'd-bloque-extra')?.extraMode as ExtraMode) || 'focus';
 
@@ -366,6 +374,7 @@ export const useRoutineBlocks = () => {
     getBlockProgress,
     saveBlocks,
     updateBlockFocus,
+    updateBlockCover,
     extraMode,
     setExtraMode,
     routineInfo: ROUTINES.find(r => r.type === routineType) || ROUTINES[0],

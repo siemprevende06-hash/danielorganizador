@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
 import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
+import { RoutineCardsView } from '@/components/today/RoutineCardsView';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { TaskChecklist } from '@/components/today/TaskChecklist';
 import { EisenhowerMatrix } from '@/components/today/EisenhowerMatrix';
@@ -195,7 +196,7 @@ export default function DailyView() {
   const currentBlock = getCurrentBlock();
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
-  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus } = useRoutineBlocks();
+  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus, updateBlockCover } = useRoutineBlocks();
 
   // Apply plan's routine type when a plan exists for today
   useEffect(() => {
@@ -206,6 +207,7 @@ export default function DailyView() {
 
   const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten'>('tasks');
   const [planEnfoqueOpen, setPlanEnfoqueOpen] = useState(false);
+  const [planViewMode, setPlanViewMode] = useState<'timeline' | 'cards'>('timeline');
 
   const SOSTEN_HABIT_IDS = SOSTEN_GROUPS.flatMap(g => g.habits.map(h => h.id));
   const MEJORA_HABIT_IDS = ['lectura', 'musica', 'ajedrez', 'entrenamiento-fisico', 'italiano', 'ingles'];
@@ -373,8 +375,50 @@ export default function DailyView() {
 
             <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock || {}} />
 
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                {planViewMode === 'cards' ? <LayoutGrid className="h-4 w-4 text-primary" /> : <Clock className="h-4 w-4 text-primary" />}
+                Rutina del Día
+              </div>
+              <div className="flex gap-1 p-0.5 rounded-xl bg-muted">
+                <button
+                  onClick={() => setPlanViewMode('timeline')}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                    planViewMode === 'timeline' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  Horario
+                </button>
+                <button
+                  onClick={() => setPlanViewMode('cards')}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                    planViewMode === 'cards' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Tarjetas
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-              <DailyTimelinePlanner blocks={planBlocks} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
+              {planViewMode === 'cards' ? (
+                <RoutineCardsView
+                  blocks={planBlocks}
+                  tasksByBlock={tasksByBlock || {}}
+                  onToggleBlock={toggleBlockComplete}
+                  isBlockCompleted={isBlockCompleted}
+                  onRemoveTask={removeTaskFromBlock}
+                  onToggleTask={toggleTaskDone}
+                  onUpdateCover={updateBlockCover}
+                  isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')}
+                />
+              ) : (
+                <DailyTimelinePlanner blocks={planBlocks} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
+              )}
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)] flex flex-col gap-3">
                 <div className="flex-1 min-h-0">
                   <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} abcMap={abc.map} />
