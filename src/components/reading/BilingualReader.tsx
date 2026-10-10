@@ -21,6 +21,10 @@ export interface BookPage {
 
 type ReaderMode = 'book' | 'scroll';
 type TextAlign = 'left' | 'justify' | 'center';
+type TranslationMode = 'both' | 'en' | 'es';
+
+const nextTranslationMode = (m: TranslationMode): TranslationMode =>
+  m === 'both' ? 'en' : m === 'en' ? 'es' : 'both';
 
 const STORAGE_POS_PREFIX = 'bil-reader-pos-';
 const STORAGE_MODE_PREFIX = 'bil-reader-mode-';
@@ -183,7 +187,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   const [currentPair, setCurrentPair] = useState(0);
   const [fontSize, setFontSize] = useState(17);
   const [align, setAlign] = useState<TextAlign>('justify');
-  const [showTranslation, setShowTranslation] = useState(true);
+  const [translationMode, setTranslationMode] = useState<TranslationMode>('both');
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [translation, setTranslation] = useState('');
   const [translating, setTranslating] = useState(false);
@@ -439,10 +443,16 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
             </div>
             <Button
               size="sm"
-              variant={showTranslation ? 'default' : 'outline'}
-              onClick={() => setShowTranslation(s => !s)}
+              variant={translationMode === 'en' ? 'outline' : 'default'}
+              onClick={() => setTranslationMode(nextTranslationMode)}
               className="hidden md:inline-flex"
-              title={showTranslation ? 'Ocultar traducción' : 'Mostrar traducción'}
+              title={
+                translationMode === 'both'
+                  ? 'Bilingüe: toca para ver solo inglés'
+                  : translationMode === 'en'
+                    ? 'Solo inglés: toca para ver solo español'
+                    : 'Solo español: toca para ver bilingüe'
+              }
             >
               <Languages className="w-4 h-4" />
             </Button>
@@ -486,15 +496,22 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
               <div className="space-y-5">
                 {(pages[pageIndex]?.pairs ?? []).map((pair, i) => (
                   <div key={i} data-pair-index={(ranges[pageIndex]?.start ?? 0) + i} className="leading-relaxed">
-                    <p
-                      onClick={(e) => handleEnLineClick(e, pair)}
-                      className="text-foreground font-medium cursor-text select-text"
-                      style={{ fontSize, textAlign: align, hyphens: 'auto' }}
-                    >
-                      {pair.en}
-                    </p>
-                    {showTranslation && pair.es && (
-                      <p className="text-muted-foreground/80 italic mt-0.5 select-none" style={{ fontSize: esFont, textAlign: align, hyphens: 'auto' }}>
+                    {translationMode !== 'es' && (
+                      <p
+                        onClick={(e) => handleEnLineClick(e, pair)}
+                        className="text-foreground font-medium cursor-text select-text"
+                        style={{ fontSize, textAlign: align, hyphens: 'auto' }}
+                      >
+                        {pair.en}
+                      </p>
+                    )}
+                    {translationMode !== 'en' && pair.es && (
+                      <p
+                        className={translationMode === 'es'
+                          ? 'text-foreground font-medium select-text'
+                          : 'text-muted-foreground/80 italic mt-0.5 select-none'}
+                        style={{ fontSize: translationMode === 'es' ? fontSize : esFont, textAlign: align, hyphens: 'auto' }}
+                      >
                         {pair.es}
                       </p>
                     )}
@@ -512,15 +529,22 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
               <div className="space-y-5">
                 {allPairs.map((pair, i) => (
                   <div key={i} data-pair-index={i} className="leading-relaxed">
-                    <p
-                      onClick={(e) => handleEnLineClick(e, pair)}
-                      className="text-foreground font-medium cursor-text select-text"
-                      style={{ fontSize, textAlign: align, hyphens: 'auto' }}
-                    >
-                      {pair.en}
-                    </p>
-                    {showTranslation && pair.es && (
-                      <p className="text-muted-foreground/80 italic mt-0.5 select-none" style={{ fontSize: esFont, textAlign: align, hyphens: 'auto' }}>
+                    {translationMode !== 'es' && (
+                      <p
+                        onClick={(e) => handleEnLineClick(e, pair)}
+                        className="text-foreground font-medium cursor-text select-text"
+                        style={{ fontSize, textAlign: align, hyphens: 'auto' }}
+                      >
+                        {pair.en}
+                      </p>
+                    )}
+                    {translationMode !== 'en' && pair.es && (
+                      <p
+                        className={translationMode === 'es'
+                          ? 'text-foreground font-medium select-text'
+                          : 'text-muted-foreground/80 italic mt-0.5 select-none'}
+                        style={{ fontSize: translationMode === 'es' ? fontSize : esFont, textAlign: align, hyphens: 'auto' }}
+                      >
                         {pair.es}
                       </p>
                     )}

@@ -215,7 +215,7 @@ const DailyRoutine = () => {
         </header>
 
         {/* iPhone-style Segmented Control */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex gap-2 justify-center overflow-x-auto pb-1 scrollbar-none">
           {ROUTINES.map((r) => {
             const style = ROUTINE_STYLES[r.type];
             const isActive = routineType === r.type;
@@ -245,7 +245,7 @@ const DailyRoutine = () => {
                   "text-[10px] font-mono tracking-tight transition-all",
                   isActive ? "opacity-80" : "opacity-40"
                 )}>
-                  {r.wakeTime}—{r.sleepTime}
+                  {r.wakeTime}–{r.sleepTime}
                 </span>
               </button>
             );

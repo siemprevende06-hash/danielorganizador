@@ -39,6 +39,7 @@ import { DaySystemsSection } from '@/components/today/DaySystemsSection';
 import { DaySpeedSection } from '@/components/today/DaySpeedSection';
 import { PlanSistemaSection } from '@/components/today/PlanSistemaSection';
 import { UniEntrepreneurshipProjectPanel } from '@/components/today/UniEntrepreneurshipProjectPanel';
+import { WorkBlocksSection } from '@/components/today/WorkBlocksSection';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
@@ -312,17 +313,17 @@ export default function DailyView() {
         {viewMode === 'plan' ? (
           <>
             {/* Routine Selector */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               {ROUTINES.map((r) => {
                 const isActive = routineType === r.type;
                 return (
                   <button key={r.type} onClick={() => setRoutineType(r.type)}
-                    className={cn("w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200", isActive ? "bg-foreground text-background border-foreground shadow-sm" : "bg-white dark:bg-zinc-950 text-foreground/70 border-foreground/15 hover:border-foreground/40 hover:text-foreground")}
+                    className={cn("flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200", isActive ? "bg-foreground text-background border-foreground shadow-sm" : "bg-white dark:bg-zinc-950 text-foreground/70 border-foreground/15 hover:border-foreground/40 hover:text-foreground")}
                   >
                     <span className={cn("shrink-0", !isActive && "opacity-60")}>{ROUTINE_ICONS[r.type]}</span>
                     <span className="flex flex-col items-start gap-0.5 min-w-0">
                       <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", !isActive && "opacity-70")}>{r.shortLabel}</span>
-                      <span className={cn("text-[9px] font-mono tracking-tight", isActive ? "text-background/60" : "text-foreground/40")}>{r.wakeTime}—{r.sleepTime}</span>
+                      <span className={cn("text-[9px] font-mono tracking-tight", isActive ? "text-background/60" : "text-foreground/40")}>{r.wakeTime}–{r.sleepTime}</span>
                     </span>
                   </button>
                 );
@@ -367,6 +368,8 @@ export default function DailyView() {
             <TimePeriodSections blocks={planBlocks} tasksByBlock={tasksByBlock || {}} />
 
             <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
+
+            <WorkBlocksSection selectedDate={selectedDate} tasks={tasks} />
 
             <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock || {}} />
 
@@ -500,17 +503,17 @@ export default function DailyView() {
 
 
             {/* Routine Selector */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               {ROUTINES.map((r) => {
                 const isActive = routineType === r.type;
                 return (
                   <button key={r.type} onClick={() => setRoutineType(r.type)}
-                    className={cn("w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200", isActive ? "bg-foreground text-background border-foreground shadow-sm" : "bg-white dark:bg-zinc-950 text-foreground/70 border-foreground/15 hover:border-foreground/40 hover:text-foreground")}
+                    className={cn("flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200", isActive ? "bg-foreground text-background border-foreground shadow-sm" : "bg-white dark:bg-zinc-950 text-foreground/70 border-foreground/15 hover:border-foreground/40 hover:text-foreground")}
                   >
                     <span className={cn("shrink-0", !isActive && "opacity-60")}>{ROUTINE_ICONS[r.type]}</span>
                     <span className="flex flex-col items-start gap-0.5 min-w-0">
                       <span className={cn("text-xs font-semibold tracking-tight whitespace-nowrap", !isActive && "opacity-70")}>{r.shortLabel}</span>
-                      <span className={cn("text-[9px] font-mono tracking-tight", isActive ? "text-background/60" : "text-foreground/40")}>{r.wakeTime}—{r.sleepTime}</span>
+                      <span className={cn("text-[9px] font-mono tracking-tight", isActive ? "text-background/60" : "text-foreground/40")}>{r.wakeTime}–{r.sleepTime}</span>
                     </span>
                   </button>
                 );
