@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { getCoverGradient } from "@/components/areas/AreaCover";
 import type { HabitMeta } from "@/lib/areaSystemsMap";
 import type { WeekDayStatus } from "@/hooks/useWeekSystemsData";
+import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
 import { Flame, Trophy } from "lucide-react";
 
 interface WeekTier {
@@ -71,7 +72,32 @@ export interface WeekHabitCardProps {
   weekMinutes: number;
   weekCount?: number;
   streak?: { current: number; best: number };
+  focus?: TodayStripItem;
   coverUrl?: string | null;
+}
+
+function focusInfo(focus: TodayStripItem) {
+  const emoji =
+    focus.kind === "libro"
+      ? "📖"
+      : focus.kind === "cancion"
+        ? "🎹"
+        : focus.kind === "materia"
+          ? "🎓"
+          : focus.kind === "emprendimiento"
+            ? "🚀"
+            : "📦";
+  const title =
+    focus.kind === "libro" || focus.kind === "cancion" ? focus.title : focus.name;
+  const label =
+    focus.kind === "libro"
+      ? focus.pagesTotal
+        ? `${focus.pagesRead}/${focus.pagesTotal} págs`
+        : `${focus.pagesRead} págs`
+      : focus.kind === "cancion"
+        ? `${focus.instrument ? focus.instrument + " · " : ""}${focus.practiceMinutes ?? 0} min`
+        : `${focus.doneTasks}/${focus.totalTasks} tareas esta semana`;
+  return { emoji, title, label };
 }
 
 export default function WeekHabitCard({
@@ -84,6 +110,7 @@ export default function WeekHabitCard({
   weekMinutes,
   weekCount,
   streak,
+  focus,
   coverUrl,
 }: WeekHabitCardProps) {
   const tier = weekTier(daysDone, daysTotal, daysSkipped);
@@ -91,6 +118,7 @@ export default function WeekHabitCard({
   const sparkMax = Math.max(1, ...spark);
   const showCount = !!meta.system?.countKey || meta.hasWater;
   const countLabel = meta.system?.countLabel || (meta.hasWater ? "vasos" : "repeticiones");
+  const fi = focus ? focusInfo(focus) : null;
 
   return (
     <div className={cn("relative rounded-2xl overflow-hidden ring-2 flex flex-col", tier.ring, tier.bg)}>
@@ -149,6 +177,27 @@ export default function WeekHabitCard({
                 style={{ height: `${Math.max(8, (v / sparkMax) * 100)}%` }}
               />
             ))}
+          </div>
+        )}
+
+        {/* ─── Objetivo de la semana (áreas centrales) ─── */}
+        {fi && focus && (
+          <div className="flex items-center gap-2 rounded-lg bg-foreground/5 px-2 py-1.5">
+            {focus.kind === "libro" && focus.cover ? (
+              <img
+                src={focus.cover}
+                alt={fi.title}
+                className="h-8 w-6 rounded object-cover shrink-0 border border-border/40"
+              />
+            ) : (
+              <span className="text-sm shrink-0 leading-none">{fi.emoji}</span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-bold leading-tight truncate">{fi.title}</p>
+              <p className="text-[8px] text-muted-foreground leading-tight truncate">
+                Esta semana: {fi.label}
+              </p>
+            </div>
           </div>
         )}
 

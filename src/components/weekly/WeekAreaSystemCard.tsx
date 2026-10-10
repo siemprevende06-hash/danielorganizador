@@ -13,6 +13,7 @@ import {
 import type { PointBArea } from "@/lib/definitions";
 import type { AreaScore } from "@/hooks/useAreaScores";
 import type { WeekDayStatus } from "@/hooks/useWeekSystemsData";
+import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
 import { cn } from "@/lib/utils";
 import WeekHabitCard from "./WeekHabitCard";
 
@@ -28,6 +29,7 @@ export interface WeekAreaSystemCardProps {
   weekStatus: Record<string, WeekDayStatus[]>;
   spark: Record<string, number[]>;
   streaks: Record<string, { current: number; best: number }>;
+  focusItems?: Record<string, TodayStripItem>;
   daysTotal: number;
   hideCover?: boolean;
 }
@@ -54,6 +56,7 @@ export default function WeekAreaSystemCard({
   weekStatus,
   spark,
   streaks,
+  focusItems,
   daysTotal,
   hideCover,
 }: WeekAreaSystemCardProps) {
@@ -79,6 +82,7 @@ export default function WeekAreaSystemCard({
         weekMinutes={weekMinutes[meta.id] ?? 0}
         weekCount={weekCount[meta.id]}
         streak={streaks[meta.id]}
+        focus={focusItems?.[meta.id]}
         coverUrl={cover}
       />
     );

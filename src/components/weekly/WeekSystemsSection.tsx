@@ -15,6 +15,7 @@ import {
   type AreaStateColor,
   type PointBGroup,
 } from "@/lib/areaSystemsMap";
+import { useWeekFocusItems } from "@/hooks/useWeekFocusItems";
 import { POINT_B_AREAS } from "@/data/pointB2027";
 import type { PointBArea } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ export function WeekSystemsSection({ weekStart, weekEnd }: { weekStart: Date; we
   const startKey = format(weekStart, "yyyy-MM-dd");
   const endKey = format(weekEnd, "yyyy-MM-dd");
   const { scores } = useAreaScores("sprint", "ambos", { start: startKey, end: endKey });
+  const { items: weekFocusItems } = useWeekFocusItems(startKey, endKey);
   const { days, daysDone, daysSkipped, weekMinutes, weekCount, weekStatus, spark } =
     useWeekSystemsData(weekStart, weekEnd, ALL_TRACKABLE_IDS);
 
@@ -155,6 +157,7 @@ export function WeekSystemsSection({ weekStart, weekEnd }: { weekStart: Date; we
                   weekStatus={weekStatus}
                   spark={spark}
                   streaks={streaks}
+                  focusItems={weekFocusItems}
                   daysTotal={days.length}
                   hideCover={area.group === "cimientos"}
                 />
