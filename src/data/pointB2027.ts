@@ -76,6 +76,18 @@ export const POINT_B_AREAS: PointBArea[] = [
     ],
   },
   {
+    id: "profesional",
+    label: "Profesional / Académico",
+    group: "construccion",
+    icon: "💼",
+    effortTrackingIds: ["universidad", "emprendimiento", "proyectos"],
+    sub: [
+      { id: "universidad", label: "Universidad", start: 3, target: 6, unit: "/10", trackingIds: ["universidad"] },
+      { id: "emprendimiento", label: "Emprendimiento (AUTEC)", start: 0, target: 250, unit: "$/mes", trackingIds: ["emprendimiento"] },
+      { id: "proyectos", label: "Proyectos", start: 3, target: 7, unit: "/10", trackingIds: ["proyectos"] },
+    ],
+  },
+  {
     id: "desarrollo",
     label: "Desarrollo Personal",
     group: "construccion",
@@ -87,18 +99,6 @@ export const POINT_B_AREAS: PointBArea[] = [
       { id: "musica", label: "Música", start: 5, target: 10, unit: "canciones", trackingIds: ["musica"] },
       { id: "game", label: "Game (Seducción)", start: 2, target: 8, unit: "/10", trackingIds: ["game"] },
       { id: "ajedrez", label: "Ajedrez", start: 0, target: 30, unit: "partidas/mes", trackingIds: ["ajedrez"] },
-    ],
-  },
-  {
-    id: "profesional",
-    label: "Profesional / Académico",
-    group: "construccion",
-    icon: "💼",
-    effortTrackingIds: ["universidad", "emprendimiento", "proyectos"],
-    sub: [
-      { id: "universidad", label: "Universidad", start: 3, target: 6, unit: "/10", trackingIds: ["universidad"] },
-      { id: "emprendimiento", label: "Emprendimiento (AUTEC)", start: 0, target: 250, unit: "$/mes", trackingIds: ["emprendimiento"] },
-      { id: "proyectos", label: "Proyectos", start: 3, target: 7, unit: "/10", trackingIds: ["proyectos"] },
     ],
   },
   {

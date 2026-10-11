@@ -268,6 +268,7 @@ export default function TrimestralPlanningPage() {
             </p>
           </div>
 
+          <div className="flex flex-col-reverse gap-5">
           {/* ===== ÁREA: DESARROLLO PERSONAL ===== */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -610,6 +611,7 @@ export default function TrimestralPlanningPage() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
       )}

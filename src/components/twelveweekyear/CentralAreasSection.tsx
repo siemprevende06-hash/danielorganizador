@@ -43,6 +43,16 @@ export interface CentralAreaDef {
 
 export const CENTRAL_AREAS: CentralAreaDef[] = [
   {
+    id: 'profesional', label: 'Profesional/Académico',
+    icon: <GraduationCap className="h-4 w-4" />, gradient: 'from-sky-500 to-blue-400',
+    subAreas: [
+      { id: 'universidad', label: 'Universidad', icon: <GraduationCap className="h-3 w-3" />, color: 'blue', trackingSource: 'area_stats', trackingId: 'universidad', timeGoalKey: 'universidad' },
+      { id: 'emprendimiento', label: 'Emprendimiento', icon: <Briefcase className="h-3 w-3" />, color: 'purple', trackingSource: 'area_stats', trackingId: 'emprendimiento', timeGoalKey: 'emprendimiento' },
+      { id: 'proyectos', label: 'Proyectos', icon: <FolderKanban className="h-3 w-3" />, color: 'amber', trackingSource: 'area_stats', trackingId: 'proyectos', timeGoalKey: 'proyectos' },
+      { id: 'tareas', label: 'Tareas Grales', icon: <ListTodo className="h-3 w-3" />, color: 'slate', trackingSource: 'none', trackingId: '', timeGoalKey: '' },
+    ],
+  },
+  {
     id: 'desarrollo', label: 'Desarrollo Personal',
     icon: <BookOpen className="h-4 w-4" />, gradient: 'from-emerald-500 to-teal-400',
     subAreas: [
@@ -52,16 +62,6 @@ export const CENTRAL_AREAS: CentralAreaDef[] = [
       { id: 'ajedrez', label: 'Ajedrez', icon: <Gamepad2 className="h-3 w-3" />, color: 'teal', trackingSource: 'both', trackingId: 'ajedrez', timeGoalKey: 'ajedrez' },
       { id: 'gym', label: 'Gimnasio', icon: <Zap className="h-3 w-3" />, color: 'orange', trackingSource: 'area_stats', trackingId: 'gym', timeGoalKey: 'gym' },
       { id: 'game', label: 'Game', icon: <Sword className="h-3 w-3" />, color: 'pink', trackingSource: 'time_data', trackingId: 'game', timeGoalKey: 'game' },
-    ],
-  },
-  {
-    id: 'profesional', label: 'Profesional/Académico',
-    icon: <GraduationCap className="h-4 w-4" />, gradient: 'from-sky-500 to-blue-400',
-    subAreas: [
-      { id: 'universidad', label: 'Universidad', icon: <GraduationCap className="h-3 w-3" />, color: 'blue', trackingSource: 'area_stats', trackingId: 'universidad', timeGoalKey: 'universidad' },
-      { id: 'emprendimiento', label: 'Emprendimiento', icon: <Briefcase className="h-3 w-3" />, color: 'purple', trackingSource: 'area_stats', trackingId: 'emprendimiento', timeGoalKey: 'emprendimiento' },
-      { id: 'proyectos', label: 'Proyectos', icon: <FolderKanban className="h-3 w-3" />, color: 'amber', trackingSource: 'area_stats', trackingId: 'proyectos', timeGoalKey: 'proyectos' },
-      { id: 'tareas', label: 'Tareas Grales', icon: <ListTodo className="h-3 w-3" />, color: 'slate', trackingSource: 'none', trackingId: '', timeGoalKey: '' },
     ],
   },
   {

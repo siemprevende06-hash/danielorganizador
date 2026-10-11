@@ -661,6 +661,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
             </CardContent>
           </Card>
 
+          <div className="flex flex-col-reverse gap-5">
           {/* ===== DESARROLLO PERSONAL ===== */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -1057,6 +1058,7 @@ export default function PeriodSections({ scope, year, quarter, monthIndex, weekS
                 )}
               </div>
             )}
+          </div>
           </div>
 
           {/* ===== METAS DE TIEMPO VS ESFUERZO REAL ===== */}

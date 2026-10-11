@@ -22,6 +22,7 @@ interface Props {
   onRemoveTask: (taskId: string) => void;
   onToggleTask: (taskId: string) => void;
   onUpdateCover: (blockId: string, url: string) => void;
+  covers?: Record<string, string>;
   isFutureView?: boolean;
 }
 
@@ -87,6 +88,7 @@ interface CardProps {
   isActive: boolean;
   isPast: boolean;
   progress: number;
+  cover?: string;
   onToggleBlock: (blockId: string) => void;
   onRemoveTask: (taskId: string) => void;
   onToggleTask: (taskId: string) => void;
@@ -94,7 +96,7 @@ interface CardProps {
 }
 
 function RoutineCard({
-  block, tasks, completed, isActive, isPast, progress,
+  block, tasks, completed, isActive, isPast, progress, cover,
   onToggleBlock, onRemoveTask, onToggleTask, onUpdateCover,
 }: CardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +104,7 @@ function RoutineCard({
   const focusKey = getBlockFocus(block);
   const colors = FOCUS_COLORS[focusKey] || FOCUS_COLORS.default;
   const pendingTasks = tasks.filter(t => !t.completed);
-  const image = block.coverImage;
+  const image = cover || block.coverImage;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -287,6 +289,7 @@ export function RoutineCardsView({
   onRemoveTask,
   onToggleTask,
   onUpdateCover,
+  covers = {},
   isFutureView = false,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
@@ -344,6 +347,7 @@ export function RoutineCardsView({
             isActive={isActive}
             isPast={isPast}
             progress={progress}
+            cover={covers[block.id]}
             onToggleBlock={onToggleBlock}
             onRemoveTask={onRemoveTask}
             onToggleTask={onToggleTask}

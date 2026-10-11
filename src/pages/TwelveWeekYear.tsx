@@ -172,7 +172,7 @@ export default function TwelveWeekYear() {
     return (month % 3);
   });
   const [scope, setScope] = useState<'month' | 'quarter'>('month');
-  const [activeCentral, setActiveCentral] = useState('desarrollo');
+  const [activeCentral, setActiveCentral] = useState('profesional');
   const [activeSub, setActiveSub] = useState('lectura');
 
   const monthLabels = getMonthNamesForQuarter(selectedQuarter);

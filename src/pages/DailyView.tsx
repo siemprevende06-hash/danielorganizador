@@ -46,6 +46,7 @@ import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutineBlocks';
+import { useSystemCardCovers } from '@/hooks/useSystemCardCovers';
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -197,6 +198,13 @@ export default function DailyView() {
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
   const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus, updateBlockCover } = useRoutineBlocks();
+  const { covers, saveCover, removeCover } = useSystemCardCovers();
+
+  const handleBlockCover = (blockId: string, url: string) => {
+    if (url) saveCover(blockId, url);
+    else removeCover(blockId);
+    updateBlockCover(blockId, url);
+  };
 
   // Apply plan's routine type when a plan exists for today
   useEffect(() => {
@@ -413,7 +421,8 @@ export default function DailyView() {
                   isBlockCompleted={isBlockCompleted}
                   onRemoveTask={removeTaskFromBlock}
                   onToggleTask={toggleTaskDone}
-                  onUpdateCover={updateBlockCover}
+                  onUpdateCover={handleBlockCover}
+                  covers={covers}
                   isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')}
                 />
               ) : (
