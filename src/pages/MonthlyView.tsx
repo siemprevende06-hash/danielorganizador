@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MonthlyTasks } from '@/components/monthly/MonthlyTasks';
-import { MonthlySystemsStats } from '@/components/systems/MonthlySystemsStats';
+import { PeriodSystemsSection } from '@/components/systems/PeriodSystemsSection';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { getQuarterFromDate } from '@/lib/hierarchy';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
@@ -97,7 +97,7 @@ export default function MonthlyView() {
             {/* Sistemas section */}
             <section className="space-y-4">
               <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
-              <MonthlySystemsStats monthDate={currentMonth} />
+              <PeriodSystemsSection start={monthStart} end={monthEnd} period="mes" />
             </section>
 
             {/* Mejora section */}
@@ -113,7 +113,7 @@ export default function MonthlyView() {
         ) : viewMode === 'sistemas' ? (
           <section className="space-y-4">
             <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>
-            <MonthlySystemsStats monthDate={currentMonth} />
+            <PeriodSystemsSection start={monthStart} end={monthEnd} period="mes" />
           </section>
         ) : viewMode === 'autocritica' ? (
           <AutocriticaSection start={monthStart} end={monthEnd} scope="month" />

@@ -14,6 +14,7 @@ import { useState, useEffect } from 'react';
 import { useOffline } from '@/providers/OfflineProvider';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useAutoTheme } from '@/hooks/useAutoTheme';
+import { getCurrentRoutineBlockInfo } from '@/hooks/useRoutineBlocks';
 import { InstallPrompt } from '@/components/InstallPrompt';
 import { PageCoverMenu } from '@/components/PageCoverMenu';
 import { usePageIcons } from '@/contexts/PageIconsContext';
@@ -209,6 +210,59 @@ function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
   );
 }
 
+function getNavTime() {
+  const now = new Date();
+  let hours = now.getHours();
+  const meridiem = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    hours: String(hours).padStart(2, '0'),
+    minutes: pad(now.getMinutes()),
+    seconds: pad(now.getSeconds()),
+    meridiem,
+  };
+}
+
+function NavClock({ collapsed = false, compactTime = false }: { collapsed?: boolean; compactTime?: boolean }) {
+  const [time, setTime] = useState(getNavTime);
+  const [routine, setRoutine] = useState(getCurrentRoutineBlockInfo);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTime(getNavTime());
+      setRoutine(getCurrentRoutineBlockInfo());
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className={cn(
+      "flex items-center",
+      collapsed ? "flex-col gap-1.5 py-1.5" : "gap-2 px-3 py-2"
+    )}>
+      <span className="flex items-center gap-1 font-mono text-xs font-semibold tabular-nums tracking-wider shrink-0">
+        {time.hours}:{time.minutes}
+        <span className={cn("text-muted-foreground", compactTime && "hidden sm:inline")}>:{time.seconds}</span>
+        <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">{time.meridiem}</span>
+      </span>
+      {routine && (
+        <span className={cn(
+          "flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-600 dark:text-emerald-400",
+          compactTime && "hidden sm:flex"
+        )}>
+          <span className="size-1 shrink-0 rounded-full bg-emerald-500 animate-pulse" />
+          {!collapsed && (
+            <span className="truncate text-[10px] font-semibold max-w-[130px]">{routine.block.title}</span>
+          )}
+          <span className="text-[9px] tabular-nums opacity-70 shrink-0">{routine.index}/{routine.total}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 export const Navigation = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
@@ -329,6 +383,7 @@ export const Navigation = () => {
             <span className="truncate font-medium text-sm">{currentPage}</span>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
+            <NavClock compactTime />
             <PageCoverMenu currentName={currentPage} />
             <button
               onClick={() => (window as any).__pwaCheckForUpdates?.()}
@@ -480,6 +535,7 @@ export const Navigation = () => {
           <div className="pb-2" />
         </nav>
         <div className="shrink-0 border-t">
+          <NavClock collapsed={collapsed} />
           <InstallPrompt />
         </div>
       </aside>

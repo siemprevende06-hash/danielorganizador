@@ -17,6 +17,14 @@ import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
 import { cn } from "@/lib/utils";
 import WeekHabitCard from "./WeekHabitCard";
 
+export type PeriodLabel = "semana" | "mes" | "trimestre";
+
+const PERIOD_ADJECTIVE: Record<PeriodLabel, string> = {
+  semana: "semanal",
+  mes: "mensual",
+  trimestre: "trimestral",
+};
+
 export interface WeekAreaSystemCardProps {
   area: PointBArea;
   score?: AreaScore;
@@ -32,6 +40,7 @@ export interface WeekAreaSystemCardProps {
   focusItems?: Record<string, TodayStripItem>;
   daysTotal: number;
   hideCover?: boolean;
+  period?: PeriodLabel;
 }
 
 function DiagnosisBadge({ diagnosis }: { diagnosis: ReturnType<typeof diagnoseArea> }) {
@@ -59,6 +68,7 @@ export default function WeekAreaSystemCard({
   focusItems,
   daysTotal,
   hideCover,
+  period = "semana",
 }: WeekAreaSystemCardProps) {
   const config = AREA_SYSTEMS[area.id];
   const group = GROUP_CONFIG[area.group as keyof typeof GROUP_CONFIG] ?? GROUP_CONFIG.construccion;
@@ -84,6 +94,7 @@ export default function WeekAreaSystemCard({
         streak={streaks[meta.id]}
         focus={focusItems?.[meta.id]}
         coverUrl={cover}
+        period={period}
       />
     );
   };
@@ -122,14 +133,14 @@ export default function WeekAreaSystemCard({
         <div className="grid grid-cols-2 gap-1.5 text-[9px]">
           <div className="rounded-lg bg-foreground/5 px-2 py-1.5 space-y-1">
             <div className="flex items-center justify-between text-muted-foreground">
-              <span>Esfuerzo (semana)</span>
+              <span>Esfuerzo ({period})</span>
               <span className="font-bold">{score?.esfuerzo ?? 0}%</span>
             </div>
             <Progress value={Math.min(100, score?.esfuerzo ?? 0)} className="h-1" indicatorClassName="bg-blue-500" />
           </div>
           <div className="rounded-lg bg-foreground/5 px-2 py-1.5 space-y-1">
             <div className="flex items-center justify-between text-muted-foreground">
-              <span>Resultado (semana)</span>
+              <span>Resultado ({period})</span>
               <span className="font-bold">{score?.resultados ?? 0}%</span>
             </div>
             <Progress value={Math.min(100, score?.resultados ?? 0)} className="h-1" indicatorClassName={group.bar} />
@@ -142,7 +153,7 @@ export default function WeekAreaSystemCard({
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">
               <h4 className="text-[13px] font-extrabold uppercase tracking-wide text-foreground">
-                Sistema semanal
+                Sistema {PERIOD_ADJECTIVE[period]}
               </h4>
               <span className={cn("text-[9px] font-medium", doneCount === trackables.length ? "text-emerald-500" : "text-muted-foreground")}>
                 {doneCount}/{trackables.length} días completos

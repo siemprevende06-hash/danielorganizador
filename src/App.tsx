@@ -17,7 +17,6 @@ import { PageCoversProvider } from "./contexts/PageCoversContext";
 import { PageIconsProvider } from "./contexts/PageIconsContext";
 import { PageNamesProvider } from "./contexts/PageNamesContext";
 import { PageCoverBanner } from "./components/PageCoverBanner";
-import { DigitalClockStrip } from "./components/DigitalClockStrip";
 import Index from "./pages/Index";
 import Inicio2 from "./pages/Inicio2";
 import NotFound from "./pages/NotFound";
@@ -121,7 +120,6 @@ function AppContent() {
         <PageIconsProvider>
           <PageNamesProvider>
             <Navigation />
-            <DigitalClockStrip />
             <PageCoverBanner />
           <Routes>
         <Route path="/" element={<Index />} />

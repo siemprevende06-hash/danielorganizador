@@ -22,6 +22,36 @@ const TIER_FULL: WeekTier = {
   text: "text-emerald-600 dark:text-emerald-400",
   dot: "bg-emerald-500",
 };
+
+const PERIOD_PERFECT: Record<string, string> = {
+  semana: "Semana completa",
+  mes: "Mes completo",
+  trimestre: "Trimestre completo",
+};
+
+const PERIOD_FOCUS: Record<string, string> = {
+  semana: "Esta semana",
+  mes: "Este mes",
+  trimestre: "Este trimestre",
+};
+
+const PERIOD_MIN_ABBR: Record<string, string> = {
+  semana: "min sem.",
+  mes: "min mes",
+  trimestre: "min trim.",
+};
+
+const PERIOD_IN: Record<string, string> = {
+  semana: "en la semana",
+  mes: "en el mes",
+  trimestre: "en el trimestre",
+};
+
+const PERIOD_TASKS: Record<string, string> = {
+  semana: "esta semana",
+  mes: "este mes",
+  trimestre: "este trimestre",
+};
 const TIER_PARTIAL: WeekTier = {
   label: "Parcial",
   ring: "ring-blue-500/50",
@@ -47,8 +77,8 @@ const TIER_NONE: WeekTier = {
   dot: "bg-gray-400",
 };
 
-function weekTier(done: number, total: number, skipped: number): WeekTier {
-  if (total > 0 && done >= total) return TIER_FULL;
+function weekTier(done: number, total: number, skipped: number, period: string): WeekTier {
+  if (total > 0 && done >= total) return { ...TIER_FULL, label: PERIOD_PERFECT[period] ?? "Completo" };
   if (done > 0) return TIER_PARTIAL;
   if (skipped > 0) return TIER_SKIP;
   return TIER_NONE;
@@ -74,9 +104,10 @@ export interface WeekHabitCardProps {
   streak?: { current: number; best: number };
   focus?: TodayStripItem;
   coverUrl?: string | null;
+  period?: string;
 }
 
-function focusInfo(focus: TodayStripItem) {
+function focusInfo(focus: TodayStripItem, period: string) {
   const emoji =
     focus.kind === "libro"
       ? "📖"
@@ -96,7 +127,7 @@ function focusInfo(focus: TodayStripItem) {
         : `${focus.pagesRead} págs`
       : focus.kind === "cancion"
         ? `${focus.instrument ? focus.instrument + " · " : ""}${focus.practiceMinutes ?? 0} min`
-        : `${focus.doneTasks}/${focus.totalTasks} tareas esta semana`;
+        : `${focus.doneTasks}/${focus.totalTasks} tareas ${PERIOD_TASKS[period] ?? "esta semana"}`;
   return { emoji, title, label };
 }
 
@@ -112,13 +143,14 @@ export default function WeekHabitCard({
   streak,
   focus,
   coverUrl,
+  period = "semana",
 }: WeekHabitCardProps) {
-  const tier = weekTier(daysDone, daysTotal, daysSkipped);
+  const tier = weekTier(daysDone, daysTotal, daysSkipped, period);
   const coverId = meta.cover?.id ?? meta.id;
   const sparkMax = Math.max(1, ...spark);
   const showCount = !!meta.system?.countKey || meta.hasWater;
   const countLabel = meta.system?.countLabel || (meta.hasWater ? "vasos" : "repeticiones");
-  const fi = focus ? focusInfo(focus) : null;
+  const fi = focus ? focusInfo(focus, period) : null;
 
   return (
     <div className={cn("relative rounded-2xl overflow-hidden ring-2 flex flex-col", tier.ring, tier.bg)}>
@@ -156,18 +188,18 @@ export default function WeekHabitCard({
           </span>
         )}
 
-        {/* Días de la semana: hecho / saltado / sin registro */}
+        {/* Días del periodo: hecho / saltado / sin registro */}
         <div className="flex items-center gap-0.5">
           {status.map((s, i) => (
             <span
               key={i}
-              title={DAY_LABELS[i]}
+              title={status.length <= 7 ? DAY_LABELS[i] : `Día ${i + 1}`}
               className={cn("flex-1 h-1.5 rounded-full", DAY_DOT[s])}
             />
           ))}
         </div>
 
-        {/* Tendencia de minutos (7 días) */}
+        {/* Tendencia de minutos (días del periodo) */}
         {spark.some(v => v > 0) && (
           <div className="flex items-end gap-0.5 h-5">
             {spark.map((v, i) => (
@@ -195,7 +227,7 @@ export default function WeekHabitCard({
             <div className="min-w-0 flex-1">
               <p className="text-[9px] font-bold leading-tight truncate">{fi.title}</p>
               <p className="text-[8px] text-muted-foreground leading-tight truncate">
-                Esta semana: {fi.label}
+                {PERIOD_FOCUS[period] ?? "Esta semana"}: {fi.label}
               </p>
             </div>
           </div>
@@ -203,7 +235,7 @@ export default function WeekHabitCard({
 
         <div className="mt-auto flex items-baseline gap-1">
           <span className="text-lg font-extrabold tabular-nums">{weekMinutes}</span>
-          <span className="text-[9px] text-muted-foreground">min sem.</span>
+          <span className="text-[9px] text-muted-foreground">{PERIOD_MIN_ABBR[period] ?? "min sem."}</span>
           <span className={cn("ml-auto text-[9px] font-bold tabular-nums", daysDone >= daysTotal ? "text-emerald-500" : "text-muted-foreground")}>
             {daysDone}/{daysTotal} días
           </span>
@@ -211,7 +243,7 @@ export default function WeekHabitCard({
 
         {showCount && (
           <p className="text-[9px] text-muted-foreground">
-            {weekCount ?? 0} {countLabel} en la semana
+            {weekCount ?? 0} {countLabel} {PERIOD_IN[period] ?? "en la semana"}
           </p>
         )}
       </div>

@@ -10,11 +10,11 @@ import { useTrimestralPlan, getQuarterFromDate } from '@/hooks/useTrimestralPlan
 import { ItemSelector } from '@/components/monthly-planning/ItemSelector';
 import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
 import { setQuarterGoal } from '@/lib/hierarchy';
-import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { ResultadosTrimestre } from '@/components/resultados/ResultadosTrimestre';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
+import { PeriodSystemsSection } from '@/components/systems/PeriodSystemsSection';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -619,11 +619,7 @@ export default function TrimestralPlanningPage() {
         ) : viewMode === 'sistemas' ? (
           <section className="space-y-4">
             <h2 className="text-lg font-semibold tracking-tight">Sistemas del trimestre</h2>
-            <PeriodControlSection
-              scope="quarter"
-              start={new Date(year, (quarter - 1) * 3, 1)}
-              end={new Date(year, quarter * 3, 0)}
-            />
+            <PeriodSystemsSection start={quarterStart} end={quarterEnd} period="trimestre" />
           </section>
         ) : viewMode === 'autocritica' ? (
           <AutocriticaSection start={new Date(year, (quarter - 1) * 3, 1)} end={new Date(year, quarter * 3, 0)} scope="quarter" />
