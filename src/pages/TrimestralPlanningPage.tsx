@@ -11,6 +11,8 @@ import { ItemSelector } from '@/components/monthly-planning/ItemSelector';
 import { MinutesGoalInput } from '@/components/hierarchy/MinutesGoalInput';
 import { setQuarterGoal } from '@/lib/hierarchy';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { PeriodFocusSection } from '@/components/focus/PeriodFocusSection';
+import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { ResultadosTrimestre } from '@/components/resultados/ResultadosTrimestre';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
@@ -616,6 +618,8 @@ export default function TrimestralPlanningPage() {
         </div>
       )}
           </>
+        ) : viewMode === 'focus' ? (
+          <PeriodFocusSection scope="quarter" anchorDate={quarterStart} />
         ) : viewMode === 'sistemas' ? (
           <section className="space-y-4">
             <h2 className="text-lg font-semibold tracking-tight">Sistemas del trimestre</h2>

@@ -21,6 +21,7 @@ import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { PeriodFocusSection } from '@/components/focus/PeriodFocusSection';
 import { PlanSemanal } from '@/components/plan/PlanSemanal';
 import { WeeklyObjectives } from '@/components/weekly/WeeklyObjectives';
 import { WeeklyFocusCard } from '@/components/planning/WeeklyFocusCard';
@@ -29,7 +30,7 @@ import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 import { WeekComparisonCard } from '@/components/dashboard/WeekComparisonCard';
 
-const VALID_MODES: PeriodViewMode[] = ['plan', 'esfuerzo', 'sistemas', 'resultados', 'autocritica'];
+const VALID_MODES: PeriodViewMode[] = ['plan', 'esfuerzo', 'focus', 'sistemas', 'resultados', 'autocritica'];
 const WEEK_PARAM_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export default function WeeklyView() {
@@ -341,6 +342,8 @@ export default function WeeklyView() {
               </Card>
             </section>
           </>
+        ) : viewMode === 'focus' ? (
+          <PeriodFocusSection scope="week" anchorDate={weekStart} />
         ) : viewMode === 'sistemas' ? (
           <section className="space-y-4">
             <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>

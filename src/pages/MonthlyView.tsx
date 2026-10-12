@@ -12,6 +12,7 @@ import { getQuarterFromDate } from '@/lib/hierarchy';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { PeriodFocusSection } from '@/components/focus/PeriodFocusSection';
 import { ResultadosMes } from '@/components/resultados/ResultadosMes';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
@@ -110,6 +111,8 @@ export default function MonthlyView() {
               </Card>
             </section>
           </>
+        ) : viewMode === 'focus' ? (
+          <PeriodFocusSection scope="month" anchorDate={monthStart} />
         ) : viewMode === 'sistemas' ? (
           <section className="space-y-4">
             <h2 className="text-lg font-semibold tracking-tight">Sistemas</h2>

@@ -34,6 +34,7 @@ import { useAbcCategories } from '@/hooks/useAbcCategories';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { PeriodFocusSection } from '@/components/focus/PeriodFocusSection';
 import { PronosticosPanel } from '@/components/pronosticos/PronosticosPanel';
 import { ResultadosDia } from '@/components/resultados/ResultadosDia';
 import { DaySystemsSection } from '@/components/today/DaySystemsSection';
@@ -444,6 +445,8 @@ export default function DailyView() {
 
             <AbcKanbanBoard key={`abc-${format(selectedDate, 'yyyy-MM-dd')}`} tasks={tasks} onToggle={toggleTaskDone} map={abc.map} onMove={abc.move} onRotate={abc.rotate} />
           </>
+        ) : viewMode === 'focus' ? (
+          <PeriodFocusSection scope="day" anchorDate={selectedDate} />
         ) : viewMode === 'esfuerzo' ? (
           <>
         {/* Panel de control del día */}

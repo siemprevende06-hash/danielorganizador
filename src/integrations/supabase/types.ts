@@ -2133,13 +2133,18 @@ export type Database = {
       music_repertoire: {
         Row: {
           artist: string | null
+          cover_image_url: string | null
           created_at: string | null
           difficulty: string | null
+          duration_seconds: number | null
           id: string
           instrument: string
           last_practiced: string | null
+          learned_at: string | null
+          mastered_at: string | null
           notes: string | null
           practice_minutes: number | null
+          recorded_at: string | null
           status: string | null
           title: string
           updated_at: string | null
@@ -2148,13 +2153,18 @@ export type Database = {
         }
         Insert: {
           artist?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
+          duration_seconds?: number | null
           id?: string
           instrument: string
           last_practiced?: string | null
+          learned_at?: string | null
+          mastered_at?: string | null
           notes?: string | null
           practice_minutes?: number | null
+          recorded_at?: string | null
           status?: string | null
           title: string
           updated_at?: string | null
@@ -2163,13 +2173,18 @@ export type Database = {
         }
         Update: {
           artist?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
+          duration_seconds?: number | null
           id?: string
           instrument?: string
           last_practiced?: string | null
+          learned_at?: string | null
+          mastered_at?: string | null
           notes?: string | null
           practice_minutes?: number | null
+          recorded_at?: string | null
           status?: string | null
           title?: string
           updated_at?: string | null
@@ -2334,6 +2349,57 @@ export type Database = {
           is_selected?: boolean
           mode_key?: string
           name?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      period_focus: {
+        Row: {
+          area_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          is_primary: boolean
+          note: string | null
+          period_start: string
+          period_type: string
+          rank: number
+          status: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          area_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          is_primary?: boolean
+          note?: string | null
+          period_start: string
+          period_type: string
+          rank?: number
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          area_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          is_primary?: boolean
+          note?: string | null
+          period_start?: string
+          period_type?: string
+          rank?: number
+          status?: string
+          title?: string
           updated_at?: string
           user_id?: string | null
         }

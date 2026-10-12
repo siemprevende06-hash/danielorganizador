@@ -7,6 +7,7 @@ import PeriodSections from '@/components/hierarchy/PeriodSections';
 import { loadQuarterPlan, QUARTER_MONTH_KEYS } from '@/lib/hierarchy';
 import { PeriodControlSection } from '@/components/control/PeriodControlSection';
 import { EsfuerzoResultadosToggle, ResultadosPlaceholder, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { PeriodFocusSection } from '@/components/focus/PeriodFocusSection';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 import { MapaEstrategico } from '@/components/anual/MapaEstrategico';
 import { HitosDelAno } from '@/components/anual/HitosDelAno';
@@ -104,6 +105,8 @@ export default function AnualView() {
         <HitosDelAno year={year} />
         <ReviewAnual year={year} />
           </>
+        ) : viewMode === 'focus' ? (
+          <PeriodFocusSection scope="year" anchorDate={new Date(year, 0, 1)} />
         ) : viewMode === 'sistemas' ? (
           <section className="space-y-4">
             <h2 className="text-lg font-semibold tracking-tight">Sistemas del año</h2>
