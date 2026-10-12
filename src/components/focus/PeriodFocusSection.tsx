@@ -88,11 +88,18 @@ export function PeriodFocusSection({ scope, anchorDate }: Props) {
 
   const parentLabel = parentType ? getFocusPeriodLabel(parentType) : '';
 
+  const describeError = (e: unknown): string => {
+    const err = e as { message?: string; details?: string; hint?: string; code?: string };
+    return [err?.message, err?.code ? `(${err.code})` : null, err?.details, err?.hint]
+      .filter(Boolean)
+      .join(' · ') || 'Error desconocido';
+  };
+
   const handleAdd = async (input: Parameters<typeof addFocus>[0]) => {
     try {
       await addFocus(input);
     } catch (e) {
-      toast({ title: 'No se pudo añadir el foco', description: (e as Error)?.message, variant: 'destructive' });
+      toast({ title: 'No se pudo añadir el foco', description: describeError(e), variant: 'destructive' });
       throw e;
     }
   };
