@@ -35,6 +35,7 @@ import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
 import { PeriodFocusSection } from '@/components/focus/PeriodFocusSection';
+import { FocusRoutineBoard } from '@/components/focus/FocusRoutineBoard';
 import { PronosticosPanel } from '@/components/pronosticos/PronosticosPanel';
 import { ResultadosDia } from '@/components/resultados/ResultadosDia';
 import { DaySystemsSection } from '@/components/today/DaySystemsSection';
@@ -130,7 +131,7 @@ export default function DailyView() {
   const dayOfYear = Math.ceil((selectedDate.getTime() - new Date(selectedDate.getFullYear(), 0, 1).getTime()) / 86400000);
   const yearProgress = Math.round((dayOfYear / 365) * 100);
 
-  const { data, loading, toggleCompletion, setTimeValue, setCountValue, setChessResultValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleActiveFocusArea } = useSystemsTracking(selectedDate);
+  const { data, loading, toggleCompletion, setTimeValue, setCountValue, setChessResultValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleRest, toggleActiveFocusArea } = useSystemsTracking(selectedDate);
 
   const dailyPlanData = useDailyPlanData(selectedDate);
   const {
@@ -198,7 +199,7 @@ export default function DailyView() {
   const currentBlock = getCurrentBlock();
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
-  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus, updateBlockCover } = useRoutineBlocks();
+  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus, updateBlockCover, addBlock: addRoutineBlock, removeBlock: removeRoutineBlock, routineInfo } = useRoutineBlocks();
   const { covers, saveCover, removeCover } = useSystemCardCovers();
 
   const handleBlockCover = (blockId: string, url: string) => {
@@ -446,7 +447,29 @@ export default function DailyView() {
             <AbcKanbanBoard key={`abc-${format(selectedDate, 'yyyy-MM-dd')}`} tasks={tasks} onToggle={toggleTaskDone} map={abc.map} onMove={abc.move} onRotate={abc.rotate} />
           </>
         ) : viewMode === 'focus' ? (
-          <PeriodFocusSection scope="day" anchorDate={selectedDate} />
+          <div className="space-y-4">
+            <PeriodFocusSection scope="day" anchorDate={selectedDate} />
+            <MySystemsSection date={selectedDate} blocks={planBlocks} />
+            <FocusRoutineBoard
+              blocks={planBlocks}
+              routineInfo={routineInfo}
+              tasksByBlock={tasksByBlock || {}}
+              onToggleBlock={toggleBlockComplete}
+              isBlockCompleted={isBlockCompleted}
+              onRemoveTask={removeTaskFromBlock}
+              onToggleTask={toggleTaskDone}
+              onDropTask={assignTaskToBlock}
+              onUpdateFocus={updateRoutineBlockFocus}
+              onUpdateCover={handleBlockCover}
+              covers={covers}
+              onAddBlock={addRoutineBlock}
+              onRemoveBlock={removeRoutineBlock}
+              events={todayEvents || []}
+              musicInstrument={musicInstrument}
+              languageChoice={planLanguage || undefined}
+              isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')}
+            />
+          </div>
         ) : viewMode === 'esfuerzo' ? (
           <>
         {/* Panel de control del día */}
@@ -740,7 +763,9 @@ export default function DailyView() {
             onToggle={toggleCompletion}
             onTimeChange={setTimeValue}
             skipped={data.skipped}
+            rest={data.rest}
             onSkipToggle={toggleSkip}
+            onRestToggle={toggleRest}
             countData={data.countData}
             onCountChange={setCountValue}
             onChessResultChange={setChessResultValue}

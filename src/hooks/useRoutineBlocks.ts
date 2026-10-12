@@ -293,6 +293,35 @@ export const useRoutineBlocks = () => {
     saveBlocks(newBlocks);
   }, [rawBlocks, saveBlocks]);
 
+  const addBlock = useCallback((partial: {
+    title: string;
+    startTime: string;
+    endTime: string;
+    isFocusBlock?: boolean;
+    defaultFocus?: string;
+  }): RoutineBlock => {
+    const newBlock: RoutineBlock = {
+      id: `custom-${Date.now()}`,
+      title: partial.title,
+      startTime: partial.startTime,
+      endTime: partial.endTime,
+      tasks: [],
+      currentStreak: 0,
+      maxStreak: 0,
+      weeklyCompletion: [false, false, false, false, false, false, false],
+      isFocusBlock: partial.isFocusBlock ?? true,
+      blockType: 'focus',
+      order: rawBlocks.length,
+      defaultFocus: partial.defaultFocus ?? 'none',
+    };
+    saveBlocks([...rawBlocks, newBlock].map((b, index) => ({ ...b, order: index })));
+    return newBlock;
+  }, [rawBlocks, saveBlocks]);
+
+  const removeBlock = useCallback((blockId: string) => {
+    saveBlocks(rawBlocks.filter(block => block.id !== blockId).map((b, index) => ({ ...b, order: index })));
+  }, [rawBlocks, saveBlocks]);
+
   const getCurrentBlock = useCallback((): RoutineBlock | null => {
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -369,6 +398,8 @@ export const useRoutineBlocks = () => {
     setRoutineType,
     reorderBlocks,
     updateBlock,
+    addBlock,
+    removeBlock,
     getCurrentBlock,
     getBlockDurationMinutes,
     getBlockProgress,
