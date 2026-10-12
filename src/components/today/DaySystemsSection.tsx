@@ -33,6 +33,7 @@ export function DaySystemsSection({
   onToggle,
   onTimeChange,
   skipped,
+  rest,
   countData,
   onCountChange,
   onChessResultChange,
@@ -41,6 +42,7 @@ export function DaySystemsSection({
   mealPhotos,
   onMealPhotoUpload,
   onSkipToggle,
+  onRestToggle,
   wakeTime,
   sleepTime,
   onWakeTimeChange,
@@ -55,6 +57,7 @@ export function DaySystemsSection({
   onToggle: (id: string) => void;
   onTimeChange: (id: string, minutes: number) => void;
   skipped?: Record<string, boolean>;
+  rest?: Record<string, boolean>;
   streaks?: Record<string, { current: number; best: number }>;
   countData?: Record<string, number>;
   onCountChange?: (id: string, count: number) => void;
@@ -64,6 +67,7 @@ export function DaySystemsSection({
   mealPhotos?: Record<string, string>;
   onMealPhotoUpload?: (id: string, url: string) => void;
   onSkipToggle?: (id: string) => void;
+  onRestToggle?: (id: string) => void;
   wakeTime?: string;
   sleepTime?: string;
   onWakeTimeChange?: (v: string) => void;
@@ -154,6 +158,7 @@ export function DaySystemsSection({
     waterData,
     mealPhotos,
     skipped,
+    rest,
     wakeTime,
     sleepTime,
     workoutDuration,
@@ -176,6 +181,7 @@ export function DaySystemsSection({
     onWaterToggle,
     onMealPhotoUpload,
     onSkipToggle,
+    onRestToggle,
     onWakeTimeChange,
     onSleepTimeChange,
     onWorkoutDurationChange,

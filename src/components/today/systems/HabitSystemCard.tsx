@@ -55,6 +55,7 @@ const SPEED_STYLE: Record<SystemSpeed, { active: string }> = {
 
 const NS_DONE: Tier = { key: "green", label: "Hecho", border: "border-emerald-500/40", bg: "bg-emerald-500/5", bar: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-500/40", dot: "bg-emerald-500" };
 const NS_SKIP: Tier = { key: "red", label: "Saltado", border: "border-red-500/40", bg: "bg-red-500/5", bar: "bg-red-500", text: "text-red-500", ring: "ring-red-500/40", dot: "bg-red-500" };
+const NS_REST: Tier = { key: "green", label: "Descanso", border: "border-emerald-500/40", bg: "bg-emerald-500/5", bar: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-500/40", dot: "bg-emerald-500" };
 const NS_IDLE: Tier = { key: "grey", label: "Sin hacer", border: "border-border/40", bg: "bg-white/50 dark:bg-zinc-950/50", bar: "bg-muted-foreground/40", text: "text-muted-foreground", ring: "ring-border/40", dot: "bg-gray-400" };
 
 interface ChessDailyResultsInlineProps {
@@ -138,6 +139,8 @@ export interface HabitSystemCardProps {
   meta: HabitMeta;
   done: boolean;
   isSkipped: boolean;
+  /** Día de descanso (ej. gym): se ve en verde y no cuenta como "no hice". */
+  isRest?: boolean;
   actualMinutes: number;
   metaMinutes: number;
   count?: number;
@@ -159,6 +162,7 @@ export interface HabitSystemCardProps {
   quickAddMinutes?: number[];
   onToggle: () => void;
   onSkip: () => void;
+  onRest?: () => void;
   onWater: () => void;
   onMealPhotoUpload?: (id: string, url: string) => void;
   onTimeChange: (v: number) => void;
@@ -175,6 +179,7 @@ export default function HabitSystemCard({
   meta,
   done,
   isSkipped,
+  isRest,
   actualMinutes,
   metaMinutes,
   count,
@@ -195,6 +200,7 @@ export default function HabitSystemCard({
   quickAddMinutes,
   onToggle,
   onSkip,
+  onRest,
   onWater,
   onMealPhotoUpload,
   onTimeChange,
@@ -214,7 +220,8 @@ export default function HabitSystemCard({
   const tier = isSystem ? getTier(actualMinutes, isSkipped, metaMinutes, speedOptions) : null;
   const baseSt = tier ?? (done ? NS_DONE : isSkipped ? NS_SKIP : NS_IDLE);
   const isGym = meta.id === "entrenamiento-fisico" || meta.id === "gym";
-  const st = (isSkipped && isGym) ? { ...NS_SKIP, label: "Descanso" } : baseSt;
+  // Un día de descanso es un día válido (verde): no es lo mismo que saltar/no ir.
+  const st = isRest ? NS_REST : baseSt;
 
   const showMinutes = isSystem || meta.hasTime || meta.isWorkout;
   const pct = metaMinutes > 0 ? Math.round((actualMinutes / metaMinutes) * 100) : 0;
@@ -427,12 +434,29 @@ export default function HabitSystemCard({
                 />
               </>
             )}
+            {isGym && onRest && (
+              <button
+                onClick={onRest}
+                className={cn(
+                  "px-1.5 py-1 rounded-md text-[9px] font-bold transition-colors",
+                  isRest
+                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                    : "bg-muted text-muted-foreground hover:bg-emerald-500/15 hover:text-emerald-600 dark:hover:text-emerald-400"
+                )}
+                title={isRest ? "Quitar día de descanso" : "Marcar día de descanso (no rompe la racha)"}
+              >
+                {isRest ? "Descanso ✓" : "Descanso"}
+              </button>
+            )}
             <button
               onClick={onSkip}
-              className="px-1.5 py-1 rounded-md text-[9px] font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-              title={isSkipped ? (isGym ? "Quitar día de descanso" : "Desmarcar salteado") : (isGym ? "Marcar día de descanso" : "Saltear hoy")}
+              className={cn(
+                "px-1.5 py-1 rounded-md text-[9px] font-medium transition-colors",
+                isSkipped ? "bg-red-500/20 text-red-500" : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+              )}
+              title={isSkipped ? "Desmarcar saltado" : (isGym ? "Saltar (no fui al gym)" : "Saltear hoy")}
             >
-              {isSkipped ? "Volver" : (isGym ? "Descanso" : "Saltar")}
+              {isSkipped ? "Volver" : "Saltar"}
             </button>
           </div>
         </div>

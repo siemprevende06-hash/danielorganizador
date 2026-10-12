@@ -42,6 +42,7 @@ export interface AreaInteraction {
   waterData?: Record<string, boolean>;
   mealPhotos?: Record<string, string>;
   skipped?: Record<string, boolean>;
+  rest?: Record<string, boolean>;
   wakeTime?: string;
   sleepTime?: string;
   workoutDuration?: number;
@@ -64,6 +65,7 @@ export interface AreaInteraction {
   onWaterToggle?: (id: string) => void;
   onMealPhotoUpload?: (id: string, url: string) => void;
   onSkipToggle?: (id: string) => void;
+  onRestToggle?: (id: string) => void;
   onWakeTimeChange?: (v: string) => void;
   onSleepTimeChange?: (v: string) => void;
   onWorkoutDurationChange?: (v: number) => void;
@@ -189,6 +191,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         meta={meta}
         done={!!interaction.completions[meta.id]}
         isSkipped={!!interaction.skipped?.[meta.id]}
+        isRest={!!interaction.rest?.[meta.id]}
         actualMinutes={actual}
         metaMinutes={interaction.metaMinutesById[meta.id] ?? 0}
         count={sys?.countKey ? interaction.countData?.[sys.countKey] ?? 0 : undefined}
@@ -214,6 +217,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         }
         onToggle={() => interaction.onToggle(meta.id)}
         onSkip={() => interaction.onSkipToggle?.(meta.id)}
+        onRest={() => interaction.onRestToggle?.(meta.id)}
         onWater={() => interaction.onWaterToggle?.(meta.id)}
         onMealPhotoUpload={interaction.onMealPhotoUpload}
         onTimeChange={(v) => interaction.onTimeChange(meta.id, v)}

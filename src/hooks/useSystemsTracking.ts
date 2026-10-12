@@ -74,6 +74,8 @@ export interface SystemsData {
   workoutIntensity: string;
   mealPhotos: Record<string, string>;
   skipped: Record<string, boolean>;
+  /** Días de descanso (ej. gym): no cuentan como "no hice" y no rompen la racha. */
+  rest: Record<string, boolean>;
   activeFocusAreas: string[];
 }
 
@@ -90,6 +92,7 @@ const DEFAULT_DATA: SystemsData = {
   workoutIntensity: "moderate",
   mealPhotos: {},
   skipped: {},
+  rest: {},
   activeFocusAreas: ["universidad", "emprendimiento", "proyectos"],
 };
 
@@ -149,6 +152,7 @@ export function useSystemsTracking(targetDate?: Date) {
         workoutIntensity: row.workout_intensity || "moderate",
         mealPhotos: (row.meal_photos as Record<string, string>) || {},
         skipped: (row.skipped as Record<string, boolean>) || {},
+        rest: (row.rest as Record<string, boolean>) || {},
         activeFocusAreas: (row.active_focus_areas as string[]) || ["universidad", "emprendimiento", "proyectos"],
       });
 
@@ -253,13 +257,22 @@ export function useSystemsTracking(targetDate?: Date) {
       workout_intensity: newData.workoutIntensity,
       meal_photos: newData.mealPhotos,
       skipped: newData.skipped,
+      rest: newData.rest,
       active_focus_areas: newData.activeFocusAreas,
     };
 
     try {
-      await supabase
+      const { error } = await supabase
         .from("daily_systems_tracking")
         .upsert(payload, { onConflict: "tracking_date" });
+      // Si la columna `rest` aún no existe (migración sin aplicar), reintentar
+      // sin ella para no romper el guardado del resto del día.
+      if (error && /rest/i.test(error.message || "")) {
+        const { rest: _rest, ...legacy } = payload;
+        await supabase
+          .from("daily_systems_tracking")
+          .upsert(legacy, { onConflict: "tracking_date" });
+      }
     } catch {}  // offline
 
     await syncToAreaStats(newData, forDate);
@@ -286,6 +299,12 @@ export function useSystemsTracking(targetDate?: Date) {
     setData(prev => {
       const done = !!prev.completions[id];
       const skipped = !!prev.skipped[id];
+      const rest = !!prev.rest[id];
+      if (rest) {
+        const newRest = { ...prev.rest };
+        delete newRest[id];
+        return { ...prev, rest: newRest, completions: { ...prev.completions, [id]: true } };
+      }
       if (!done && !skipped) {
         return { ...prev, completions: { ...prev.completions, [id]: true } };
       }
@@ -304,13 +323,16 @@ export function useSystemsTracking(targetDate?: Date) {
   const setTimeValue = useCallback((id: string, v: number) => {
     setData(prev => {
       const newSkipped = { ...prev.skipped };
+      const newRest = { ...prev.rest };
       if (v > 0) {
         delete newSkipped[id];
+        delete newRest[id];
       }
       return {
         ...prev,
         timeData: { ...prev.timeData, [id]: v },
         skipped: newSkipped,
+        rest: newRest,
       };
     });
   }, []);
@@ -357,12 +379,31 @@ export function useSystemsTracking(targetDate?: Date) {
     setData(prev => {
       const wasSkipped = !!prev.skipped[id];
       const newSkipped = { ...prev.skipped };
+      const newRest = { ...prev.rest };
+      if (id) delete newRest[id];
       if (wasSkipped) {
         delete newSkipped[id];
       } else {
         newSkipped[id] = true;
       }
-      return { ...prev, skipped: newSkipped };
+      return { ...prev, skipped: newSkipped, rest: newRest };
+    });
+  }, []);
+
+  const toggleRest = useCallback((id: string) => {
+    setData(prev => {
+      const wasRest = !!prev.rest[id];
+      const newRest = { ...prev.rest };
+      const newSkipped = { ...prev.skipped };
+      const newCompletions = { ...prev.completions };
+      if (id) delete newSkipped[id];
+      delete newCompletions[id];
+      if (wasRest) {
+        delete newRest[id];
+      } else {
+        newRest[id] = true;
+      }
+      return { ...prev, rest: newRest, skipped: newSkipped, completions: newCompletions };
     });
   }, []);
 
@@ -417,6 +458,7 @@ export function useSystemsTracking(targetDate?: Date) {
     setWorkAssignment,
     toggleBlock,
     toggleSkip,
+    toggleRest,
     toggleActiveFocusArea,
     setMealPhoto,
     loadHistory,
