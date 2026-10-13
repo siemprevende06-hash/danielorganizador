@@ -186,6 +186,15 @@ BEGIN
 END;
 $$;
 
+-- La sobrecarga de un solo argumento queda obsoleta (sin lógica de descanso):
+-- delega en la versión de dos argumentos.
+CREATE OR REPLACE FUNCTION public.recompute_system_habit_streak(_habit_id text)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$ SELECT public.recompute_system_habit_streak(_habit_id, CURRENT_DATE); $$;
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- [7/7] 20260912000000_dedupe_wallets.sql
 -- Billeteras duplicadas: la siembra automática creó un "Efectivo CUP" extra

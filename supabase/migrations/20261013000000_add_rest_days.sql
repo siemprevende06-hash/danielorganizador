@@ -106,3 +106,13 @@ BEGIN
         updated_at = now();
 END;
 $$;
+
+-- La sobrecarga de un solo argumento quedó obsoleta (sin lógica de descanso).
+-- La hacemos delegar en la versión de dos argumentos para que cualquier
+-- llamador obtenga el mismo resultado.
+CREATE OR REPLACE FUNCTION public.recompute_system_habit_streak(_habit_id text)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$ SELECT public.recompute_system_habit_streak(_habit_id, CURRENT_DATE); $$;
