@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { PeriodFocusRow, usePeriodFocus } from '@/hooks/usePeriodFocus';
+import { PeriodFocusRow, usePeriodFocus, type UsePeriodFocusResult } from '@/hooks/usePeriodFocus';
 import {
   FocusPeriodType,
   getAreaLabel,
@@ -71,7 +71,7 @@ function FocusAreaBadge({ areaId }: { areaId?: string | null }) {
   );
 }
 
-export function PeriodFocusSection({ scope, anchorDate }: Props) {
+export function PeriodFocusSectionView({ scope, anchorDate, controller }: Props & { controller: UsePeriodFocusResult }) {
   const { toast } = useToast();
   const {
     primaryFocus,
@@ -83,7 +83,7 @@ export function PeriodFocusSection({ scope, anchorDate }: Props) {
     removeFocus,
     setPrimary,
     toggleDone,
-  } = usePeriodFocus(scope, anchorDate);
+  } = controller;
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const parentLabel = parentType ? getFocusPeriodLabel(parentType) : '';
@@ -268,4 +268,9 @@ export function PeriodFocusSection({ scope, anchorDate }: Props) {
       />
     </div>
   );
+}
+
+export function PeriodFocusSection(props: Props) {
+  const controller = usePeriodFocus(props.scope, props.anchorDate);
+  return <PeriodFocusSectionView {...props} controller={controller} />;
 }

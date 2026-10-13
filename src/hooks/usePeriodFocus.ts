@@ -35,7 +35,7 @@ export interface NewFocusInput {
   is_primary?: boolean;
 }
 
-interface UsePeriodFocusResult {
+export interface UsePeriodFocusResult {
   focuses: PeriodFocusRow[];
   primaryFocus: PeriodFocusRow | null;
   secondaryFocuses: PeriodFocusRow[];

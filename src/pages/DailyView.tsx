@@ -34,7 +34,8 @@ import { useAbcCategories } from '@/hooks/useAbcCategories';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
-import { PeriodFocusSection } from '@/components/focus/PeriodFocusSection';
+import { PeriodFocusSectionView } from '@/components/focus/PeriodFocusSection';
+import { FocusSystemsSection } from '@/components/focus/FocusSystemsSection';
 import { FocusRoutineBoard } from '@/components/focus/FocusRoutineBoard';
 import { PronosticosPanel } from '@/components/pronosticos/PronosticosPanel';
 import { ResultadosDia } from '@/components/resultados/ResultadosDia';
@@ -45,6 +46,7 @@ import { UniEntrepreneurshipProjectPanel } from '@/components/today/UniEntrepren
 import { WorkBlocksSection } from '@/components/today/WorkBlocksSection';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
+import { usePeriodFocus } from '@/hooks/usePeriodFocus';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutineBlocks';
@@ -201,6 +203,8 @@ export default function DailyView() {
 
   const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus, updateBlockCover, addBlock: addRoutineBlock, removeBlock: removeRoutineBlock, routineInfo } = useRoutineBlocks();
   const { covers, saveCover, removeCover } = useSystemCardCovers();
+
+  const dayFocus = usePeriodFocus('day', selectedDate);
 
   const handleBlockCover = (blockId: string, url: string) => {
     if (url) saveCover(blockId, url);
@@ -448,8 +452,8 @@ export default function DailyView() {
           </>
         ) : viewMode === 'focus' ? (
           <div className="space-y-4">
-            <PeriodFocusSection scope="day" anchorDate={selectedDate} />
-            <MySystemsSection date={selectedDate} blocks={planBlocks} />
+            <PeriodFocusSectionView scope="day" anchorDate={selectedDate} controller={dayFocus} />
+            <FocusSystemsSection focuses={dayFocus.focuses} timeData={data.timeData} workoutDuration={data.workoutDuration} />
             <FocusRoutineBoard
               blocks={planBlocks}
               routineInfo={routineInfo}
