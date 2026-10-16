@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useReadingLibrary } from '@/hooks/useReadingLibrary';
+import type { Book } from '@/hooks/useReadingLibrary';
 import {
   useReadingSessions,
   type ReadingSession,
@@ -47,9 +48,9 @@ interface TrackerProps {
   minutes: number;
   onMinChange: (v: number) => void;
   sessions: ReadingSession[];
-  saveSession: (p: SaveReadingPayload) => Promise<any>;
+  saveSession: (p: SaveReadingPayload) => Promise<ReadingSession | null>;
   books: { id: string; title: string; pages_read: number; pages_total: number | null }[];
-  getCurrentlyReading: () => any;
+  getCurrentlyReading: () => Book | undefined;
   updateBookProgress: (id: string, pagesRead: number) => Promise<void>;
   onSaved?: () => void;
 }
@@ -63,8 +64,10 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
   );
 
   const [draftMin, setDraftMin] = useState(minutes);
-  const [pageStart, setPageStart] = useState<number>(lastToday?.page_end ?? current?.pages_read ?? 0);
-  const [pageEnd, setPageEnd] = useState<number>(lastToday?.page_end ?? current?.pages_read ?? 0);
+  // Marcapáginas real: la página donde quedaste (última sesión de hoy o la biblioteca).
+  const bookmark = Math.max(lastToday?.page_end ?? 0, Number(current?.pages_read) || 0);
+  const [pageStart, setPageStart] = useState<number>(bookmark);
+  const [pageEnd, setPageEnd] = useState<number>(bookmark);
 
   // Evita registrar una sesión repetida si "Inicié en / Terminé en / tiempo" no cambiaron.
   const lastSavedRef = useRef<{ minutes: number; start: number; end: number; bookId: string | null } | null>(null);
@@ -72,10 +75,9 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
 
   useEffect(() => setDraftMin(minutes), [minutes]);
   useEffect(() => {
-    const base = lastToday?.page_end ?? current?.pages_read ?? 0;
-    setPageStart((p) => (p === 0 ? base : p));
-    setPageEnd((p) => (p === 0 ? base : p));
-  }, [current?.id, lastToday?.page_end]);
+    setPageStart(bookmark);
+    setPageEnd(bookmark);
+  }, [current?.id, bookmark]);
 
   const pages = Math.max(0, (Number(pageEnd) || 0) - (Number(pageStart) || 0));
 
@@ -111,7 +113,7 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
 
       // Sumar páginas al libro activo en la biblioteca
       if (current?.id && pages > 0) {
-        await updateBookProgress(current.id, (Number(current?.pages_read) || 0) + pages);
+        await updateBookProgress(current.id, Math.max(Number(current?.pages_read) || 0, end));
       }
       if (curMinutes > 0) {
         onMinChange(curMinutes);
