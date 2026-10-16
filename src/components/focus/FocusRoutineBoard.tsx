@@ -45,7 +45,7 @@ type Scope = 'all' | 'work';
 type ViewMode = 'timeline' | 'cards';
 
 const isWorkBlock = (block: RoutineBlock) =>
-  Boolean(block.isFocusBlock || block.blockType === 'focus' || block.id.includes('bloque-extra'));
+  Boolean(block.isFocusBlock || block.blockType === 'focus' || block.id.includes('bloque-extra') || (block.title && block.title.toLowerCase().includes('bloque extra')));
 
 const isCustomBlock = (block: RoutineBlock) => block.id.startsWith('custom-');
 

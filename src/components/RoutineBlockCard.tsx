@@ -50,6 +50,8 @@ interface RoutineBlockCardProps {
   dailyTasks?: TaskItem[];
   onAssignTasks?: (blockId: string, taskIds: string[]) => void;
   onToggleTaskComplete?: (taskId: string) => void;
+  coverImage?: string;
+  onCoverChange?: (blockId: string, url: string) => void;
 }
 
 const getSourceIcon = (source: string) => {
@@ -67,7 +69,7 @@ const getSourceIcon = (source: string) => {
 
 const DEFAULT_WEEK: boolean[] = [false, false, false, false, false, false, false];
 
-export const RoutineBlockCard = ({ block: rawBlock, onUpdate, onComplete, dailyTasks = [], onAssignTasks, onToggleTaskComplete }: RoutineBlockCardProps) => {
+export const RoutineBlockCard = ({ block: rawBlock, onUpdate, onComplete, dailyTasks = [], onAssignTasks, onToggleTaskComplete, coverImage = "", onCoverChange }: RoutineBlockCardProps) => {
   const block = {
     ...rawBlock,
     title: rawBlock.title || "Bloque",
@@ -80,7 +82,6 @@ export const RoutineBlockCard = ({ block: rawBlock, onUpdate, onComplete, dailyT
   const [specificTask, setSpecificTask] = useState(block.specificTask || "");
   const [completedGenericTasks, setCompletedGenericTasks] = useState<Set<number>>(new Set());
   const [timeProgress, setTimeProgress] = useState(0);
-  const [coverImage, setCoverImage] = useState(block.coverImage || "");
   const [effortLevel, setEffortLevel] = useState<"minimum" | "normal" | "maximum">(block.effortLevel || "normal");
   const [showTaskAssigner, setShowTaskAssigner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -143,8 +144,7 @@ export const RoutineBlockCard = ({ block: rawBlock, onUpdate, onComplete, dailyT
     if (file) {
       const imageUrl = await uploadImage(file, 'routine-blocks');
       if (imageUrl) {
-        setCoverImage(imageUrl);
-        onUpdate({ ...block, coverImage: imageUrl });
+        onCoverChange?.(block.id, imageUrl);
       }
     }
   };
@@ -155,8 +155,7 @@ export const RoutineBlockCard = ({ block: rawBlock, onUpdate, onComplete, dailyT
   };
 
   const removeCoverImage = () => {
-    setCoverImage("");
-    onUpdate({ ...block, coverImage: "" });
+    onCoverChange?.(block.id, "");
   };
 
   const isBlockComplete = () => {

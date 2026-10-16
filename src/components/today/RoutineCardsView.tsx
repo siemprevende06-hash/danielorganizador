@@ -104,7 +104,7 @@ function RoutineCard({
   const focusKey = getBlockFocus(block);
   const colors = FOCUS_COLORS[focusKey] || FOCUS_COLORS.default;
   const pendingTasks = tasks.filter(t => !t.completed);
-  const image = cover || block.coverImage;
+  const image = cover;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

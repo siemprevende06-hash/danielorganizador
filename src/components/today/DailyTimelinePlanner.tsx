@@ -366,7 +366,9 @@ export function DailyTimelinePlanner({
           const isPast = !isFutureView && endM <= currentMinutes;
           const isDragOver = dragOverBlockId === blockId;
           const tasks = safeTasksByBlock[blockId] || [];
-          const isDW = isDeepWork(block.title);
+          const isDW = isDeepWork(block.title) || (block.id && block.id.includes('bloque-extra'));
+          const isBloqueExtra = block.title.toLowerCase().includes('bloque extra') || (block.id && block.id.includes('bloque-extra'));
+          const isFullRow = Boolean(isDW || block.isFocusBlock || isBloqueExtra);
           const blockType = identifyBlockType(block.title);
 
           const todayMuscleGroups = todayWorkout?.isWorkoutDay
@@ -380,16 +382,19 @@ export function DailyTimelinePlanner({
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, blockId)}
             >
-              <div className="flex items-start gap-2">
-                <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground font-mono pt-2 text-right leading-tight">
-                  {formatTime(block.startTime)}
-                </div>
+              <div className={cn("flex items-start gap-2", isFullRow && "w-full")}>
+                {!isFullRow && (
+                  <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground font-mono pt-2 text-right leading-tight">
+                    {formatTime(block.startTime)}
+                  </div>
+                )}
 
                 <div
                   data-block-landmark
                   data-block-id={blockId}
                   className={cn(
-                    "flex-1 border-l-[3px] rounded-lg border transition-all relative",
+                    "border-l-[3px] rounded-lg border transition-all relative",
+                    isFullRow ? "flex-1 w-full" : "flex-1",
                     colors.border,
                   completed && "opacity-70",
                   isCurrent && "ring-2 ring-primary shadow-md",
@@ -397,7 +402,8 @@ export function DailyTimelinePlanner({
                   !completed && !isCurrent && isPast && "opacity-40",
                 )}>
                   <div className={cn(
-                    "p-2.5 rounded-r-lg",
+                    "p-2.5",
+                    isFullRow ? "rounded-lg" : "rounded-r-lg",
                     colors.bg,
                     isDragOver && "bg-primary/10"
                   )}>
@@ -411,16 +417,17 @@ export function DailyTimelinePlanner({
                         {getBlockIcon(block)}
                         <span className={cn(
                           "text-xs font-medium truncate",
+                          isFullRow && "font-semibold text-sm",
                           completed && "line-through text-muted-foreground"
                         )}>
                           {block.title}
                         </span>
                         <span className="text-[9px] text-muted-foreground hidden sm:inline font-mono">
-                          {formatTime(block.endTime)}
+                          {formatTime(block.startTime)} • {formatTime(block.endTime)}
                         </span>
 
                         {/* Deep Work / focus block selector */}
-                        {(isDW || block.isFocusBlock) && onUpdateFocus && (
+                        {isFullRow && onUpdateFocus && (
                           <Select
                             value={block.currentFocus || block.defaultFocus || ''}
                             onValueChange={(v) => onUpdateFocus(blockId, v)}

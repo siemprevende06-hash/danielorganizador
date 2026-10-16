@@ -253,8 +253,11 @@ export const useRoutineBlocks = () => {
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       try {
-        const parsed = JSON.parse(stored);
-        return parsed.sort((a: RoutineBlock, b: RoutineBlock) => a.order - b.order);
+        const parsed: RoutineBlock[] = JSON.parse(stored);
+        // Las portadas ya no se guardan en localStorage (se sincronizan vía Supabase).
+        return parsed
+          .map(({ coverImage, ...rest }) => rest as RoutineBlock)
+          .sort((a: RoutineBlock, b: RoutineBlock) => a.order - b.order);
       } catch {}
     }
     return ROUTINE_MAP[type];
@@ -374,12 +377,10 @@ export const useRoutineBlocks = () => {
     saveBlocks(newBlocks);
   }, [rawBlocks, saveBlocks]);
 
-  const updateBlockCover = useCallback((blockId: string, coverImage: string) => {
-    const newBlocks = rawBlocks.map(block =>
-      block.id === blockId ? { ...block, coverImage } : block
-    );
-    saveBlocks(newBlocks);
-  }, [rawBlocks, saveBlocks]);
+  const updateBlockCover = useCallback((_blockId: string, _coverImage: string) => {
+    // Las portadas se guardan en la tabla system_card_covers (Supabase) vía useSystemCardCovers,
+    // no en localStorage, para que se vean en todos los dispositivos.
+  }, []);
 
   const extraMode: ExtraMode =
     (rawBlocks.find(b => b.id === 'd-bloque-extra')?.extraMode as ExtraMode) || 'focus';
@@ -430,9 +431,12 @@ export const loadRoutineBlocksFromStorage = (type?: RoutineType): RoutineBlock[]
   try {
     const stored = localStorage.getItem(storageKey);
     if (stored) {
-      const parsed = JSON.parse(stored);
+      const parsed: RoutineBlock[] = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.sort((a: RoutineBlock, b: RoutineBlock) => a.order - b.order);
+        // Las portadas se sincronizan vía Supabase, se descartan del almacenamiento local.
+        return parsed
+          .map(({ coverImage, ...rest }) => rest as RoutineBlock)
+          .sort((a: RoutineBlock, b: RoutineBlock) => a.order - b.order);
       }
     }
   } catch {}
