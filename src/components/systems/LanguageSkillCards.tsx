@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { BookText, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check, Clock, XCircle } from "lucide-react";
+import { BookText, BookOpen, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check, Clock, Tv, Gamepad2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,28 @@ const SKILLS: Skill[] = [
   { id: "escritura",   name: "Escritura",   icon: PenLine,       color: "text-rose-600",    bg: "bg-rose-500/10" },
 ];
 
+type PassiveColumn =
+  | "passive_reading_podcast_completed"
+  | "passive_tv_completed"
+  | "passive_videogames_completed";
+
+interface PassiveActivity {
+  id: string;
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  bg: string;
+  /** Columna de language_sessions donde se guarda (solo inglés). */
+  column: PassiveColumn;
+}
+
+// Idioma pasivo: solo existe para inglés.
+const PASSIVE: PassiveActivity[] = [
+  { id: "reading_podcast", name: "Lectura o podcast", icon: BookOpen, color: "text-amber-600",  bg: "bg-amber-500/10",  column: "passive_reading_podcast_completed" },
+  { id: "tv",             name: "Televisión",         icon: Tv,       color: "text-sky-600",    bg: "bg-sky-500/10",    column: "passive_tv_completed" },
+  { id: "videogames",     name: "Videojuegos",        icon: Gamepad2, color: "text-violet-600", bg: "bg-violet-500/10", column: "passive_videogames_completed" },
+];
+
 interface Props {
   completions: Record<string, boolean>;
   onToggle: (id: string) => void;
@@ -44,12 +66,43 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
   const langPrefix = activeLang === 'italian' ? 'idioma-italiano' : 'idioma-ingles';
   const currentTime = activeLang === 'italian' ? italianoTime : inglesTime;
   const today = format(new Date(), 'yyyy-MM-dd');
+  const showPassive = activeLang === 'english';
 
   const doneCount = SKILLS.filter(s => completions[`${langPrefix}-${s.id}`]).length;
   const pct = Math.round((doneCount / SKILLS.length) * 100);
   const [localTime, setLocalTime] = useState(currentTime);
+  const [passive, setPassive] = useState<Record<string, boolean>>({});
 
   useEffect(() => { setLocalTime(currentTime); }, [currentTime]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('language_sessions')
+          .select('passive_reading_podcast_completed, passive_tv_completed, passive_videogames_completed')
+          .eq('session_date', today)
+          .eq('language', 'english')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled && data) {
+          const row = data as Record<string, boolean | null>;
+          setPassive({
+            reading_podcast: !!row.passive_reading_podcast_completed,
+            tv: !!row.passive_tv_completed,
+            videogames: !!row.passive_videogames_completed,
+          });
+        }
+      } catch (e) { console.error('Error loading passive language:', e); }
+    })();
+    return () => { cancelled = true; };
+  }, [today]);
+
+  const passiveDone = showPassive ? PASSIVE.filter(p => passive[p.id]).length : 0;
+  const totalItems = SKILLS.length + (showPassive ? PASSIVE.length : 0);
+  const totalDone = doneCount + passiveDone;
 
   const minTime = 15;
   const maxTime = 30;
@@ -60,9 +113,9 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
     ? "ring-blue-500/60"
     : "ring-red-500/40";
 
-  const ring = doneCount === 0
+  const ring = totalDone === 0
     ? "ring-red-500/40"
-    : doneCount >= SKILLS.length
+    : totalDone >= totalItems
     ? "ring-green-500/60"
     : "ring-blue-500/60";
 
@@ -75,9 +128,10 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
         .eq('language', activeLang)
         .maybeSingle();
 
-      const updateData: any = {
+      const updateData = {
         session_date: today,
         language: activeLang,
+        block_type: 'morning',
         total_duration: localTime,
       };
 
@@ -93,6 +147,34 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
     const key = `${langPrefix}-${skillId}`;
     onToggle(key);
     upsertLanguageSession();
+  };
+
+  const handlePassiveToggle = async (id: string, column: PassiveColumn) => {
+    const next = !passive[id];
+    setPassive(prev => ({ ...prev, [id]: next }));
+    const payload: Partial<Record<PassiveColumn, boolean>> = {};
+    payload[column] = next;
+    try {
+      const { data: existing } = await supabase
+        .from('language_sessions')
+        .select('id')
+        .eq('session_date', today)
+        .eq('language', 'english')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('language_sessions').update(payload).eq('id', existing.id);
+      } else {
+        await supabase.from('language_sessions').insert({
+          session_date: today,
+          language: 'english',
+          block_type: 'morning',
+          ...payload,
+        });
+      }
+    } catch (e) { console.error('Error saving passive language:', e); }
   };
 
   const handleTimeSave = () => {
@@ -128,10 +210,10 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
         <div className="flex-1">
           <p className="text-sm font-semibold">🌐 Idiomas</p>
           <p className="text-[10px] text-muted-foreground">
-            6 habilidades · Marca lo que practicaste hoy
+            {showPassive ? "6 habilidades + 3 pasivas" : "6 habilidades"} · Marca lo que practicaste hoy
           </p>
         </div>
-        <span className="text-xs font-bold text-emerald-600">{doneCount}/{SKILLS.length}</span>
+        <span className="text-xs font-bold text-emerald-600">{totalDone}/{totalItems}</span>
       </div>
 
       {/* ITA / ING switch */}
@@ -217,7 +299,45 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
         Guardar tiempo
       </button>
 
-      <WeekStreakBar habitId="idiomas" todayValue={doneCount} todayCompleted={doneCount > 0} minThreshold={1} maxThreshold={SKILLS.length} compact />
+      {showPassive && (
+        <div className="space-y-1.5 border-t border-border/40 pt-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-extrabold uppercase tracking-wide text-foreground">🌐 Idioma pasivo</span>
+            <span className={cn("text-[10px] font-bold tabular-nums", passiveDone === PASSIVE.length ? "text-emerald-500" : "text-muted-foreground")}>
+              {passiveDone}/{PASSIVE.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {PASSIVE.map((p) => {
+              const Icon = p.icon;
+              const done = !!passive[p.id];
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => handlePassiveToggle(p.id, p.column)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border-2 p-2 transition-all text-left",
+                    done
+                      ? "bg-indigo-500/15 border-indigo-500/50"
+                      : `${p.bg} border-transparent hover:border-muted-foreground/30`,
+                  )}
+                >
+                  <div className={cn(
+                    "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                    done ? "bg-indigo-500 border-indigo-500" : "border-muted-foreground/40"
+                  )}>
+                    {done && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                  </div>
+                  <Icon className={cn("h-3.5 w-3.5 shrink-0", p.color)} />
+                  <span className="text-[11px] font-medium truncate flex-1">{p.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <WeekStreakBar habitId="idiomas" todayValue={totalDone} todayCompleted={totalDone > 0} minThreshold={1} maxThreshold={totalItems} compact />
     </Card>
   );
 };

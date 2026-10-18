@@ -1743,6 +1743,9 @@ export type Database = {
           listening_completed: boolean | null
           listening_duration: number | null
           notes: string | null
+          passive_reading_podcast_completed: boolean | null
+          passive_tv_completed: boolean | null
+          passive_videogames_completed: boolean | null
           reading_completed: boolean | null
           reading_duration: number | null
           session_date: string
@@ -1763,6 +1766,9 @@ export type Database = {
           listening_completed?: boolean | null
           listening_duration?: number | null
           notes?: string | null
+          passive_reading_podcast_completed?: boolean | null
+          passive_tv_completed?: boolean | null
+          passive_videogames_completed?: boolean | null
           reading_completed?: boolean | null
           reading_duration?: number | null
           session_date?: string
@@ -1783,6 +1789,9 @@ export type Database = {
           listening_completed?: boolean | null
           listening_duration?: number | null
           notes?: string | null
+          passive_reading_podcast_completed?: boolean | null
+          passive_tv_completed?: boolean | null
+          passive_videogames_completed?: boolean | null
           reading_completed?: boolean | null
           reading_duration?: number | null
           session_date?: string

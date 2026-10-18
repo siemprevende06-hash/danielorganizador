@@ -186,6 +186,17 @@ BEGIN
 END;
 $$;
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- [14/14] 20261018000000_add_passive_language_columns.sql
+-- Idioma pasivo (solo inglés): marcar por día si se avanzó en lectura/podcast,
+-- televisión o videojuegos. Se guarda en language_sessions (language='english').
+-- Idempotente.
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE public.language_sessions
+  ADD COLUMN IF NOT EXISTS passive_reading_podcast_completed BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS passive_tv_completed BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS passive_videogames_completed BOOLEAN DEFAULT false;
+
 -- La sobrecarga de un solo argumento queda obsoleta (sin lógica de descanso):
 -- delega en la versión de dos argumentos.
 CREATE OR REPLACE FUNCTION public.recompute_system_habit_streak(_habit_id text)
