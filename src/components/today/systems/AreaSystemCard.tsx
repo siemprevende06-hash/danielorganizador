@@ -35,9 +35,6 @@ const QUICK_ADD_MINUTES: Record<string, number[]> = {
   proyectos: [30, 80],
 };
 
-/** Hábitos que necesitan el ancho completo de la fila (p. ej. Lectura con "Inicié/Terminé en"). */
-const FULL_WIDTH_HABITS = new Set<string>(["lectura"]);
-
 export interface AreaInteraction {
   completions: Record<string, boolean>;
   timeData: Record<string, number>;
@@ -363,13 +360,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
             ) : topRow.length > 0 ? (
               <>
                 <div className="grid grid-cols-3 gap-2">
-                  {topRow.map(m =>
-                    FULL_WIDTH_HABITS.has(m.id) ? (
-                      <div key={m.id} className="col-span-full">{renderHabit(m)}</div>
-                    ) : (
-                      renderHabit(m)
-                    )
-                  )}
+                  {topRow.map(renderHabit)}
                 </div>
                 {rest.map(m => (
                   <div key={m.id} className="grid grid-cols-1 gap-2">
