@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Maximize2 } from "lucide-react";
+import { Book, FolderKanban, GraduationCap, Maximize2, Music, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { coverKey } from "@/hooks/useAreaCovers";
 import {
@@ -14,8 +14,16 @@ import type { PointBArea } from "@/lib/definitions";
 import type { AreaScore } from "@/hooks/useAreaScores";
 import type { WeekDayStatus } from "@/hooks/useWeekSystemsData";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
+import type { PlanObjective, PlanObjectiveKind } from "@/lib/planObjectives";
 import { cn } from "@/lib/utils";
 import WeekHabitCard from "./WeekHabitCard";
+
+const OBJECTIVE_META: Record<PlanObjectiveKind, { Icon: LucideIcon; chip: string }> = {
+  libro: { Icon: Book, chip: "bg-indigo-500/10 text-indigo-600 border-indigo-500/25" },
+  cancion: { Icon: Music, chip: "bg-emerald-500/10 text-emerald-600 border-emerald-500/25" },
+  materia: { Icon: GraduationCap, chip: "bg-blue-500/10 text-blue-600 border-blue-500/25" },
+  proyecto: { Icon: FolderKanban, chip: "bg-amber-500/10 text-amber-600 border-amber-500/25" },
+};
 
 export type PeriodLabel = "semana" | "mes" | "trimestre";
 
@@ -38,6 +46,7 @@ export interface WeekAreaSystemCardProps {
   spark: Record<string, number[]>;
   streaks: Record<string, { current: number; best: number }>;
   focusItems?: Record<string, TodayStripItem>;
+  objectives?: PlanObjective[];
   daysTotal: number;
   hideCover?: boolean;
   period?: PeriodLabel;
@@ -66,6 +75,7 @@ export default function WeekAreaSystemCard({
   spark,
   streaks,
   focusItems,
+  objectives,
   daysTotal,
   hideCover,
   period = "semana",
@@ -149,6 +159,43 @@ export default function WeekAreaSystemCard({
       </div>
 
       <div className="p-3 space-y-4">
+        {objectives && objectives.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <h4 className="text-[13px] font-extrabold uppercase tracking-wide text-foreground">
+                🎯 Objetivos del periodo
+              </h4>
+              <span className="text-[9px] font-medium text-muted-foreground">{objectives.length}</span>
+            </div>
+            <div className="space-y-1">
+              {objectives.map(o => {
+                const meta = OBJECTIVE_META[o.kind];
+                return (
+                  <div
+                    key={`${o.kind}-${o.id}`}
+                    className="flex items-center gap-2 rounded-lg bg-foreground/5 px-2 py-1.5"
+                  >
+                    <span className={cn("h-5 w-5 shrink-0 grid place-items-center rounded-md border", meta.chip)}>
+                      <meta.Icon className="h-3 w-3" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold leading-tight truncate">{o.title}</p>
+                      {o.subtitle && (
+                        <p className="text-[9px] text-muted-foreground leading-tight truncate">{o.subtitle}</p>
+                      )}
+                    </div>
+                    {o.tag && (
+                      <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0", meta.chip)}>
+                        {o.tag}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {trackables.length > 0 ? (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">

@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
+import { format, startOfMonth } from "date-fns";
 import { Layers, Hammer, Trophy } from "lucide-react";
 import { useAreaCovers } from "@/hooks/useAreaCovers";
 import { useAreaScores } from "@/hooks/useAreaScores";
 import { useSystemStreaks } from "@/hooks/useSystemStreaks";
 import { usePeriodSystemsData } from "@/hooks/usePeriodSystemsData";
 import { useWeekFocusItems } from "@/hooks/useWeekFocusItems";
+import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
+import { buildAreaPlanObjectives } from "@/lib/planObjectives";
 import {
   ALL_TRACKABLE_IDS,
   AREA_STATE_COLOR,
@@ -42,6 +44,16 @@ export function PeriodSystemsSection({
   const { items: focusItems } = useWeekFocusItems(startKey, endKey);
   const { elapsedDays, daysDone, daysSkipped, weekMinutes, weekCount, weekStatus, spark } =
     usePeriodSystemsData(start, end, ALL_TRACKABLE_IDS);
+
+  const monthDate = startOfMonth(start);
+  const { planData, books, songs, projects, subjects } = useMonthlyPlan(monthDate);
+  const objectivesByArea = useMemo(
+    () =>
+      period === "mes"
+        ? buildAreaPlanObjectives(planData, { books, songs, projects, subjects })
+        : {},
+    [period, planData, books, songs, projects, subjects]
+  );
 
   const [activeGroup, setActiveGroup] = useState<PointBGroup | null>(null);
 
@@ -168,6 +180,7 @@ export function PeriodSystemsSection({
                   spark={spark}
                   streaks={streaks}
                   focusItems={focusItems}
+                  objectives={objectivesByArea[area.id]}
                   daysTotal={elapsedDays}
                   period={period}
                   hideCover={area.group === "cimientos"}
