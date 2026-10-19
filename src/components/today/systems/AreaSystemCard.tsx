@@ -15,6 +15,8 @@ import {
   type HabitMeta,
 } from "@/lib/areaSystemsMap";
 import type { PointBArea } from "@/lib/definitions";
+import { CHRONO_AREAS, COUNT_AREAS, getAreaChrono } from "@/lib/systemSchedule";
+import type { RoutineBlock } from "@/hooks/useRoutineBlocks";
 import { useMiniHabits } from "@/hooks/useMiniHabits";
 import type { AreaScore } from "@/hooks/useAreaScores";
 import type { SystemStreak } from "@/hooks/useSystemStreaks";
@@ -36,6 +38,7 @@ const QUICK_ADD_MINUTES: Record<string, number[]> = {
 };
 
 export interface AreaInteraction {
+  blocks?: RoutineBlock[];
   completions: Record<string, boolean>;
   timeData: Record<string, number>;
   countData?: Record<string, number>;
@@ -121,6 +124,10 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
   const rest = splitAt > 0 ? ordered.slice(splitAt) : ordered;
 
   const renderHabit = (meta: HabitMeta) => {
+    const chrono = interaction.blocks && CHRONO_AREAS.has(meta.id)
+      ? getAreaChrono(interaction.blocks, meta.id)
+      : undefined;
+
     if (meta.id === 'idiomas') {
       return (
         <LanguageSkillCards
@@ -133,6 +140,8 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
           onInglesTimeChange={(m) => interaction.onTimeChange('ingles', m)}
           skipped={interaction.skipped}
           onSkipToggle={interaction.onSkipToggle}
+          fixedBlocks={chrono?.fixed}
+          extraBlocks={chrono?.extra}
         />
       );
     }
@@ -202,6 +211,9 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         weekTotal={weekTotal}
         today={interaction.todayItems?.[meta.id]}
         quickAddMinutes={QUICK_ADD_MINUTES[meta.id]}
+        fixedBlocks={chrono?.fixed}
+        extraBlocks={chrono?.extra}
+        showFixedCount={COUNT_AREAS.has(meta.id)}
         waterDone={!!interaction.waterData?.[meta.id]}
         mealUrl={interaction.mealPhotos?.[meta.id]}
         wakeTime={interaction.wakeTime}

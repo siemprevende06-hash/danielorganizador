@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { getCoverGradient } from "@/components/areas/AreaCover";
+import { SystemChronoBox } from "@/components/today/systems/SystemChronoBox";
+import type { ChronoRange } from "@/lib/systemSchedule";
 
 interface Skill {
   id: string;
@@ -57,9 +59,11 @@ interface Props {
   onInglesTimeChange?: (minutes: number) => void;
   skipped?: Record<string, boolean>;
   onSkipToggle?: (id: string) => void;
+  fixedBlocks?: ChronoRange[];
+  extraBlocks?: ChronoRange[];
 }
 
-export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange, skipped, onSkipToggle }: Props) => {
+export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange, skipped, onSkipToggle, fixedBlocks, extraBlocks }: Props) => {
   const { covers } = useAreaCovers();
   const idiomasCover = covers[coverKey("sub", "idiomas")] ?? null;
   const [activeLang, setActiveLang] = useState<'italian' | 'english'>('italian');
@@ -300,6 +304,10 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
         className="w-full py-1 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors">
         Guardar tiempo
       </button>
+
+      {(fixedBlocks || extraBlocks) && (
+        <SystemChronoBox fixed={fixedBlocks ?? []} extra={extraBlocks ?? []} />
+      )}
 
       {showPassive && (
         <div className="space-y-1.5 border-t border-border/40 pt-3">

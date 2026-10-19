@@ -761,6 +761,7 @@ export default function DailyView() {
           <>
             <PlanSistemaSection />
             <DaySystemsSection
+              blocks={planBlocks}
               completions={data.completions}
             timeData={data.timeData}
             workoutDuration={data.workoutDuration}

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   GraduationCap, Briefcase, FolderKanban, ListTodo,
-  Focus, Clock, Target, ArrowRight, Save, CalendarDays, CheckCircle2, X, Sun, Moon, Coffee, Book, Music, Dumbbell, XCircle
+  Focus, Clock, Target, ArrowRight, Save, CalendarDays, CheckCircle2, X, Sun, Moon, Coffee, Book, Music, Dumbbell, XCircle, Crown, Gamepad2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCombinedFocusTime } from "@/hooks/useCombinedFocusTime";
@@ -71,6 +71,8 @@ const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; la
   idiomas: { border: 'border-l-teal-500', bg: 'bg-teal-500/10', dot: 'bg-teal-500', label: 'Idiomas' },
   musica: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Música' },
   lectura: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Lectura' },
+  ajedrez: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500', label: 'Ajedrez' },
+  game: { border: 'border-l-violet-500', bg: 'bg-violet-500/10', dot: 'bg-violet-500', label: 'Game' },
   descanso: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', dot: 'bg-slate-500', label: 'Descanso' },
   gym: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Gym' },
   estructural: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Estructural' },
@@ -85,7 +87,9 @@ function getBlockFocusKey(block: RoutineBlock): string {
   if (title.includes('gym') || title.includes('entreno')) return 'gym';
   if (title.includes('activación') || title.includes('alistamiento') || title.includes('desactivación') || title.includes('dormir')) return 'estructural';
   if (title.includes('almuerzo') || title.includes('comida') || title.includes('desayuno') || title.includes('merienda')) return 'alimentacion';
-  if (title.includes('lectura') || title.includes('música') || title.includes('piano') || title.includes('ajedrez')) return 'lectura';
+  if (title.includes('ajedrez')) return 'ajedrez';
+  if (title.includes('game') || title.includes('seducci')) return 'game';
+  if (title.includes('lectura') || title.includes('música') || title.includes('piano')) return 'lectura';
   return 'default';
 }
 
@@ -98,6 +102,8 @@ function getBlockIcon(block: RoutineBlock) {
     case 'descanso': return <Moon className="h-4 w-4 text-slate-500" />;
     case 'lectura': return <Book className="h-4 w-4 text-indigo-500" />;
     case 'musica': return <Music className="h-4 w-4 text-pink-500" />;
+    case 'ajedrez': return <Crown className="h-4 w-4 text-amber-500" />;
+    case 'game': return <Gamepad2 className="h-4 w-4 text-violet-500" />;
     case 'gym': return <Dumbbell className="h-4 w-4 text-orange-500" />;
     case 'estructural': return <Sun className="h-4 w-4 text-indigo-500" />;
     case 'alimentacion': return <Coffee className="h-4 w-4 text-amber-500" />;

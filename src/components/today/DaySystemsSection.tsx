@@ -20,6 +20,7 @@ import {
 import { systemMinForSpeed, type ChessResultKey } from "@/lib/daySystems";
 import { POINT_B_AREAS } from "@/data/pointB2027";
 import type { PointBArea } from "@/lib/definitions";
+import type { RoutineBlock } from "@/hooks/useRoutineBlocks";
 import { cn } from "@/lib/utils";
 import { Hammer, Layers, Trophy } from "lucide-react";
 import AreaSystemCard, { type AreaInteraction } from "./systems/AreaSystemCard";
@@ -27,6 +28,7 @@ import AreaSystemCard, { type AreaInteraction } from "./systems/AreaSystemCard";
 const GROUP_ORDER: PointBGroup[] = ["cimientos", "construccion", "recompensas"];
 
 export function DaySystemsSection({
+  blocks,
   completions,
   timeData,
   workoutDuration,
@@ -51,6 +53,7 @@ export function DaySystemsSection({
   onWorkoutIntensityChange,
   onWorkoutDurationChange,
 }: {
+  blocks?: RoutineBlock[];
   completions: Record<string, boolean>;
   timeData: Record<string, number>;
   workoutDuration: number;
@@ -152,6 +155,7 @@ export function DaySystemsSection({
   }, [scoreById]);
 
   const interaction: AreaInteraction = {
+    blocks,
     completions,
     timeData,
     countData,

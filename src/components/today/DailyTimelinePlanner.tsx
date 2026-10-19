@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Clock, BookOpen, Briefcase, FolderKanban, Dumbbell, Sun, Moon, Coffee,
-  Languages, Target, Music, Book, ChevronDown, GripVertical, X
+  Languages, Target, Music, Book, ChevronDown, GripVertical, X, Crown, Gamepad2
 } from 'lucide-react';
 import { parseTime } from '@/hooks/useRoutineBlocksDB';
 import type { RoutineBlock } from '@/hooks/useRoutineBlocksDB';
@@ -47,6 +47,8 @@ const FOCUS_OPTIONS = [
   { value: 'idiomas', label: '🗣️ Idiomas', color: 'text-teal-500' },
   { value: 'musica', label: '🎵 Música', color: 'text-pink-500' },
   { value: 'lectura', label: '📖 Lectura', color: 'text-indigo-500' },
+  { value: 'ajedrez', label: '♟️ Ajedrez', color: 'text-amber-500' },
+  { value: 'game', label: '🎲 Game', color: 'text-violet-500' },
   { value: 'descanso', label: '🛌 Descanso', color: 'text-slate-500' },
   { value: 'ocio', label: '☕ Ocio', color: 'text-orange-500' },
   { value: 'entretenimiento', label: '🎮 Entretenimiento', color: 'text-orange-500' },
@@ -59,6 +61,8 @@ const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; la
   idiomas: { border: 'border-l-teal-500', bg: 'bg-teal-500/10', dot: 'bg-teal-500', label: 'Idiomas' },
   musica: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Música' },
   lectura: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Lectura' },
+  ajedrez: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500', label: 'Ajedrez' },
+  game: { border: 'border-l-violet-500', bg: 'bg-violet-500/10', dot: 'bg-violet-500', label: 'Game' },
   descanso: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', dot: 'bg-slate-500', label: 'Descanso' },
   ocio: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Ocio' },
   entretenimiento: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Entretenimiento' },
@@ -128,7 +132,9 @@ function getBlockFocus(block: RoutineBlock): string {
   if (title.includes('gym') || title.includes('entreno')) return 'gym';
   if (title.includes('activación') || title.includes('alistamiento') || title.includes('desactivación') || title.includes('dormir') || title.includes('skincare') || title.includes('bañ')) return 'estructural';
   if (title.includes('almuerzo') || title.includes('comida') || title.includes('desayuno') || title.includes('merienda')) return 'alimentacion';
-  if (title.includes('lectura') || title.includes('música') || title.includes('piano') || title.includes('ajedrez')) return 'hobbys';
+  if (title.includes('ajedrez')) return 'ajedrez';
+  if (title.includes('game') || title.includes('seducci')) return 'game';
+  if (title.includes('lectura') || title.includes('música') || title.includes('piano')) return 'hobbys';
   if (title.includes('ocio')) return 'ocio';
   if (title.includes('idiomas')) return 'hobbys';
   return 'default';
@@ -143,6 +149,8 @@ function getBlockIcon(block: RoutineBlock) {
     case 'descanso': return <Moon className="h-4 w-4 text-slate-500" />;
     case 'lectura': return <Book className="h-4 w-4 text-indigo-500" />;
     case 'musica': return <Music className="h-4 w-4 text-pink-500" />;
+    case 'ajedrez': return <Crown className="h-4 w-4 text-amber-500" />;
+    case 'game': return <Gamepad2 className="h-4 w-4 text-violet-500" />;
     case 'entretenimiento': return <Target className="h-4 w-4 text-orange-500" />;
     case 'gym': return <Dumbbell className="h-4 w-4 text-orange-500" />;
     case 'estructural': return <Sun className="h-4 w-4 text-indigo-500" />;

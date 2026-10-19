@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { getCoverGradient } from "@/components/areas/AreaCover";
 import { systemSpeedOptions, type ChessResultKey, type SpeedOption, type SystemSpeed } from "@/lib/daySystems";
 import type { HabitMeta } from "@/lib/areaSystemsMap";
+import type { ChronoRange } from "@/lib/systemSchedule";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +14,7 @@ import { useChessTracking } from "@/hooks/useChessTracking";
 import { toast } from "sonner";
 import { Clock, Droplets, Camera, ExternalLink, Sun, Moon, Flame, Trophy, Check } from "lucide-react";
 import { ReadingPagesInline } from "./ReadingPagesInline";
+import { SystemChronoBox } from "./SystemChronoBox";
 
 type TierKey = "red" | "grey" | "blue" | "green" | "gold";
 
@@ -160,6 +162,12 @@ export interface HabitSystemCardProps {
   today?: TodayStripItem;
   /** Botones rápidos de minutos (ej. [30, 80]) que suman al contador. */
   quickAddMinutes?: number[];
+  /** Bloques fijos de la rutina para esta área. */
+  fixedBlocks?: ChronoRange[];
+  /** Bloques de enfoque asignados a esta área. */
+  extraBlocks?: ChronoRange[];
+  /** Muestra el número de bloques fijos (universidad/emprendimiento/proyectos). */
+  showFixedCount?: boolean;
   onToggle: () => void;
   onSkip: () => void;
   onRest?: () => void;
@@ -198,6 +206,9 @@ export default function HabitSystemCard({
   weekTotal,
   today,
   quickAddMinutes,
+  fixedBlocks,
+  extraBlocks,
+  showFixedCount,
   onToggle,
   onSkip,
   onRest,
@@ -360,6 +371,14 @@ export default function HabitSystemCard({
               )}
             </div>
           </div>
+        )}
+
+        {(fixedBlocks || extraBlocks) && (
+          <SystemChronoBox
+            fixed={fixedBlocks ?? []}
+            extra={extraBlocks ?? []}
+            showCount={showFixedCount}
+          />
         )}
 
         {/* ─── Agregar datos ─── */}
