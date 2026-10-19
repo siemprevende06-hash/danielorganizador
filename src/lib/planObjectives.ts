@@ -9,11 +9,15 @@ export interface PlanObjective {
   subtitle?: string;
   tag?: string;
   status?: string;
+  /** Portada pequeña (libros y canciones cuando tienen). */
+  cover?: string | null;
+  /** Libro que se está leyendo actualmente: se enmarca con borde verde. */
+  isCurrent?: boolean;
 }
 
 export interface ResolvedPlanItems {
-  books: { id: string; title: string; author?: string | null; status?: string }[];
-  songs: { id: string; title: string; artist?: string | null; instrument?: string }[];
+  books: { id: string; title: string; author?: string | null; status?: string; cover_image_url?: string | null }[];
+  songs: { id: string; title: string; artist?: string | null; instrument?: string; cover_image_url?: string | null }[];
   projects: { id: string; name: string }[];
   subjects: { id: string; name: string }[];
 }
@@ -24,21 +28,28 @@ const SONG_PLAN_LABEL: Record<SongPlanType, string> = {
   recorded: "Grabación",
 };
 
+/** Cada objetivo va dentro de la tarjeta de su hábito. */
+export const OBJECTIVE_HABIT: Record<PlanObjectiveKind, string> = {
+  libro: "lectura",
+  cancion: "musica",
+  materia: "universidad",
+  proyecto: "proyectos",
+};
+
 /**
  * Objetivos planificados (libros, canciones, asignaturas y proyectos) del plan
- * mensual agrupados por área del Punto B. Solo produce entradas para las áreas
- * que tienen objetivos: `desarrollo` (libros + canciones) y `profesional`
- * (asignaturas + proyectos).
+ * mensual agrupados por tarjeta de hábito: `lectura`, `musica`, `universidad`
+ * y `proyectos`.
  *
  * Si se pasa `weekKey`, los libros/canciones se toman del reparto semanal
  * (`week_distribution`); si esa semana no tiene reparto, cae a los del mes.
  */
-export function buildAreaPlanObjectives(
+export function buildHabitPlanObjectives(
   planData: MonthlyPlanData,
   resolved: ResolvedPlanItems,
   opts?: { weekKey?: string }
 ): Record<string, PlanObjective[]> {
-  const out: Record<string, PlanObjective[]> = {};
+  const out: Record<string, PlanObjective[]> = { lectura: [], musica: [], universidad: [], proyectos: [] };
 
   const weekSlot = opts?.weekKey ? planData.week_distribution?.[opts.weekKey] : undefined;
   const bookIds = weekSlot?.books?.length ? weekSlot.books : planData.books.selected;
@@ -47,46 +58,47 @@ export function buildAreaPlanObjectives(
   const bookMap = new Map(resolved.books.map(b => [b.id, b]));
   const songMap = new Map(resolved.songs.map(s => [s.id, s]));
 
-  const desarrollo: PlanObjective[] = [];
   for (const id of bookIds) {
     const b = bookMap.get(id);
     if (!b) continue;
-    desarrollo.push({
+    out.lectura.push({
       kind: "libro",
       id,
       title: b.title,
       subtitle: b.author ?? undefined,
       status: b.status,
+      cover: b.cover_image_url ?? null,
+      isCurrent: b.status === "reading",
     });
   }
+
   for (const id of songIds) {
     const s = songMap.get(id);
     if (!s) continue;
     const plan = planData.songs_plan?.[id];
-    desarrollo.push({
+    out.musica.push({
       kind: "cancion",
       id,
       title: s.title,
-      subtitle: s.artist ?? undefined,
+      subtitle: s.instrument || s.artist || undefined,
       tag: plan ? SONG_PLAN_LABEL[plan] : undefined,
+      cover: s.cover_image_url ?? null,
     });
   }
-  if (desarrollo.length > 0) out.desarrollo = desarrollo;
 
   const subjectMap = new Map(resolved.subjects.map(s => [s.id, s]));
-  const projectMap = new Map(resolved.projects.map(p => [p.id, p]));
-  const profesional: PlanObjective[] = [];
   for (const s of planData.subjects) {
     const info = subjectMap.get(s.subject_id);
     if (!info) continue;
-    profesional.push({ kind: "materia", id: s.subject_id, title: info.name });
+    out.universidad.push({ kind: "materia", id: s.subject_id, title: info.name });
   }
+
+  const projectMap = new Map(resolved.projects.map(p => [p.id, p]));
   for (const id of planData.projects) {
     const p = projectMap.get(id);
     if (!p) continue;
-    profesional.push({ kind: "proyecto", id, title: p.name });
+    out.proyectos.push({ kind: "proyecto", id, title: p.name });
   }
-  if (profesional.length > 0) out.profesional = profesional;
 
   return out;
 }

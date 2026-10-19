@@ -6,7 +6,7 @@ import { useAreaScores } from "@/hooks/useAreaScores";
 import { useSystemStreaks } from "@/hooks/useSystemStreaks";
 import { useWeekSystemsData } from "@/hooks/useWeekSystemsData";
 import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
-import { buildAreaPlanObjectives } from "@/lib/planObjectives";
+import { buildHabitPlanObjectives } from "@/lib/planObjectives";
 import {
   ALL_TRACKABLE_IDS,
   AREA_STATE_COLOR,
@@ -37,8 +37,8 @@ export function WeekSystemsSection({ weekStart, weekEnd }: { weekStart: Date; we
 
   const monthDate = startOfMonth(weekStart);
   const { planData, books, songs, projects, subjects } = useMonthlyPlan(monthDate);
-  const objectivesByArea = useMemo(
-    () => buildAreaPlanObjectives(planData, { books, songs, projects, subjects }, { weekKey: startKey }),
+  const objectivesByHabit = useMemo(
+    () => buildHabitPlanObjectives(planData, { books, songs, projects, subjects }, { weekKey: startKey }),
     [planData, books, songs, projects, subjects, startKey]
   );
 
@@ -167,7 +167,7 @@ export function WeekSystemsSection({ weekStart, weekEnd }: { weekStart: Date; we
                   spark={spark}
                   streaks={streaks}
                   focusItems={weekFocusItems}
-                  objectives={objectivesByArea[area.id]}
+                  objectivesByHabit={objectivesByHabit}
                   daysTotal={days.length}
                   hideCover={area.group === "cimientos"}
                 />

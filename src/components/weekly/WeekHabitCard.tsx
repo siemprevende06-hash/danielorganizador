@@ -3,7 +3,15 @@ import { getCoverGradient } from "@/components/areas/AreaCover";
 import type { HabitMeta } from "@/lib/areaSystemsMap";
 import type { WeekDayStatus } from "@/hooks/useWeekSystemsData";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
+import type { PlanObjective, PlanObjectiveKind } from "@/lib/planObjectives";
 import { Flame, Trophy } from "lucide-react";
+
+const OBJECTIVE_EMOJI: Record<PlanObjectiveKind, string> = {
+  libro: "📖",
+  cancion: "🎹",
+  materia: "🎓",
+  proyecto: "📦",
+};
 
 interface WeekTier {
   label: string;
@@ -103,6 +111,8 @@ export interface WeekHabitCardProps {
   weekCount?: number;
   streak?: { current: number; best: number };
   focus?: TodayStripItem;
+  /** Objetivos planificados del periodo que viven dentro de esta tarjeta. */
+  objectives?: PlanObjective[];
   coverUrl?: string | null;
   period?: string;
 }
@@ -142,6 +152,7 @@ export default function WeekHabitCard({
   weekCount,
   streak,
   focus,
+  objectives,
   coverUrl,
   period = "semana",
 }: WeekHabitCardProps) {
@@ -212,25 +223,65 @@ export default function WeekHabitCard({
           </div>
         )}
 
-        {/* ─── Objetivo de la semana (áreas centrales) ─── */}
-        {fi && focus && (
-          <div className="flex items-center gap-2 rounded-lg bg-foreground/5 px-2 py-1.5">
-            {focus.kind === "libro" && focus.cover ? (
-              <img
-                src={focus.cover}
-                alt={fi.title}
-                className="h-8 w-6 rounded object-cover shrink-0 border border-border/40"
-              />
-            ) : (
-              <span className="text-sm shrink-0 leading-none">{fi.emoji}</span>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="text-[9px] font-bold leading-tight truncate">{fi.title}</p>
-              <p className="text-[8px] text-muted-foreground leading-tight truncate">
-                {PERIOD_FOCUS[period] ?? "Esta semana"}: {fi.label}
-              </p>
-            </div>
+        {/* ─── Objetivos planificados del periodo (dentro de su tarjeta) ─── */}
+        {objectives && objectives.length > 0 ? (
+          <div className="space-y-1">
+            {objectives.map(o => {
+              const match = focus && focus.id === o.id ? focusInfo(focus, period) : null;
+              return (
+                <div
+                  key={`${o.kind}-${o.id}`}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg px-2 py-1.5",
+                    o.isCurrent
+                      ? "bg-emerald-500/5 ring-1 ring-emerald-500/40"
+                      : "bg-foreground/5"
+                  )}
+                >
+                  {o.cover ? (
+                    <img
+                      src={o.cover}
+                      alt={o.title}
+                      className="h-8 w-6 rounded object-cover shrink-0 border border-border/40"
+                    />
+                  ) : (
+                    <span className="text-sm shrink-0 leading-none">{OBJECTIVE_EMOJI[o.kind]}</span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-bold leading-tight truncate">{o.title}</p>
+                    <p className="text-[8px] text-muted-foreground leading-tight truncate">
+                      {[o.subtitle, match?.label].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  {o.tag && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0 bg-indigo-500/10 text-indigo-600 border-indigo-500/25">
+                      {o.tag}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
+        ) : (
+          fi && focus && (
+            <div className="flex items-center gap-2 rounded-lg bg-foreground/5 px-2 py-1.5">
+              {focus.kind === "libro" && focus.cover ? (
+                <img
+                  src={focus.cover}
+                  alt={fi.title}
+                  className="h-8 w-6 rounded object-cover shrink-0 border border-border/40"
+                />
+              ) : (
+                <span className="text-sm shrink-0 leading-none">{fi.emoji}</span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-bold leading-tight truncate">{fi.title}</p>
+                <p className="text-[8px] text-muted-foreground leading-tight truncate">
+                  {PERIOD_FOCUS[period] ?? "Esta semana"}: {fi.label}
+                </p>
+              </div>
+            </div>
+          )
         )}
 
         <div className="mt-auto flex items-baseline gap-1">

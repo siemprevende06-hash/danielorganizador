@@ -7,7 +7,7 @@ import { useSystemStreaks } from "@/hooks/useSystemStreaks";
 import { usePeriodSystemsData } from "@/hooks/usePeriodSystemsData";
 import { useWeekFocusItems } from "@/hooks/useWeekFocusItems";
 import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
-import { buildAreaPlanObjectives } from "@/lib/planObjectives";
+import { buildHabitPlanObjectives } from "@/lib/planObjectives";
 import {
   ALL_TRACKABLE_IDS,
   AREA_STATE_COLOR,
@@ -47,10 +47,10 @@ export function PeriodSystemsSection({
 
   const monthDate = startOfMonth(start);
   const { planData, books, songs, projects, subjects } = useMonthlyPlan(monthDate);
-  const objectivesByArea = useMemo(
+  const objectivesByHabit = useMemo(
     () =>
       period === "mes"
-        ? buildAreaPlanObjectives(planData, { books, songs, projects, subjects })
+        ? buildHabitPlanObjectives(planData, { books, songs, projects, subjects })
         : {},
     [period, planData, books, songs, projects, subjects]
   );
@@ -180,7 +180,7 @@ export function PeriodSystemsSection({
                   spark={spark}
                   streaks={streaks}
                   focusItems={focusItems}
-                  objectives={objectivesByArea[area.id]}
+                  objectivesByHabit={objectivesByHabit}
                   daysTotal={elapsedDays}
                   period={period}
                   hideCover={area.group === "cimientos"}
