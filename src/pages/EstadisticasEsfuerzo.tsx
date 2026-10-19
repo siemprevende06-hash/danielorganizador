@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus, Utensils, MoonStar, Brain, ClipboardList, HeartPulse, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BarChart3, Shield, TrendingUp, Dumbbell, BookOpen, Music, Gamepad2, Globe, Clock, Tv, GraduationCap, Briefcase, FolderKanban, ListTodo, Target, TrendingDown, TrendingUp as TrendingUpIcon, Minus, Utensils, MoonStar, Brain, ClipboardList, HeartPulse, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SOSTEN_STRUCTURAL } from '@/lib/daySystems';
 import { calcSleepHours } from '@/lib/sleep';
@@ -194,6 +194,31 @@ const MEJORA_HABITS = [
   { id: 'entrenamiento-fisico', label: 'Entreno', icon: Dumbbell, hasTime: true },
 ];
 
+// ---------- Idioma pasivo (inglés) ----------
+type PassiveField =
+  | 'passive_reading_podcast_completed'
+  | 'passive_tv_completed'
+  | 'passive_videogames_completed';
+
+interface LangSessionRow {
+  session_date: string;
+  passive_reading_podcast_completed?: boolean | null;
+  passive_tv_completed?: boolean | null;
+  passive_videogames_completed?: boolean | null;
+}
+
+const PASSIVE_COLS = [
+  { id: 'reading_podcast', label: 'Lectura/Podcast', icon: BookOpen },
+  { id: 'tv', label: 'Televisión', icon: Tv },
+  { id: 'videogames', label: 'Videojuegos', icon: Gamepad2 },
+] as const;
+
+const PASSIVE_FIELD: Record<string, PassiveField> = {
+  reading_podcast: 'passive_reading_podcast_completed',
+  tv: 'passive_tv_completed',
+  videogames: 'passive_videogames_completed',
+};
+
 // ---------- Focus ----------
 const FOCUS_AREAS = [
   { id: 'universidad', label: 'Universidad', icon: GraduationCap, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-950/20' },
@@ -224,6 +249,7 @@ export default function EstadisticasEsfuerzo() {
   const [systemsData, setSystemsData] = useState<any[]>([]);
   const [areaStats, setAreaStats] = useState<any[]>([]);
   const [taskCompletions, setTaskCompletions] = useState<any[]>([]);
+  const [languageSessions, setLanguageSessions] = useState<LangSessionRow[]>([]);
 
   // ─── Load all data ───
   useEffect(() => {
@@ -233,7 +259,7 @@ export default function EstadisticasEsfuerzo() {
       const endDate = `${year}-12-31`;
 
       try {
-        const [sysResult, areaResult, taskResult] = await Promise.allSettled([
+        const [sysResult, areaResult, taskResult, langResult] = await Promise.allSettled([
           supabase.from('daily_systems_tracking')
             .select('tracking_date, completions, time_data, count_data, block_completions, workout_duration, skipped, active_focus_areas, wake_time, sleep_time')
             .gte('tracking_date', startDate).lte('tracking_date', endDate)
@@ -248,6 +274,12 @@ export default function EstadisticasEsfuerzo() {
             .select('id, completed, source, due_date, area_id')
             .gte('due_date', startDate)
             .limit(5000),
+          supabase.from('language_sessions')
+            .select('session_date, passive_reading_podcast_completed, passive_tv_completed, passive_videogames_completed')
+            .eq('language', 'english')
+            .gte('session_date', startDate).lte('session_date', endDate)
+            .order('session_date', { ascending: true })
+            .limit(5000),
         ]);
 
         if (sysResult.status === 'rejected') {
@@ -259,10 +291,14 @@ export default function EstadisticasEsfuerzo() {
         if (taskResult.status === 'rejected') {
           console.error('[EstadisticasEsfuerzo] tasks query failed:', taskResult.reason);
         }
+        if (langResult.status === 'rejected') {
+          console.error('[EstadisticasEsfuerzo] language_sessions query failed:', langResult.reason);
+        }
 
         setSystemsData(sysResult.status === 'fulfilled' ? sysResult.value.data || [] : []);
         setAreaStats(areaResult.status === 'fulfilled' ? areaResult.value.data || [] : []);
         setTaskCompletions(taskResult.status === 'fulfilled' ? taskResult.value.data || [] : []);
+        setLanguageSessions(langResult.status === 'fulfilled' ? langResult.value.data || [] : []);
       } catch (e) {
         console.error('[EstadisticasEsfuerzo] Error loading data:', e);
       }
@@ -302,6 +338,29 @@ export default function EstadisticasEsfuerzo() {
   const monthDays = useMemo(() => {
     return systemsData.filter(r => r.tracking_date.startsWith(monthKey));
   }, [systemsData, monthKey]);
+
+  // ─── Idioma pasivo (inglés): estado por día y tipo ───
+  const passiveByDate = useMemo(() => {
+    const map: Record<string, Record<string, 'done' | 'skip' | 'none'>> = {};
+    languageSessions.forEach(r => {
+      const d = (r.session_date || '').slice(0, 10);
+      if (!d) return;
+      if (!map[d]) map[d] = {};
+      PASSIVE_COLS.forEach(c => {
+        const v = r[PASSIVE_FIELD[c.id]];
+        if (v === true) map[d][c.id] = 'done';
+        else if (v === false && map[d][c.id] !== 'done') map[d][c.id] = 'skip';
+        else if (v == null && !map[d][c.id]) map[d][c.id] = 'none';
+      });
+    });
+    return map;
+  }, [languageSessions]);
+
+  const passiveDays = useMemo(() => {
+    const dates = new Set<string>(monthDays.map(d => d.tracking_date));
+    Object.keys(passiveByDate).forEach(d => { if (d.startsWith(monthKey)) dates.add(d); });
+    return Array.from(dates).sort();
+  }, [monthDays, passiveByDate, monthKey]);
 
 
   // ─── Focus data per day ───
@@ -731,6 +790,75 @@ export default function EstadisticasEsfuerzo() {
                     </tbody>
                   </table>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* ════════════════════════════════════════ */}
+            {/* TABLA IDIOMA PASIVO (INGLÉS) */}
+            {/* ════════════════════════════════════════ */}
+            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-sky-500 to-indigo-400" />
+              <CardContent className="p-0">
+                <div className="flex items-center gap-2 p-3 border-b border-border/30">
+                  <Globe className="h-4 w-4 text-sky-500" />
+                  <h2 className="text-sm font-bold">Idioma pasivo (inglés)</h2>
+                  <span className="text-[10px] text-muted-foreground">✅ hecho · ✗ no hice · — sin dato</span>
+                </div>
+                {passiveDays.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground p-3">Sin registros de idioma pasivo este mes.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[10px]" style={{ borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr className="bg-muted/20">
+                          <th className="sticky left-0 bg-muted/20 text-left px-2 py-1.5 font-medium text-muted-foreground min-w-[56px] z-10 border border-border/20">Día</th>
+                          {PASSIVE_COLS.map(c => (
+                            <th key={c.id} className="text-center px-2 py-1.5 font-medium text-muted-foreground min-w-[76px] border border-border/20">
+                              <div className="flex items-center justify-center gap-1">
+                                <c.icon className="h-3 w-3" /><span>{c.label}</span>
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {passiveDays.map((date, idx) => {
+                          const st = passiveByDate[date] || {};
+                          return (
+                            <tr key={date} className={cn(idx % 2 === 0 ? "bg-white/50 dark:bg-zinc-950/50" : "bg-muted/5")}>
+                              <td className="sticky left-0 z-10 px-2 py-1 font-medium whitespace-nowrap border border-border/20" style={{ background: 'inherit' }}>
+                                {format(parseISO(date), 'EEE d', { locale: es })}
+                              </td>
+                              {PASSIVE_COLS.map(c => {
+                                const s = st[c.id] || 'none';
+                                return (
+                                  <td key={c.id} className={cn("text-center px-2 py-1 border border-border/20",
+                                    s === 'done' && "text-emerald-500",
+                                    s === 'skip' && "text-red-400/80",
+                                    s === 'none' && "text-muted-foreground/30"
+                                  )}>
+                                    {s === 'done' ? '✅' : s === 'skip' ? '✗' : '—'}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-muted/20 font-bold text-[9px]">
+                          <td className="sticky left-0 bg-muted/20 px-2 py-1.5 z-10 border border-border/20">Completados</td>
+                          {PASSIVE_COLS.map(c => {
+                            const count = passiveDays.filter(d => (passiveByDate[d]?.[c.id]) === 'done').length;
+                            return (
+                              <td key={c.id} className={cn("text-center px-2 py-1.5 border border-border/20", count > 0 ? "text-sky-600" : "text-muted-foreground")}>
+                                {count}<span className="text-muted-foreground">/{passiveDays.length}</span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

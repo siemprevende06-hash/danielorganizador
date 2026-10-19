@@ -71,7 +71,7 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
   const doneCount = SKILLS.filter(s => completions[`${langPrefix}-${s.id}`]).length;
   const pct = Math.round((doneCount / SKILLS.length) * 100);
   const [localTime, setLocalTime] = useState(currentTime);
-  const [passive, setPassive] = useState<Record<string, boolean>>({});
+  const [passive, setPassive] = useState<Record<string, 'done' | 'skip' | 'none'>>({});
 
   useEffect(() => { setLocalTime(currentTime); }, [currentTime]);
 
@@ -89,10 +89,12 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
           .maybeSingle();
         if (!cancelled && data) {
           const row = data as Record<string, boolean | null>;
+          const stateOf = (v: boolean | null | undefined): 'done' | 'skip' | 'none' =>
+            v === true ? 'done' : v === false ? 'skip' : 'none';
           setPassive({
-            reading_podcast: !!row.passive_reading_podcast_completed,
-            tv: !!row.passive_tv_completed,
-            videogames: !!row.passive_videogames_completed,
+            reading_podcast: stateOf(row.passive_reading_podcast_completed),
+            tv: stateOf(row.passive_tv_completed),
+            videogames: stateOf(row.passive_videogames_completed),
           });
         }
       } catch (e) { console.error('Error loading passive language:', e); }
@@ -100,7 +102,7 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
     return () => { cancelled = true; };
   }, [today]);
 
-  const passiveDone = showPassive ? PASSIVE.filter(p => passive[p.id]).length : 0;
+  const passiveDone = showPassive ? PASSIVE.filter(p => passive[p.id] === 'done').length : 0;
   const totalItems = SKILLS.length + (showPassive ? PASSIVE.length : 0);
   const totalDone = doneCount + passiveDone;
 
@@ -149,11 +151,11 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
     upsertLanguageSession();
   };
 
-  const handlePassiveToggle = async (id: string, column: PassiveColumn) => {
-    const next = !passive[id];
+  const handlePassiveSet = async (id: string, column: PassiveColumn, target: 'done' | 'skip') => {
+    const current = passive[id] ?? 'none';
+    const next = current === target ? 'none' : target;
     setPassive(prev => ({ ...prev, [id]: next }));
-    const payload: Partial<Record<PassiveColumn, boolean>> = {};
-    payload[column] = next;
+    const value = next === 'done' ? true : next === 'skip' ? false : null;
     try {
       const { data: existing } = await supabase
         .from('language_sessions')
@@ -165,13 +167,13 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
         .maybeSingle();
 
       if (existing) {
-        await supabase.from('language_sessions').update(payload).eq('id', existing.id);
-      } else {
+        await supabase.from('language_sessions').update({ [column]: value }).eq('id', existing.id);
+      } else if (value !== null) {
         await supabase.from('language_sessions').insert({
           session_date: today,
           language: 'english',
           block_type: 'morning',
-          ...payload,
+          [column]: value,
         });
       }
     } catch (e) { console.error('Error saving passive language:', e); }
@@ -310,27 +312,46 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
           <div className="grid grid-cols-3 gap-1.5">
             {PASSIVE.map((p) => {
               const Icon = p.icon;
-              const done = !!passive[p.id];
+              const state = passive[p.id] ?? 'none';
+              const done = state === 'done';
+              const skip = state === 'skip';
               return (
-                <button
+                <div
                   key={p.id}
-                  onClick={() => handlePassiveToggle(p.id, p.column)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-lg border-2 p-2 transition-all text-left",
+                    "flex items-center gap-1 rounded-lg border-2 p-1.5 transition-all",
                     done
                       ? "bg-indigo-500/15 border-indigo-500/50"
-                      : `${p.bg} border-transparent hover:border-muted-foreground/30`,
+                      : skip
+                      ? "bg-red-500/10 border-red-500/50"
+                      : `${p.bg} border-transparent`,
                   )}
                 >
-                  <div className={cn(
-                    "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                    done ? "bg-indigo-500 border-indigo-500" : "border-muted-foreground/40"
-                  )}>
-                    {done && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
-                  </div>
-                  <Icon className={cn("h-3.5 w-3.5 shrink-0", p.color)} />
-                  <span className="text-[11px] font-medium truncate flex-1">{p.name}</span>
-                </button>
+                  <button
+                    onClick={() => handlePassiveSet(p.id, p.column, 'done')}
+                    title="Marcar como hecho"
+                    className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
+                  >
+                    <div className={cn(
+                      "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      done ? "bg-indigo-500 border-indigo-500" : "border-muted-foreground/40"
+                    )}>
+                      {done && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                    </div>
+                    <Icon className={cn("h-3.5 w-3.5 shrink-0", p.color)} />
+                    <span className="text-[11px] font-medium truncate flex-1">{p.name}</span>
+                  </button>
+                  <button
+                    onClick={() => handlePassiveSet(p.id, p.column, 'skip')}
+                    title="Marcar como no hecho"
+                    className={cn(
+                      "h-5 w-5 rounded-md flex items-center justify-center shrink-0 transition-colors",
+                      skip ? "bg-red-500 text-white" : "text-muted-foreground/50 hover:bg-red-500/15 hover:text-red-500"
+                    )}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               );
             })}
           </div>
