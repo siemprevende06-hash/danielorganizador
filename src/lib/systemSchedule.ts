@@ -87,8 +87,10 @@ export function getAreaChrono(blocks: RoutineBlock[] | undefined, areaId: string
 }
 
 export function formatClock(time: string): string {
-  const [hour, minute] = time.split(":").map(Number);
-  return `${hour}:${String(minute).padStart(2, "0")}`;
+  const [rawHour, minute] = time.split(":").map(Number);
+  const hour12 = rawHour % 12 || 12;
+  const period = rawHour >= 12 ? "PM" : "AM";
+  return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
 }
 
 export function formatRange(range: Pick<ChronoRange, "start" | "end">): string {

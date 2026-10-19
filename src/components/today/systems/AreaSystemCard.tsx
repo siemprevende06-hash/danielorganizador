@@ -39,6 +39,8 @@ const QUICK_ADD_MINUTES: Record<string, number[]> = {
 
 export interface AreaInteraction {
   blocks?: RoutineBlock[];
+  /** Fecha ISO (yyyy-MM-dd) del día mostrado. */
+  date?: string;
   completions: Record<string, boolean>;
   timeData: Record<string, number>;
   countData?: Record<string, number>;
@@ -140,6 +142,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
           onInglesTimeChange={(m) => interaction.onTimeChange('ingles', m)}
           skipped={interaction.skipped}
           onSkipToggle={interaction.onSkipToggle}
+          date={interaction.date}
           fixedBlocks={chrono?.fixed}
           extraBlocks={chrono?.extra}
         />
@@ -211,6 +214,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         weekTotal={weekTotal}
         today={interaction.todayItems?.[meta.id]}
         quickAddMinutes={QUICK_ADD_MINUTES[meta.id]}
+        date={interaction.date}
         fixedBlocks={chrono?.fixed}
         extraBlocks={chrono?.extra}
         showFixedCount={COUNT_AREAS.has(meta.id)}

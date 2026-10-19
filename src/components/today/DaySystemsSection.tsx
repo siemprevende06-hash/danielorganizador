@@ -29,6 +29,7 @@ const GROUP_ORDER: PointBGroup[] = ["cimientos", "construccion", "recompensas"];
 
 export function DaySystemsSection({
   blocks,
+  date,
   completions,
   timeData,
   workoutDuration,
@@ -54,6 +55,8 @@ export function DaySystemsSection({
   onWorkoutDurationChange,
 }: {
   blocks?: RoutineBlock[];
+  /** Fecha ISO (yyyy-MM-dd) del día mostrado. */
+  date?: string;
   completions: Record<string, boolean>;
   timeData: Record<string, number>;
   workoutDuration: number;
@@ -156,6 +159,7 @@ export function DaySystemsSection({
 
   const interaction: AreaInteraction = {
     blocks,
+    date,
     completions,
     timeData,
     countData,

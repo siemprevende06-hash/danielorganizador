@@ -8,6 +8,7 @@ import { systemSpeedOptions, type ChessResultKey, type SpeedOption, type SystemS
 import type { HabitMeta } from "@/lib/areaSystemsMap";
 import type { ChronoRange } from "@/lib/systemSchedule";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
+import { useChronoTime } from "@/hooks/useChronoTime";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useChessTracking } from "@/hooks/useChessTracking";
@@ -160,6 +161,8 @@ export interface HabitSystemCardProps {
   spark?: number[];
   weekTotal?: number;
   today?: TodayStripItem;
+  /** Fecha ISO del día (para persistir el reparto fijo/extra). */
+  date?: string;
   /** Botones rápidos de minutos (ej. [30, 80]) que suman al contador. */
   quickAddMinutes?: number[];
   /** Bloques fijos de la rutina para esta área. */
@@ -205,6 +208,7 @@ export default function HabitSystemCard({
   spark,
   weekTotal,
   today,
+  date,
   quickAddMinutes,
   fixedBlocks,
   extraBlocks,
@@ -233,6 +237,16 @@ export default function HabitSystemCard({
   const isGym = meta.id === "entrenamiento-fisico" || meta.id === "gym";
   // Un día de descanso es un día válido (verde): no es lo mismo que saltar/no ir.
   const st = isRest ? NS_REST : baseSt;
+
+  const isChrono = fixedBlocks !== undefined || extraBlocks !== undefined;
+  const extraUnlocked = (extraBlocks?.length ?? 0) > 0;
+  const chrono = useChronoTime({
+    enabled: isChrono,
+    date,
+    areaId: meta.id,
+    total: actualMinutes,
+    onTotalChange: onTimeChange,
+  });
 
   const showMinutes = isSystem || meta.hasTime || meta.isWorkout;
   const pct = metaMinutes > 0 ? Math.round((actualMinutes / metaMinutes) * 100) : 0;
@@ -378,6 +392,11 @@ export default function HabitSystemCard({
             fixed={fixedBlocks ?? []}
             extra={extraBlocks ?? []}
             showCount={showFixedCount}
+            fixedMinutes={chrono.fixed}
+            extraMinutes={chrono.extra}
+            onFixedMinutesChange={chrono.setFixed}
+            onExtraMinutesChange={extraUnlocked ? chrono.setExtra : undefined}
+            totalMinutes={chrono.total}
           />
         )}
 
@@ -399,7 +418,14 @@ export default function HabitSystemCard({
               {quickAddMinutes!.map(m => (
                 <button
                   key={m}
-                  onClick={() => onTimeChange(actualMinutes + m)}
+                  onClick={() => {
+                    if (isChrono) {
+                      if (extraUnlocked) chrono.addExtra(m);
+                      else chrono.addFixed(m);
+                    } else {
+                      onTimeChange(actualMinutes + m);
+                    }
+                  }}
                   title={`Sumar ${m} min`}
                   className="px-1.5 py-1 rounded-md text-[9px] font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors tabular-nums"
                 >
@@ -427,8 +453,8 @@ export default function HabitSystemCard({
               })}
             </div>
           )}
-          <div className="ml-auto flex items-center gap-1">
-            {showMinutes && (
+            <div className="ml-auto flex items-center gap-1">
+            {showMinutes && !isChrono && (
               <>
                 <Clock className="h-2.5 w-2.5 text-muted-foreground" />
                 <Input

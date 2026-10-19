@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { getCoverGradient } from "@/components/areas/AreaCover";
 import { SystemChronoBox } from "@/components/today/systems/SystemChronoBox";
+import { useChronoTime } from "@/hooks/useChronoTime";
 import type { ChronoRange } from "@/lib/systemSchedule";
 
 interface Skill {
@@ -59,11 +60,13 @@ interface Props {
   onInglesTimeChange?: (minutes: number) => void;
   skipped?: Record<string, boolean>;
   onSkipToggle?: (id: string) => void;
+  /** Fecha ISO (yyyy-MM-dd) del día (para persistir el reparte fijo/extra). */
+  date?: string;
   fixedBlocks?: ChronoRange[];
   extraBlocks?: ChronoRange[];
 }
 
-export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange, skipped, onSkipToggle, fixedBlocks, extraBlocks }: Props) => {
+export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange, skipped, onSkipToggle, date, fixedBlocks, extraBlocks }: Props) => {
   const { covers } = useAreaCovers();
   const idiomasCover = covers[coverKey("sub", "idiomas")] ?? null;
   const [activeLang, setActiveLang] = useState<'italian' | 'english'>('italian');
@@ -71,6 +74,28 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
   const currentTime = activeLang === 'italian' ? italianoTime : inglesTime;
   const today = format(new Date(), 'yyyy-MM-dd');
   const showPassive = activeLang === 'english';
+
+  const extraUnlocked = (extraBlocks?.length ?? 0) > 0;
+  const applyTotalToLanguages = (nextTotal: number) => {
+    const target = Math.max(0, Math.round(nextTotal));
+    const other = activeLang === 'italian' ? inglesTime : italianoTime;
+    const otherNew = Math.min(other, target);
+    const activeNew = Math.max(0, target - otherNew);
+    if (activeLang === 'italian') {
+      if (otherNew !== inglesTime) onInglesTimeChange?.(otherNew);
+      onItalianoTimeChange?.(activeNew);
+    } else {
+      if (otherNew !== italianoTime) onItalianoTimeChange?.(otherNew);
+      onInglesTimeChange?.(activeNew);
+    }
+  };
+  const chrono = useChronoTime({
+    enabled: fixedBlocks !== undefined || extraBlocks !== undefined,
+    date,
+    areaId: 'idiomas',
+    total: italianoTime + inglesTime,
+    onTotalChange: applyTotalToLanguages,
+  });
 
   const doneCount = SKILLS.filter(s => completions[`${langPrefix}-${s.id}`]).length;
   const pct = Math.round((doneCount / SKILLS.length) * 100);
@@ -306,7 +331,15 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
       </button>
 
       {(fixedBlocks || extraBlocks) && (
-        <SystemChronoBox fixed={fixedBlocks ?? []} extra={extraBlocks ?? []} />
+        <SystemChronoBox
+          fixed={fixedBlocks ?? []}
+          extra={extraBlocks ?? []}
+          fixedMinutes={chrono.fixed}
+          extraMinutes={chrono.extra}
+          onFixedMinutesChange={chrono.setFixed}
+          onExtraMinutesChange={extraUnlocked ? chrono.setExtra : undefined}
+          totalMinutes={chrono.total}
+        />
       )}
 
       {showPassive && (
