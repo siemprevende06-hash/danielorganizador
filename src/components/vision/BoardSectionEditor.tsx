@@ -8,11 +8,16 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { cacheImageNow, precacheImages } from "@/lib/imageCache";
 import { storeImageFromFile, removeImageBlob } from "@/lib/imageStore";
-import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2 } from "lucide-react";
+import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2, Settings, Type } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { CachedImage } from "@/components/CachedImage";
 import { toast } from "sonner";
@@ -22,6 +27,10 @@ export interface BoardCard {
   id: string;
   position: number;
   image_url: string | null;
+  name?: string;
+  system?: string;
+  textColor?: 'white' | 'black';
+  textBold?: boolean;
 }
 
 export interface BoardSection {
@@ -45,6 +54,26 @@ function makeCards(rows: number): BoardCard[] {
 
 const ROW_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
 
+const SYSTEM_COLOR_MAP: Record<string, string> = {
+  lectura: 'border-blue-500',
+  ajedrez: 'border-amber-500',
+  game: 'border-gray-400',
+  idiomas: 'border-blue-500',
+  musica: 'border-gray-400',
+  gym: 'border-green-500',
+  universidad: 'border-blue-500',
+  emprendimiento: 'border-amber-500',
+  proyectos: 'border-amber-500',
+  salud: 'border-green-500',
+  'fuerza mental': 'border-blue-500',
+  apariencia: 'border-gray-400',
+};
+
+function getCardBorderClass(system?: string) {
+  if (!system) return 'border-dashed border-border/60';
+  return SYSTEM_COLOR_MAP[system.toLowerCase()] || 'border-gray-400';
+}
+
 interface Props {
   sections: BoardSection[];
   setSections: (next: BoardSection[]) => void;
@@ -65,6 +94,7 @@ export function BoardSectionEditor({
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [configCard, setConfigCard] = useState<{ sectionId: string; cardId: string } | null>(null);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const { uploadImage } = useImageUpload();
 
@@ -172,6 +202,19 @@ export function BoardSectionEditor({
     );
   };
 
+  const updateCard = (sectionId: string, cardId: string, patch: Partial<BoardCard>) => {
+    setSections(
+      sections.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              cards: s.cards.map((c) => (c.id === cardId ? { ...c, ...patch } : c)),
+            }
+          : s
+      )
+    );
+  };
+
   const setInputRef = (cardId: string, el: HTMLInputElement | null) => {
     if (el) inputRefs.current.set(cardId, el);
     else inputRefs.current.delete(cardId);
@@ -266,7 +309,10 @@ export function BoardSectionEditor({
                 return (
                   <div
                     key={card.id}
-                    className="relative aspect-square rounded-xl overflow-hidden border-2 border-dashed bg-muted/30 group"
+                    className={cn(
+                      "relative aspect-square rounded-xl overflow-hidden border-2 bg-muted/30 group",
+                      getCardBorderClass(card.system)
+                    )}
                   >
                     <input
                       ref={(el) => setInputRef(card.id, el)}
@@ -304,13 +350,56 @@ export function BoardSectionEditor({
                           className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors z-10"
                           aria-label="Cambiar imagen"
                         />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfigCard({ sectionId: section.id, cardId: card.id });
+                          }}
+                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                          aria-label="Configurar tarjeta"
+                        >
+                          <Settings className="h-3 w-3" />
+                        </button>
+                        {(card.name) && (
+                          <div className="absolute inset-0 flex items-center justify-center px-1 z-10 pointer-events-none">
+                            <p className={cn(
+                              "text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] break-words",
+                              card.textColor === 'black' ? 'text-black' : 'text-white',
+                              card.textBold !== false ? 'font-bold' : ''
+                            )}>
+                              {card.name}
+                            </p>
+                          </div>
+                        )}
                       </>
                     ) : (
-                      <button
-                        onClick={() => inputRefs.current.get(card.id)?.click()}
-                        disabled={isUploading}
-                        className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-                      >
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfigCard({ sectionId: section.id, cardId: card.id });
+                          }}
+                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                          aria-label="Configurar tarjeta"
+                        >
+                          <Settings className="h-3 w-3" />
+                        </button>
+                        {(card.name) && (
+                          <div className="absolute inset-0 flex items-center justify-center px-1 z-10 pointer-events-none">
+                            <p className={cn(
+                              "text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] break-words text-xs",
+                              card.textColor === 'black' ? 'text-black' : 'text-white',
+                              card.textBold !== false ? 'font-bold' : ''
+                            )}>
+                              {card.name}
+                            </p>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => inputRefs.current.get(card.id)?.click()}
+                          disabled={isUploading}
+                          className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                        >
                         {isUploading ? (
                           <Loader2 className="h-6 w-6 animate-spin" />
                         ) : (
@@ -322,6 +411,7 @@ export function BoardSectionEditor({
                           </>
                         )}
                       </button>
+                      </>
                     )}
                   </div>
                 );
@@ -332,6 +422,121 @@ export function BoardSectionEditor({
       )}
 
       <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+    
+      <Sheet open={!!configCard} onOpenChange={(open) => !open && setConfigCard(null)}>
+        <SheetContent side="right" className="sm:max-w-sm">
+          <SheetHeader>
+            <SheetTitle>Configurar tarjeta</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-6">
+            <div className="space-y-2">
+              <Label htmlFor="card-name">Nombre</Label>
+              <Input
+                id="card-name"
+                placeholder="Nombre de la tarjeta"
+                value={
+                  configCard
+                    ? sections
+                        .find((s) => s.id === configCard.sectionId)
+                        ?.cards.find((c) => c.id === configCard.cardId)?.name || ''
+                    : ''
+                }
+                onChange={(e) => {
+                  if (configCard) {
+                    updateCard(configCard.sectionId, configCard.cardId, { name: e.target.value });
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="card-system">Sistema</Label>
+              <Select
+                value={
+                  configCard
+                    ? sections
+                        .find((s) => s.id === configCard.sectionId)
+                        ?.cards.find((c) => c.id === configCard.cardId)?.system || 'none'
+                    : 'none'
+                }
+                onValueChange={(v) => {
+                  if (configCard) {
+                    updateCard(configCard.sectionId, configCard.cardId, { system: v === 'none' ? undefined : v });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar sistema" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin sistema</SelectItem>
+                  <SelectGroup>
+                    <SelectLabel>Principales</SelectLabel>
+                    <SelectItem value="lectura">Lectura</SelectItem>
+                    <SelectItem value="ajedrez">Ajedrez</SelectItem>
+                    <SelectItem value="game">Game</SelectItem>
+                    <SelectItem value="idiomas">Idiomas</SelectItem>
+                    <SelectItem value="musica">Música</SelectItem>
+                    <SelectItem value="gym">Gym</SelectItem>
+                    <SelectItem value="universidad">Universidad</SelectItem>
+                    <SelectItem value="emprendimiento">Emprendimiento</SelectItem>
+                    <SelectItem value="proyectos">Proyectos</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Áreas centrales</SelectLabel>
+                    <SelectItem value="salud">Salud</SelectItem>
+                    <SelectItem value="fuerza mental">Fuerza mental</SelectItem>
+                    <SelectItem value="apariencia">Apariencia</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="card-text-color">Color del texto</Label>
+              <Select
+                value={
+                  configCard
+                    ? sections
+                        .find((s) => s.id === configCard.sectionId)
+                        ?.cards.find((c) => c.id === configCard.cardId)?.textColor || 'white'
+                    : 'white'
+                }
+                onValueChange={(v) => {
+                  if (configCard) {
+                    updateCard(configCard.sectionId, configCard.cardId, { textColor: v as 'white' | 'black' });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="white">Blanco</SelectItem>
+                  <SelectItem value="black">Negro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between space-x-2">
+              <Label htmlFor="card-text-bold">Texto en negrita</Label>
+              <Switch
+                id="card-text-bold"
+                checked={
+                  configCard
+                    ? sections
+                        .find((s) => s.id === configCard.sectionId)
+                        ?.cards.find((c) => c.id === configCard.cardId)?.textBold !== false
+                    : true
+                }
+                onCheckedChange={(checked) => {
+                  if (configCard) {
+                    updateCard(configCard.sectionId, configCard.cardId, { textBold: checked });
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
     </div>
   );
 }
