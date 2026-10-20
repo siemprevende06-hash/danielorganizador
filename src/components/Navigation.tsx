@@ -92,12 +92,12 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     ]
   },
   {
-    label: 'SEGUIMIENTO',
+    label: 'HOBBIES',
     items: [
-      { path: '/habits', label: 'Hábitos', icon: CheckSquare },
-      { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
-      { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
-      { path: '/journaling', label: 'Diario', icon: BookOpen },
+      { path: '/languages-dashboard', label: 'Idiomas', icon: BookOpen },
+      { path: '/reading-library', label: 'Biblioteca', icon: BookOpen },
+      { path: '/music-dashboard', label: 'Música', icon: BookOpen },
+      { path: '/chess', label: 'Ajedrez', icon: Crown },
     ]
   },
   {
@@ -112,18 +112,18 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
     ]
   },
   {
-    label: 'PÁGINAS',
+    label: 'SEGUIMIENTO',
     items: [
-      { path: '/paginas', label: 'Todas las Páginas', icon: FileText },
+      { path: '/habits', label: 'Hábitos', icon: CheckSquare },
+      { path: '/day-planner', label: 'Planificar', icon: CalendarCheck },
+      { path: '/self-review', label: 'Autocrítica', icon: ClipboardCheck },
+      { path: '/journaling', label: 'Diario', icon: BookOpen },
     ]
   },
   {
-    label: 'HOBBIES',
+    label: 'PÁGINAS',
     items: [
-      { path: '/languages-dashboard', label: 'Idiomas', icon: BookOpen },
-      { path: '/reading-library', label: 'Biblioteca', icon: BookOpen },
-      { path: '/music-dashboard', label: 'Música', icon: BookOpen },
-      { path: '/chess', label: 'Ajedrez', icon: Crown },
+      { path: '/paginas', label: 'Todas las Páginas', icon: FileText },
     ]
   },
   {
