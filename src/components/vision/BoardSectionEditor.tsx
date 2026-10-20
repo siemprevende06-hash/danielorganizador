@@ -14,7 +14,7 @@ import {
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { cacheImageNow, precacheImages } from "@/lib/imageCache";
 import { storeImageFromFile, removeImageBlob } from "@/lib/imageStore";
-import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2, Settings, Type } from "lucide-react";
+import { ImagePlus, X, Loader2, Plus, Trash2, ImageIcon, Maximize2, Settings, Type, ArrowUp, ArrowDown } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -31,6 +31,7 @@ export interface BoardCard {
   system?: string;
   textColor?: 'white' | 'black';
   textBold?: boolean;
+  fontSize?: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl';
 }
 
 export interface BoardSection {
@@ -294,14 +295,34 @@ export function BoardSectionEditor({
                   ({section.rows * 3} tarjetas)
                 </span>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 ml-auto text-destructive hover:text-destructive"
-                onClick={() => removeSection(section.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1 ml-auto">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => moveSection(section.id, 'up')}
+                  disabled={sections.findIndex((s) => s.id === section.id) === 0}
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => moveSection(section.id, 'down')}
+                  disabled={sections.findIndex((s) => s.id === section.id) === sections.length - 1}
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={() => removeSection(section.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               {section.cards.map((card) => {
@@ -363,9 +384,16 @@ export function BoardSectionEditor({
                         {(card.name) && (
                           <div className="absolute inset-0 flex items-center justify-center px-1 z-10 pointer-events-none">
                             <p className={cn(
-                              "text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] break-words",
-                              card.textColor === 'black' ? 'text-black' : 'text-white',
-                              card.textBold !== false ? 'font-bold' : ''
+                              "text-center drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] break-words",
+                              card.textColor === 'black' ? 'text-black drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]' : 'text-white',
+                              card.textBold !== false ? 'font-bold' : '',
+                              card.fontSize === 'xs' ? 'text-[8px]' :
+                              card.fontSize === 'sm' ? 'text-[10px]' :
+                              card.fontSize === 'base' ? 'text-xs' :
+                              card.fontSize === 'lg' ? 'text-sm' :
+                              card.fontSize === 'xl' ? 'text-base' :
+                              card.fontSize === '2xl' ? 'text-lg' :
+                              'text-xs'
                             )}>
                               {card.name}
                             </p>
@@ -387,9 +415,16 @@ export function BoardSectionEditor({
                         {(card.name) && (
                           <div className="absolute inset-0 flex items-center justify-center px-1 z-10 pointer-events-none">
                             <p className={cn(
-                              "text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] break-words text-xs",
-                              card.textColor === 'black' ? 'text-black' : 'text-white',
-                              card.textBold !== false ? 'font-bold' : ''
+                              "text-center drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] break-words",
+                              card.textColor === 'black' ? 'text-black drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]' : 'text-white',
+                              card.textBold !== false ? 'font-bold' : '',
+                              card.fontSize === 'xs' ? 'text-[8px]' :
+                              card.fontSize === 'sm' ? 'text-[9px]' :
+                              card.fontSize === 'base' ? 'text-[10px]' :
+                              card.fontSize === 'lg' ? 'text-xs' :
+                              card.fontSize === 'xl' ? 'text-sm' :
+                              card.fontSize === '2xl' ? 'text-base' :
+                              'text-[10px]'
                             )}>
                               {card.name}
                             </p>
@@ -512,6 +547,35 @@ export function BoardSectionEditor({
                 <SelectContent>
                   <SelectItem value="white">Blanco</SelectItem>
                   <SelectItem value="black">Negro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="card-font-size">Tamaño de letra</Label>
+              <Select
+                value={
+                  configCard
+                    ? sections
+                        .find((s) => s.id === configCard.sectionId)
+                        ?.cards.find((c) => c.id === configCard.cardId)?.fontSize || 'xs'
+                    : 'xs'
+                }
+                onValueChange={(v) => {
+                  if (configCard) {
+                    updateCard(configCard.sectionId, configCard.cardId, { fontSize: v as any });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="xs">Muy pequeño (XS)</SelectItem>
+                  <SelectItem value="sm">Pequeño (S)</SelectItem>
+                  <SelectItem value="base">Mediano (M)</SelectItem>
+                  <SelectItem value="lg">Grande (L)</SelectItem>
+                  <SelectItem value="xl">Muy grande (XL)</SelectItem>
+                  <SelectItem value="2xl">Enorme (XXL)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
