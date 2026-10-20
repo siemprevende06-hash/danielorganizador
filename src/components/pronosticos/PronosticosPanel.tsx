@@ -58,6 +58,7 @@ const AREAS: AreaDef[] = [
   { id: 'idiomas', label: 'Idiomas', group: 'desarrollo', weight: 2, keys: ['idiomas', 'italiano', 'ingles'], goalKeys: ['italiano', 'ingles'], fallbackDaily: 30, days: 7 },
   { id: 'lectura', label: 'Lectura', group: 'desarrollo', weight: 1.5, keys: ['lectura'], goalKeys: ['lectura'], fallbackDaily: 20, days: 7 },
   { id: 'musica', label: 'Música', group: 'desarrollo', weight: 1, keys: ['musica', 'piano', 'guitarra'], goalKeys: ['musica'], fallbackDaily: 30, days: 6 },
+  { id: 'game', label: 'Game / Seducción', group: 'desarrollo', weight: 1, keys: ['game'], goalKeys: ['game'], fallbackDaily: 20, days: 5 },
   { id: 'ajedrez', label: 'Ajedrez', group: 'desarrollo', weight: 0.5, keys: ['ajedrez'], goalKeys: ['ajedrez'], fallbackDaily: 15, days: 7 },
 ];
 
@@ -182,6 +183,78 @@ function AreaTrendCard({ areaId, label, accent }: { areaId: string; label: strin
             </div>
           </>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Gráfica de tareas generales completadas por día (últimos 30 días). */
+function TasksCompletedCard({ accent }: { accent: string }) {
+  const [loading, setLoading] = useState(true);
+  const [series, setSeries] = useState<Array<{ date: string; label: string; done: number }>>([]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      const start = format(subDays(new Date(), 29), 'yyyy-MM-dd');
+      const { data } = await supabase
+        .from('tasks')
+        .select('id, completed, source, due_date, area_id')
+        .eq('completed', true)
+        .gte('due_date', start);
+      if (!active) return;
+      const counts: Record<string, number> = {};
+      (data ?? []).forEach((t: { completed: boolean; source: string | null; due_date: string | null; area_id: string | null }) => {
+        if (!t.completed || !t.due_date) return;
+        if (!(t.source === 'general' || (!t.source && !t.area_id))) return;
+        const d = t.due_date.slice(0, 10);
+        counts[d] = (counts[d] || 0) + 1;
+      });
+      const list: Array<{ date: string; label: string; done: number }> = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
+        list.push({ date: d, label: format(new Date(`${d}T00:00:00`), 'd MMM', { locale: es }), done: counts[d] || 0 });
+      }
+      setSeries(list);
+      setLoading(false);
+    };
+    load();
+    return () => { active = false; };
+  }, []);
+
+  const total = series.reduce((s, d) => s + d.done, 0);
+  const last7 = series.slice(-7).reduce((s, d) => s + d.done, 0);
+  const peak = Math.max(...series.map(d => d.done), 1);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="h-1" style={{ background: accent }} />
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <Link to="/tasks" className="text-xs font-semibold hover:text-primary">Tareas generales</Link>
+          <span className="text-[10px] font-mono text-muted-foreground">{last7} · 7d / {total} · 30d</span>
+        </div>
+        {loading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          <div className="h-24 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={series} margin={{ top: 4, right: 2, left: -32, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 8 }} minTickGap={28} />
+                <YAxis domain={[0, peak]} allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 8 }} />
+                <Tooltip
+                  cursor={{ fill: 'hsl(var(--muted) / 0.4)' }}
+                  contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 10, fontSize: 11 }}
+                  formatter={(value: number) => [`${value}`, 'Completadas']}
+                />
+                <Bar dataKey="done" fill={accent} radius={[3, 3, 0, 0]} maxBarSize={14} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <p className="text-[10px] text-muted-foreground">Tareas generales completadas por día (por fecha de vencimiento).</p>
       </CardContent>
     </Card>
   );
@@ -663,6 +736,22 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
                               </tr>
                             );
                           })}
+                          {g === 'profesional' && (
+                            <tr className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                              <td className="py-2 pl-6 pr-2">
+                                <Link to="/tasks" className="flex items-center gap-1.5 font-semibold hover:text-primary">
+                                  <span>📋</span>Tareas generales
+                                </Link>
+                              </td>
+                              <td className="pr-2 text-muted-foreground whitespace-nowrap">— / —</td>
+                              <td className="pr-2 text-muted-foreground">—</td>
+                              <td className="pr-2 min-w-24">
+                                <Link to="/tasks" className="text-[10px] text-primary hover:underline">Ver en Tareas →</Link>
+                              </td>
+                              <td className="pr-2 hidden sm:table-cell text-muted-foreground">—</td>
+                              <td className="pr-3 text-[10px] text-muted-foreground">Conteo por día (ver detalle)</td>
+                            </tr>
+                          )}
                         </Fragment>
                       );
                     })}
@@ -707,6 +796,7 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
                       {groupAreas.map(a => (
                         <AreaTrendCard key={`at-${a.id}`} areaId={a.id} label={a.label} accent={gLabel.accent} />
                       ))}
+                      {g === 'profesional' && <TasksCompletedCard accent={gLabel.accent} />}
                     </div>
                   </div>
                 );
