@@ -258,6 +258,13 @@ export function BoardSectionEditor({
         </Card>
       )}
 
+      {sections.length > 0 && (
+        <Button onClick={addSection} variant="outline" size="sm" className="w-fit">
+          <Plus className="h-4 w-4 mr-1.5" />
+          Agregar sección
+        </Button>
+      )}
+
       {(selectedSection ? sections.filter((s) => s.id === selectedSection) : sections).map(
         (section) => (
           <Card
@@ -358,7 +365,8 @@ export function BoardSectionEditor({
                         />
                         <button
                           onClick={() => clearImage(section.id, card.id)}
-                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                          className="absolute top-1.5 left-1.5 h-6 w-6 rounded-full bg-red-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                          title="Quitar foto"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -379,8 +387,9 @@ export function BoardSectionEditor({
                             e.stopPropagation();
                             setConfigCard({ sectionId: section.id, cardId: card.id });
                           }}
-                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                          className="absolute bottom-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
                           aria-label="Configurar tarjeta"
+                          title="Configurar tarjeta"
                         >
                           <Settings className="h-3 w-3" />
                         </button>
@@ -410,8 +419,9 @@ export function BoardSectionEditor({
                             e.stopPropagation();
                             setConfigCard({ sectionId: section.id, cardId: card.id });
                           }}
-                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                          className="absolute bottom-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
                           aria-label="Configurar tarjeta"
+                          title="Configurar tarjeta"
                         >
                           <Settings className="h-3 w-3" />
                         </button>
