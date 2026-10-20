@@ -53,10 +53,10 @@ function makeCards(rows: number): BoardCard[] {
   }));
 }
 
-const ROW_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
+const ROW_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const SYSTEM_COLOR_MAP: Record<string, string> = {
-  lectura: 'border-blue-500',
+  lectura: 'border-green-500',
   ajedrez: 'border-amber-500',
   game: 'border-gray-400',
   idiomas: 'border-blue-500',
@@ -350,7 +350,7 @@ export function BoardSectionEditor({
                         </button>
                         <button
                           onClick={() => setLightboxSrc(card.image_url)}
-                          className="absolute top-1.5 left-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                          className="absolute top-1.5 right-8 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
                           aria-label="Ampliar imagen"
                         >
                           <Maximize2 className="h-3 w-3" />
