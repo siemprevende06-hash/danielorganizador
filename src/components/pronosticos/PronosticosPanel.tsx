@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { addDays, addWeeks, differenceInCalendarDays, differenceInCalendarWeeks, endOfQuarter, format, isToday, startOfWeek, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getWeekGoalEffective } from '@/lib/hierarchy';
 import { AREA_SYSTEMS } from '@/lib/areaSystemsMap';
 import { forecastSeries, MODEL_LABELS, type ForecastResult } from '@/lib/forecasting/holtWinters';
+import { useAreaDetailData } from '@/hooks/useAreaDetailData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Area, Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts';
 import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, Compass, Gauge, Info, Lightbulb, RefreshCw, Rocket, Target } from 'lucide-react';
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -26,6 +27,8 @@ const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 type AreaDef = {
   id: string;
   label: string;
+  /** Grupo de áreas centrales (profesional/académico vs desarrollo personal). */
+  group: AreaGroup;
   weight: number;
   /** Claves de time_data que componen el área. */
   keys: string[];
@@ -39,15 +42,23 @@ type AreaDef = {
   days: number;
 };
 
+/** Grupo de áreas centrales al que pertenece cada sistema (profesional vs desarrollo). */
+type AreaGroup = 'profesional' | 'desarrollo';
+
+const GROUP_CONFIG: Record<AreaGroup, { label: string; accent: string }> = {
+  profesional: { label: 'Profesional / Académico', accent: '#3b82f6' },
+  desarrollo: { label: 'Desarrollo Personal', accent: '#10b981' },
+};
+
 const AREAS: AreaDef[] = [
-  { id: 'universidad', label: 'Universidad', weight: 3, keys: ['universidad'], goalKeys: ['universidad'], fallbackDaily: 120, days: 6 },
-  { id: 'emprendimiento', label: 'Emprendimiento', weight: 2.5, keys: ['emprendimiento'], goalKeys: ['emprendimiento'], fallbackDaily: 60, days: 6 },
-  { id: 'proyectos', label: 'Proyectos', weight: 2, keys: ['proyectos'], goalKeys: ['proyectos'], fallbackDaily: 60, days: 5 },
-  { id: 'gym', label: 'Gym', weight: 2.5, keys: [], useWorkout: true, goalKeys: ['gym'], fallbackDaily: 60, days: 5 },
-  { id: 'idiomas', label: 'Idiomas', weight: 2, keys: ['idiomas', 'italiano', 'ingles'], goalKeys: ['italiano', 'ingles'], fallbackDaily: 30, days: 7 },
-  { id: 'lectura', label: 'Lectura', weight: 1.5, keys: ['lectura'], goalKeys: ['lectura'], fallbackDaily: 20, days: 7 },
-  { id: 'musica', label: 'Música', weight: 1, keys: ['musica', 'piano', 'guitarra'], goalKeys: ['musica'], fallbackDaily: 30, days: 6 },
-  { id: 'ajedrez', label: 'Ajedrez', weight: 0.5, keys: ['ajedrez'], goalKeys: ['ajedrez'], fallbackDaily: 15, days: 7 },
+  { id: 'universidad', label: 'Universidad', group: 'profesional', weight: 3, keys: ['universidad'], goalKeys: ['universidad'], fallbackDaily: 120, days: 6 },
+  { id: 'emprendimiento', label: 'Emprendimiento', group: 'profesional', weight: 2.5, keys: ['emprendimiento'], goalKeys: ['emprendimiento'], fallbackDaily: 60, days: 6 },
+  { id: 'proyectos', label: 'Proyectos', group: 'profesional', weight: 2, keys: ['proyectos'], goalKeys: ['proyectos'], fallbackDaily: 60, days: 5 },
+  { id: 'gym', label: 'Gym', group: 'desarrollo', weight: 2.5, keys: [], useWorkout: true, goalKeys: ['gym'], fallbackDaily: 60, days: 5 },
+  { id: 'idiomas', label: 'Idiomas', group: 'desarrollo', weight: 2, keys: ['idiomas', 'italiano', 'ingles'], goalKeys: ['italiano', 'ingles'], fallbackDaily: 30, days: 7 },
+  { id: 'lectura', label: 'Lectura', group: 'desarrollo', weight: 1.5, keys: ['lectura'], goalKeys: ['lectura'], fallbackDaily: 20, days: 7 },
+  { id: 'musica', label: 'Música', group: 'desarrollo', weight: 1, keys: ['musica', 'piano', 'guitarra'], goalKeys: ['musica'], fallbackDaily: 30, days: 6 },
+  { id: 'ajedrez', label: 'Ajedrez', group: 'desarrollo', weight: 0.5, keys: ['ajedrez'], goalKeys: ['ajedrez'], fallbackDaily: 15, days: 7 },
 ];
 
 /** Días de historial diario (16 semanas: margen para el backtesting de HW). */
@@ -114,6 +125,65 @@ function Spark({ data, goal }: { data: Array<{ v?: number; f?: number }>; goal: 
         <Line dataKey="f" stroke="hsl(var(--primary))" strokeDasharray="3 2" dot={false} strokeWidth={1.5} connectNulls={false} />
       </LineChart>
     </ResponsiveContainer>
+  );
+}
+
+/** Gráfica reutilizable de esfuerzo diario (últimos 30 días) de un área, replicando
+ *  la tendencia de la página de detalle del sistema. */
+function AreaTrendCard({ areaId, label, accent }: { areaId: string; label: string; accent: string }) {
+  const pageId = useMemo(() => sistemaPageFor(areaId).replace('/sistemas/', ''), [areaId]);
+  const { loading, series, consistency, minutesIn } = useAreaDetailData(pageId);
+  const chartData = useMemo(
+    () => series.map(d => ({
+      date: format(new Date(`${d.date}T00:00:00`), 'd MMM', { locale: es }),
+      esfuerzo: d.effort,
+      minutos: d.minutes,
+    })),
+    [series]
+  );
+  const recentMin = Math.round(minutesIn(areaId, 'semana'));
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="h-1" style={{ background: accent }} />
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <Link to={sistemaPageFor(areaId)} className="text-xs font-semibold hover:text-primary">{label}</Link>
+          <span className="text-[10px] font-mono text-muted-foreground">{recentMin} min · sem</span>
+        </div>
+        {loading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          <>
+            <div className="h-24 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 4, right: 2, left: -32, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id={`ag-${areaId}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={accent} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={accent} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 8 }} minTickGap={28} />
+                  <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tick={{ fontSize: 8 }} />
+                  <Tooltip
+                    cursor={{ stroke: 'hsl(var(--border))' }}
+                    contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 10, fontSize: 11 }}
+                    formatter={(value: number | null) => [value != null ? `${value}%` : 'sin datos', 'Esfuerzo']}
+                  />
+                  <Area type="monotone" dataKey="esfuerzo" stroke={accent} strokeWidth={2} fill={`url(#ag-${areaId})`} connectNulls dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>Cumplimiento semanal <b className="font-mono text-foreground">{consistency.semana}%</b></span>
+              <span>Mes <b className="font-mono text-foreground">{consistency.mes}%</b></span>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -532,7 +602,7 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
             </CardContent>
           </Card>
 
-          {/* Tabla-lista de áreas con sparkline y progress */}
+          {/* Tendencia por sistema, agrupada por área central */}
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Gauge className="h-4 w-4 text-primary" />Tendencia por sistema (min/sem)</CardTitle></CardHeader>
             <CardContent className="p-0">
@@ -549,35 +619,51 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {areas.map(a => {
-                      const l = light(a.pct);
-                      const Dir = a.delta > 0.08 ? ArrowUpRight : a.delta < -0.08 ? ArrowDownRight : ArrowRight;
-                      const c = confidenceMeta[a.confidence];
+                    {(Object.keys(GROUP_CONFIG) as AreaGroup[]).map(g => {
+                      const groupAreas = areas.filter(a => a.group === g);
+                      const gLabel = GROUP_CONFIG[g];
                       return (
-                        <tr key={a.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors">
-                          <td className="py-2 pl-3 pr-2">
-                            <Link to={sistemaPageFor(a.id)} className="flex items-center gap-1.5 font-semibold hover:text-primary">
-                              <span>{l.dot}</span>{a.label}
-                              {a.rests > 0 && <span className="text-[9px] text-amber-600 font-normal">·{a.rests}d descanso</span>}
-                            </Link>
-                          </td>
-                          <td className="pr-2 font-mono text-muted-foreground whitespace-nowrap">{h(a.recent)} / {h(a.goal)}</td>
-                          <td className="pr-2">
-                            <span className={cn('inline-flex items-center gap-0.5', l.cls)}>
-                              <Dir className="h-3.5 w-3.5" />{a.delta >= 0 ? '+' : ''}{Math.round(a.delta * 100)}%
-                            </span>
-                          </td>
-                          <td className="pr-2 min-w-24">
-                            <div className="flex items-center gap-2">
-                              <Progress value={Math.min(100, a.pct)} indicatorClassName={a.pct >= 85 ? 'bg-green-500' : a.pct >= 55 ? 'bg-amber-500' : 'bg-red-500'} className="h-1.5" />
-                              <span className="text-[10px] font-mono w-8 text-right">{a.pct}%</span>
-                            </div>
-                          </td>
-                          <td className="pr-2 font-mono hidden sm:table-cell">{h(a.projEnd)}</td>
-                          <td className="pr-3">
-                            <span className={cn('text-[10px] font-mono font-semibold', c.cls)}>{a.prob}% <span className="font-normal text-muted-foreground">· {c.label}</span></span>
-                          </td>
-                        </tr>
+                        <Fragment key={`grp-${g}`}>
+                          <tr className="bg-muted/40">
+                            <td colSpan={6} className="py-1.5 pl-3 pr-2">
+                              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: gLabel.accent }}>
+                                <span className="h-2 w-2 rounded-full" style={{ background: gLabel.accent }} />
+                                {gLabel.label}
+                              </span>
+                            </td>
+                          </tr>
+                          {groupAreas.map(a => {
+                            const l = light(a.pct);
+                            const Dir = a.delta > 0.08 ? ArrowUpRight : a.delta < -0.08 ? ArrowDownRight : ArrowRight;
+                            const c = confidenceMeta[a.confidence];
+                            return (
+                              <tr key={a.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors">
+                                <td className="py-2 pl-6 pr-2">
+                                  <Link to={sistemaPageFor(a.id)} className="flex items-center gap-1.5 font-semibold hover:text-primary">
+                                    <span>{l.dot}</span>{a.label}
+                                    {a.rests > 0 && <span className="text-[9px] text-amber-600 font-normal">·{a.rests}d descanso</span>}
+                                  </Link>
+                                </td>
+                                <td className="pr-2 font-mono text-muted-foreground whitespace-nowrap">{h(a.recent)} / {h(a.goal)}</td>
+                                <td className="pr-2">
+                                  <span className={cn('inline-flex items-center gap-0.5', l.cls)}>
+                                    <Dir className="h-3.5 w-3.5" />{a.delta >= 0 ? '+' : ''}{Math.round(a.delta * 100)}%
+                                  </span>
+                                </td>
+                                <td className="pr-2 min-w-24">
+                                  <div className="flex items-center gap-2">
+                                    <Progress value={Math.min(100, a.pct)} indicatorClassName={a.pct >= 85 ? 'bg-green-500' : a.pct >= 55 ? 'bg-amber-500' : 'bg-red-500'} className="h-1.5" />
+                                    <span className="text-[10px] font-mono w-8 text-right">{a.pct}%</span>
+                                  </div>
+                                </td>
+                                <td className="pr-2 font-mono hidden sm:table-cell">{h(a.projEnd)}</td>
+                                <td className="pr-3">
+                                  <span className={cn('text-[10px] font-mono font-semibold', c.cls)}>{a.prob}% <span className="font-normal text-muted-foreground">· {c.label}</span></span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </Fragment>
                       );
                     })}
                   </tbody>
@@ -601,6 +687,30 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
                   );
                 })}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Detalle por sistema: esfuerzo diario (últimos 30 días), agrupado por área central */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Gauge className="h-4 w-4 text-primary" />Esfuerzo diario por sistema · últimos 30 días</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {(Object.keys(GROUP_CONFIG) as AreaGroup[]).map(g => {
+                const groupAreas = areas.filter(a => a.group === g);
+                const gLabel = GROUP_CONFIG[g];
+                return (
+                  <div key={`det-${g}`} className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: gLabel.accent }}>
+                      <span className="h-2 w-2 rounded-full" style={{ background: gLabel.accent }} />
+                      {gLabel.label}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                      {groupAreas.map(a => (
+                        <AreaTrendCard key={`at-${a.id}`} areaId={a.id} label={a.label} accent={gLabel.accent} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 
