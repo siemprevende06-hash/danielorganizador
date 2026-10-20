@@ -223,29 +223,7 @@ export function BoardSectionEditor({
 
   return (
     <div className="space-y-4">
-      {sections.length > 0 && (
-        <Card className="p-2 md:p-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant={selectedSection === null ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedSection(null)}
-            >
-              Todas
-            </Button>
-            {sections.map((s) => (
-              <Button
-                key={s.id}
-                variant={selectedSection === s.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedSection(s.id)}
-              >
-                {s.name}
-              </Button>
-            ))}
-          </div>
-        </Card>
-      )}
+
 
       {sections.length === 0 && (
         <Card className="p-12 text-center">
@@ -265,7 +243,7 @@ export function BoardSectionEditor({
         </Button>
       )}
 
-      {(selectedSection ? sections.filter((s) => s.id === selectedSection) : sections).map(
+      {sections.map(
         (section) => (
           <Card
             key={section.id}
