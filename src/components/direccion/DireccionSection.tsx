@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { DireccionAreaChip } from '@/components/direccion/DireccionAreaChip';
 import { DireccionSubAreaCard } from '@/components/direccion/DireccionSubAreaCard';
 import { DireccionTrendChart } from '@/components/direccion/DireccionTrendChart';
+import { DireccionVisionGrid } from '@/components/direccion/DireccionVisionGrid';
 import { scoreBg, scoreColor } from '@/components/direccion/DireccionCardParts';
 import { isDireccionExpandedArea, LIFE_AREA_SECTIONS } from '@/data/lifeAreaSections';
 import { coverKey, useAreaCovers } from '@/hooks/useAreaCovers';
@@ -185,6 +186,10 @@ export function DireccionSection() {
 
           <section className="space-y-2">
             <DireccionTrendChart globalPoints={data.globalPoints} />
+          </section>
+
+          <section className="space-y-2">
+            <DireccionVisionGrid />
           </section>
         </>
       )}

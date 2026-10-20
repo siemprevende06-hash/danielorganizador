@@ -44,6 +44,7 @@ export function MetricTile({
 
 function DayCell({ day }: { day: DireccionWeekDay }) {
   const height = Math.min(100, Math.max(day.active ? 12 : 4, day.rate));
+  const insideFill = height >= 28;
 
   return (
     <div className="flex flex-col items-center gap-1 min-w-0">
@@ -58,15 +59,25 @@ function DayCell({ day }: { day: DireccionWeekDay }) {
       <div
         title={`${day.label} · ${formatMinutes(day.minutes)}${day.future ? ' · pendiente' : ''}`}
         className={cn(
-          'w-full h-10 rounded-md flex items-end overflow-hidden',
+          'relative w-full h-10 rounded-md overflow-hidden',
           day.future ? 'bg-muted/20 border border-dashed border-border/40' : 'bg-muted/50',
           day.isToday && !day.future && 'ring-1 ring-primary/50',
         )}
       >
         <div
-          className="w-full rounded-md transition-all duration-500"
+          className="absolute bottom-0 inset-x-0 rounded-md transition-all duration-500"
           style={{ height: `${height}%`, backgroundColor: toneColor(day.rate, day.future) }}
         />
+        {!day.future && (
+          <span
+            className={cn(
+              'absolute inset-x-0 bottom-0.5 text-center text-[7px] font-bold tabular-nums leading-none pointer-events-none',
+              insideFill ? 'text-white' : 'text-muted-foreground',
+            )}
+          >
+            {day.minutes}
+          </span>
+        )}
       </div>
     </div>
   );
