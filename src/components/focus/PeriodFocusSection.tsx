@@ -25,6 +25,7 @@ import {
   Info,
 } from 'lucide-react';
 import { FocusEntityPicker } from '@/components/focus/FocusEntityPicker';
+import { PeriodMilestones } from '@/components/focus/PeriodMilestones';
 
 interface Props {
   scope: FocusPeriodType;
@@ -259,6 +260,13 @@ export function PeriodFocusSectionView({ scope, anchorDate, controller }: Props 
         <Plus className="mr-1.5 h-4 w-4" />
         Añadir foco
       </Button>
+
+      {scope !== 'quarter' && scope !== 'year' && (
+        <div className="pt-2">
+          <div className="mb-4 h-px bg-border" />
+          <PeriodMilestones scope={scope} anchorDate={anchorDate} />
+        </div>
+      )}
 
       <FocusEntityPicker
         open={pickerOpen}
