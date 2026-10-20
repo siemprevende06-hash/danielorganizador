@@ -10,10 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Area, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis, Label } from 'recharts';
+import { Area, Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts';
 import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, Compass, Gauge, Info, Lightbulb, RefreshCw, Rocket, Target } from 'lucide-react';
+
+const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 // ---------------------------------------------------------------------------
 // Configuración de áreas: metas dinámicas desde la jerarquía (hierarchy.ts),
@@ -67,6 +71,16 @@ const areaValue = (a: AreaDef, r?: TrackingRow): number => {
   return a.keys.reduce((s, k) => s + (Number(r.time_data?.[k]) || 0), 0);
 };
 
+/** true si el día está marcado como descanso o saltado para el área. */
+const isOff = (a: AreaDef, r?: TrackingRow): boolean => {
+  if (!r) return false;
+  const keys = a.useWorkout ? ['gym'] : a.keys;
+  return keys.some(k => r.rest?.[k] || r.skipped?.[k]);
+};
+
+/** Índice de día de la semana con lunes = 0. */
+const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
+
 /** Página de detalle del sistema a partir de un área de la jerarquía. */
 function sistemaPageFor(areaId: string): string {
   const keys = areaId === 'gym' ? ['gym'] : areaId === 'idiomas' ? ['idiomas', 'italiano', 'ingles'] : [areaId];
@@ -87,6 +101,31 @@ function light(pct: number) {
   if (pct >= 85) return { dot: '🟢', cls: 'text-green-600 dark:text-green-400', label: 'En ruta' };
   if (pct >= 55) return { dot: '🟡', cls: 'text-amber-600 dark:text-amber-400', label: 'En riesgo' };
   return { dot: '🔴', cls: 'text-red-600 dark:text-red-400', label: 'Fuera de ruta' };
+}
+
+/** Sparkline compacto (histórico + proyección) reutilizado en la tabla de áreas. */
+function Spark({ data, goal }: { data: Array<{ v?: number; f?: number }>; goal: number }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data}>
+        <ReferenceLine y={goal} stroke="hsl(142 70% 40%)" strokeDasharray="3 3" />
+        <YAxis hide domain={[0, (dMax: number) => Math.max(dMax, goal) * 1.1]} />
+        <Line dataKey="v" stroke="hsl(var(--foreground))" dot={false} strokeWidth={1.5} connectNulls={false} />
+        <Line dataKey="f" stroke="hsl(var(--primary))" strokeDasharray="3 2" dot={false} strokeWidth={1.5} connectNulls={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Valor estadístico compacto para la cinta de KPIs (sin caja). */
+function Stat({ label, value, sub, cls }: { label: string; value: string; sub?: string; cls?: string }) {
+  return (
+    <div className="px-3 py-1 first:pl-0 min-w-0">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">{label}</p>
+      <p className={cn('text-xl font-bold font-mono tabular-nums leading-tight', cls)}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
+    </div>
+  );
 }
 
 /** Suma de los últimos `n` valores (ventana móvil final). */
@@ -119,6 +158,14 @@ function groupFutureWeeks(fc: ForecastResult, anchor: Date, curWeekStart: Date, 
   return { weekly, lo80, hi80, lo95, hi95 };
 }
 
+type ConfidenceLevel = 'alta' | 'media' | 'baja' | 'nula';
+const confidenceMeta: Record<ConfidenceLevel, { cls: string; label: string }> = {
+  alta: { cls: 'text-green-600 dark:text-green-400', label: 'fiable' },
+  media: { cls: 'text-amber-600 dark:text-amber-400', label: 'orientativa' },
+  baja: { cls: 'text-orange-600 dark:text-orange-400', label: 'débil' },
+  nula: { cls: 'text-red-600 dark:text-red-400', label: 'sin datos' },
+};
+
 // ---------------------------------------------------------------------------
 // Componente
 // ---------------------------------------------------------------------------
@@ -128,6 +175,7 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [rows, setRows] = useState<TrackingRow[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
+  const [metric, setMetric] = useState<'minutos' | 'cumplimiento'>('minutos');
 
   useEffect(() => {
     let alive = true;
@@ -178,18 +226,31 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
     const weeklyGoal: Record<string, number> = Object.fromEntries(AREAS.map(a => [a.id, goalFor(a, curWeekStart)]));
     const totalGoal = AREAS.reduce((s, a) => s + weeklyGoal[a.id], 0);
 
-    // --- series diarias (densas) e históricos semanales ---
+    // --- series diarias (excluyendo descansos/skips) e históricos semanales ---
     const dailySeries: Record<string, number[]> = {};
     const weekly: Record<string, number[]> = {};
+    const seasonalAcc: Record<string, number[]> = {};
+    const seasonalCnt: Record<string, number[]> = {};
     AREAS.forEach(a => {
-      dailySeries[a.id] = dateKeys.map(k => areaValue(a, byDate.get(k)));
+      dailySeries[a.id] = dateKeys.map(k => (isOff(a, byDate.get(k)) ? 0 : areaValue(a, byDate.get(k))));
       weekly[a.id] = Array(HIST_WEEKS).fill(0);
+      seasonalAcc[a.id] = Array(7).fill(0);
+      seasonalCnt[a.id] = Array(7).fill(0);
+    });
+    dateKeys.forEach((k, i) => {
+      const d = new Date(k + 'T12:00:00');
+      if (differenceInCalendarDays(anchor, d) >= HIST_WEEKS * 7) return;
+      const wd = weekdayIndex(d);
+      AREAS.forEach(a => {
+        seasonalAcc[a.id][wd] += dailySeries[a.id][i];
+        seasonalCnt[a.id][wd] += 1;
+      });
     });
     rows.forEach(r => {
       const d = new Date(r.tracking_date + 'T12:00:00');
       const w = differenceInCalendarWeeks(d, week0, { weekStartsOn: 1 });
       if (w < 0 || w >= HIST_WEEKS) return;
-      AREAS.forEach(a => { weekly[a.id][w] += areaValue(a, r); });
+      AREAS.forEach(a => { weekly[a.id][w] += isOff(a, r) ? 0 : areaValue(a, r); });
     });
     AREAS.forEach(a => { weekly[a.id][HIST_WEEKS - 1] = weekly[a.id][HIST_WEEKS - 1] / elapsed; });
 
@@ -238,8 +299,11 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
         : null;
       const impact = Math.round((a.weight / weightSum) * 100 * (gap / Math.max(goal, 1)) * 10) / 10 + (a.weight / weightSum) * 20;
       const effort = Math.round(gap / a.days);
+      // estacionalidad: minutos medios por día de la semana (12 semanas)
+      const seasonal = seasonalAcc[a.id].map((sum, i) => Math.round(sum / Math.max(1, seasonalCnt[a.id][i])));
       return {
-        ...a, ys, goal, recent, projEnd, prob, pct, delta, gap, alert, rests,
+        ...a, ys, goal, recent, projEnd, prob, pct, delta, gap, alert, rests, seasonal,
+        confidence: fc.confidence, mape: fc.mape,
         futureWeekly: areaFuture[a.id].weekly,
         impact: Math.round(impact * 10) / 10, effort, minPerDay: Math.ceil(gap / a.days),
       };
@@ -274,6 +338,21 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
     ];
     const weeklyNeeded = horizonWeeks > 0 ? Math.max(0, (totalGoal - recentTotal) / horizonWeeks) : 0;
 
+    // --- sensibilidad: probabilidad de cumplir según esfuerzo extra semanal ---
+    const sensitivity = [0, 30, 60, 90, 120, 180, 240].map(delta => ({
+      delta,
+      prob: probAbove(baseEnd + delta, metaCierre, sdTotal),
+    }));
+    // semanas de margen: cuántas semanas puede fallar la meta y aún cumplir al cierre
+    const weeksOfMargin = weeklyNeeded > 0 ? Math.floor(Math.max(0, baseEnd - metaCierre) / weeklyNeeded) : 99;
+
+    // --- descomposición de la brecha total por área (min/sem) ---
+    const gapBreakdown = [...areas].filter(a => a.gap > 0).sort((a, b) => b.gap - a.gap)
+      .map(a => ({ label: a.label, gap: Math.round(a.gap), pct: totalGoal ? Math.round((a.gap / Math.max(1, AREAS.reduce((s, x) => s + Math.max(0, x.goal - x.recent), 0))) * 100) : 0 }));
+
+    // --- comparativa con baseline ---
+    const baseline = totalFc.bestBaseline;
+
     // --- datos del gráfico semanal (histórico + pronóstico con bandas) ---
     const chart: Array<Record<string, unknown>> = [
       ...totalHist.map((v, i) => ({
@@ -299,9 +378,19 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
       }),
     ];
 
+    // --- heatmap estacional: media de minutos por día de la semana y desviación vs. media ---
+    const seasonalDailyAvg = Array.from({ length: 7 }, (_, wd) => areas.reduce((s, a) => s + a.seasonal[wd], 0));
+    const seasonalMean = seasonalDailyAvg.reduce((s, v) => s + v, 0) / 7;
+    const seasonalTotal = seasonalDailyAvg.map((v, wd) => ({
+      label: DAY_LABELS[wd],
+      value: Math.round(v),
+      dev: Math.round(v - seasonalMean),
+    }));
+
     return {
       areas, chart, totalGoal, metaCierre, recentTotal, baseEnd, scenarios, levers,
       horizonWeeks, qEnd, weeklyNeeded, usedFallback, totalFc,
+      sensitivity, weeksOfMargin, gapBreakdown, baseline, seasonalTotal,
       trendWeekly: totalFc.trend * 7,
     };
   }, [rows, status, anchor, anchorStr]);
@@ -337,7 +426,7 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
     );
   }
 
-  const { areas, chart, totalGoal, metaCierre, recentTotal, baseEnd, scenarios, levers, horizonWeeks, qEnd, weeklyNeeded, usedFallback, totalFc, trendWeekly } = model;
+  const { areas, chart, totalGoal, metaCierre, recentTotal, baseEnd, scenarios, levers, horizonWeeks, qEnd, weeklyNeeded, usedFallback, totalFc, trendWeekly, sensitivity, weeksOfMargin, gapBreakdown, baseline, seasonalTotal } = model;
   const gapPct = metaCierre ? Math.round((baseEnd / metaCierre) * 100) : 0;
   const g = light(gapPct);
   const worst = [...areas].sort((a, b) => a.pct * a.weight - b.pct * b.weight)[0];
@@ -346,13 +435,20 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
   const alerts = areas.filter(a => a.alert);
   const quadrant = (l: typeof areas[number]) => l.effort <= 20 ? (l.impact >= 8 ? 'Victoria rápida' : 'Relleno') : (l.impact >= 8 ? 'Proyecto clave' : 'Evitar');
   const anchorLabel = isToday(anchor) ? 'hoy' : format(anchor, 'd MMM', { locale: es });
+  const conf = confidenceMeta[totalFc.confidence];
+  const marginTxt = weeksOfMargin >= horizonWeeks ? '≥ horizonte' : weeksOfMargin <= 0 ? '0' : `${weeksOfMargin}`;
+  const metricMeta = metric === 'minutos'
+    ? { unit: '/sem', color: 'hsl(var(--foreground))', fmt: (v: number) => h(v) }
+    : { unit: '%', color: 'hsl(var(--primary))', fmt: (v: number) => `${Math.round(metaCierre ? (v / metaCierre) * 100 : 0)}%` };
 
   return (
     <div className="space-y-4">
+      {/* Cabecera cockpit */}
       <div className="flex items-center gap-2 flex-wrap">
         <Compass className="h-5 w-5 text-primary" />
         <h2 className="text-lg font-bold tracking-tight">Tablero de dirección</h2>
         <Badge variant="outline" className="text-[10px] font-mono">Meta: {format(qEnd, "d MMM yyyy", { locale: es })} · {horizonWeeks} sem</Badge>
+        <span className={cn('text-xs', conf.cls)}>{g.dot} {g.label} · modelo {conf.label}</span>
         {usedFallback && (
           <Badge variant="secondary" className="text-[10px] gap-1" title="No hay plan de metas cargado; se usan los mínimos diarios por defecto.">
             <Info className="h-3 w-3" /> metas por defecto
@@ -369,48 +465,50 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
 
         {/* ===================== RESUMEN ===================== */}
         <TabsContent value="resumen" className="space-y-4 mt-3">
-          {/* Panel de brecha */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {[
-              { l: 'Ritmo actual', v: h(recentTotal) + '/sem', s: 'Promedio últimas 4 semanas' },
-              { l: 'Meta semanal', v: h(totalGoal) + '/sem', s: usedFallback ? 'Mínimos por defecto (sin plan)' : 'Del plan jerárquico actual' },
-              { l: 'Dónde estarás', v: h(baseEnd) + '/sem', s: `${gapPct}% de la meta al cierre`, cls: g.cls },
-              { l: 'Ritmo mínimo', v: `+${h(weeklyNeeded)}`, s: 'a sumar cada semana' },
-            ].map(k => (
-              <Card key={k.l}><CardContent className="p-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{k.l}</p>
-                <p className={cn('text-xl font-bold font-mono mt-1', k.cls)}>{k.v}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{k.s}</p>
-              </CardContent></Card>
-            ))}
+          {/* Cinta de KPIs minimalista */}
+          <div className="grid grid-cols-2 sm:flex sm:items-stretch sm:divide-x divide-border rounded-2xl border border-border/60 bg-card px-3 py-2">
+            <Stat label="Ritmo actual" value={h(recentTotal)} sub="promedio 4 sem · /sem" />
+            <Stat label="Meta semanal" value={h(totalGoal)} sub={usedFallback ? 'mínimos por defecto' : 'plan jerárquico'} />
+            <Stat label="Dónde estarás" value={h(baseEnd)} sub={`${gapPct}% de la meta al cierre`} cls={g.cls} />
+            <Stat label="Ritmo mínimo" value={`+${h(weeklyNeeded)}`} sub="a sumar cada semana" />
+            <Stat label="Semanas de margen" value={marginTxt} sub={weeksOfMargin >= horizonWeeks ? 'cumples sin subir ritmo' : weeksOfMargin <= 0 ? 'ya no alcanza el run-rate' : 'de fallo tolerables'} cls={weeksOfMargin <= 0 ? 'text-red-500' : weeksOfMargin < 3 ? 'text-amber-600' : 'text-green-600'} />
           </div>
 
           {/* Línea de tiempo con bandas de confianza */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
-                <Target className="h-4 w-4 text-primary" />Histórico, pronóstico y bandas de confianza
-                <span className="ml-auto text-xs font-normal">{g.dot} {g.label}</span>
+                <Target className="h-4 w-4 text-primary" />Histórico, pronóstico y bandas
+                <div className="ml-auto flex items-center gap-1 bg-muted/50 rounded-full p-0.5 border border-border/50">
+                  {(['minutos', 'cumplimiento'] as const).map(m => (
+                    <button key={m} type="button" onClick={() => setMetric(m)}
+                      className={cn('h-6 px-3 rounded-full text-[10px] font-semibold transition-colors',
+                        metric === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                      {m === 'minutos' ? 'Minutos' : 'Cumplimiento'}
+                    </button>
+                  ))}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 p-2">
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chart} margin={{ top: 8, right: 12, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
-                    <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `${Math.round(v / 60)}h`} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 9 }} interval="preserveStartEnd" tickLine={false} />
+                    <YAxis tick={{ fontSize: 9 }} tickLine={false} tickFormatter={v => metric === 'minutos' ? `${Math.round(v / 60)}h` : `${metaCierre ? Math.round((v / metaCierre) * 100) : 0}%`} />
                     <Tooltip
                       formatter={(v: number | number[], n: string) => {
                         if (n === 'range95' || n === 'range80') {
                           const r = Array.isArray(v) ? v : null;
-                          return r ? [`${h(r[0])} – ${h(r[1])}`, n === 'range80' ? 'Banda 80%' : 'Banda 95%'] : ['—', n];
+                          return r ? [`${metricMeta.fmt(r[0])} – ${metricMeta.fmt(r[1])}`, n === 'range80' ? 'Banda 80%' : 'Banda 95%'] : ['—', n];
                         }
-                        return [h(Number(v)), n];
+                        return [metricMeta.fmt(Number(v)), n];
                       }}
-                      contentStyle={{ fontSize: 11, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                      contentStyle={{ fontSize: 11, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 10 }}
                     />
-                    <ReferenceLine x={chart[HIST_WEEKS - 1]?.label} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 2"><Label value={anchorLabel} position="top" fontSize={9} /></ReferenceLine>
+                    <ReferenceArea x1={chart[HIST_WEEKS - 1]?.label} x2={chart[chart.length - 1]?.label} fill="#f59e0b" fillOpacity={0.04} />
+                    <ReferenceLine x={chart[HIST_WEEKS - 1]?.label} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 2" label={{ value: anchorLabel, position: 'top', fontSize: 9 }} />
                     <Area dataKey="range95" name="range95" stroke="none" fill="#f59e0b" fillOpacity={0.12} isAnimationActive={false} />
                     <Area dataKey="range80" name="range80" stroke="none" fill="#f59e0b" fillOpacity={0.22} isAnimationActive={false} />
                     <Line dataKey="meta" name="Meta" stroke="hsl(142 70% 40%)" strokeDasharray="6 3" dot={false} strokeWidth={1.5} />
@@ -424,81 +522,183 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
               <div className="flex items-center gap-3 flex-wrap px-1 text-[10px] text-muted-foreground">
                 <Badge variant="outline" className="text-[9px] font-normal gap-1">Modelo: {MODEL_LABELS[totalFc.model]}</Badge>
                 <span>MAPE validado: {Number.isFinite(totalFc.mape) ? `${totalFc.mape.toFixed(0)}%` : '—'}</span>
-                <span>Confianza: <b className={totalFc.confidence === 'alta' ? 'text-green-600' : totalFc.confidence === 'media' ? 'text-amber-600' : 'text-red-500'}>{totalFc.confidence}</b></span>
+                <span>Confianza: <b className={conf.cls}>{totalFc.confidence}</b></span>
+                {baseline && <span>vs naive: {MODEL_LABELS[baseline.name].split(' ')[0]} {baseline.mape.toFixed(0)}% MAPE</span>}
                 {totalFc.reason && <span className="text-amber-600 flex items-center gap-1"><Info className="h-3 w-3" />{totalFc.reason}</span>}
               </div>
               <p className="text-[10px] text-muted-foreground px-1 pb-1">
-                Banda ámbar = intervalo de confianza del pronóstico (80% y 95%), derivado de los residuos reales del backtesting walk-forward, no de una fórmula asumida.
+                Banda ámbar = intervalo de confianza (80% y 95%) de los residuos reales del backtesting walk-forward. Zona resaltada = período pronosticado.
               </p>
             </CardContent>
           </Card>
 
-          {/* Tendencias por área */}
+          {/* Tabla-lista de áreas con sparkline y progress */}
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Gauge className="h-4 w-4 text-primary" />Tendencia por sistema (minutos/semana)</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {areas.map(a => {
-                const l = light(a.pct);
-                const Dir = a.delta > 0.08 ? ArrowUpRight : a.delta < -0.08 ? ArrowDownRight : ArrowRight;
-                const data = [
-                  ...a.ys.map(v => ({ v: Math.round(v) })),
-                  { v: Math.round(a.ys[a.ys.length - 1]), f: Math.round(a.ys[a.ys.length - 1]) },
-                  ...a.futureWeekly.slice(0, 4).map(w => ({ f: Math.round(w) })),
-                ];
-                return (
-                  <Link key={a.id} to={sistemaPageFor(a.id)} className="rounded-xl border border-border/60 p-2.5 hover:border-primary/50 hover:bg-muted/30 transition-colors block">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span>{l.dot}</span><span className="font-semibold">{a.label}</span>
-                      <Dir className={cn('h-3.5 w-3.5', l.cls)} />
-                      <span className="ml-auto font-mono text-muted-foreground">{h(a.recent)} / {h(a.goal)}</span>
-                    </div>
-                    <div className="h-12 mt-1">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={data}>
-                          <ReferenceLine y={a.goal} stroke="hsl(142 70% 40%)" strokeDasharray="3 3" />
-                          <YAxis hide domain={[0, (dMax: number) => Math.max(dMax, a.goal) * 1.1]} />
-                          <Line dataKey="v" stroke="hsl(var(--foreground))" dot={false} strokeWidth={1.5} connectNulls={false} />
-                          <Line dataKey="f" stroke="hsl(var(--primary))" strokeDasharray="3 2" dot={false} strokeWidth={1.5} connectNulls={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      {a.pct}% de la meta · {a.delta >= 0 ? '+' : ''}{Math.round(a.delta * 100)}% vs mes previo
-                      {a.rests > 0 && <span className="text-amber-600"> · {a.rests} día{a.rests > 1 ? 's' : ''} de descanso</span>}
-                    </p>
-                  </Link>
-                );
-              })}
+            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Gauge className="h-4 w-4 text-primary" />Tendencia por sistema (min/sem)</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-muted-foreground text-[10px] uppercase">
+                    <tr className="text-left border-b border-border/60">
+                      <th className="py-1.5 pl-3 pr-2">Área</th>
+                      <th className="pr-2">Ritmo / Meta</th>
+                      <th className="pr-2 w-16">Tendencia</th>
+                      <th className="pr-2">Progreso</th>
+                      <th className="pr-2 hidden sm:table-cell">Cierre</th>
+                      <th className="pr-3">Predicción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {areas.map(a => {
+                      const l = light(a.pct);
+                      const Dir = a.delta > 0.08 ? ArrowUpRight : a.delta < -0.08 ? ArrowDownRight : ArrowRight;
+                      const c = confidenceMeta[a.confidence];
+                      return (
+                        <tr key={a.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors">
+                          <td className="py-2 pl-3 pr-2">
+                            <Link to={sistemaPageFor(a.id)} className="flex items-center gap-1.5 font-semibold hover:text-primary">
+                              <span>{l.dot}</span>{a.label}
+                              {a.rests > 0 && <span className="text-[9px] text-amber-600 font-normal">·{a.rests}d descanso</span>}
+                            </Link>
+                          </td>
+                          <td className="pr-2 font-mono text-muted-foreground whitespace-nowrap">{h(a.recent)} / {h(a.goal)}</td>
+                          <td className="pr-2">
+                            <span className={cn('inline-flex items-center gap-0.5', l.cls)}>
+                              <Dir className="h-3.5 w-3.5" />{a.delta >= 0 ? '+' : ''}{Math.round(a.delta * 100)}%
+                            </span>
+                          </td>
+                          <td className="pr-2 min-w-24">
+                            <div className="flex items-center gap-2">
+                              <Progress value={Math.min(100, a.pct)} indicatorClassName={a.pct >= 85 ? 'bg-green-500' : a.pct >= 55 ? 'bg-amber-500' : 'bg-red-500'} className="h-1.5" />
+                              <span className="text-[10px] font-mono w-8 text-right">{a.pct}%</span>
+                            </div>
+                          </td>
+                          <td className="pr-2 font-mono hidden sm:table-cell">{h(a.projEnd)}</td>
+                          <td className="pr-3">
+                            <span className={cn('text-[10px] font-mono font-semibold', c.cls)}>{a.prob}% <span className="font-normal text-muted-foreground">· {c.label}</span></span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 border-t border-border/60">
+                {areas.map(a => {
+                  const spark = [
+                    ...a.ys.map(v => ({ v: Math.round(v) })),
+                    { v: Math.round(a.ys[a.ys.length - 1]), f: Math.round(a.ys[a.ys.length - 1]) },
+                    ...a.futureWeekly.slice(0, 4).map(w => ({ f: Math.round(w) })),
+                  ];
+                  return (
+                    <Link key={`sp-${a.id}`} to={sistemaPageFor(a.id)} className="rounded-xl border border-border/60 p-2 hover:border-primary/50 hover:bg-muted/30 transition-colors">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold">{a.label}</span>
+                        <span className="font-mono text-muted-foreground">{a.pct}%</span>
+                      </div>
+                      <div className="h-10 mt-1"><Spark data={spark} goal={a.goal} /></div>
+                    </Link>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Alertas */}
-          {alerts.length > 0 && (
-            <Card className="border-red-500/30">
-              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-red-500" />Alertas tempranas</CardTitle></CardHeader>
-              <CardContent className="space-y-1">
-                {alerts.map(a => <p key={a.id} className="text-xs">🔴 <b>{a.label}</b> — {a.alert}</p>)}
+          {/* Patrón semanal (heatmap) + Descomposición de brecha */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Patrón semanal · minutos medios por día</CardTitle></CardHeader>
+              <CardContent className="p-3">
+                <div className="grid grid-cols-7 gap-1">
+                  {seasonalTotal.map(d => {
+                    const max = Math.max(...seasonalTotal.map(x => x.value), 1);
+                    const intensity = d.value / max;
+                    return (
+                      <div key={d.label} className="text-center">
+                        <div className="rounded-lg py-3 text-[10px] font-mono font-semibold"
+                          style={{ backgroundColor: `hsl(38 92% 50% / ${0.1 + intensity * 0.6})` }}>
+                          {d.value}
+                        </div>
+                        <p className="text-[9px] text-muted-foreground mt-1">{d.label}</p>
+                        <p className={cn('text-[9px] font-mono', d.dev >= 0 ? 'text-green-600' : 'text-red-500')}>{d.dev >= 0 ? '+' : ''}{d.dev}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-3">Cada celda muestra los minutos medios de ese día de la semana (últimas 12 semanas). Detecta días fuertes y flojos.</p>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Descomposición de la brecha (min/sem)</CardTitle></CardHeader>
+              <CardContent className="p-3">
+                {gapBreakdown.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-4">Todas las áreas cumplen su meta. 🟢</p>
+                ) : (
+                  <>
+                    <div style={{ height: Math.max(80, gapBreakdown.length * 26) }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={gapBreakdown} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
+                          <XAxis type="number" hide />
+                          <YAxis type="category" dataKey="label" width={92} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                          <Tooltip formatter={(v: number) => [h(v), 'Brecha']} contentStyle={{ fontSize: 11, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 10 }} />
+                          <Bar dataKey="gap" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={14}>
+                            <LabelList dataKey="gap" position="right" formatter={(v: number) => h(v)} style={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Cuántos minutos/sem aporta cada área a la brecha total.</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Alertas */}
+          {alerts.length > 0 && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-3 space-y-1">
+              <p className="text-sm font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-red-500" />Alertas tempranas</p>
+              {alerts.map(a => <p key={a.id} className="text-xs">🔴 <b>{a.label}</b> — {a.alert}</p>)}
+            </div>
           )}
 
-          {/* Diagnóstico */}
+          {/* Diagnóstico + Resumen */}
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Diagnóstico de la brecha</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-xs leading-relaxed">
               <p><b>¿Qué te aleja de la meta?</b> {falling.length ? `${falling.map(f => f.label).join(', ')} van a la baja.` : 'Ninguna área cae; el problema es el nivel, no la dirección.'} La mayor brecha ponderada está en <b>{worst?.label}</b> ({worst?.pct}% de su meta).</p>
               <p><b>¿Qué cambiar y cuánto?</b> {worst?.label}: pasar de {h(worst?.recent || 0)} a {h(worst?.goal || 0)} por semana (≈ +{worst?.minPerDay} min en {worst?.days} días).</p>
               <p><b>Ritmo mínimo:</b> la tendencia total es {trendWeekly >= 0 ? '+' : ''}{Math.round(trendWeekly)} min/sem por semana; necesitas +{Math.round(weeklyNeeded)} min/sem cada semana durante {horizonWeeks} semanas (≈ {h(weeklyNeeded * 4)} más al mes).</p>
-            </CardContent>
-          </Card>
-
-          {/* Resumen */}
-          <Card className="border-primary/30">
-            <CardContent className="p-3 space-y-1 text-xs">
+              <Separator className="my-2" />
               <p>🟢 <b>Funciona:</b> {working.map(w => w.label).join(', ') || 'aún ninguna área sostiene su meta'}.</p>
               <p>🔴 <b>Frena:</b> {worst?.label} ({worst?.pct}%){falling.length ? ` y la caída en ${falling.map(f => f.label).join(', ')}` : ''}.</p>
               <p>🎯 <b>Esta semana:</b> {levers[0] ? `${levers[0].label} +${Math.ceil(levers[0].minPerDay / 2)} min/día en bloque fijo` : 'mantener el ritmo'}; meta total {h(Math.min(totalGoal, recentTotal + weeklyNeeded))}.</p>
-              <p className="text-[10px] text-muted-foreground pt-1">Supuestos: metas = plan jerárquico (fallback a mínimos diarios); modelo = Holt-Winters seleccionado por backtesting walk-forward sobre series diarias de 16 semanas.</p>
+              <p className="text-[10px] text-muted-foreground pt-1">Modelo = Holt-Winters por backtesting walk-forward sobre series diarias de 16 semanas (descansos excluidos).</p>
+            </CardContent>
+          </Card>
+
+          {/* Sensibilidad */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Sensibilidad · probabilidad de cumplir según esfuerzo extra</CardTitle></CardHeader>
+            <CardContent className="p-3">
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={sensitivity} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="delta" tick={{ fontSize: 10 }} tickFormatter={v => v === 0 ? 'actual' : `+${v}`} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9 }} domain={[0, 100]} tickFormatter={v => `${v}%`} tickLine={false} />
+                    <Tooltip formatter={(v: number) => [`${v}%`, 'Prob. de cumplir']} labelFormatter={(v: number) => v === 0 ? 'Sin cambios' : `+${v} min/sem`} contentStyle={{ fontSize: 11, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 10 }} />
+                    <ReferenceLine y={50} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 2" />
+                    <Bar dataKey="prob" radius={[4, 4, 0, 0]}>
+                      {sensitivity.map((s, i) => (
+                        <Cell key={i} fill={s.prob >= 70 ? 'hsl(142 70% 40%)' : s.prob >= 45 ? 'hsl(38 92% 50%)' : 'hsl(0 72% 51%)'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Cuánto sube la probabilidad de alcanzar la meta al cierre si añades ese esfuerzo semanal extra al ritmo actual.</p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -509,10 +709,11 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
             {scenarios.map(s => {
               const l = light(s.prob);
               return (
-                <Card key={s.id}><CardContent className="p-3 space-y-1.5">
+                <Card key={s.id}><CardContent className="p-3 space-y-2">
                   <div className="flex items-center gap-1.5"><Rocket className="h-3.5 w-3.5 text-primary" /><span className="text-sm font-bold">{s.id}</span><span className={cn('ml-auto text-xs font-mono', l.cls)}>{l.dot} {s.prob}%</span></div>
                   <p className="text-[11px] text-muted-foreground">{s.desc}</p>
-                  <p className="text-xs">Cierre: <b className="font-mono">{h(s.end)}/sem</b> ({Math.round((s.end / Math.max(1, metaCierre)) * 100)}% de la meta al cierre)</p>
+                  <p className="text-xs">Cierre: <b className="font-mono">{h(s.end)}/sem</b> ({Math.round((s.end / Math.max(1, metaCierre)) * 100)}%)</p>
+                  <Progress value={Math.min(100, Math.round((s.end / Math.max(1, metaCierre)) * 100))} indicatorClassName={l.cls.replace('text-', 'bg-')} className="h-1.5" />
                   <ul className="text-[11px] list-disc pl-4 space-y-0.5">{s.actions.length ? s.actions.map(a => <li key={a}>{a}</li>) : <li className="text-muted-foreground">Sin acciones adicionales</li>}</ul>
                 </CardContent></Card>
               );
@@ -544,16 +745,18 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
 
         {/* ===================== PALANCAS ===================== */}
         <TabsContent value="palancas" className="space-y-4 mt-3">
-          {/* Mapa de palancas */}
+          {/* Mapa de cuadrantes */}
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Lightbulb className="h-4 w-4 text-primary" />Mapa de palancas: impacto vs esfuerzo</CardTitle></CardHeader>
-            <CardContent className="h-56 p-2">
+            <CardContent className="h-64 p-2">
               <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 10, right: 16, left: -10, bottom: 10 }}>
+                <ScatterChart margin={{ top: 12, right: 20, left: -10, bottom: 12 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis type="number" dataKey="effort" name="Esfuerzo" unit=" min/día" tick={{ fontSize: 9 }} />
                   <YAxis type="number" dataKey="impact" name="Impacto" tick={{ fontSize: 9 }} />
-                  <ZAxis range={[80, 80]} />
+                  <ZAxis type="number" dataKey="weight" range={[60, 260]} />
+                  <ReferenceArea x1={20} x2={1000} y1={8} y2={1000} fill="hsl(142 70% 40%)" fillOpacity={0.06} />
+                  <ReferenceArea x1={0} x2={20} y1={0} y2={1000} fill="hsl(38 92% 50%)" fillOpacity={0.06} />
                   <ReferenceLine x={20} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 2" />
                   <ReferenceLine y={8} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 2" />
                   <Tooltip content={({ payload }) => {
@@ -563,6 +766,11 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
                   <Scatter data={areas} fill="hsl(var(--primary))" />
                 </ScatterChart>
               </ResponsiveContainer>
+              <div className="flex items-center gap-3 flex-wrap text-[10px] text-muted-foreground px-1">
+                <span className="flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-amber-500/20" />Izq-arriba: victoria rápida</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-green-500/20" />Der-arriba: proyecto clave</span>
+                <span className="flex items-center gap-1 ml-auto">Tamaño = peso del área</span>
+              </div>
             </CardContent>
           </Card>
 
@@ -575,7 +783,7 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
                 <tbody>
                   {levers.length === 0 && <tr><td colSpan={6} className="py-2 text-muted-foreground">Todas las áreas cumplen su meta. 🟢</td></tr>}
                   {levers.map(l => (
-                    <tr key={l.id} className="border-t border-border/50">
+                    <tr key={l.id} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
                       <td className="py-1.5 font-semibold"><Link to={sistemaPageFor(l.id)} className="hover:text-primary hover:underline">{l.label}</Link></td>
                       <td>+{l.minPerDay} min en {l.days} días/sem, en bloque fijo</td>
                       <td className="font-mono">{l.effort} min/día</td>
