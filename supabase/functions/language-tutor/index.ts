@@ -67,6 +67,17 @@ const NIVELES: Record<string, string> = {
   native: "nativo (C2+)",
 };
 
+// ---------------- Simulaciones de speaking (rol-play) ----------------
+
+const SCENARIOS: Record<string, string> = {
+  cafe: "CAFÉ O RESTAURANTE: tú eres el camarero/camarera. Él es el cliente que entra, se sienta y pide. Salúdale, dale la carta, responde a dudas sobre platos y alergias, toma el pedido, trae lo pedido y finalmente la cuenta. Incluye algún imprevisto (plato no disponible, quiere cambiar el pedido) para obligarle a improvisar.",
+  travel: "AEROPUERTO U HOTEL: tú eres el personal de recepción o de mostrador. Él llega con reserva, equipaje perdido o buscando indicaciones. Pídele pasaporte o número de reserva, explica horarios y servicios, da direcciones y ayúdale a resolver un problema (retraso, habitación equivocada, pérdida de equipaje).",
+  interview: "ENTREVISTA DE TRABAJO: tú eres el entrevistador de una empresa. Preséntate y el puesto, haz preguntas típicas (experiencia, fortalezas, debilidades, por qué quiere el puesto, situación de conflicto en el trabajo), reacciona a cada respuesta con una pregunta de seguimiento y deja tiempo para que pregunte al final.",
+  doctor: "CONSULTA MÉDICA: tú eres el médico o enfermero. Salúdale, pregúntale síntomas, desde cuándo, intensidad y antecedentes; después explica el diagnóstico provisional, el tratamiento, la posología y las señales de alarma en las que debe volver.",
+  shopping: "TIENDA DE ROPA: tú eres el dependiente. Salúdale, pregúntale qué busca, ofrece tallas, colores, materiales y precios, sugiere alternativas y gestiona una devolución o cambio con ticket.",
+  smalltalk: "CONOCER A ALGUIEN: tú eres una persona nueva en una fiesta o evento. Preséntate, haz preguntas de conversación cotidiana (trabajo, planes del fin de semana, aficiones, viajes), muestra interés por lo que cuente y comparte brevemente algo tuyo para que él pregunte también.",
+};
+
 // ---------------- Tools ----------------
 
 const tools = [
@@ -436,6 +447,22 @@ Deno.serve(async (req) => {
       ? `MODO: conversación libre. Estás en la pestaña "Tutor IA" de su página de Idiomas con el ${info.nombre} seleccionado y no hay habilidad fija activa. Si su petición es claramente de una habilidad concreta, aplícale esas directrices. Si no, ofrécele una práctica corta de las 6 habilidades y pregúntale cuál quiere empezar.`
       : `MODO ACTIVO: ${modo.toUpperCase()}\n${MODOS[modo]}`;
 
+    const escenarioId = typeof body?.scenario === "string" ? body.scenario : "";
+    const escenarioTexto =
+      modo === "speaking" && SCENARIOS[escenarioId]
+        ? `
+
+ESCENARIO DE SIMULACIÓN ACTIVO (${escenarioId}). Este bloque tiene PRIORIDAD sobre las instrucciones generales del modo speaking.
+${SCENARIOS[escenarioId]}
+REGLAS DEL SIMULACRO:
+- Mantente SIEMPRE en el rol y habla en ${info.nombre}; usa el español solo para corregir y para el resumen final.
+- Si el mensaje solo pide iniciar el simulacro, abre TÚ la conversación de inmediato con una línea dentro del rol. No des explicaciones ni listas antes.
+- Un solo turno por mensaje y espera siempre su respuesta. Frases cortas y naturales para su nivel.
+- Corrige como máximo 1-2 errores por turno con el formato ✗ → ✓ → por qué (en español), sin romper el rol ni soltar lecciones largas.
+- Si se sale del tema, improvisa dentro del rol y redirige con suavidad.
+- Cuando te pida terminar la simulación, sal del rol y cierra en español con: qué hizo bien, errores clave corregidos y 3 frases nuevas del escenario que deba reutilizar. Llama a registrar_practica con los minutos estimados del simulacro.`
+        : "";
+
     const systemPrompt = `Eres el Tutor IA de idiomas de Daniel. Estás en la sección "Tutor IA" de su página de Idiomas y le enseñas ${info.nombre} (${info.bandera}).
 
 REGLAS DE ORO:
@@ -446,6 +473,7 @@ REGLAS DE ORO:
 5. ${info.nota}
 
 ${modoTexto}
+${escenarioTexto}
 
 HERRAMIENTAS:
 - mostrar_visual: OBLIGATORIA en cuanto muestres una tabla de conjugación, una comparación de errores, una lista de vocabulario, una regla explicada paso a paso o su progreso. Puedes llamarla varias veces.

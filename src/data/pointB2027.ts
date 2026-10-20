@@ -65,14 +65,14 @@ export const POINT_B_AREAS: PointBArea[] = [
     label: "Apariencia y Entorno",
     group: "cimientos",
     icon: "✨",
-    effortTrackingIds: ["skincare-manana", "skincare-noche", "banarme-vestirse"],
+    effortTrackingIds: ["skincare-manana", "skincare-noche", "banarme-vestirme"],
     sub: [
       { id: "skincare-am", label: "Skincare AM", start: 6, target: 9, unit: "/10", trackingIds: ["skincare-manana"] },
       { id: "skincare-pm", label: "Skincare PM", start: 6, target: 9, unit: "/10", trackingIds: ["skincare-noche"] },
       { id: "barbero", label: "Barbero / Estética", start: 4, target: 8, unit: "/10", trackingIds: [] },
       { id: "vestimenta", label: "Vestimenta", start: 3, target: 8, unit: "/10", trackingIds: [] },
       { id: "orden", label: "Orden del espacio", start: 4, target: 8, unit: "/10", trackingIds: [] },
-      { id: "higiene", label: "Higiene / Bañarme", start: 8, target: 10, unit: "/10", trackingIds: ["banarme-vestirse"] },
+      { id: "higiene", label: "Higiene / Bañarme", start: 8, target: 10, unit: "/10", trackingIds: ["banarme-vestirme"] },
     ],
   },
   {

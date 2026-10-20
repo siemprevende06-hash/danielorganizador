@@ -143,7 +143,7 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
       "Tu sistema de propósito (journaling y revisiones) aún no se registra a diario. Es la base que ordena todas las demás áreas.",
   },
   apariencia: {
-    habits: ["skincare-manana", "skincare-noche", "banarme-vestirse"],
+    habits: ["skincare-manana", "skincare-noche", "banarme-vestirme"],
     hierarchyAreas: [],
     specialSections: ["organizacion"],
     vision: "Presencia impecable en cada detalle del día",

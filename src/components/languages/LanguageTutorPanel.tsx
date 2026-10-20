@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
   CheckCircle2,
+  CornerDownLeft,
   GraduationCap,
   History,
   Loader2,
@@ -26,16 +27,11 @@ import {
 import { cn } from '@/lib/utils';
 import { VisualBlock, VisualCanvas } from '@/components/coach/VisualCanvas';
 import { useLanguageTutor } from '@/hooks/useLanguageTutor';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import type { Language } from '@/hooks/useLanguageLearning';
 import { TUTOR_EMPTY, TUTOR_GENERAL, TUTOR_HEADER, TUTOR_MODES, type TutorModeDef, type TutorSkill } from './tutorModes';
-
-declare global {
-  interface Window {
-    SpeechRecognition?: any;
-    webkitSpeechRecognition?: any;
-  }
-}
+import { SCENARIO_END_MSG, SCENARIO_START_MSG, SPEAKING_SCENARIOS } from './speakingScenarios';
 
 const md: Components = {
   h2: ({ children }) => <h2 className="mt-4 mb-1.5 text-base font-bold first:mt-0">{children}</h2>,
@@ -79,9 +75,9 @@ interface Props {
 export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const [mode, setMode] = useState<TutorSkill | null>(null);
   const [input, setInput] = useState('');
-  const [listening, setListening] = useState(false);
   const [logged, setLogged] = useState<string[]>([]);
-  const recRef = useRef<any>(null);
+  const [scenario, setScenario] = useState<string | null>(null);
+  const [autoSend, setAutoSend] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const autoSpokenRef = useRef<string | null>(null);
@@ -97,8 +93,13 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
 
   const header = TUTOR_HEADER[language];
   const activeMode: TutorModeDef | null = TUTOR_MODES.find(m => m.id === mode) ?? null;
+  const activeScenario = scenario ? SPEAKING_SCENARIOS.find(s => s.id === scenario) ?? null : null;
   const quick = activeMode ? activeMode.quick[language] : TUTOR_GENERAL[language];
-  const placeholder = activeMode ? activeMode.placeholder : 'Escribe tu pregunta o tu texto para corregirlo...';
+  const placeholder = activeScenario
+    ? 'Responde hablando: pulsa el micro y suéltalo para enviar...'
+    : activeMode
+      ? activeMode.placeholder
+      : 'Escribe tu pregunta o tu texto para corregirlo...';
   const allVisuals = messages.flatMap(m => m.visuals);
 
   useEffect(() => {
@@ -114,6 +115,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     setLogged([]);
     setMode(null);
     setInput('');
+    setScenario(null);
     autoSpokenRef.current = null;
   }, [language]);
 
@@ -128,8 +130,11 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
 
   const applyMode = (next: TutorSkill | null) => {
     setMode(next);
-    setAutoSpeak(next === 'listening');
-    if (next !== 'listening') stopSpeak();
+    setAutoSpeak(next === 'listening' || next === 'speaking');
+    setAutoSend(next === 'speaking');
+    if (next !== 'listening' && next !== 'speaking') stopSpeak();
+    if (next !== 'speaking') setScenario(null);
+    if (stt.listening) stt.stop();
   };
 
   const toggleSpeak = (id: string, text: string) => {
@@ -141,52 +146,41 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     speak(id, text);
   };
 
-  const stopRecognition = useCallback(() => {
-    try {
-      recRef.current?.stop();
-    } catch {
-      /* noop */
+  const handleFinal = (text: string) => {
+    if (autoSend && !loading) {
+      submit(text);
+    } else {
+      setInput(prev => (prev ? `${prev} ${text}` : text));
+      inputRef.current?.focus();
     }
-    setListening(false);
-  }, []);
-
-  useEffect(() => stopRecognition, [stopRecognition]);
-
-  const toggleMic = () => {
-    if (listening) {
-      stopRecognition();
-      return;
-    }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    stopSpeak();
-    const rec = new SR();
-    recRef.current = rec;
-    rec.lang = speechLang;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    rec.onresult = (e: any) => {
-      const t = e.results?.[0]?.[0]?.transcript || '';
-      setInput(prev => (prev ? `${prev} ${t}` : t));
-    };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
-    rec.start();
-    setListening(true);
   };
 
-  const submit = (text: string) => {
+  const stt = useSpeechRecognition({ lang: speechLang, onFinal: handleFinal });
+
+  const submit = (text: string, scenarioId?: string | null) => {
     if (!text.trim() || loading) return;
     stopSpeak();
     autoSpokenRef.current = null;
-    sendMessage(text);
+    sendMessage(text, scenarioId ?? scenario ?? undefined);
     setInput('');
-    setListening(false);
+    if (stt.listening) stt.stop();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     submit(input);
+  };
+
+  const startScenario = (id: string) => {
+    if (loading) return;
+    setScenario(id);
+    submit(SCENARIO_START_MSG, id);
+  };
+
+  const finishScenario = () => {
+    if (!scenario || loading) return;
+    submit(SCENARIO_END_MSG, scenario);
+    setScenario(null);
   };
 
   const logPractice = async (messageId: string, minutes: number) => {
@@ -241,6 +235,45 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
         )}
       </div>
 
+      {mode === 'speaking' && (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-[11px] text-muted-foreground mr-0.5">Simulaciones:</span>
+          {SPEAKING_SCENARIOS.map(s => {
+            const active = scenario === s.id;
+            return (
+              <Button
+                key={s.id}
+                variant={active ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-[11px]"
+                onClick={() => (active ? setScenario(null) : startScenario(s.id))}
+                disabled={loading}
+                title={s.goal[language]}
+              >
+                <s.Icon className="w-3 h-3 mr-1" />
+                {s.label[language]}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+
+      {activeScenario && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-2.5 py-1.5 text-xs">
+          <span className="font-medium flex-shrink-0">🎭 Escenario: {activeScenario.label[language]}</span>
+          <span className="text-muted-foreground truncate">{activeScenario.goal[language]}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[11px] ml-auto flex-shrink-0"
+            onClick={finishScenario}
+            disabled={loading}
+          >
+            Terminar
+          </Button>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-[1fr_340px] gap-3">
         {/* Chat */}
         <Card className="flex flex-col h-[62vh] lg:h-[70vh]">
@@ -264,6 +297,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               onClick={() => {
                 stopSpeak();
                 autoSpokenRef.current = null;
+                setScenario(null);
                 newConversation();
               }}
             >
@@ -297,6 +331,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                             onClick={() => {
                               stopSpeak();
                               autoSpokenRef.current = null;
+                              setScenario(null);
                               openConversation(c.id);
                             }}
                             className={cn(
@@ -448,6 +483,13 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             </div>
           )}
 
+          {stt.listening && (
+            <div className="px-3 pb-1 text-[11px] italic text-muted-foreground flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive animate-pulse flex-shrink-0" />
+              <span className="truncate">{stt.interim || 'Escuchando... pulsa el micro para parar'}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="p-3 pt-2 border-t border-border flex gap-2 items-end">
             <Textarea
               ref={inputRef}
@@ -465,17 +507,43 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               className="text-sm resize-none min-h-[2.5rem] max-h-32"
             />
             <div className="flex flex-col gap-1">
+              {stt.supported && (
+                <Button
+                  type="button"
+                  variant={autoSend ? 'default' : 'outline'}
+                  size="sm"
+                  className="w-9 h-9 p-0"
+                  onClick={() => setAutoSend(v => !v)}
+                  disabled={loading}
+                  aria-label={autoSend ? 'Auto-envío al parar el micro: activado' : 'Auto-envío al parar el micro: desactivado'}
+                  title={
+                    autoSend
+                      ? 'Auto-envío: al parar el micro, el texto reconocido se envía solo'
+                      : 'Sin auto-envío: el texto del micro se añade al campo para que lo edites'
+                  }
+                >
+                  <CornerDownLeft className={cn('w-4 h-4', autoSend && 'animate-pulse')} />
+                </Button>
+              )}
               <Button
                 type="button"
-                variant={listening ? 'default' : 'outline'}
+                variant={stt.listening ? 'default' : 'outline'}
                 size="sm"
-                className={cn('w-9 h-9 p-0', listening && 'animate-pulse')}
-                onClick={toggleMic}
-                disabled={loading}
-                aria-label={listening ? 'Detener dictado' : 'Hablar con el Tutor'}
-                title={listening ? 'Detener dictado' : 'Hablar con el Tutor'}
+                className={cn('w-9 h-9 p-0', stt.listening && 'animate-pulse')}
+                onClick={() => (stt.listening ? stt.stop() : stt.start())}
+                disabled={loading || !stt.supported}
+                aria-label={stt.listening ? 'Parar dictado' : 'Hablar con el Tutor'}
+                title={
+                  !stt.supported
+                    ? 'Reconocimiento de voz no disponible: usa Chrome o Edge'
+                    : stt.listening
+                      ? autoSend
+                        ? 'Parar y enviar lo que has dicho'
+                        : 'Parar dictado'
+                      : 'Hablar con el Tutor'
+                }
               >
-                {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {stt.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </Button>
               <Button type="submit" size="sm" className="w-9 h-9 p-0" disabled={loading || !input.trim()} aria-label="Enviar">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

@@ -339,6 +339,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
                         meals={secHabits}
                         title={sec.title}
                         emoji={sec.emoji}
+                        date={interaction.date}
                         completions={interaction.completions}
                         waterData={interaction.waterData}
                         mealPhotos={interaction.mealPhotos}

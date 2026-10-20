@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { StudySessionRow, MonthTaskCounts } from '@/hooks/useWeeklyPlanData';
 import { Ring } from './WeekMinutesRings';
+import { FocusSelector } from './AreaRow';
 
 const fmtMin = (m: number) => {
   if (m <= 0) return '0m';
@@ -74,6 +75,8 @@ export function UniversityRow({
   onResultChange,
   onMinutesGoalChange,
   onRefresh,
+  focusSubjects,
+  onFocusSubjectsChange,
 }: {
   sessions: StudySessionRow[];
   counts: MonthTaskCounts;
@@ -85,6 +88,8 @@ export function UniversityRow({
   onResultChange: (v: string) => void;
   onMinutesGoalChange: (v: number) => void;
   onRefresh: () => void;
+  focusSubjects: string[];
+  onFocusSubjectsChange: (ids: string[]) => void;
 }) {
   const [toggling, setToggling] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
@@ -98,10 +103,12 @@ export function UniversityRow({
     return [...map.entries()];
   }, [sessions]);
 
-  const visible = useMemo(
-    () => (filter === 'all' ? sessions : sessions.filter(s => s.subjectName === filter)),
-    [sessions, filter],
-  );
+  const visible = useMemo(() => {
+    const base = filter === 'all' ? sessions : sessions.filter(s => s.subjectName === filter);
+    if (focusSubjects.length === 0) return base;
+    const focusNames = new Set(subjects.filter(s => focusSubjects.includes(s.id)).map(s => s.name));
+    return base.filter(s => !s.subjectName || focusNames.has(s.subjectName));
+  }, [sessions, filter, focusSubjects, subjects]);
 
   const plannedMinutes = sessions.reduce((a, s) => a + s.estimatedMinutes, 0);
   const doneMinutes = sessions.reduce((a, s) => a + s.minutesDone, 0);
@@ -171,6 +178,18 @@ export function UniversityRow({
             <span className="text-[10px] text-muted-foreground">min/semana</span>
           </div>
         </div>
+
+        {subjects.length > 0 && (
+          <div className="mt-2">
+            <FocusSelector
+              label="Asignaturas de enfoque"
+              options={subjects}
+              selected={focusSubjects}
+              onChange={onFocusSubjectsChange}
+              accent="text-blue-500"
+            />
+          </div>
+        )}
       </div>
 
       {/* Resumen de esfuerzo */}

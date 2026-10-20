@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { format, startOfWeek, startOfMonth, endOfMonth, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { useWeeklyPlan, type Priority } from '@/hooks/useWeeklyPlan';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { useWeeklyPlanData } from '@/hooks/useWeeklyPlanData';
@@ -87,6 +88,7 @@ export default function WeeklyPlanningPage() {
     setAreaResult,
     setWeekBook,
     setLecturaPagesGoal,
+    setAreaFocus,
   } = useWeeklyPlan(weekDate);
   const month = new Date(weekDate.getFullYear(), weekDate.getMonth(), 1);
   const {
@@ -106,6 +108,22 @@ export default function WeeklyPlanningPage() {
   const weekLabel = `${format(weekDays[0], 'd MMM', { locale: es })} - ${format(weekDays[6], 'd MMM', { locale: es })}`;
   const areaData = useWeeklyPlanData(weekStart, weekEnd);
   const [goalsVersion, setGoalsVersion] = useState(0);
+  const [projectOptions, setProjectOptions] = useState<{ id: string; name: string }[]>([]);
+  const [entreOptions, setEntreOptions] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [projRes, entreRes] = await Promise.all([
+        supabase.from('projects').select('id, title').order('created_at', { ascending: true }),
+        supabase.from('entrepreneurships').select('id, name').order('created_at', { ascending: true }),
+      ]);
+      if (cancelled) return;
+      if (projRes.data) setProjectOptions(projRes.data.map(p => ({ id: p.id, name: p.title })));
+      if (entreRes.data) setEntreOptions(entreRes.data.map(e => ({ id: e.id, name: e.name })));
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const monthWeeks = (() => {
     const first = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
@@ -383,29 +401,27 @@ export default function WeeklyPlanningPage() {
         </div>
       </Card>
 
-      {monthLoading ? (
-        <div className="h-48 bg-muted/50 rounded-xl animate-pulse mb-4" />
-      ) : (
-        <div className="mb-4">
-          <WeeklyBookSongDistribution
-            weeks={monthWeeks}
-            activeWeekKey={format(weekStart, 'yyyy-MM-dd')}
-            monthLabel={format(month, 'MMMM yyyy', { locale: es })}
-            books={monthBooks}
-            songs={monthSongs}
-            selectedBookIds={monthlyPlan.books.selected || []}
-            selectedSongIds={monthlyPlan.songs.selected || []}
-            distribution={monthlyPlan.week_distribution || {}}
-            onChange={setWeekDistribution}
-          />
-        </div>
-      )}
+      {/* ===== Minutos de la semana: al principio, debajo del progreso general ===== */}
+      <div className="mb-4">
+        <WeekMinutesRings weekStart={weekStart} rings={weekRings} onChanged={() => setGoalsVersion(v => v + 1)} />
+      </div>
+
+      {/* Calendario semanal de eventos, justo debajo de minutos */}
+      <div className="mb-4">
+        <WeekEventsCalendar
+          weekStart={weekStart}
+          weekEnd={weekEnd}
+          events={areaData.events}
+          onRefresh={areaData.refresh}
+        />
+      </div>
 
       {/* ===== Áreas del plan: esfuerzo en minutos → resultados ===== */}
+      <h2 className="text-sm font-bold tracking-tight mb-3 flex items-center gap-2">
+        <span className="w-1 h-4 rounded-full bg-indigo-400" />
+        Áreas de la semana
+      </h2>
       <div className="mb-4 space-y-4">
-        {/* Minutos de la semana como círculos indicadores */}
-        <WeekMinutesRings weekStart={weekStart} rings={weekRings} onChanged={() => setGoalsVersion(v => v + 1)} />
-
         {/* Universidad: fila completa con el título profesional/académico */}
         <UniversityRow
           sessions={areaData.studySessions}
@@ -418,63 +434,63 @@ export default function WeeklyPlanningPage() {
           onResultChange={v => setAreaResult('universidad', v)}
           onMinutesGoalChange={v => applyWeekGoal('universidad', String(v))}
           onRefresh={areaData.refresh}
+          focusSubjects={planData.areaFocus?.universidad ?? []}
+          onFocusSubjectsChange={ids => setAreaFocus('universidad', ids)}
         />
 
-        {/* Emprendimiento y Proyectos */}
-        <div className="grid gap-4 xl:grid-cols-2">
-          <AreaRow
-            title="Emprendimiento"
-            subtitle="Negocios y sus metas"
-            icon={<Briefcase className="w-4 h-4" />}
-            accent="text-purple-500"
-            border="border-purple-500/30"
-            counts={areaData.month.emprendimiento}
-            minutesThisWeek={areaMinutes.emprendimiento}
-            minutesGoal={getWeekGoalEffective(weekStart, 'emprendimiento')}
-            onMinutesGoalChange={v => applyWeekGoal('emprendimiento', String(v))}
-            result={planData.areaResults?.emprendimiento ?? ''}
-            results={resultOptions}
-            onResultChange={v => setAreaResult('emprendimiento', v)}
-          />
-          <AreaRow
-            title="Proyectos"
-            subtitle="Proyectos activos"
-            icon={<FolderKanban className="w-4 h-4" />}
-            accent="text-amber-500"
-            border="border-amber-500/30"
-            counts={areaData.month.proyectos}
-            minutesThisWeek={areaMinutes.proyectos}
-            minutesGoal={getWeekGoalEffective(weekStart, 'proyectos')}
-            onMinutesGoalChange={v => applyWeekGoal('proyectos', String(v))}
-            result={planData.areaResults?.proyectos ?? ''}
-            results={resultOptions}
-            onResultChange={v => setAreaResult('proyectos', v)}
-          />
-        </div>
+        {/* Emprendimiento: fila completa con selector de emprendimientos */}
+        <AreaRow
+          title="Emprendimiento"
+          subtitle="Negocios y sus metas"
+          icon={<Briefcase className="w-4 h-4" />}
+          accent="text-purple-500"
+          border="border-purple-500/30"
+          counts={areaData.month.emprendimiento}
+          minutesThisWeek={areaMinutes.emprendimiento}
+          minutesGoal={getWeekGoalEffective(weekStart, 'emprendimiento')}
+          onMinutesGoalChange={v => applyWeekGoal('emprendimiento', String(v))}
+          result={planData.areaResults?.emprendimiento ?? ''}
+          results={resultOptions}
+          onResultChange={v => setAreaResult('emprendimiento', v)}
+          focusOptions={entreOptions}
+          focusSelected={planData.areaFocus?.emprendimiento ?? []}
+          onFocusChange={ids => setAreaFocus('emprendimiento', ids)}
+        />
 
-        {/* Tareas generales + calendario semanal de eventos */}
-        <div className="space-y-3">
-          <AreaRow
-            title="Tareas generales"
-            subtitle="Todo lo que no pertenece a un área concreta"
-            icon={<ListChecks className="w-4 h-4" />}
-            accent="text-slate-500"
-            border="border-slate-400/40"
-            counts={areaData.month.general}
-            minutesThisWeek={areaMinutes.general}
-            minutesGoal={getWeekGoalEffective(weekStart, 'general')}
-            onMinutesGoalChange={v => applyWeekGoal('general', String(v))}
-            result={planData.areaResults?.general ?? ''}
-            results={resultOptions}
-            onResultChange={v => setAreaResult('general', v)}
-          />
-          <WeekEventsCalendar
-            weekStart={weekStart}
-            weekEnd={weekEnd}
-            events={areaData.events}
-            onRefresh={areaData.refresh}
-          />
-        </div>
+        {/* Proyectos: fila completa con selector de proyectos */}
+        <AreaRow
+          title="Proyectos"
+          subtitle="Proyectos activos"
+          icon={<FolderKanban className="w-4 h-4" />}
+          accent="text-amber-500"
+          border="border-amber-500/30"
+          counts={areaData.month.proyectos}
+          minutesThisWeek={areaMinutes.proyectos}
+          minutesGoal={getWeekGoalEffective(weekStart, 'proyectos')}
+          onMinutesGoalChange={v => applyWeekGoal('proyectos', String(v))}
+          result={planData.areaResults?.proyectos ?? ''}
+          results={resultOptions}
+          onResultChange={v => setAreaResult('proyectos', v)}
+          focusOptions={projectOptions}
+          focusSelected={planData.areaFocus?.proyectos ?? []}
+          onFocusChange={ids => setAreaFocus('proyectos', ids)}
+        />
+
+        {/* Tareas generales: fila completa */}
+        <AreaRow
+          title="Tareas generales"
+          subtitle="Todo lo que no pertenece a un área concreta"
+          icon={<ListChecks className="w-4 h-4" />}
+          accent="text-slate-500"
+          border="border-slate-400/40"
+          counts={areaData.month.general}
+          minutesThisWeek={areaMinutes.general}
+          minutesGoal={getWeekGoalEffective(weekStart, 'general')}
+          onMinutesGoalChange={v => applyWeekGoal('general', String(v))}
+          result={planData.areaResults?.general ?? ''}
+          results={resultOptions}
+          onResultChange={v => setAreaResult('general', v)}
+        />
 
         {/* Desarrollo personal: lectura, idiomas, ajedrez, seducción y música */}
         <PersonalDevelopment
@@ -485,6 +501,23 @@ export default function WeeklyPlanningPage() {
           onBookChange={setWeekBook}
           onPagesGoalChange={setLecturaPagesGoal}
         />
+
+        {/* Libros y canciones por semana */}
+        {monthLoading ? (
+          <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
+        ) : (
+          <WeeklyBookSongDistribution
+            weeks={monthWeeks}
+            activeWeekKey={format(weekStart, 'yyyy-MM-dd')}
+            monthLabel={format(month, 'MMMM yyyy', { locale: es })}
+            books={monthBooks}
+            songs={monthSongs}
+            selectedBookIds={monthlyPlan.books.selected || []}
+            selectedSongIds={monthlyPlan.songs.selected || []}
+            distribution={monthlyPlan.week_distribution || {}}
+            onChange={setWeekDistribution}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

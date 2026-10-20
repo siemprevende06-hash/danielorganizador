@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { BookOpen, Piano, Guitar, ChevronRight, ChevronLeft, X, Sparkles, CopyPlus, CalendarRange, Eraser } from 'lucide-react';
 import { addDays, format, parseISO } from 'date-fns';
+import { useState } from 'react';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
@@ -146,6 +147,7 @@ export function WeeklyBookSongDistribution({
   onChange,
 }: WeeklyBookSongDistributionProps) {
   const dist = cleanDistribution(weeks, distribution);
+  const [periodDrafts, setPeriodDrafts] = useState<Record<string, { start: string; end: string }>>({});
 
   const bookMap = new Map(books.map(b => [b.id, b]));
   const songMap = new Map(songs.map(s => [s.id, s]));
@@ -229,6 +231,51 @@ export function WeeklyBookSongDistribution({
     delete ranges[itemId];
     next[weekKey] = { ...next[weekKey], [rKey]: ranges };
     onChange(next);
+  };
+
+  const assignPeriod = (itemId: string, type: 'book' | 'song', start: string, end: string) => {
+    if (!start || !end) return;
+    const [s, e] = end < start ? [end, start] : [start, end];
+    const next = cleanDistribution(weeks, dist);
+    const idsKey = idsKeyOf(type);
+    const rKey = rangesKeyOf(type);
+    weeks.forEach(w => {
+      const dates = weekDates(w.key);
+      const ws = format(dates[0], 'yyyy-MM-dd');
+      const we = format(dates[6], 'yyyy-MM-dd');
+      if (we < s || ws > e) {
+        next[w.key] = withoutItem(next[w.key], itemId, type);
+        return;
+      }
+      const ids = next[w.key][idsKey];
+      if (!ids.includes(itemId)) next[w.key] = { ...next[w.key], [idsKey]: [...ids, itemId] };
+      const clipStart = ws > s ? ws : s;
+      const clipEnd = we < e ? we : e;
+      next[w.key] = {
+        ...next[w.key],
+        [rKey]: {
+          ...(next[w.key][rKey] || {}),
+          [itemId]: { startDay: clipStart, endDay: clipEnd === clipStart ? null : clipEnd },
+        },
+      };
+    });
+    onChange(next);
+  };
+
+  const minDateStr = weeks.length ? format(weekDates(weeks[0].key)[0], 'yyyy-MM-dd') : '';
+  const maxDateStr = weeks.length
+    ? format(weekDates(weeks[weeks.length - 1].key)[6], 'yyyy-MM-dd')
+    : '';
+
+  const weeksCoveredBy = (start: string, end: string) => {
+    if (!start || !end) return [];
+    const [s, e] = end < start ? [end, start] : [start, end];
+    return weeks.filter(w => {
+      const dates = weekDates(w.key);
+      const ws = format(dates[0], 'yyyy-MM-dd');
+      const we = format(dates[6], 'yyyy-MM-dd');
+      return !(we < s || ws > e);
+    });
   };
 
   const autoDistribute = () => {
@@ -377,62 +424,108 @@ export function WeeklyBookSongDistribution({
 
         <p className="text-[9px] text-muted-foreground/70 flex items-center gap-1">
           <CalendarRange className="h-3 w-3 shrink-0" />
-          Un libro o canción puede estar en varias semanas: usa <span className="font-semibold">+&nbsp;copiar</span> en su tarjeta y marca el día de inicio y el día final (de → hasta).
+          Elige un periodo (día inicio → día fin) en cada libro o canción y se asignará automáticamente a todas las semanas que abarque ese rango.
         </p>
 
         {hasUnassigned && (
           <div className="border-2 border-dashed border-amber-300/50 bg-amber-50/30 dark:bg-amber-950/10 rounded-2xl p-3 space-y-2">
             <p className="text-[10px] font-medium text-amber-600/70">
-              Sin asignar — elige una semana para cada elemento
+              Sin asignar — elige el periodo de días para cada elemento
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2">
               {unassignedBookIds.map(rawId => {
                 const book = bookMap.get(rawId);
                 if (!book) return null;
+                const draft = periodDrafts[book.id] || { start: '', end: '' };
+                const covered = weeksCoveredBy(draft.start, draft.end);
                 return (
-                  <div key={book.id} className="flex items-center gap-1.5 p-1.5 pr-1 rounded-xl bg-white dark:bg-zinc-950 border shadow-sm">
+                  <div key={book.id} className="flex items-center gap-1.5 p-1.5 rounded-xl bg-white dark:bg-zinc-950 border shadow-sm flex-wrap">
                     <div className="w-5 h-7 rounded overflow-hidden bg-gradient-to-br from-indigo-500/20 shrink-0 flex items-center justify-center">
                       <BookOpen className="w-3 h-3 text-indigo-400/60" />
                     </div>
-                    <span className="text-[10px] font-medium max-w-[110px] truncate">{book.title}</span>
-                    <div className="flex gap-0.5 ml-1">
-                      {weeks.map((w, wi) => (
-                        <button
-                          key={w.key}
-                          onClick={() => moveItem(book.id, 'book', null, w.key)}
-                          className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 hover:bg-indigo-200 transition-colors whitespace-nowrap"
-                          title={w.label}
-                        >
-                          Sem {wi + 1}
-                        </button>
-                      ))}
+                    <span className="text-[10px] font-medium max-w-[140px] truncate">{book.title}</span>
+                    <div className="flex items-center gap-1 ml-1">
+                      <Input
+                        type="date"
+                        value={draft.start}
+                        min={minDateStr}
+                        max={maxDateStr}
+                        onChange={e => setPeriodDrafts(p => ({ ...p, [book.id]: { ...draft, start: e.target.value } }))}
+                        className="h-6 w-[120px] text-[10px]"
+                      />
+                      <span className="text-[9px] text-muted-foreground">→</span>
+                      <Input
+                        type="date"
+                        value={draft.end}
+                        min={minDateStr}
+                        max={maxDateStr}
+                        onChange={e => setPeriodDrafts(p => ({ ...p, [book.id]: { ...draft, end: e.target.value } }))}
+                        className="h-6 w-[120px] text-[10px]"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!draft.start || !draft.end}
+                        onClick={() => assignPeriod(book.id, 'book', draft.start, draft.end)}
+                        className="h-6 text-[10px] px-2"
+                      >
+                        Asignar
+                      </Button>
                     </div>
+                    {covered.length > 0 && (
+                      <span className="text-[9px] text-indigo-500 font-medium">
+                        → {covered.length === 1 ? '1 semana' : `${covered.length} semanas`}
+                      </span>
+                    )}
                   </div>
                 );
               })}
               {unassignedSongIds.map(rawId => {
                 const song = songMap.get(rawId);
                 if (!song) return null;
+                const draft = periodDrafts[song.id] || { start: '', end: '' };
+                const covered = weeksCoveredBy(draft.start, draft.end);
                 return (
-                  <div key={song.id} className="flex items-center gap-1 p-1.5 pr-1 rounded-lg bg-white dark:bg-zinc-950 border shadow-sm">
+                  <div key={song.id} className="flex items-center gap-1 p-1.5 rounded-lg bg-white dark:bg-zinc-950 border shadow-sm flex-wrap">
                     {song.instrument === 'piano' ? (
                       <Piano className="h-3 w-3 text-rose-400 shrink-0" />
                     ) : (
                       <Guitar className="h-3 w-3 text-amber-400 shrink-0" />
                     )}
-                    <span className="text-[10px] font-medium max-w-[90px] truncate">{song.title}</span>
-                    <div className="flex gap-0.5 ml-1">
-                      {weeks.map((w, wi) => (
-                        <button
-                          key={w.key}
-                          onClick={() => moveItem(song.id, 'song', null, w.key)}
-                          className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 hover:bg-indigo-200 transition-colors whitespace-nowrap"
-                          title={w.label}
-                        >
-                          Sem {wi + 1}
-                        </button>
-                      ))}
+                    <span className="text-[10px] font-medium max-w-[140px] truncate">{song.title}</span>
+                    <div className="flex items-center gap-1 ml-1">
+                      <Input
+                        type="date"
+                        value={draft.start}
+                        min={minDateStr}
+                        max={maxDateStr}
+                        onChange={e => setPeriodDrafts(p => ({ ...p, [song.id]: { ...draft, start: e.target.value } }))}
+                        className="h-6 w-[120px] text-[10px]"
+                      />
+                      <span className="text-[9px] text-muted-foreground">→</span>
+                      <Input
+                        type="date"
+                        value={draft.end}
+                        min={minDateStr}
+                        max={maxDateStr}
+                        onChange={e => setPeriodDrafts(p => ({ ...p, [song.id]: { ...draft, end: e.target.value } }))}
+                        className="h-6 w-[120px] text-[10px]"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!draft.start || !draft.end}
+                        onClick={() => assignPeriod(song.id, 'song', draft.start, draft.end)}
+                        className="h-6 text-[10px] px-2"
+                      >
+                        Asignar
+                      </Button>
                     </div>
+                    {covered.length > 0 && (
+                      <span className="text-[9px] text-indigo-500 font-medium">
+                        → {covered.length === 1 ? '1 semana' : `${covered.length} semanas`}
+                      </span>
+                    )}
                   </div>
                 );
               })}

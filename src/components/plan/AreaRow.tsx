@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { CheckCircle2, CircleDashed, Clock } from 'lucide-react';
+import { CheckCircle2, CircleDashed, Clock, Crosshair } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MonthTaskCounts } from '@/hooks/useWeeklyPlanData';
 import { Ring } from './WeekMinutesRings';
@@ -14,6 +14,52 @@ export const fmtMin = (m: number) => {
   if (r === 0) return `${h}h`;
   return `${h}h ${r}m`;
 };
+
+/** Selector multi de enfoque semanal (asignaturas, proyectos, emprendimientos...) */
+export function FocusSelector({
+  label,
+  options,
+  selected,
+  onChange,
+  accent,
+}: {
+  label: string;
+  options: { id: string; name: string }[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  accent?: string;
+}) {
+  const toggle = (id: string) => {
+    onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+  };
+  if (options.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Crosshair className={cn('w-3 h-3', accent)} /> {label}
+      </span>
+      {options.map(o => {
+        const active = selected.includes(o.id);
+        return (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => toggle(o.id)}
+            title={active ? 'Quitar del enfoque' : 'Enfocarse en esta semana'}
+            className={cn(
+              'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors',
+              active
+                ? 'border-transparent bg-indigo-500 text-white shadow-sm'
+                : 'border-muted text-muted-foreground hover:border-indigo-400 hover:text-indigo-600'
+            )}
+          >
+            {o.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * Fila por área: esfuerzo en minutos + resultado al que se dirigen esos minutos
@@ -34,6 +80,9 @@ export function AreaRow({
   results,
   onResultChange,
   extra,
+  focusOptions,
+  focusSelected,
+  onFocusChange,
 }: {
   title: string;
   subtitle?: string;
@@ -49,6 +98,9 @@ export function AreaRow({
   results: { id: string; title: string; done: boolean }[];
   onResultChange: (v: string) => void;
   extra?: ReactNode;
+  focusOptions?: { id: string; name: string }[];
+  focusSelected?: string[];
+  onFocusChange?: (ids: string[]) => void;
 }) {
   const pct = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
 
@@ -108,6 +160,19 @@ export function AreaRow({
           <Ring label="Min" value={minutesThisWeek} goal={minutesGoal} size={48} stroke={5} color="currentColor" />
         </div>
       </div>
+
+      {/* Enfoque de la semana: qué proyectos/emprendimientos atacar */}
+      {focusOptions && focusOptions.length > 0 && onFocusChange && (
+        <div className="px-3.5 py-2 border-t border-muted/40">
+          <FocusSelector
+            label="Enfoque de la semana"
+            options={focusOptions}
+            selected={focusSelected ?? []}
+            onChange={onFocusChange}
+            accent={accent}
+          />
+        </div>
+      )}
 
       {/* Tareas del mes hechas / sin hacer */}
       <div className="px-3.5 py-2 border-t border-muted/40 flex flex-wrap items-center gap-2">

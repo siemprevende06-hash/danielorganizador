@@ -43,6 +43,8 @@ export interface WeeklyPlanData {
   weekBookId?: string;
   /** Paginas que se espera leer esta semana */
   lecturaPagesGoal?: number;
+  /** Enfoque de la semana por área: ids seleccionados (asignaturas de universidad, emprendimientos, proyectos...) */
+  areaFocus?: Record<string, string[]>;
 }
 
 const makeDefault = (weekNumber: number): WeeklyPlanData => ({
@@ -59,6 +61,7 @@ const makeDefault = (weekNumber: number): WeeklyPlanData => ({
   areaResults: {},
   weekBookId: '',
   lecturaPagesGoal: 0,
+  areaFocus: {},
 });
 
 const STORAGE_PREFIX = 'weekly_plan_';
@@ -118,6 +121,7 @@ export function useWeeklyPlan(weekStart: Date) {
             areaResults: local.areaResults ?? {},
             weekBookId: local.weekBookId ?? '',
             lecturaPagesGoal: local.lecturaPagesGoal ?? 0,
+            areaFocus: local.areaFocus ?? {},
           }
         : base
     );
@@ -223,6 +227,10 @@ export function useWeeklyPlan(weekStart: Date) {
     setPlanData(prev => ({ ...prev, lecturaPagesGoal: Math.max(0, pages) }));
   }, []);
 
+  const setAreaFocus = useCallback((area: string, ids: string[]) => {
+    setPlanData(prev => ({ ...prev, areaFocus: { ...(prev.areaFocus ?? {}), [area]: ids } }));
+  }, []);
+
   return {
     planData, loading, saving, weekId,
     books, songs,
@@ -230,6 +238,6 @@ export function useWeeklyPlan(weekStart: Date) {
     addAction, toggleAction, removeAction, updateAction,
     addOutcome, toggleOutcome, removeOutcome, updateOutcome,
     setDailyCapacity, removeDailyCapacity,
-    setAreaResult, setWeekBook, setLecturaPagesGoal,
+    setAreaResult, setWeekBook, setLecturaPagesGoal, setAreaFocus,
   };
 }

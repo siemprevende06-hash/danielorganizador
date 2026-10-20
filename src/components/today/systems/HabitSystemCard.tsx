@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Clock, Droplets, Camera, ExternalLink, Sun, Moon, Flame, Trophy, Check } from "lucide-react";
 import { ReadingPagesInline } from "./ReadingPagesInline";
 import { SystemChronoBox } from "./SystemChronoBox";
+import { WeekCheckStrip } from "./WeekCheckStrip";
 
 type TierKey = "red" | "grey" | "blue" | "green" | "gold";
 
@@ -364,6 +365,16 @@ export default function HabitSystemCard({
               Semana: {weekTotal ?? 0} min{meta.system?.countKey ? ` · ${count ?? 0} ${meta.system.countLabel || "repeticiones"}` : ""}
             </p>
           </>
+        )}
+
+        {/* Check semanal del gym: verde si ese día se hizo (o descanso), rojo si no */}
+        {isGym && (
+          <WeekCheckStrip
+            habitIds={[meta.id]}
+            todayDone={done || isRest}
+            date={date}
+            countWorkoutMinutes
+          />
         )}
 
         {/* ─── Hoy me toca: ítem planificado del día ─── */}

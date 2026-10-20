@@ -111,7 +111,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
   }, []);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, scenario?: string) => {
       const trimmed = text.trim();
       if (!trimmed || loading) return;
       setError(null);
@@ -148,6 +148,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
             language,
             level,
             skill: skillRef.current,
+            scenario: scenario || undefined,
           }),
         });
 

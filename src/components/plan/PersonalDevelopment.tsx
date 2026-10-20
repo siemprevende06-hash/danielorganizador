@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
-  BookOpen, Brain, Flame, Globe, Languages, Music, Sparkles, Target, Timer, Trophy,
+  BookOpen, Brain, Flame, Languages, Music, Sparkles, Target, Timer, Trophy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getWeekGoalEffective, setWeekGoal } from '@/lib/hierarchy';
@@ -340,29 +340,6 @@ export function PersonalDevelopment({
               </div>
               <StatLine label="Entrenamientos" value={data.gym.logs} />
               <StatLine label="Minutos" value={fmtMin(data.gym.minutes)} />
-            </div>
-          </div>
-        </Tile>
-
-        {/* Idiomas: resumen de objetivos */}
-        <Tile title="Idiomas · objetivos" icon={<Globe className="w-3.5 h-3.5" />} accent="text-violet-600 dark:text-violet-400">
-          <p className="text-[10px] text-muted-foreground">
-            Ajusta aquí los minutos objetivo de cada idioma; se reflejan en los círculos indicadores de la semana.
-          </p>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-semibold text-sky-600 dark:text-sky-400">Inglés</span>
-              <GoalInput weekStart={weekStart} area="ingles" />
-              <span className="text-[9px] tabular-nums text-muted-foreground">
-                {data.idiomas.inglesMinutes}m de {getWeekGoalEffective(weekStart, 'ingles')}m
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">Italiano</span>
-              <GoalInput weekStart={weekStart} area="italiano" />
-              <span className="text-[9px] tabular-nums text-muted-foreground">
-                {data.idiomas.italianoMinutes}m de {getWeekGoalEffective(weekStart, 'italiano')}m
-              </span>
             </div>
           </div>
         </Tile>
