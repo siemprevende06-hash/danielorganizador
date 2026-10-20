@@ -82,6 +82,25 @@ export function useSpeechRecognition({ lang, onFinal }: Options) {
     setInterim('');
   }, []);
 
+  /** Corta la escucha SIN entregar la transcripción (para descartar lo grabado). */
+  const abort = useCallback(() => {
+    const rec = recRef.current;
+    if (rec) {
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      try {
+        rec.abort();
+      } catch {
+        /* noop */
+      }
+    }
+    recRef.current = null;
+    finalRef.current = '';
+    setListening(false);
+    setInterim('');
+  }, []);
+
   const start = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
@@ -163,5 +182,5 @@ export function useSpeechRecognition({ lang, onFinal }: Options) {
     []
   );
 
-  return { supported, listening, interim, start, stop };
+  return { supported, listening, interim, start, stop, abort };
 }

@@ -14,6 +14,7 @@ import {
   GraduationCap,
   History,
   Loader2,
+  Maximize2,
   Mic,
   MicOff,
   Plus,
@@ -32,6 +33,7 @@ import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import type { Language } from '@/hooks/useLanguageLearning';
 import { TUTOR_EMPTY, TUTOR_GENERAL, TUTOR_HEADER, TUTOR_MODES, type TutorModeDef, type TutorSkill } from './tutorModes';
 import { SCENARIO_END_MSG, SCENARIO_START_MSG, SPEAKING_SCENARIOS } from './speakingScenarios';
+import { TutorVoiceFullscreen } from './TutorVoiceFullscreen';
 
 const md: Components = {
   h2: ({ children }) => <h2 className="mt-4 mb-1.5 text-base font-bold first:mt-0">{children}</h2>,
@@ -78,9 +80,12 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const [logged, setLogged] = useState<string[]>([]);
   const [scenario, setScenario] = useState<string | null>(null);
   const [autoSend, setAutoSend] = useState(true);
+  const [fullScreen, setFullScreen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const autoSpokenRef = useRef<string | null>(null);
+  /** true cuando la grabación viene del botón de pantalla completa (siempre envía al soltar) */
+  const fullSendRef = useRef(false);
 
   const { conversations, conversationId, messages, memories, loading, error, sendMessage, openConversation, newConversation, deleteMemory } =
     useLanguageTutor(language, level, mode);
@@ -147,7 +152,9 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   };
 
   const handleFinal = (text: string) => {
-    if (autoSend && !loading) {
+    const fromFullscreen = fullSendRef.current;
+    fullSendRef.current = false;
+    if (fromFullscreen || (autoSend && !loading)) {
       submit(text);
     } else {
       setInput(prev => (prev ? `${prev} ${text}` : text));
@@ -189,7 +196,8 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     setLogged(prev => [...prev, messageId]);
   };
 
-  const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id;
+  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant') ?? null;
+  const lastAssistantId = lastAssistant?.id;
   const showLogButton = !loading && messages.length > 0 && lastAssistantId && !logged.includes(lastAssistantId);
 
   return (
@@ -302,6 +310,16 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               }}
             >
               <Plus className="w-3.5 h-3.5 mr-1" /> Nuevo
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setFullScreen(true)}
+              aria-label="Ampliar a pantalla completa"
+              title="Pantalla completa con voz"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
             </Button>
             <Sheet>
               <SheetTrigger asChild>
@@ -565,6 +583,31 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
           </ScrollArea>
         </Card>
       </div>
+
+      <TutorVoiceFullscreen
+        open={fullScreen}
+        onClose={() => {
+          if (stt.listening) stt.abort();
+          setFullScreen(false);
+        }}
+        flag={header.flag}
+        name={header.name}
+        level={level}
+        modeLabel={activeScenario ? `🎭 ${activeScenario.label[language]}` : activeMode ? activeMode.label : 'Chat libre'}
+        aiText={lastAssistant?.content ?? ''}
+        aiSpeaking={speakingId !== null}
+        loading={loading}
+        stopSpeak={stopSpeak}
+        sttSupported={stt.supported}
+        sttListening={stt.listening}
+        sttInterim={stt.interim}
+        onHoldStart={() => {
+          fullSendRef.current = true;
+          stt.start();
+        }}
+        onHoldEnd={() => stt.stop()}
+        onHoldCancel={() => stt.abort()}
+      />
     </div>
   );
 }
