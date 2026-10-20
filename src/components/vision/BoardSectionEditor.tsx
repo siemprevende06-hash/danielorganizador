@@ -267,13 +267,35 @@ export function BoardSectionEditor({
               accent === "anti" && "border-destructive/20"
             )}
           >
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <Input
                 value={section.name}
                 onChange={(e) => updateSection(section.id, { name: e.target.value })}
-                className="h-9 text-base font-semibold max-w-xs"
+                className="h-9 text-base font-semibold max-w-[160px] sm:max-w-xs"
                 placeholder="Nombre de la sección"
               />
+              <div className="flex items-center rounded-lg border bg-muted/40 p-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-md"
+                  onClick={() => moveSection(section.id, 'up')}
+                  disabled={sections.findIndex((s) => s.id === section.id) === 0}
+                  title="Subir sección"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-md"
+                  onClick={() => moveSection(section.id, 'down')}
+                  disabled={sections.findIndex((s) => s.id === section.id) === sections.length - 1}
+                  title="Bajar sección"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Filas:</span>
                 <Select
@@ -295,34 +317,15 @@ export function BoardSectionEditor({
                   ({section.rows * 3} tarjetas)
                 </span>
               </div>
-              <div className="flex items-center gap-1 ml-auto">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => moveSection(section.id, 'up')}
-                  disabled={sections.findIndex((s) => s.id === section.id) === 0}
-                >
-                  <ArrowUp className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => moveSection(section.id, 'down')}
-                  disabled={sections.findIndex((s) => s.id === section.id) === sections.length - 1}
-                >
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => removeSection(section.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 ml-auto text-destructive hover:text-destructive"
+                onClick={() => removeSection(section.id)}
+                title="Eliminar sección"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               {section.cards.map((card) => {
