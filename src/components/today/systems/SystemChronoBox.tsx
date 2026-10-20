@@ -1,4 +1,4 @@
-import { Clock, Lock, Sparkles } from "lucide-react";
+import { Clock, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatRange, type ChronoRange } from "@/lib/systemSchedule";
@@ -71,55 +71,39 @@ export function SystemChronoBox({
         )}
       </div>
 
-      <div
-        className={cn(
-          "rounded-lg border px-2 py-1.5 space-y-1",
-          hasExtra
-            ? "border-amber-500/30 bg-amber-500/10"
-            : "border-dashed border-border/50 bg-muted/20"
-        )}
-      >
-        <div
-          className={cn(
-            "flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider",
-            hasExtra ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground/60"
+      {hasExtra && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 space-y-1">
+          <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+            <Sparkles className="h-2.5 w-2.5" />
+            Avance extra
+          </div>
+          <div className="space-y-0.5">
+            {extra.map((block, index) => (
+              <p key={`${block.title}-${index}`} className="text-[10px] leading-tight">
+                <span className="font-medium">{block.title}</span>
+                <span className="text-muted-foreground">
+                  {" "}· {formatRange(block)} · {block.minutes} min
+                </span>
+              </p>
+            ))}
+          </div>
+          {onExtraMinutesChange && (
+            <label className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+              Tiempo
+              <Input
+                type="number"
+                min={0}
+                value={extraMinutes ?? 0}
+                onChange={(e) => onExtraMinutesChange(readCount(e.target.value))}
+                placeholder="min"
+                aria-label="Minutos del avance extra"
+                className="h-5 w-12 text-[10px] text-center px-1"
+              />
+              min
+            </label>
           )}
-        >
-          {hasExtra ? <Sparkles className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-          Avance extra
         </div>
-        {hasExtra ? (
-          <>
-            <div className="space-y-0.5">
-              {extra.map((block, index) => (
-                <p key={`${block.title}-${index}`} className="text-[10px] leading-tight">
-                  <span className="font-medium">{block.title}</span>
-                  <span className="text-muted-foreground">
-                    {" "}· {formatRange(block)} · {block.minutes} min
-                  </span>
-                </p>
-              ))}
-            </div>
-            {onExtraMinutesChange && (
-              <label className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
-                Tiempo
-                <Input
-                  type="number"
-                  min={0}
-                  value={extraMinutes ?? 0}
-                  onChange={(e) => onExtraMinutesChange(readCount(e.target.value))}
-                  placeholder="min"
-                  aria-label="Minutos del avance extra"
-                  className="h-5 w-12 text-[10px] text-center px-1"
-                />
-                min
-              </label>
-            )}
-          </>
-        ) : (
-          <p className="text-[10px] text-muted-foreground/60">Sin planificar</p>
-        )}
-      </div>
+      )}
 
       {totalMinutes !== undefined && (
         <p className="text-[9px] text-right text-muted-foreground">
