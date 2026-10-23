@@ -274,7 +274,11 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
             {showPassive ? "6 habilidades + 3 pasivas" : "6 habilidades"} · Marca lo que practicaste hoy
           </p>
         </div>
-        <span className="text-xs font-bold text-emerald-600">{totalDone}/{totalItems}</span>
+        <div className="text-right">
+          <span className="text-lg font-bold text-emerald-600">{localTime}</span>
+          <span className="text-xs text-muted-foreground">/{maxTime} min</span>
+          <div className="text-[9px] font-bold text-emerald-600">{totalDone}/{totalItems}</div>
+        </div>
       </div>
 
       {/* ITA / ING switch */}
