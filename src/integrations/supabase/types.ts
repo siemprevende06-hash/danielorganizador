@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -90,21 +90,18 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          scope: string
           title: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
-          scope?: string
           title?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
-          scope?: string
           title?: string
           updated_at?: string
         }
@@ -1743,9 +1740,6 @@ export type Database = {
           listening_completed: boolean | null
           listening_duration: number | null
           notes: string | null
-          passive_reading_podcast_completed: boolean | null
-          passive_tv_completed: boolean | null
-          passive_videogames_completed: boolean | null
           reading_completed: boolean | null
           reading_duration: number | null
           session_date: string
@@ -1766,9 +1760,6 @@ export type Database = {
           listening_completed?: boolean | null
           listening_duration?: number | null
           notes?: string | null
-          passive_reading_podcast_completed?: boolean | null
-          passive_tv_completed?: boolean | null
-          passive_videogames_completed?: boolean | null
           reading_completed?: boolean | null
           reading_duration?: number | null
           session_date?: string
@@ -1789,9 +1780,6 @@ export type Database = {
           listening_completed?: boolean | null
           listening_duration?: number | null
           notes?: string | null
-          passive_reading_podcast_completed?: boolean | null
-          passive_tv_completed?: boolean | null
-          passive_videogames_completed?: boolean | null
           reading_completed?: boolean | null
           reading_duration?: number | null
           session_date?: string
@@ -2142,18 +2130,13 @@ export type Database = {
       music_repertoire: {
         Row: {
           artist: string | null
-          cover_image_url: string | null
           created_at: string | null
           difficulty: string | null
-          duration_seconds: number | null
           id: string
           instrument: string
           last_practiced: string | null
-          learned_at: string | null
-          mastered_at: string | null
           notes: string | null
           practice_minutes: number | null
-          recorded_at: string | null
           status: string | null
           title: string
           updated_at: string | null
@@ -2162,18 +2145,13 @@ export type Database = {
         }
         Insert: {
           artist?: string | null
-          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
-          duration_seconds?: number | null
           id?: string
           instrument: string
           last_practiced?: string | null
-          learned_at?: string | null
-          mastered_at?: string | null
           notes?: string | null
           practice_minutes?: number | null
-          recorded_at?: string | null
           status?: string | null
           title: string
           updated_at?: string | null
@@ -2182,18 +2160,13 @@ export type Database = {
         }
         Update: {
           artist?: string | null
-          cover_image_url?: string | null
           created_at?: string | null
           difficulty?: string | null
-          duration_seconds?: number | null
           id?: string
           instrument?: string
           last_practiced?: string | null
-          learned_at?: string | null
-          mastered_at?: string | null
           notes?: string | null
           practice_minutes?: number | null
-          recorded_at?: string | null
           status?: string | null
           title?: string
           updated_at?: string | null
@@ -2358,57 +2331,6 @@ export type Database = {
           is_selected?: boolean
           mode_key?: string
           name?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      period_focus: {
-        Row: {
-          area_id: string | null
-          created_at: string
-          entity_id: string | null
-          entity_type: string
-          id: string
-          is_primary: boolean
-          note: string | null
-          period_start: string
-          period_type: string
-          rank: number
-          status: string
-          title: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          area_id?: string | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string
-          id?: string
-          is_primary?: boolean
-          note?: string | null
-          period_start: string
-          period_type: string
-          rank?: number
-          status?: string
-          title: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          area_id?: string | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string
-          id?: string
-          is_primary?: boolean
-          note?: string | null
-          period_start?: string
-          period_type?: string
-          rank?: number
-          status?: string
-          title?: string
           updated_at?: string
           user_id?: string | null
         }
