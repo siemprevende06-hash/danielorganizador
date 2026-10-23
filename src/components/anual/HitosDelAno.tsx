@@ -116,7 +116,10 @@ export function HitosDelAno({ year }: { year: number }) {
                     <span className="font-medium truncate flex-1">{item.title}</span>
                     {item.subject && <span className="text-[10px] text-muted-foreground truncate hidden sm:inline max-w-[150px]">{item.subject}</span>}
                     <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">
-                      {format(new Date(item.date + 'T12:00:00'), 'd MMM', { locale: es })}
+                      {(() => {
+                        const d = new Date(`${String(item.date || '').slice(0, 10)}T12:00:00`);
+                        return isNaN(d.getTime()) ? 'Sin fecha' : format(d, 'd MMM', { locale: es });
+                      })()}
                     </span>
                     {item.date === today && <Badge className="text-[9px] shrink-0">Hoy</Badge>}
                     <span
