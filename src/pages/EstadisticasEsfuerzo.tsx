@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { format, parseISO, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';

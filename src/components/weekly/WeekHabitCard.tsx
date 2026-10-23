@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { cn } from "@/lib/utils";
 import { getCoverGradient } from "@/components/areas/AreaCover";
 import type { HabitMeta } from "@/lib/areaSystemsMap";

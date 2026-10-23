@@ -361,7 +361,10 @@ export function PeriodMilestones({
                         <div className="flex shrink-0 items-center gap-1.5">
                           {item.date && (
                             <span className="text-[10px] tabular-nums text-muted-foreground">
-                              {format(new Date(`${item.date}T12:00:00`), 'd MMM', { locale: es })}
+                              {(() => {
+                                const d = new Date(`${String(item.date || '').slice(0, 10)}T12:00:00`);
+                                return isNaN(d.getTime()) ? 'Sin fecha' : format(d, 'd MMM', { locale: es });
+                              })()}
                             </span>
                           )}
                           {item.tag && (
