@@ -18,6 +18,7 @@ import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
 import { type MejoraAreaId } from '@/components/mejora/mejoraAreas';
+import { DailyFocusBar } from '@/components/focus/DailyFocusBar';
 import { FocusProcessPanel } from '@/components/focus/FocusProcessPanel';
 import { ReadingTrackingPanel } from '@/components/reading/ReadingSessionTracker';
 import { HealthSection } from '@/components/dashboard/HealthSection';
@@ -692,7 +693,14 @@ export default function DailyView() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Física</p>
                 <WorkoutVisual duration={data.workoutDuration} intensity={data.workoutIntensity} onDurationChange={(v) => update("workoutDuration", v)} onIntensityChange={(v) => update("workoutIntensity", v)} completed={!!data.completions["entrenamiento-fisico"]} onToggleCompleted={() => toggleCompletion("entrenamiento-fisico")} skipped={!!data.skipped["entrenamiento-fisico"]} onSkip={() => toggleSkip("entrenamiento-fisico")} />
               </div>
-              <div>
+              <div className="space-y-2">
+                <DailyFocusBar focus={{
+                  lectura: data.timeData["lectura"] ? `Foco: Avanzar libro · ${data.timeData["lectura"]} min` : "Foco: Sin definir",
+                  musica: data.timeData["musica"] ? `Foco: Canción foco · Calentar → Foco → Repaso · ${data.timeData["musica"]} min` : "Foco: Canción foco · Calentar → Foco → Repaso",
+                  ajedrez: (data.countData["ajedrez"] || 0) >= 1 ? `Foco: Táctica · Partida diaria + Vídeo + Puzzles · ${data.timeData["ajedrez"] || 0} min` : `Foco: Táctica · Partida diaria + Vídeo + Puzzles · ${data.timeData["ajedrez"] || 0} min`,
+                  game: data.timeData["game"] ? `Foco: Acción obligatoria del día · ${data.timeData["game"]} min` : "Foco: Acción obligatoria del día",
+                  idiomas: (data.timeData["italiano"] || data.timeData["ingles"] || 0) > 0 ? `Foco: Habilidad prioritaria · Pasivo · Curso: Revisar · ${(data.timeData["italiano"] || 0) + (data.timeData["ingles"] || 0)} min` : "Foco: Habilidad prioritaria · Pasivo · Curso: Revisar",
+                }} />
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mejora Hobbys</p>
                 <HobbyCards todayMinutes={{ lectura: data.timeData["lectura"] || 0, musica: data.timeData["musica"] || 0, ajedrez: data.timeData["ajedrez"] || 0 }} countData={{ ajedrez: data.countData["ajedrez"] || 0 }} onTimeChange={setTimeValue} onCountChange={setCountValue} skipped={data.skipped} onSkipToggle={toggleSkip} />
               </div>

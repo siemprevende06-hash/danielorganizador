@@ -87,6 +87,11 @@ const ReadingCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number
         <Link to="/reading-library"><ArrowRight className="h-4 w-4 text-white/80" /></Link>
       </div>
       <div className={cn("p-4 space-y-3", sem.bg)}>
+        {current && (
+          <div className="px-2 py-1 rounded-lg bg-background/60 border border-border/60 text-[9px] text-muted-foreground truncate">
+            Foco: {current.title}
+          </div>
+        )}
         {current ? (
           <div className="flex gap-3">
             <div className="w-14 h-18 rounded-md bg-muted flex-shrink-0 overflow-hidden border">
@@ -113,7 +118,7 @@ const ReadingCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number
         {/* Input HOY */}
         <div className="bg-card/80 backdrop-blur rounded-lg p-2 border space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Hoy (min)</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Avanza hoy (min)</span>
             <span className={cn("text-[10px] font-bold", sem.text)}>{sem.label}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -210,6 +215,16 @@ const MusicCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number; 
         </div>
       </div>
       <div className={cn("p-4 space-y-3", sem.bg)}>
+        {learning && (
+          <>
+            <div className="px-2 py-1 rounded-lg bg-background/60 border border-border/60 text-[9px] text-muted-foreground truncate">
+              Foco: {learning.title}
+            </div>
+            <div className="px-2 py-1 rounded-lg bg-background/40 border border-border/40 text-[8px] text-muted-foreground">
+              Rutina: Calentar → Foco → Repaso
+            </div>
+          </>
+        )}
         {learning ? (
           <div className="flex gap-3">
             <div className="w-14 h-14 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 flex-shrink-0 flex items-center justify-center border overflow-hidden">
@@ -234,7 +249,7 @@ const MusicCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number; 
 
         <div className="bg-card/80 backdrop-blur rounded-lg p-2 border space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Hoy (min)</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Practica hoy (min)</span>
             <span className={cn("text-[10px] font-bold", sem.text)}>{sem.label}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -290,13 +305,19 @@ const ChessCard = ({
   const isSkipped = skipped && todayMin === 0;
   const [draftMin, setDraftMin] = useState(todayMin);
   const [draftGames, setDraftGames] = useState(todayGames);
+  const [videoMin, setVideoMin] = useState(0);
+  const [puzzles, setPuzzles] = useState(0);
+  const [dailyGameDone, setDailyGameDone] = useState(todayGames >= 1);
 
   useEffect(() => setDraftMin(todayMin), [todayMin]);
   useEffect(() => setDraftGames(todayGames), [todayGames]);
+  useEffect(() => setDailyGameDone(todayGames >= 1), [todayGames]);
 
   const todayPct = Math.min(100, Math.round((todayMin / MAX_GOAL) * 100));
   const monthlyPct = goals?.target_games_per_month ? Math.min(100, Math.round((stats.month.games / goals.target_games_per_month) * 100)) : 0;
   const eloGap = (goals?.target_elo || 0) - stats.currentElo;
+  const eloCurrent = stats.currentElo || 0;
+  const eloTarget = goals?.target_elo || 0;
 
   return (
     <Card className={cn("overflow-hidden p-0 ring-2 transition-all", sem.ring)}>
@@ -305,9 +326,17 @@ const ChessCard = ({
           <div className="p-1.5 rounded-lg bg-white/20"><Crown className="h-4 w-4 text-white" /></div>
           <span className="text-white font-semibold text-sm">Ajedrez</span>
         </div>
-        <Link to="/chess"><ArrowRight className="h-4 w-4 text-white/80" /></Link>
+        <div className="flex items-center gap-2">
+          {eloTarget > 0 && (
+            <span className="text-[10px] text-white/80 font-medium">ELO {eloCurrent} → {eloTarget}</span>
+          )}
+          <Link to="/chess"><ArrowRight className="h-4 w-4 text-white/80" /></Link>
+        </div>
       </div>
       <div className={cn("p-4 space-y-3", sem.bg)}>
+        <div className="px-2 py-1 rounded-lg bg-background/60 border border-border/60 text-[9px] text-muted-foreground">
+          Foco hoy: Táctica · Clavadas / Ataques dobles
+        </div>
         <div className="flex items-baseline justify-between">
           <div>
             <p className="text-2xl font-bold">{stats.currentElo}</p>
@@ -333,38 +362,85 @@ const ChessCard = ({
 
         <div className="bg-card/80 backdrop-blur rounded-lg p-2 border space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Hoy</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Plan diario</span>
             <span className={cn("text-[10px] font-bold", sem.text)}>{sem.label}</span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <div>
-              <Input
-                type="number"
-                min={0}
-                value={draftMin || ""}
-                onChange={(e) => setDraftMin(parseInt(e.target.value) || 0)}
-                onBlur={() => draftMin !== todayMin && onMinChange(draftMin)}
-                className="h-8 text-sm font-bold text-center"
-                placeholder="min"
-              />
-              <p className="text-[9px] text-center text-muted-foreground mt-0.5">minutos</p>
+          <div className="space-y-1">
+            <label className="flex items-center justify-between text-[10px]">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={dailyGameDone}
+                  onChange={(e) => {
+                    setDailyGameDone(e.target.checked);
+                    if (e.target.checked && todayGames < 1) onGamesChange(1);
+                    else if (!e.target.checked && todayGames >= 1) onGamesChange(0);
+                  }}
+                  className="rounded"
+                />
+                <span className={cn(dailyGameDone ? "text-green-600" : "text-muted-foreground")}>Partida diaria</span>
+              </div>
+              <Link to="/chess" className="text-[9px] text-primary">Jugar →</Link>
+            </label>
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-muted-foreground">Vídeo explicativo</span>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min={0}
+                  value={videoMin || ""}
+                  onChange={(e) => setVideoMin(parseInt(e.target.value) || 0)}
+                  onBlur={() => {
+                    const total = Math.max(0, (draftMin || 0) + videoMin + puzzles);
+                    setDraftMin(total);
+                    if (total !== todayMin) onMinChange(total);
+                  }}
+                  className="h-6 w-12 text-[10px] text-center p-0"
+                />
+                <span className="text-[9px] text-muted-foreground">min</span>
+              </div>
             </div>
-            <div>
-              <Input
-                type="number"
-                min={0}
-                value={draftGames || ""}
-                onChange={(e) => setDraftGames(parseInt(e.target.value) || 0)}
-                onBlur={() => draftGames !== todayGames && onGamesChange(draftGames)}
-                className="h-8 text-sm font-bold text-center"
-                placeholder="part."
-              />
-              <p className="text-[9px] text-center text-muted-foreground mt-0.5">partidas</p>
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-muted-foreground">Puzzles enfocados</span>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min={0}
+                  value={puzzles || ""}
+                  onChange={(e) => setPuzzles(parseInt(e.target.value) || 0)}
+                  onBlur={() => {
+                    const total = Math.max(0, (draftMin || 0) + videoMin + puzzles);
+                    setDraftMin(total);
+                    if (total !== todayMin) onMinChange(total);
+                  }}
+                  className="h-6 w-12 text-[10px] text-center p-0"
+                />
+                <span className="text-[9px] text-muted-foreground">uds</span>
+              </div>
             </div>
           </div>
-          <div className="flex justify-center pt-1">
+        </div>
+
+        <div className="bg-card/80 backdrop-blur rounded-lg p-2 border space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Tiempo ajedrez hoy</span>
+            <span className={cn("text-[10px] font-bold", sem.text)}>{sem.label}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={0}
+              value={draftMin || ""}
+              onChange={(e) => setDraftMin(parseInt(e.target.value) || 0)}
+              onBlur={() => draftMin !== todayMin && onMinChange(draftMin)}
+              className="h-8 text-sm font-bold text-center"
+              placeholder="min"
+            />
+            <Button size="sm" className="h-8 px-2" onClick={() => { onMinChange(draftMin); toast.success("Guardado"); }}>
+              <Save className="h-3 w-3" />
+            </Button>
             <button
-              onClick={() => { onMinChange(0); onSkip?.(); }}
+              onClick={() => { onMinChange(0); onSkip?.(); setVideoMin(0); setPuzzles(0); setDailyGameDone(false); if (todayGames >= 1) onGamesChange(0); }}
               className={cn(
                 "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
                 isSkipped ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
