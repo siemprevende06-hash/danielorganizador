@@ -79,6 +79,17 @@ function scheduleFromBlocks(systemId: string, blocks: RoutineBlock[] | undefined
 }
 
 
+const INTENSITY_BASE_MIN_PLAN: Record<string, number> = { lectura: 30, ajedrez: 20, game: 20, idiomas: 30, gym: 60, musica: 30 };
+const INTENSITY_MULTIPLIER_PLAN: Record<string, number> = { minimo: 0.5, maximo: 1, extra: 1.5 };
+
+function getPlanIntensityMinutes(id: string, level?: string | null): number | null {
+  if (!level) return null;
+  if (level !== "minimo" && level !== "maximo" && level !== "extra") return null;
+  const base = INTENSITY_BASE_MIN_PLAN[id];
+  if (!base) return null;
+  return Math.round(base * (INTENSITY_MULTIPLIER_PLAN[level] ?? 1));
+}
+
 function SystemCardView({ c, covers }: { c: SystemCard; covers: Record<string, string> }) {
   const Icon = c.icon;
   const sem = semaphore(c.todayValue, c.minThreshold, c.maxThreshold);
@@ -151,6 +162,8 @@ interface MySystemsSectionProps {
   blocks?: RoutineBlock[];
 }
 
+const PLAN_TO_SPEED_MAP: Record<string, any> = { minimo: "minimo", maximo: "maximo", extra: "extra" };
+
 export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
   const [cards, setCards] = useState<SystemCard[]>([]);
   const [idiomasCard, setIdiomasCard] = useState<SystemCard | null>(null);
@@ -159,7 +172,7 @@ export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
   const [loading, setLoading] = useState(true);
   const { getSongsByInstrument } = useMusicRepertoire();
   const { covers } = useAreaCovers();
-  const { getMinutes } = useSystemSpeed();
+  const { getMinutes, map: speedMap } = useSystemSpeed(date);
 
   const pianoLearning = getSongsByInstrument("piano").find(s => s.status === "learning");
   const guitarLearning = getSongsByInstrument("guitar").find(s => s.status === "learning");
@@ -167,16 +180,31 @@ export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
   const baseDate = useMemo(() => date ?? new Date(), [date]);
   const dateKey = useMemo(() => format(baseDate, "yyyy-MM-dd"), [baseDate]);
 
-  // Umbrales reales: el max viene de la velocidad elegida en DaySpeedSection,
-  // el min de los minutos de racha. Gym no está en DAY_SYSTEMS -> DEFAULT_GOALS.
+  // Umbrales reales: prioridad a velocidad unificada (PlanManana/DaySpeedSection)
   const thresholdsFor = useCallback((systemId: string) => {
+    // intentar leer planIntensity del día si existe
+    try {
+      const dstr = format(baseDate, "yyyy-MM-dd");
+      const cached = localStorage.getItem(`dailyPlan_${dstr}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const si = parsed?.systemIntensity || parsed?.planIntensity;
+        if (si && si[systemId]) {
+          const p = getPlanIntensityMinutes(systemId, si[systemId]);
+          if (p != null) {
+            const sys = findDaySystem(systemId);
+            return { min: sys?.streakMinutes ?? 0, max: p };
+          }
+        }
+      }
+    } catch {}
     const sys = findDaySystem(systemId);
     if (sys) {
       const speedMinutes = getMinutes(systemId);
       return { min: sys.streakMinutes, max: speedMinutes || sys.streakMinutes };
     }
     return { min: 0, max: DEFAULT_GOALS[systemId as keyof typeof DEFAULT_GOALS]?.time ?? 30 };
-  }, [getMinutes]);
+  }, [getMinutes, baseDate, speedMap]);
 
   const musicaThresholds = thresholdsFor("musica");
 

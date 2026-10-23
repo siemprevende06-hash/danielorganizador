@@ -440,7 +440,25 @@ export default function PlanManana() {
       ALL_HIERARCHY_AREAS.forEach(area => {
         dayGoals[area] = getDayGoalEffective(targetDate, area);
       });
-      const notesJSON = JSON.stringify({ systemIntensity, language: languageChoice, instrument: musicInstrument, dayGoals });
+      // Guardar intensidad de sistemas también en formato unificado
+      const notesJSON = JSON.stringify({ systemIntensity, planIntensity: systemIntensity, language: languageChoice, instrument: musicInstrument, dayGoals });
+
+      // Sincronizar con sistema de velocidad unificado
+      try {
+        const { loadSystemSpeed, saveSystemSpeed } = await import("@/hooks/useSystemSpeed");
+        const currentSpeed = loadSystemSpeed();
+        const nextSpeed = { ...currentSpeed };
+        let speedChanged = false;
+        for (const [k, v] of Object.entries(systemIntensity)) {
+          if (v === "minimo" || v === "maximo" || v === "extra") {
+            if (nextSpeed[k] !== v) {
+              nextSpeed[k] = v as any;
+              speedChanged = true;
+            }
+          }
+        }
+        if (speedChanged) saveSystemSpeed(nextSpeed);
+      } catch {}
 
       const existing = await supabase.from("daily_plans").select("id").eq("plan_date", targetStr).maybeSingle();
       if (existing.data) {

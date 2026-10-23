@@ -51,7 +51,7 @@ if (plan && plan.block_assignments) {
         setPlanRoutineType(plan.routine_type);
         if (plan.notes) {
           try {
-            const parsed = JSON.parse(plan.notes as string);
+            const parsed = typeof plan.notes === 'string' ? JSON.parse(plan.notes) : plan.notes;
             if (parsed.language === 'ingles' || parsed.language === 'italiano') {
               setPlanLanguage(parsed.language);
             }
@@ -60,8 +60,9 @@ if (plan && plan.block_assignments) {
             } else {
               setPlanGoals(null);
             }
-            if (parsed.systemIntensity && typeof parsed.systemIntensity === 'object') {
-              setPlanIntensity(parsed.systemIntensity);
+            const si = parsed.systemIntensity || parsed.planIntensity;
+            if (si && typeof si === 'object') {
+              setPlanIntensity(si);
             } else {
               setPlanIntensity(null);
             }
