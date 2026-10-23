@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/env';

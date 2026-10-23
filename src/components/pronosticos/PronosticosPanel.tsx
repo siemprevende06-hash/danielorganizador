@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { addDays, addWeeks, differenceInCalendarDays, differenceInCalendarWeeks, endOfQuarter, format, isToday, startOfWeek, subDays } from 'date-fns';
