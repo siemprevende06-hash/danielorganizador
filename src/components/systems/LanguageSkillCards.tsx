@@ -5,7 +5,7 @@ import { BookText, BookOpen, Headphones, MessageCircle, PenLine, Languages as La
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { getCubaDate } from "@/lib/cubaTime";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { getCoverGradient } from "@/components/areas/AreaCover";
 import { SystemChronoBox } from "@/components/today/systems/SystemChronoBox";
@@ -69,11 +69,16 @@ interface Props {
 export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange, skipped, onSkipToggle, date, fixedBlocks, extraBlocks }: Props) => {
   const { covers } = useAreaCovers();
   const idiomasCover = covers[coverKey("sub", "idiomas")] ?? null;
-  const [activeLang, setActiveLang] = useState<'italian' | 'english'>('italian');
+  const [activeLang, setActiveLang] = useState<'italian' | 'english'>('english');
   const langPrefix = activeLang === 'italian' ? 'idioma-italiano' : 'idioma-ingles';
   const currentTime = activeLang === 'italian' ? italianoTime : inglesTime;
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const [today, setToday] = useState(() => getCubaDate());
   const showPassive = activeLang === 'english';
+
+  useEffect(() => {
+    const id = setInterval(() => setToday(getCubaDate()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const extraUnlocked = (extraBlocks?.length ?? 0) > 0;
   const applyTotalToLanguages = (nextTotal: number) => {
@@ -106,26 +111,43 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
 
   useEffect(() => {
     let cancelled = false;
+    let lastDay: string | null = null;
+    try { lastDay = localStorage.getItem('languages_passive_seen_day'); } catch { /* ignore */ }
+    const dayChanged = !!lastDay && lastDay < today;
+    try { localStorage.setItem('languages_passive_seen_day', today); } catch { /* ignore */ }
+    if (dayChanged) setPassive({});
     (async () => {
       try {
         const { data } = await supabase
           .from('language_sessions')
-          .select('passive_reading_podcast_completed, passive_tv_completed, passive_videogames_completed')
+          .select('id, passive_reading_podcast_completed, passive_tv_completed, passive_videogames_completed')
           .eq('session_date', today)
           .eq('language', 'english')
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (!cancelled && data) {
-          const row = data as Record<string, boolean | null>;
-          const stateOf = (v: boolean | null | undefined): 'done' | 'skip' | 'none' =>
-            v === true ? 'done' : v === false ? 'skip' : 'none';
-          setPassive({
-            reading_podcast: stateOf(row.passive_reading_podcast_completed),
-            tv: stateOf(row.passive_tv_completed),
-            videogames: stateOf(row.passive_videogames_completed),
-          });
+        if (cancelled) return;
+        if (!data) {
+          setPassive({});
+          return;
         }
+        if (dayChanged) {
+          await supabase.from('language_sessions').update({
+            passive_reading_podcast_completed: null,
+            passive_tv_completed: null,
+            passive_videogames_completed: null,
+          }).eq('id', (data as { id: string }).id);
+          if (!cancelled) setPassive({});
+          return;
+        }
+        const row = data as Record<string, boolean | null>;
+        const stateOf = (v: boolean | null | undefined): 'done' | 'skip' | 'none' =>
+          v === true ? 'done' : v === false ? 'skip' : 'none';
+        setPassive({
+          reading_podcast: stateOf(row.passive_reading_podcast_completed),
+          tv: stateOf(row.passive_tv_completed),
+          videogames: stateOf(row.passive_videogames_completed),
+        });
       } catch (e) { console.error('Error loading passive language:', e); }
     })();
     return () => { cancelled = true; };
@@ -169,7 +191,12 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
       if (existing) {
         await supabase.from('language_sessions').update(updateData).eq('id', existing.id);
       } else {
-        await supabase.from('language_sessions').insert(updateData);
+        await supabase.from('language_sessions').insert({
+          ...updateData,
+          passive_reading_podcast_completed: null,
+          passive_tv_completed: null,
+          passive_videogames_completed: null,
+        });
       }
     } catch (e) { console.error('Error saving language session:', e); }
   };
@@ -202,6 +229,9 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
           session_date: today,
           language: 'english',
           block_type: 'morning',
+          passive_reading_podcast_completed: null,
+          passive_tv_completed: null,
+          passive_videogames_completed: null,
           [column]: value,
         });
       }

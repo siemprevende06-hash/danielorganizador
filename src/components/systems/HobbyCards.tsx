@@ -142,10 +142,7 @@ const ReadingCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number
             </button>
           </div>
           <Progress value={todayPct} className="h-1.5" />
-          <p className="text-[9px] text-muted-foreground text-center">Min {MIN_GOAL} · Máx {MAX_GOAL} min</p>
         </div>
-
-        <WeekStreakBar habitId="lectura" todayValue={todayMin} minThreshold={MIN_GOAL} maxThreshold={MAX_GOAL} compact />
 
         <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t">
           <Stat label="Hoy" value={`${todayMin}m`} />
@@ -266,10 +263,7 @@ const MusicCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number; 
             </button>
           </div>
           <Progress value={todayPct} className="h-1.5" />
-          <p className="text-[9px] text-muted-foreground text-center">Min {MIN_GOAL} · Máx {MAX_GOAL} min</p>
         </div>
-
-        <WeekStreakBar habitId="musica" variant="bars" timeDataKey="musica" todayValue={todayMin} minThreshold={MIN_GOAL} maxThreshold={MAX_GOAL} compact />
 
         <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t">
           <Stat label="Hoy" value={`${todayMin}m`} />
@@ -382,10 +376,7 @@ const ChessCard = ({
             </button>
           </div>
           <Progress value={todayPct} className="h-1.5" />
-          <p className="text-[9px] text-muted-foreground text-center">Min {MIN_GOAL} · Máx {MAX_GOAL} min</p>
         </div>
-
-        <WeekStreakBar habitId="ajedrez" todayValue={todayMin} minThreshold={MIN_GOAL} maxThreshold={MAX_GOAL} compact />
 
         <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t">
           <Stat label="Hoy" value={`${stats.today.games}p`} />

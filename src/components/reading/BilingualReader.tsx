@@ -403,6 +403,11 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
     if (mode === 'book' && ranges[pageIndex]) pos = Math.min(ranges[pageIndex].start, totalPairs ? totalPairs - 1 : 0);
     savePosition(pos);
     persistProgress(pos, true);
+    try {
+      if (onSaveProgress && totalPairs > 0) {
+        onSaveProgress(book.id, Math.min(Math.max(pos, 0), totalPairs - 1), totalPairs);
+      }
+    } catch { /* ignore */ }
     onOpenChange(false);
   };
 
