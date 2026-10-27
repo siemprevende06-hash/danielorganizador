@@ -27,14 +27,27 @@ export interface Book {
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 
-type BookDates = Pick<Book, 'start_date' | 'finish_date' | 'status' | 'sessions_first_date' | 'sessions_last_date'>;
+type BookDates = Pick<Book, 'start_date' | 'finish_date' | 'status' | 'created_at' | 'sessions_first_date' | 'sessions_last_date'>;
+
+/** yyyy-MM-dd en hora local a partir de un timestamp ISO. */
+const localISODate = (value: string): string | null => {
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/** Inicio con evidencia real de lectura: fecha guardada o primera sesión. */
+export const trackedStartDate = (book: BookDates): string | null =>
+  book.start_date || book.sessions_first_date || null;
 
 /**
- * Fecha de inicio real de un libro: la guardada o, si está vacía, la de su
- * primera sesión de lectura (libros antiguos que nunca recibieron la fecha).
+ * Fecha de inicio real de un libro, por orden de fiabilidad:
+ * 1. `start_date` guardada, 2. primera sesión de lectura, 3. fecha en que se
+ * agregó el libro a la biblioteca (`created_at`), que es cuando se empezó.
  */
 export const effectiveStartDate = (book: BookDates): string | null =>
-  book.start_date || book.sessions_first_date || null;
+  trackedStartDate(book)
+  || (book.status !== 'to_read' && book.created_at ? localISODate(book.created_at) : null);
 
 /**
  * Fecha de fin real: la guardada o la última sesión de lectura si el libro

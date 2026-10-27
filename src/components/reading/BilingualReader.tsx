@@ -6,8 +6,10 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useVocabulary } from '@/hooks/useVocabulary';
-import { Book } from '@/hooks/useReadingLibrary';
-import { X, Plus, Minus, Languages, BookOpenCheck, Loader2, ChevronLeft, ChevronRight, BookMarked, ScrollText, AlignLeft, AlignJustify, AlignCenter } from 'lucide-react';
+import { Book, effectiveStartDate, effectiveFinishDate } from '@/hooks/useReadingLibrary';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { X, Plus, Minus, Languages, BookOpenCheck, Loader2, ChevronLeft, ChevronRight, BookMarked, ScrollText, AlignLeft, AlignJustify, AlignCenter, Calendar } from 'lucide-react';
 
 export interface LinePair {
   en: string;
@@ -25,6 +27,13 @@ type TranslationMode = 'both' | 'en' | 'es';
 
 const nextTranslationMode = (m: TranslationMode): TranslationMode =>
   m === 'both' ? 'en' : m === 'en' ? 'es' : 'both';
+
+/** yyyy-MM-dd (o ISO) → "12 ago 2026", sin corrimientos de zona horaria. */
+const fmtBookDate = (value?: string | null) => {
+  if (!value) return null;
+  const d = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  return isNaN(d.getTime()) ? null : format(d, 'd MMM yyyy', { locale: es });
+};
 
 const STORAGE_POS_PREFIX = 'bil-reader-pos-';
 const STORAGE_MODE_PREFIX = 'bil-reader-mode-';
@@ -436,6 +445,15 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
               {book.author ? `${book.author} · ` : ''}
               Página {displayPage} de {totalPages} · {progressPercent}%
             </p>
+            {(effectiveStartDate(book) || effectiveFinishDate(book)) && (
+              <p className="text-[11px] text-muted-foreground truncate flex items-center gap-2">
+                <Calendar className="w-3 h-3 shrink-0" />
+                {[
+                  effectiveStartDate(book) ? `Inicio ${fmtBookDate(effectiveStartDate(book))}` : null,
+                  effectiveFinishDate(book) ? `Fin ${fmtBookDate(effectiveFinishDate(book))}` : null,
+                ].filter(Boolean).join(' · ')}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <div className="hidden sm:flex items-center rounded-lg bg-muted p-0.5">

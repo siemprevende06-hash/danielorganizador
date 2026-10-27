@@ -143,7 +143,7 @@ export function useMonthlyPlan(month: Date) {
       const mStart = format(startOfMonth(month), 'yyyy-MM-dd');
       const mEnd = format(endOfMonth(month), 'yyyy-MM-dd');
       const [booksRes, songsRes, eventsRes, sessionsRes] = await Promise.all([
-        supabase.from('reading_library').select('id, title, author, status, cover_image_url, start_date, finish_date').order('title'),
+        supabase.from('reading_library').select('id, title, author, status, cover_image_url, start_date, finish_date, created_at').order('title'),
         supabase.from('music_repertoire').select('id, title, artist, instrument, status, learned_at, mastered_at, recorded_at, duration_seconds, cover_image_url').order('title'),
         supabase.from('calendar_events').select('*')
           .gte('event_date', mStart)
@@ -167,7 +167,7 @@ export function useMonthlyPlan(month: Date) {
           const r = ranges[b.id];
           return {
             ...b,
-            start_date: b.start_date ?? r?.first ?? null,
+            start_date: b.start_date ?? r?.first ?? (b.status !== 'to_read' && b.created_at ? String(b.created_at).slice(0, 10) : null),
             finish_date: b.finish_date ?? (b.status === 'completed' ? r?.last ?? null : null),
           };
         }));
