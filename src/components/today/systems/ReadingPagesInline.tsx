@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { BookOpen, FileText, Save } from "lucide-react";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { useReadingSessions } from "@/hooks/useReadingSessions";
 import { useReadingLibrary } from "@/hooks/useReadingLibrary";
+import { useReadingPagesDraft } from "@/hooks/useReadingPagesDraft";
 
 interface Props {
   /** Minutos de lectura ya registrados hoy (time_data.lectura). */
@@ -22,28 +23,27 @@ export const ReadingPagesInline = ({ minutes, onMinutesChange }: Props) => {
 
   const current = getCurrentlyReading();
   const todayStr = format(new Date(), "yyyy-MM-dd");
-  const lastToday = useMemo(
-    () =>
-      sessions
-        .filter((s) => s.session_date === todayStr)
-        .sort((a, b) => a.created_at.localeCompare(b.created_at))
-        .slice(-1)[0],
-    [sessions, todayStr]
-  );
 
-  // Marcapáginas real: la página donde quedaste (última sesión de hoy o la biblioteca).
-  const bookmark = Math.max(lastToday?.page_end ?? 0, Number(current?.pages_read) || 0);
-
-  const [pageStart, setPageStart] = useState<number>(bookmark);
-  const [pageEnd, setPageEnd] = useState<number>(bookmark);
-
-  useEffect(() => {
-    setPageStart(bookmark);
-    setPageEnd(bookmark);
-  }, [current?.id, bookmark]);
+  const { pageStart, pageEnd, bookmark, lastToday, changeStart, changeEnd } = useReadingPagesDraft({
+    sessions,
+    bookId: current?.id ?? null,
+    pagesRead: current?.pages_read,
+    todayStr,
+  });
 
   const lastSavedRef = useRef<{ minutes: number; start: number; end: number; bookId: string | null } | null>(null);
   const savingRef = useRef(false);
+
+  // Si ya hay una sesión registrada hoy, evita guardar el mismo tramo dos veces.
+  useEffect(() => {
+    if (!lastToday?.id) return;
+    lastSavedRef.current = {
+      minutes: 0,
+      start: lastToday.page_start ?? 0,
+      end: lastToday.page_end ?? 0,
+      bookId: current?.id ?? null,
+    };
+  }, [lastToday?.id, lastToday?.page_start, lastToday?.page_end, current?.id]);
 
   const pages = Math.max(0, (Number(pageEnd) || 0) - (Number(pageStart) || 0));
   const progressPct = current?.pages_total
@@ -61,12 +61,11 @@ export const ReadingPagesInline = ({ minutes, onMinutesChange }: Props) => {
     }
     const candidate = { minutes: curMinutes, start, end, bookId: current?.id ?? null };
     const prev = lastSavedRef.current;
-    if (
-      prev &&
-      prev.end === end &&
-      prev.minutes === curMinutes &&
-      (prev.start === start || pages <= 0)
-    ) {
+    const duplicate = !!prev
+      && prev.bookId === candidate.bookId
+      && prev.end === end
+      && (pages > 0 ? prev.start === start : prev.minutes === curMinutes);
+    if (duplicate) {
       toast.info("Ya guardaste esta sesión");
       return;
     }
@@ -85,10 +84,7 @@ export const ReadingPagesInline = ({ minutes, onMinutesChange }: Props) => {
         await updateProgress(current.id, Math.max(Number(current?.pages_read) || 0, end));
       }
       if (curMinutes > 0) onMinutesChange?.(curMinutes);
-      if (end > start && end > 0) {
-        setPageStart(end);
-        setPageEnd(end);
-      }
+      // No se reinicia "Inicié en": queda visible el tramo leído hoy.
       lastSavedRef.current = candidate;
       refetch();
     } finally {
@@ -120,7 +116,7 @@ export const ReadingPagesInline = ({ minutes, onMinutesChange }: Props) => {
             type="number"
             min={0}
             value={pageStart || ""}
-            onChange={(e) => setPageStart(parseInt(e.target.value) || 0)}
+            onChange={(e) => changeStart(parseInt(e.target.value) || 0)}
             placeholder="pág"
             className="h-8 w-full text-center text-sm font-bold px-1"
           />
@@ -133,7 +129,7 @@ export const ReadingPagesInline = ({ minutes, onMinutesChange }: Props) => {
             type="number"
             min={0}
             value={pageEnd || ""}
-            onChange={(e) => setPageEnd(parseInt(e.target.value) || 0)}
+            onChange={(e) => changeEnd(parseInt(e.target.value) || 0)}
             placeholder="pág"
             className="h-8 w-full text-center text-sm font-bold px-1 text-purple-600 dark:text-purple-400"
           />

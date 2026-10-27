@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useReadingLibrary } from '@/hooks/useReadingLibrary';
 import type { Book } from '@/hooks/useReadingLibrary';
+import { useReadingPagesDraft } from '@/hooks/useReadingPagesDraft';
 import {
   useReadingSessions,
   type ReadingSession,
@@ -58,26 +59,32 @@ interface TrackerProps {
 export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, books, updateBookProgress, getCurrentlyReading, onSaved }: TrackerProps) {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const current = getCurrentlyReading();
-  const lastToday = useMemo(
-    () => sessions.filter((s) => s.session_date === todayStr).sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(-1)[0],
-    [sessions, todayStr]
-  );
+
+  const { pageStart, pageEnd, bookmark, lastToday, changeStart, changeEnd } = useReadingPagesDraft({
+    sessions,
+    bookId: current?.id ?? null,
+    pagesRead: current?.pages_read,
+    todayStr,
+  });
 
   const [draftMin, setDraftMin] = useState(minutes);
-  // Marcapáginas real: la página donde quedaste (última sesión de hoy o la biblioteca).
-  const bookmark = Math.max(lastToday?.page_end ?? 0, Number(current?.pages_read) || 0);
-  const [pageStart, setPageStart] = useState<number>(bookmark);
-  const [pageEnd, setPageEnd] = useState<number>(bookmark);
 
   // Evita registrar una sesión repetida si "Inicié en / Terminé en / tiempo" no cambiaron.
   const lastSavedRef = useRef<{ minutes: number; start: number; end: number; bookId: string | null } | null>(null);
   const savingRef = useRef(false);
 
   useEffect(() => setDraftMin(minutes), [minutes]);
+
+  // Si ya hay una sesión registrada hoy, evita guardar el mismo tramo dos veces.
   useEffect(() => {
-    setPageStart(bookmark);
-    setPageEnd(bookmark);
-  }, [current?.id, bookmark]);
+    if (!lastToday?.id) return;
+    lastSavedRef.current = {
+      minutes: 0,
+      start: lastToday.page_start ?? 0,
+      end: lastToday.page_end ?? 0,
+      bookId: current?.id ?? null,
+    };
+  }, [lastToday?.id, lastToday?.page_start, lastToday?.page_end, current?.id]);
 
   const pages = Math.max(0, (Number(pageEnd) || 0) - (Number(pageStart) || 0));
 
@@ -92,12 +99,11 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
     }
     const candidate = { minutes: curMinutes, start, end, bookId: current?.id ?? null };
     const prev = lastSavedRef.current;
-    if (
-      prev &&
-      prev.end === end &&
-      prev.minutes === curMinutes &&
-      (prev.start === start || pages <= 0)
-    ) {
+    const duplicate = !!prev
+      && prev.bookId === candidate.bookId
+      && prev.end === end
+      && (pages > 0 ? prev.start === start : prev.minutes === curMinutes);
+    if (duplicate) {
       toast.info('Ya guardaste esta sesión');
       return;
     }
@@ -118,10 +124,7 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
       if (curMinutes > 0) {
         onMinChange(curMinutes);
       }
-      if (end > start && end > 0) {
-        setPageStart(end);
-        setPageEnd(end);
-      }
+      // No se reinicia "Inicié en": queda visible el tramo leído hoy.
       lastSavedRef.current = candidate;
       onSaved?.();
     } finally {
@@ -174,7 +177,7 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
               type="number"
               min={0}
               value={pageStart || ''}
-              onChange={(e) => setPageStart(parseInt(e.target.value) || 0)}
+              onChange={(e) => changeStart(parseInt(e.target.value) || 0)}
               placeholder="pág"
               className="h-8 text-sm font-bold text-center"
             />
@@ -187,7 +190,7 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
               type="number"
               min={0}
               value={pageEnd || ''}
-              onChange={(e) => setPageEnd(parseInt(e.target.value) || 0)}
+              onChange={(e) => changeEnd(parseInt(e.target.value) || 0)}
               placeholder="página"
               className="h-8 text-sm font-bold text-center"
             />
@@ -205,7 +208,7 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
             <Save className="h-3.5 w-3.5 mr-1.5" /> Guardar
           </Button>
           <button
-            onClick={() => { setPageStart(0); setPageEnd(0); setDraftMin(0); }}
+            onClick={() => { changeStart(0); changeEnd(0); setDraftMin(0); }}
             className="h-10 w-10 flex items-center justify-center rounded-xl bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
             title="Limpiar"
           >
