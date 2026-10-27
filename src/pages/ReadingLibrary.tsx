@@ -102,30 +102,60 @@ export default function ReadingLibrary() {
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
 
+  /** Fecha yyyy-MM-dd a mediodía local (evita corrimientos de zona horaria). */
+  const bookDate = (value?: string | null) => {
+    if (!value) return null;
+    const d = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const currentMonthKey = format(now, 'yyyy-MM');
+
+  // Cronología: un mes con los libros terminados o empezados en él.
+  const timelineMonth = (month: Date) => {
+    const key = format(month, 'yyyy-MM');
+    const assigned = books.filter(b => {
+      const finish = bookDate(b.finish_date);
+      const start = bookDate(b.start_date);
+      if (finish && format(finish, 'yyyy-MM') === key) return true;
+      if (start && format(start, 'yyyy-MM') === key) return true;
+      if (key === currentMonthKey && b.status === 'reading') return true;
+      return false;
+    });
+    return { month, assigned, target: booksPerMonth };
+  };
+
   // Monthly books: books finished this month OR currently reading
-  const booksCompletedThisMonth = books.filter(b =>
-    b.status === 'completed' && b.finish_date &&
-    new Date(b.finish_date) >= monthStart && new Date(b.finish_date) <= monthEnd
-  );
+  const booksCompletedThisMonth = books.filter(b => {
+    const d = bookDate(b.finish_date);
+    return b.status === 'completed' && !!d && d >= monthStart && d <= monthEnd;
+  });
   const booksReadingNow = getBooksByStatus('reading');
   const monthlyProgress = booksCompletedThisMonth.length;
   const monthlyOnTrack = monthlyProgress >= Math.floor(booksPerMonth * (now.getDate() / (differenceInDays(monthEnd, monthStart) + 1)));
 
-  // 3-month timeline
-  const timeline = [0, 1, 2].map(offset => {
-    const month = addMonths(now, offset);
-    const mStart = startOfMonth(month);
-    const mEnd = endOfMonth(month);
-    const assigned = books.filter(b => {
-      if (b.status === 'completed' && b.finish_date) {
-        const d = new Date(b.finish_date);
-        return d >= mStart && d <= mEnd;
-      }
-      if (offset === 0 && b.status === 'reading') return true;
-      return false;
-    });
-    return { month, assigned, target: booksPerMonth };
-  });
+  // Mes actual + los dos siguientes
+  const timeline = [0, 1, 2].map(offset => timelineMonth(addMonths(now, offset)));
+
+  // Meses anteriores: desde el primer registro de lectura hasta el mes pasado
+  const pastMonths = (() => {
+    const dates = books
+      .map(b => bookDate(b.finish_date) || bookDate(b.start_date))
+      .filter((d): d is Date => !!d);
+    if (dates.length === 0) return [];
+    const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+    const lastPast = startOfMonth(addMonths(now, -1));
+    const out: ReturnType<typeof timelineMonth>[] = [];
+    let cursor = startOfMonth(earliest);
+    let guard = 0;
+    while (cursor.getTime() <= lastPast.getTime() && guard < 24) {
+      const entry = timelineMonth(cursor);
+      if (entry.assigned.length > 0) out.push(entry);
+      cursor = addMonths(cursor, 1);
+      guard++;
+    }
+    return out.reverse();
+  })();
 
   // Daily pages calculation
   const daysLeftInMonth = differenceInDays(monthEnd, now) + 1;
@@ -151,6 +181,63 @@ export default function ReadingLibrary() {
     if (!value) return null;
     const d = new Date(`${String(value).slice(0, 10)}T12:00:00`);
     return isNaN(d.getTime()) ? null : format(d, "d MMM yyyy", { locale: es });
+  };
+
+  /** Tarjeta de un mes de la cronología (actual, siguientes o anteriores). */
+  const TimelineCard = ({ entry, showWeekBook }: { entry: ReturnType<typeof timelineMonth>; showWeekBook?: boolean }) => {
+    const { month, assigned, target } = entry;
+    const monthKey = format(month, 'yyyy-MM');
+    const isCurrent = monthKey === currentMonthKey;
+    const sameMonth = (d: Date | null) => !!d && format(d, 'yyyy-MM') === monthKey;
+    return (
+      <Card className={cn(isCurrent && "border-primary/40")}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base capitalize flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            {format(month, 'MMMM yyyy', { locale: es })}
+            {isCurrent && <Badge variant="secondary" className="text-[10px]">Mes actual</Badge>}
+            <Badge variant="outline" className="ml-auto">{assigned.length}/{target}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Progress value={(assigned.length / target) * 100} className="h-2 mb-3" />
+          {assigned.length > 0 ? (
+            <div className="space-y-2">
+              {assigned.map(book => {
+                const finish = bookDate(book.finish_date);
+                const start = bookDate(book.start_date);
+                const dateLabel = sameMonth(finish)
+                  ? `Fin ${fmtBookDate(book.finish_date)}`
+                  : sameMonth(start)
+                    ? `Inicio ${fmtBookDate(book.start_date)}`
+                    : null;
+                return (
+                  <div key={book.id} className="flex items-center gap-3 text-sm">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="font-medium truncate">{book.title}</span>
+                    {dateLabel && <span className="text-[10px] text-muted-foreground whitespace-nowrap">{dateLabel}</span>}
+                    <Badge variant={book.status === 'completed' ? 'default' : 'secondary'} className="text-xs ml-auto shrink-0">
+                      {book.status === 'completed' ? '✓ Leído' : 'Leyendo'}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sin libros asignados aún</p>
+          )}
+          {showWeekBook && currentBook && (
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs font-medium text-muted-foreground mb-1">📖 Libro de la semana</p>
+              <p className="text-sm font-medium">{currentBook.title}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                <Clock className="w-3 h-3 inline mr-1" />{dailyPages} páginas por día para terminar este mes
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
   };
 
   const openReader = (book: Book) => {
@@ -520,6 +607,15 @@ export default function ReadingLibrary() {
                   <div className="flex-1 space-y-2">
                     <h3 className="font-medium">{currentBook.title}</h3>
                     {currentBook.author && <p className="text-sm text-muted-foreground">{currentBook.author}</p>}
+                    {(currentBook.start_date || currentBook.finish_date) && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        {[
+                          currentBook.start_date ? `Inicio ${fmtBookDate(currentBook.start_date)}` : null,
+                          currentBook.finish_date ? `Fin ${fmtBookDate(currentBook.finish_date)}` : null,
+                        ].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                     {currentBook.pages_total && (
                       <>
                         <Progress value={(currentBook.pages_read / currentBook.pages_total) * 100} className="h-2" />
@@ -866,13 +962,18 @@ export default function ReadingLibrary() {
         <TabsContent value="archive" className="mt-4 space-y-4">
           {(() => {
             const cutoff = new Date('2026-01-01');
-            const completed = getBooksByStatus('completed').filter(b => b.finish_date && new Date(b.finish_date) >= cutoff);
+            const completed = getBooksByStatus('completed').filter(b => {
+              const d = bookDate(b.finish_date);
+              return !!d && d >= cutoff;
+            });
             if (completed.length === 0) {
               return <div className="text-center py-12 text-muted-foreground"><Library className="w-12 h-12 mx-auto mb-4 opacity-50" /><p>Sin libros terminados desde enero 2026</p></div>;
             }
             const groups: Record<string, typeof completed> = {};
             for (const b of completed) {
-              const key = format(new Date(b.finish_date!), 'yyyy-MM');
+              const d = bookDate(b.finish_date);
+              if (!d) continue;
+              const key = format(d, 'yyyy-MM');
               (groups[key] ||= []).push(b);
             }
             const keys = Object.keys(groups).sort().reverse();
@@ -891,9 +992,9 @@ export default function ReadingLibrary() {
                           <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
                             <Calendar className="w-2.5 h-2.5" />
                             <span>
-                              {book.start_date ? `Inicio ${format(new Date(book.start_date), "d MMM yy", { locale: es })}` : "Inicio —"}
+                              {book.start_date ? `Inicio ${fmtBookDate(book.start_date)}` : "Inicio —"}
                               <span className="mx-1">→</span>
-                              {book.finish_date ? `Fin ${format(new Date(book.finish_date), "d MMM yy", { locale: es })}` : "Fin —"}
+                              {book.finish_date ? `Fin ${fmtBookDate(book.finish_date)}` : "Fin —"}
                             </span>
                           </div>
                           {renderStars(book.rating)}
@@ -919,44 +1020,20 @@ export default function ReadingLibrary() {
 
         {/* Timeline */}
         <TabsContent value="timeline" className="mt-4 space-y-4">
-          {timeline.map(({ month, assigned, target }, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base capitalize flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  {format(month, 'MMMM yyyy', { locale: es })}
-                  <Badge variant="outline" className="ml-auto">{assigned.length}/{target}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Progress value={(assigned.length / target) * 100} className="h-2 mb-3" />
-                {assigned.length > 0 ? (
-                  <div className="space-y-2">
-                    {assigned.map(book => (
-                      <div key={book.id} className="flex items-center gap-3 text-sm">
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium">{book.title}</span>
-                        <Badge variant={book.status === 'completed' ? 'default' : 'secondary'} className="text-xs ml-auto">
-                          {book.status === 'completed' ? '✓ Leído' : 'Leyendo'}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Sin libros asignados aún</p>
-                )}
-                {i === 0 && currentBook && (
-                  <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                    <p className="text-xs font-medium text-muted-foreground mb-1">📖 Libro de la semana</p>
-                    <p className="text-sm font-medium">{currentBook.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      <Clock className="w-3 h-3 inline mr-1" />{dailyPages} páginas por día para terminar este mes
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {timeline.map((entry, i) => (
+            <TimelineCard key={format(entry.month, 'yyyy-MM')} entry={entry} showWeekBook={i === 0} />
           ))}
+
+          {pastMonths.length > 0 && (
+            <>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground pt-3">
+                Meses anteriores
+              </p>
+              {pastMonths.map(entry => (
+                <TimelineCard key={format(entry.month, 'yyyy-MM')} entry={entry} />
+              ))}
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
