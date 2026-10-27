@@ -63,13 +63,27 @@ function GoalInput({ weekStart, area }: { weekStart: Date; area: string }) {
   );
 }
 
+interface SongOption {
+  id: string;
+  title: string;
+  artist?: string | null;
+  instrument: string;
+  cover_image_url?: string | null;
+}
+
 export function PersonalDevelopment({
   weekStart,
   data,
   weekBookId,
   plannedBookIds,
+  songs,
+  plannedSongIds,
+  learningSongId,
+  masteringSongId,
   pagesGoal,
   onBookChange,
+  onLearningSongChange,
+  onMasteringSongChange,
   onPagesGoalChange,
 }: {
   weekStart: Date;
@@ -77,8 +91,15 @@ export function PersonalDevelopment({
   weekBookId: string;
   /** Libros elegidos en el plan del mes: único origen del selector. */
   plannedBookIds: string[];
+  songs: SongOption[];
+  /** Canciones elegidas en el plan del mes. */
+  plannedSongIds: string[];
+  learningSongId: string;
+  masteringSongId: string;
   pagesGoal: number;
   onBookChange: (id: string) => void;
+  onLearningSongChange: (id: string) => void;
+  onMasteringSongChange: (id: string) => void;
   onPagesGoalChange: (pages: number) => void;
 }) {
   const book = data.reading.book;
@@ -91,6 +112,14 @@ export function PersonalDevelopment({
     (book && plannedBooks.some(b => b.id === book.id) ? book : null) ??
     plannedBooks[0] ??
     null;
+
+  const plannedSongs = plannedSongIds.length > 0
+    ? songs.filter(s => plannedSongIds.includes(s.id))
+    : [];
+  const learningSong = plannedSongs.find(s => s.id === learningSongId) ?? null;
+  const masteringSong = plannedSongs.find(s => s.id === masteringSongId) ?? null;
+  const learningOptions = plannedSongs.filter(s => s.id !== masteringSongId);
+  const masteringOptions = plannedSongs.filter(s => s.id !== learningSongId);
 
   const lecturaGoal = getWeekGoalEffective(weekStart, 'lectura');
   const musicaGoal = getWeekGoalEffective(weekStart, 'musica');
@@ -321,17 +350,64 @@ export function PersonalDevelopment({
         {/* MÚSICA */}
         <Tile title="Música" icon={<Music className="w-3.5 h-3.5" />} accent="text-pink-600 dark:text-pink-400">
           <div className="flex gap-2.5">
-            <div className="w-12 h-12 shrink-0 rounded-md overflow-hidden border bg-muted/40 grid place-items-center">
-              {data.musica.cover ? (
-                <img src={data.musica.cover} alt={data.musica.song ?? ''} className="w-full h-full object-cover" />
+            <div className="w-12 h-[62px] shrink-0 rounded-md overflow-hidden border bg-muted/40 grid place-items-center">
+              {learningSong?.cover_image_url || masteringSong?.cover_image_url ? (
+                <img
+                  src={learningSong?.cover_image_url || masteringSong?.cover_image_url || ''}
+                  alt={learningSong?.title || masteringSong?.title || 'Canción'}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <Music className="w-4 h-4 text-muted-foreground/50" />
               )}
             </div>
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-[11px] font-semibold truncate">{data.musica.song ?? 'Sin pieza en práctica'}</p>
+              <label className="block">
+                <span className="text-[9px] text-muted-foreground">Aprendizaje</span>
+                <select
+                  value={learningSong?.id ?? ''}
+                  onChange={e => onLearningSongChange(e.target.value)}
+                  disabled={learningOptions.length === 0}
+                  className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-[10px] font-medium outline-none disabled:opacity-60"
+                >
+                  <option value="">
+                    {learningOptions.length > 0
+                      ? 'Canción a aprender…'
+                      : plannedSongs.length === 0
+                        ? 'Sin canciones planificadas'
+                        : 'Sin otra canción disponible'}
+                  </option>
+                  {learningOptions.map(s => (
+                    <option key={s.id} value={s.id}>{s.title}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-[9px] text-muted-foreground">Dominar</span>
+                <select
+                  value={masteringSong?.id ?? ''}
+                  onChange={e => onMasteringSongChange(e.target.value)}
+                  disabled={masteringOptions.length === 0}
+                  className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-[10px] font-medium outline-none disabled:opacity-60"
+                >
+                  <option value="">
+                    {masteringOptions.length > 0
+                      ? 'Canción a dominar…'
+                      : plannedSongs.length === 0
+                        ? 'Sin canciones planificadas'
+                        : 'Sin otra canción disponible'}
+                  </option>
+                  {masteringOptions.map(s => (
+                    <option key={s.id} value={s.id}>{s.title}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1.5 border-t border-muted/40">
+            <div className="flex-1 space-y-0.5">
               <StatLine label="Sesiones" value={data.musica.sessions} />
-              <StatLine label="Minutos" value={fmtMin(data.musica.minutes)} />
+              <StatLine label="Minutos esta semana" value={fmtMin(data.musica.minutes)} />
             </div>
           </div>
           <div className="flex items-center gap-2.5 pt-1.5 border-t border-muted/40">

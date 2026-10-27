@@ -104,6 +104,7 @@ export default function WeeklyPlanningPage() {
 
   const weekStart = startOfWeek(weekDate, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
+  const weekKey = format(weekStart, 'yyyy-MM-dd');
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekLabel = `${format(weekDays[0], 'd MMM', { locale: es })} - ${format(weekDays[6], 'd MMM', { locale: es })}`;
   const areaData = useWeeklyPlanData(weekStart, weekEnd);
@@ -143,6 +144,27 @@ export default function WeeklyPlanningPage() {
 
   const setWeekDistribution = (dist: WeekDistribution) => {
     updateMonthPlan(p => ({ ...p, week_distribution: dist }));
+  };
+
+  /** Elige la canción de aprendizaje o la de dominar para la semana activa. */
+  const setWeekSongSlot = (
+    field: 'learning_song_id' | 'mastering_song_id',
+    songId: string,
+  ) => {
+    updateMonthPlan(prev => {
+      const distribution = { ...(prev.week_distribution || {}) };
+      const current = distribution[weekKey] || { books: [], songs: [] };
+      const songs = [...new Set(current.songs || [])];
+      if (songId && !songs.includes(songId)) songs.push(songId);
+      const other = field === 'learning_song_id' ? 'mastering_song_id' : 'learning_song_id';
+      distribution[weekKey] = {
+        ...current,
+        songs,
+        [field]: songId || null,
+        ...(songId && current[other] === songId ? { [other]: null } : {}),
+      };
+      return { ...prev, week_distribution: distribution };
+    });
   };
 
   const navigateWeek = (dir: 'prev' | 'next') => {
@@ -498,8 +520,14 @@ export default function WeeklyPlanningPage() {
           data={areaData}
           weekBookId={planData.weekBookId ?? ''}
           plannedBookIds={monthlyPlan.books.selected || []}
+          songs={monthSongs}
+          plannedSongIds={monthlyPlan.songs.selected || []}
+          learningSongId={monthlyPlan.week_distribution?.[weekKey]?.learning_song_id || ''}
+          masteringSongId={monthlyPlan.week_distribution?.[weekKey]?.mastering_song_id || ''}
           pagesGoal={planData.lecturaPagesGoal ?? 0}
           onBookChange={setWeekBook}
+          onLearningSongChange={id => setWeekSongSlot('learning_song_id', id)}
+          onMasteringSongChange={id => setWeekSongSlot('mastering_song_id', id)}
           onPagesGoalChange={setLecturaPagesGoal}
         />
 

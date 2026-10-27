@@ -239,7 +239,22 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
       // --- Música ---
       const musicSessions = musicSessionsRes.data ?? [];
       const repertoire = (repertoireRes.data ?? []) as any[];
-      const musicMinutes = musicSessions.reduce((a, s: any) => a + (Number(s.duration_minutes) || Number(s.minutes) || 0), 0);
+      // `music_practice_sessions` manda; `daily_area_stats` guarda los minutos
+      // que se registran en Daily → Sistemas. Se usa solo en días sin sesión de
+      // práctica para no sumar dos veces el mismo tiempo.
+      const musicMinutesByDay: Record<string, number> = {};
+      musicSessions.forEach((s: any) => {
+        const d = String(s.practice_date ?? s.session_date ?? '').slice(0, 10);
+        if (!d) return;
+        musicMinutesByDay[d] = (musicMinutesByDay[d] || 0)
+          + (Number(s.duration_minutes) || Number(s.minutes) || 0);
+      });
+      areaStats.filter((s: any) => s.area_id === 'musica').forEach((s: any) => {
+        const d = String(s.stat_date).slice(0, 10);
+        if (musicMinutesByDay[d] !== undefined) return;
+        musicMinutesByDay[d] = Number(s.time_spent_minutes) || 0;
+      });
+      const musicMinutes = Object.values(musicMinutesByDay).reduce((a, v) => a + v, 0);
       const musicSong = musicSessions.find((s: any) => s.song_id)
         ? repertoire.find(r => r.id === musicSessions.find((s: any) => s.song_id).song_id)
         : repertoire.find(r => r.status === 'learning' || r.status === 'practicing') ?? repertoire[0] ?? null;

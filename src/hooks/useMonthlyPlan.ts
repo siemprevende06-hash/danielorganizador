@@ -18,6 +18,10 @@ export interface WeekBookSongDistribution {
   book_minutes?: number;
   music_minutes?: number;
   music_focus?: string;
+  /** Canción de la semana que se está aprendiendo. */
+  learning_song_id?: string | null;
+  /** Canción de la semana que se quiere dominar. */
+  mastering_song_id?: string | null;
 }
 
 export type SongPlanType = 'learned' | 'mastered' | 'recorded';

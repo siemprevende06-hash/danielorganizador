@@ -46,6 +46,8 @@ type WeekItems = {
   book_minutes?: number;
   music_minutes?: number;
   music_focus?: string;
+  learning_song_id?: string | null;
+  mastering_song_id?: string | null;
 };
 export type WeekDistribution = Record<string, WeekItems>;
 
@@ -105,6 +107,8 @@ function cleanDistribution(weeks: WeeklySlot[], dist: WeekDistribution): WeekDis
       book_minutes: prev.book_minutes,
       music_minutes: prev.music_minutes,
       music_focus: prev.music_focus,
+      learning_song_id: prev.learning_song_id ?? null,
+      mastering_song_id: prev.mastering_song_id ?? null,
     };
   });
   return out;
@@ -132,7 +136,12 @@ function withoutItem(week: WeekItems, itemId: string, type: 'book' | 'song'): We
   const rKey = rangesKeyOf(type);
   const ranges = { ...(week[rKey] || {}) };
   delete ranges[itemId];
-  return { ...week, [idsKey]: week[idsKey].filter(id => id !== itemId), [rKey]: ranges };
+  const next: WeekItems = { ...week, [idsKey]: week[idsKey].filter(id => id !== itemId), [rKey]: ranges };
+  if (type === 'song') {
+    if (next.learning_song_id === itemId) next.learning_song_id = null;
+    if (next.mastering_song_id === itemId) next.mastering_song_id = null;
+  }
+  return next;
 }
 
 export function WeeklyBookSongDistribution({
