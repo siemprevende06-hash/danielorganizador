@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useReadingLibrary, Book } from '@/hooks/useReadingLibrary';
+import { useReadingLibrary, Book, effectiveStartDate, effectiveFinishDate } from '@/hooks/useReadingLibrary';
 import { supabase } from '@/integrations/supabase/client';
 import { BookOpen, Plus, Star, BookMarked, Library, Trash2, Upload, Calendar, ChevronRight, Clock, TrendingUp, TrendingDown, Edit2, LayoutGrid, List, GalleryHorizontal, StickyNote, X, PencilLine, FileText, BookOpenCheck, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -115,8 +115,8 @@ export default function ReadingLibrary() {
   const timelineMonth = (month: Date) => {
     const key = format(month, 'yyyy-MM');
     const assigned = books.filter(b => {
-      const finish = bookDate(b.finish_date);
-      const start = bookDate(b.start_date);
+      const finish = bookDate(effectiveFinishDate(b));
+      const start = bookDate(effectiveStartDate(b));
       if (finish && format(finish, 'yyyy-MM') === key) return true;
       if (start && format(start, 'yyyy-MM') === key) return true;
       if (key === currentMonthKey && b.status === 'reading') return true;
@@ -127,7 +127,7 @@ export default function ReadingLibrary() {
 
   // Monthly books: books finished this month OR currently reading
   const booksCompletedThisMonth = books.filter(b => {
-    const d = bookDate(b.finish_date);
+    const d = bookDate(effectiveFinishDate(b));
     return b.status === 'completed' && !!d && d >= monthStart && d <= monthEnd;
   });
   const booksReadingNow = getBooksByStatus('reading');
@@ -140,7 +140,7 @@ export default function ReadingLibrary() {
   // Meses anteriores: desde el primer registro de lectura hasta el mes pasado
   const pastMonths = (() => {
     const dates = books
-      .map(b => bookDate(b.finish_date) || bookDate(b.start_date))
+      .map(b => bookDate(effectiveFinishDate(b)) || bookDate(effectiveStartDate(b)))
       .filter((d): d is Date => !!d);
     if (dates.length === 0) return [];
     const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
@@ -204,12 +204,14 @@ export default function ReadingLibrary() {
           {assigned.length > 0 ? (
             <div className="space-y-2">
               {assigned.map(book => {
-                const finish = bookDate(book.finish_date);
-                const start = bookDate(book.start_date);
+                const finishISO = effectiveFinishDate(book);
+                const startISO = effectiveStartDate(book);
+                const finish = bookDate(finishISO);
+                const start = bookDate(startISO);
                 const dateLabel = sameMonth(finish)
-                  ? `Fin ${fmtBookDate(book.finish_date)}`
+                  ? `Fin ${fmtBookDate(finishISO)}`
                   : sameMonth(start)
-                    ? `Inicio ${fmtBookDate(book.start_date)}`
+                    ? `Inicio ${fmtBookDate(startISO)}`
                     : null;
                 return (
                   <div key={book.id} className="flex items-center gap-3 text-sm">
@@ -305,16 +307,16 @@ export default function ReadingLibrary() {
         <CardContent className="p-3 space-y-2">
           <h3 className="font-medium text-sm line-clamp-2">{book.title}</h3>
           {book.author && <p className="text-xs text-muted-foreground">{book.author}</p>}
-          {(book.start_date || book.finish_date) && (
+          {(effectiveStartDate(book) || effectiveFinishDate(book)) && (
             <div className="space-y-0.5">
-              {book.start_date && (
+              {effectiveStartDate(book) && (
                 <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Calendar className="w-2.5 h-2.5 shrink-0" /> Inicio {fmtBookDate(book.start_date)}
+                  <Calendar className="w-2.5 h-2.5 shrink-0" /> Inicio {fmtBookDate(effectiveStartDate(book))}
                 </p>
               )}
-              {book.finish_date && (
+              {effectiveFinishDate(book) && (
                 <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <Calendar className="w-2.5 h-2.5 shrink-0" /> Fin {fmtBookDate(book.finish_date)}
+                  <Calendar className="w-2.5 h-2.5 shrink-0" /> Fin {fmtBookDate(effectiveFinishDate(book))}
                 </p>
               )}
             </div>
@@ -607,12 +609,12 @@ export default function ReadingLibrary() {
                   <div className="flex-1 space-y-2">
                     <h3 className="font-medium">{currentBook.title}</h3>
                     {currentBook.author && <p className="text-sm text-muted-foreground">{currentBook.author}</p>}
-                    {(currentBook.start_date || currentBook.finish_date) && (
+                    {(effectiveStartDate(currentBook) || effectiveFinishDate(currentBook)) && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="w-3 h-3 shrink-0" />
                         {[
-                          currentBook.start_date ? `Inicio ${fmtBookDate(currentBook.start_date)}` : null,
-                          currentBook.finish_date ? `Fin ${fmtBookDate(currentBook.finish_date)}` : null,
+                          effectiveStartDate(currentBook) ? `Inicio ${fmtBookDate(effectiveStartDate(currentBook))}` : null,
+                          effectiveFinishDate(currentBook) ? `Fin ${fmtBookDate(effectiveFinishDate(currentBook))}` : null,
                         ].filter(Boolean).join(' · ')}
                       </p>
                     )}
@@ -732,8 +734,8 @@ export default function ReadingLibrary() {
                           {renderStars(book.rating, (r) => { updateBook(book.id, { rating: r }); })}
                         </div>
                         <div className="text-[10px] text-muted-foreground space-y-0.5">
-                          <p>Inicio {book.start_date ? fmtBookDate(book.start_date) : '—'}</p>
-                          <p className="text-emerald-600 dark:text-emerald-400 font-medium">Fin {book.finish_date ? fmtBookDate(book.finish_date) : '—'}</p>
+                          <p>Inicio {effectiveStartDate(book) ? fmtBookDate(effectiveStartDate(book)) : '—'}</p>
+                          <p className="text-emerald-600 dark:text-emerald-400 font-medium">Fin {effectiveFinishDate(book) ? fmtBookDate(effectiveFinishDate(book)) : '—'}</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -766,8 +768,8 @@ export default function ReadingLibrary() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className="text-[10px] text-muted-foreground space-y-0.5">
-                            <p>Inicio {book.start_date ? fmtBookDate(book.start_date) : '—'}</p>
-                            <p className="text-emerald-600 dark:text-emerald-400 font-medium">Fin {book.finish_date ? fmtBookDate(book.finish_date) : '—'}</p>
+                            <p>Inicio {effectiveStartDate(book) ? fmtBookDate(effectiveStartDate(book)) : '—'}</p>
+                            <p className="text-emerald-600 dark:text-emerald-400 font-medium">Fin {effectiveFinishDate(book) ? fmtBookDate(effectiveFinishDate(book)) : '—'}</p>
                           </div>
                           {book.genre && <Badge variant="outline" className="text-[10px] mt-1">{book.genre}</Badge>}
                           {book.notes && <StickyNote className="w-3 h-3 text-primary ml-auto mt-1" />}
@@ -881,16 +883,16 @@ export default function ReadingLibrary() {
                             <p className="font-medium">{selectedBook.genre}</p>
                           </div>
                         )}
-                        {selectedBook.start_date && (
+                        {effectiveStartDate(selectedBook) && (
                           <div className="bg-muted/50 rounded-lg p-2.5 sm:p-3">
                             <p className="text-muted-foreground text-xs">Empezado</p>
-                            <p className="font-medium">{format(new Date(selectedBook.start_date), "d MMM yyyy", { locale: es })}</p>
+                            <p className="font-medium">{fmtBookDate(effectiveStartDate(selectedBook))}</p>
                           </div>
                         )}
-                        {selectedBook.finish_date && (
+                        {effectiveFinishDate(selectedBook) && (
                           <div className="bg-muted/50 rounded-lg p-2.5 sm:p-3">
                             <p className="text-muted-foreground text-xs">Terminado</p>
-                            <p className="font-medium">{format(new Date(selectedBook.finish_date), "d MMM yyyy", { locale: es })}</p>
+                            <p className="font-medium">{fmtBookDate(effectiveFinishDate(selectedBook))}</p>
                           </div>
                         )}
                       </div>
@@ -963,7 +965,7 @@ export default function ReadingLibrary() {
           {(() => {
             const cutoff = new Date('2026-01-01');
             const completed = getBooksByStatus('completed').filter(b => {
-              const d = bookDate(b.finish_date);
+              const d = bookDate(effectiveFinishDate(b));
               return !!d && d >= cutoff;
             });
             if (completed.length === 0) {
@@ -971,7 +973,7 @@ export default function ReadingLibrary() {
             }
             const groups: Record<string, typeof completed> = {};
             for (const b of completed) {
-              const d = bookDate(b.finish_date);
+              const d = bookDate(effectiveFinishDate(b));
               if (!d) continue;
               const key = format(d, 'yyyy-MM');
               (groups[key] ||= []).push(b);
@@ -992,9 +994,9 @@ export default function ReadingLibrary() {
                           <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
                             <Calendar className="w-2.5 h-2.5" />
                             <span>
-                              {book.start_date ? `Inicio ${fmtBookDate(book.start_date)}` : "Inicio —"}
+                              {effectiveStartDate(book) ? `Inicio ${fmtBookDate(effectiveStartDate(book))}` : "Inicio —"}
                               <span className="mx-1">→</span>
-                              {book.finish_date ? `Fin ${fmtBookDate(book.finish_date)}` : "Fin —"}
+                              {effectiveFinishDate(book) ? `Fin ${fmtBookDate(effectiveFinishDate(book))}` : "Fin —"}
                             </span>
                           </div>
                           {renderStars(book.rating)}

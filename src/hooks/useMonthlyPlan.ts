@@ -142,18 +142,36 @@ export function useMonthlyPlan(month: Date) {
     try {
       const mStart = format(startOfMonth(month), 'yyyy-MM-dd');
       const mEnd = format(endOfMonth(month), 'yyyy-MM-dd');
-      const [booksRes, songsRes, eventsRes] = await Promise.all([
+      const [booksRes, songsRes, eventsRes, sessionsRes] = await Promise.all([
         supabase.from('reading_library').select('id, title, author, status, cover_image_url, start_date, finish_date').order('title'),
         supabase.from('music_repertoire').select('id, title, artist, instrument, status, learned_at, mastered_at, recorded_at, duration_seconds, cover_image_url').order('title'),
         supabase.from('calendar_events').select('*')
           .gte('event_date', mStart)
           .lte('event_date', mEnd)
           .order('event_date'),
+        supabase.from('reading_sessions').select('book_id, session_date').order('session_date', { ascending: true }),
       ]);
       if (booksRes.error) throw booksRes.error;
       if (songsRes.error) throw songsRes.error;
       if (eventsRes.error) throw eventsRes.error;
-      if (booksRes.data) setBooks(booksRes.data);
+      if (booksRes.data) {
+        // Respaldo: libros antiguos sin start_date/finish_date pero con sesiones de lectura.
+        const ranges: Record<string, { first: string; last: string }> = {};
+        for (const s of (sessionsRes.data || []) as { book_id: string | null; session_date: string | null }[]) {
+          if (!s.book_id || !s.session_date) continue;
+          const r = ranges[s.book_id];
+          if (!r) ranges[s.book_id] = { first: s.session_date, last: s.session_date };
+          else if (s.session_date > r.last) r.last = s.session_date;
+        }
+        setBooks(booksRes.data.map(b => {
+          const r = ranges[b.id];
+          return {
+            ...b,
+            start_date: b.start_date ?? r?.first ?? null,
+            finish_date: b.finish_date ?? (b.status === 'completed' ? r?.last ?? null : null),
+          };
+        }));
+      }
       if (songsRes.data) setSongs(songsRes.data as unknown as Song[]);
       if (eventsRes.data) setEvents(eventsRes.data);
 

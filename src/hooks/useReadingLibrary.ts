@@ -20,9 +20,28 @@ export interface Book {
   genre: string | null;
   created_at: string;
   updated_at: string;
+  /** Fechas derivadas de las sesiones de lectura (no se guardan en la tabla). */
+  sessions_first_date?: string | null;
+  sessions_last_date?: string | null;
 }
 
 const todayISO = () => new Date().toISOString().split('T')[0];
+
+type BookDates = Pick<Book, 'start_date' | 'finish_date' | 'status' | 'sessions_first_date' | 'sessions_last_date'>;
+
+/**
+ * Fecha de inicio real de un libro: la guardada o, si está vacía, la de su
+ * primera sesión de lectura (libros antiguos que nunca recibieron la fecha).
+ */
+export const effectiveStartDate = (book: BookDates): string | null =>
+  book.start_date || book.sessions_first_date || null;
+
+/**
+ * Fecha de fin real: la guardada o la última sesión de lectura si el libro
+ * está completado. Un libro en curso no tiene fecha de fin.
+ */
+export const effectiveFinishDate = (book: BookDates): string | null =>
+  book.finish_date || (book.status === 'completed' ? book.sessions_last_date || null : null);
 
 export const useReadingLibrary = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -31,13 +50,41 @@ export const useReadingLibrary = () => {
 
   const fetchBooks = async () => {
     try {
-      const { data, error } = await supabase
-        .from('reading_library')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [booksRes, sessionsRes] = await Promise.all([
+        supabase
+          .from('reading_library')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('reading_sessions')
+          .select('book_id, session_date')
+          .order('session_date', { ascending: true }),
+      ]);
 
+      const { data, error } = booksRes;
       if (error) throw error;
-      setBooks((data as Book[]) || []);
+
+      // Fechas de respaldo: la primera y la última sesión de lectura de cada libro.
+      // Hay libros viejos con start_date/finish_date vacíos pero con sesiones registradas.
+      const sessionRange: Record<string, { first: string; last: string }> = {};
+      if (sessionsRes.error) {
+        console.warn('No se pudieron leer las sesiones de lectura:', sessionsRes.error);
+      } else {
+        for (const s of (sessionsRes.data || []) as { book_id: string | null; session_date: string | null }[]) {
+          if (!s.book_id || !s.session_date) continue;
+          const range = sessionRange[s.book_id];
+          if (!range) sessionRange[s.book_id] = { first: s.session_date, last: s.session_date };
+          else if (s.session_date > range.last) range.last = s.session_date;
+        }
+      }
+
+      const rows = ((data || []) as Book[]).map(book => ({
+        ...book,
+        sessions_first_date: sessionRange[book.id]?.first ?? null,
+        sessions_last_date: sessionRange[book.id]?.last ?? null,
+      }));
+
+      setBooks(rows);
     } catch (error) {
       console.error('Error fetching books:', error);
     } finally {
@@ -194,9 +241,10 @@ export const useReadingLibrary = () => {
 
   const getStats = () => {
     const completed = books.filter(b => b.status === 'completed');
-    const thisYear = completed.filter(b => 
-      b.finish_date && new Date(b.finish_date).getFullYear() === new Date().getFullYear()
-    );
+    const thisYear = completed.filter(b => {
+      const finish = effectiveFinishDate(b);
+      return finish && new Date(finish).getFullYear() === new Date().getFullYear();
+    });
     const totalPages = completed.reduce((acc, b) => acc + (b.pages_total || 0), 0);
     
     return {
