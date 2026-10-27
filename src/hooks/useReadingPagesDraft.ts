@@ -10,6 +10,8 @@ interface Params {
   pagesRead?: number | null;
   /** Día que se está registrando (yyyy-MM-dd). */
   todayStr: string;
+  /** Minutos introducidos en el formulario (para sesiones sin páginas). */
+  minutes?: number;
 }
 
 const byCreated = (a: ReadingSession, b: ReadingSession) =>
@@ -25,7 +27,7 @@ const byCreated = (a: ReadingSession, b: ReadingSession) =>
  * Así, si ayer quedaste en la 63 y hoy el lector avanza a la 70, la tarjeta
  * muestra 63 → 70 en vez de 70 → 70.
  */
-export function useReadingPagesDraft({ sessions, bookId, pagesRead, todayStr }: Params) {
+export function useReadingPagesDraft({ sessions, bookId, pagesRead, todayStr, minutes }: Params) {
   const { start, end, bookmark, lastToday, lastTodayEnd } = useMemo(() => {
     const belongs = (s: ReadingSession) => !bookId || s.book_id === bookId;
     const mine = sessions.filter(belongs);
@@ -77,6 +79,9 @@ export function useReadingPagesDraft({ sessions, bookId, pagesRead, todayStr }: 
   const [pageEnd, setPageEnd] = useState(end);
   const editedRef = useRef(false);
 
+  /** Último tramo ya registrado hoy (para el botón "Guardado"). */
+  const [saved, setSaved] = useState<{ start: number; end: number; minutes: number; bookId: string | null } | null>(null);
+
   // Al cambiar de libro o de día se vuelve a los valores calculados.
   useEffect(() => {
     editedRef.current = false;
@@ -89,6 +94,36 @@ export function useReadingPagesDraft({ sessions, bookId, pagesRead, todayStr }: 
     setPageStart(start);
     setPageEnd(end);
   }, [start, end]);
+
+  // Lo ya registrado hoy: al abrir la tarjeta el botón muestra "Guardado".
+  useEffect(() => {
+    if (!lastToday) {
+      setSaved(null);
+      return;
+    }
+    setSaved({
+      start: lastToday.page_start ?? 0,
+      end: lastToday.page_end ?? 0,
+      minutes: lastToday.minutes ?? 0,
+      bookId: bookId ?? null,
+    });
+    // Solo interesa la última sesión guardada, no la identidad del objeto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastToday?.id, lastToday?.page_start, lastToday?.page_end, lastToday?.minutes, bookId]);
+
+  const currentStart = Number(pageStart) || 0;
+  const currentEnd = Number(pageEnd) || 0;
+  const pages = Math.max(0, currentEnd - currentStart);
+  const isSaved = !!saved
+    && saved.bookId === (bookId ?? null)
+    && saved.start === currentStart
+    && saved.end === currentEnd
+    && (pages > 0 || saved.minutes === (Number(minutes) || 0));
+
+  /** Marca el tramo recién guardado (el botón pasa a "Guardado"). */
+  const markSaved = (range: { start: number; end: number; minutes: number }) => {
+    setSaved({ ...range, bookId: bookId ?? null });
+  };
 
   const changeStart = (value: number) => {
     editedRef.current = true;
@@ -112,6 +147,9 @@ export function useReadingPagesDraft({ sessions, bookId, pagesRead, todayStr }: 
     bookmark,
     lastToday,
     lastTodayEnd,
+    pages,
+    isSaved,
+    markSaved,
     changeStart,
     changeEnd,
   };

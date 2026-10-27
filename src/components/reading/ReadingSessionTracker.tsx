@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { BookOpen, FileText, Flame, Minus, Plus, Save, TrendingUp, Clock } from 'lucide-react';
+import { BookOpen, Check, FileText, Flame, Minus, Plus, Save, TrendingUp, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from 'recharts';
 import { toast } from 'sonner';
@@ -60,14 +60,15 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const current = getCurrentlyReading();
 
-  const { pageStart, pageEnd, bookmark, lastToday, changeStart, changeEnd } = useReadingPagesDraft({
+  const [draftMin, setDraftMin] = useState(minutes);
+
+  const { pageStart, pageEnd, bookmark, lastToday, isSaved, markSaved, changeStart, changeEnd } = useReadingPagesDraft({
     sessions,
     bookId: current?.id ?? null,
     pagesRead: current?.pages_read,
     todayStr,
+    minutes: draftMin,
   });
-
-  const [draftMin, setDraftMin] = useState(minutes);
 
   // Evita registrar una sesión repetida si "Inicié en / Terminé en / tiempo" no cambiaron.
   const lastSavedRef = useRef<{ minutes: number; start: number; end: number; bookId: string | null } | null>(null);
@@ -126,6 +127,7 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
       }
       // No se reinicia "Inicié en": queda visible el tramo leído hoy.
       lastSavedRef.current = candidate;
+      markSaved(candidate);
       onSaved?.();
     } finally {
       savingRef.current = false;
@@ -204,8 +206,14 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
             </p>
             <p className="text-[9px] text-muted-foreground uppercase tracking-wider">páginas hoy</p>
           </div>
-          <Button size="sm" onClick={handleSave} className="h-10 px-4">
-            <Save className="h-3.5 w-3.5 mr-1.5" /> Guardar
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={isSaved}
+            className={cn("h-10 px-4", isSaved && "bg-emerald-600 hover:bg-emerald-600 text-white disabled:opacity-100")}
+          >
+            {isSaved ? <Check className="h-3.5 w-3.5 mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+            {isSaved ? 'Guardado' : 'Guardar'}
           </Button>
           <button
             onClick={() => { changeStart(0); changeEnd(0); setDraftMin(0); }}

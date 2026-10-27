@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, FileText, Save } from "lucide-react";
+import { BookOpen, Check, FileText, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -24,11 +24,12 @@ export const ReadingPagesInline = ({ minutes, onMinutesChange }: Props) => {
   const current = getCurrentlyReading();
   const todayStr = format(new Date(), "yyyy-MM-dd");
 
-  const { pageStart, pageEnd, bookmark, lastToday, changeStart, changeEnd } = useReadingPagesDraft({
+  const { pageStart, pageEnd, bookmark, lastToday, isSaved, markSaved, changeStart, changeEnd } = useReadingPagesDraft({
     sessions,
     bookId: current?.id ?? null,
     pagesRead: current?.pages_read,
     todayStr,
+    minutes,
   });
 
   const lastSavedRef = useRef<{ minutes: number; start: number; end: number; bookId: string | null } | null>(null);
@@ -86,6 +87,7 @@ export const ReadingPagesInline = ({ minutes, onMinutesChange }: Props) => {
       if (curMinutes > 0) onMinutesChange?.(curMinutes);
       // No se reinicia "Inicié en": queda visible el tramo leído hoy.
       lastSavedRef.current = candidate;
+      markSaved(candidate);
       refetch();
     } finally {
       savingRef.current = false;
@@ -152,12 +154,16 @@ export const ReadingPagesInline = ({ minutes, onMinutesChange }: Props) => {
         </span>
         <button
           onClick={handleSave}
+          disabled={isSaved}
           className={cn(
             "flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-colors",
-            "bg-primary/10 text-primary hover:bg-primary/20"
+            isSaved
+              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 cursor-default"
+              : "bg-primary/10 text-primary hover:bg-primary/20"
           )}
         >
-          <Save className="h-3 w-3" /> Guardar
+          {isSaved ? <Check className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+          {isSaved ? "Guardado" : "Guardar"}
         </button>
       </div>
     </div>
