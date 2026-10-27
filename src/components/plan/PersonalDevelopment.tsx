@@ -67,6 +67,7 @@ export function PersonalDevelopment({
   weekStart,
   data,
   weekBookId,
+  plannedBookIds,
   pagesGoal,
   onBookChange,
   onPagesGoalChange,
@@ -74,12 +75,22 @@ export function PersonalDevelopment({
   weekStart: Date;
   data: WeeklyAreaData;
   weekBookId: string;
+  /** Libros elegidos en el plan del mes: único origen del selector. */
+  plannedBookIds: string[];
   pagesGoal: number;
   onBookChange: (id: string) => void;
   onPagesGoalChange: (pages: number) => void;
 }) {
   const book = data.reading.book;
-  const selectedBook = (weekBookId ? data.reading.books.find(b => b.id === weekBookId) : null) ?? book;
+  const plannedBooks = plannedBookIds.length > 0
+    ? data.reading.books.filter(b => plannedBookIds.includes(b.id))
+    : [];
+  // Solo se puede mostrar un libro que esté planificado para el mes.
+  const selectedBook =
+    (weekBookId ? plannedBooks.find(b => b.id === weekBookId) : null) ??
+    (book && plannedBooks.some(b => b.id === book.id) ? book : null) ??
+    plannedBooks[0] ??
+    null;
 
   const lecturaGoal = getWeekGoalEffective(weekStart, 'lectura');
   const musicaGoal = getWeekGoalEffective(weekStart, 'musica');
@@ -124,14 +135,19 @@ export function PersonalDevelopment({
               <select
                 value={selectedBook?.id ?? ''}
                 onChange={e => onBookChange(e.target.value)}
-                className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-[10px] font-medium outline-none"
+                disabled={plannedBooks.length === 0}
+                className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-[10px] font-medium outline-none disabled:opacity-60"
               >
-                <option value="">Libro de la semana…</option>
-                {data.reading.books.map(b => (
+                <option value="">
+                  {plannedBooks.length > 0 ? 'Libro de la semana…' : 'Sin libros planificados este mes'}
+                </option>
+                {plannedBooks.map(b => (
                   <option key={b.id} value={b.id}>{b.title}</option>
                 ))}
               </select>
-              <p className="text-[9px] text-muted-foreground truncate">{selectedBook?.author || 'Sin autor'}</p>
+              <p className="text-[9px] text-muted-foreground truncate">
+                {selectedBook?.author || (plannedBooks.length === 0 ? 'Planifica un libro en el mes' : 'Sin autor')}
+              </p>
               <StatLine
                 label="Páginas leídas"
                 value={data.reading.pages}

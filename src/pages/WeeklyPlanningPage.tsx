@@ -497,6 +497,7 @@ export default function WeeklyPlanningPage() {
           weekStart={weekStart}
           data={areaData}
           weekBookId={planData.weekBookId ?? ''}
+          plannedBookIds={monthlyPlan.books.selected || []}
           pagesGoal={planData.lecturaPagesGoal ?? 0}
           onBookChange={setWeekBook}
           onPagesGoalChange={setLecturaPagesGoal}
