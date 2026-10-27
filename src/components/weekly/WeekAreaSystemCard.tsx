@@ -42,6 +42,8 @@ export interface WeekAreaSystemCardProps {
   /** Objetivos planificados agrupados por id de tarjeta de hábito. */
   objectivesByHabit?: Record<string, PlanObjective[]>;
   daysTotal: number;
+  /** Fechas del periodo (yyyy-MM-dd) para colorear cada día según su estado. */
+  days?: string[];
   hideCover?: boolean;
   period?: PeriodLabel;
 }
@@ -71,6 +73,7 @@ export default function WeekAreaSystemCard({
   focusItems,
   objectivesByHabit,
   daysTotal,
+  days,
   hideCover,
   period = "semana",
 }: WeekAreaSystemCardProps) {
@@ -100,6 +103,7 @@ export default function WeekAreaSystemCard({
         objectives={objectivesByHabit?.[meta.id]}
         coverUrl={cover}
         period={period}
+        days={days}
       />
     );
   };

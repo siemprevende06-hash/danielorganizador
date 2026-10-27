@@ -169,6 +169,7 @@ export function WeekSystemsSection({ weekStart, weekEnd }: { weekStart: Date; we
                   focusItems={weekFocusItems}
                   objectivesByHabit={objectivesByHabit}
                   daysTotal={days.length}
+                  days={days}
                   hideCover={area.group === "cimientos"}
                 />
               ))}

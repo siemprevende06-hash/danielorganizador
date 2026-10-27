@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, eachDayOfInterval, isAfter, startOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { HABIT_META } from "@/lib/areaSystemsMap";
-import { systemActualMinutes } from "@/lib/daySystems";
+import { systemActualMinutes, systemSpeedOptions } from "@/lib/daySystems";
 import type { WeekDayStatus } from "./useWeekSystemsData";
 
 export interface PeriodSystemsAggregate {
@@ -43,6 +43,24 @@ function habitMinutes(id: string, row: PeriodRow | undefined): number {
   const meta = HABIT_META[id];
   if (meta?.system) return systemActualMinutes(meta.system, { timeData: td });
   return Number(td[id]) || 0;
+}
+
+/**
+ * Minutos que cuentan como día cumplido (verde). Se toma la opción "Mín" del
+ * sistema; para hábitos sin velocidades, cualquier minuto registrado ya cuenta.
+ */
+function habitTargetMinutes(id: string): number {
+  const sys = HABIT_META[id]?.system;
+  if (!sys) return 1;
+  const opts = systemSpeedOptions(sys);
+  return opts.find(o => o.id === "minimo")?.minutes ?? opts[0]?.minutes ?? 1;
+}
+
+/** Verde (meta), azul (parcial) o rojo (saltado) para cada día del periodo. */
+function dayStatus(isDone: boolean, isSkip: boolean, minutes: number, target: number): WeekDayStatus {
+  if (isSkip) return "skip";
+  if (isDone || (minutes > 0 && minutes >= target)) return "done";
+  return minutes > 0 ? "partial" : "none";
 }
 
 /**
@@ -127,18 +145,20 @@ export function usePeriodSystemsData(
       const status: WeekDayStatus[] = [];
       const meta = HABIT_META[id];
       const countKey = meta?.system?.countKey ?? (meta?.hasWater ? id : undefined);
+      const target = habitTargetMinutes(id);
 
       for (const d of days) {
         const row = byDate.get(d);
         const completions = (row?.completions ?? {}) as Record<string, boolean>;
         const isDone = habitDone(id, completions);
         const isSkip = !!row?.skipped?.[id];
-        if (isDone) done++;
-        if (isSkip) skipped++;
         const m = habitMinutes(id, row);
+        const state = dayStatus(isDone, isSkip, m, target);
+        if (state === "done") done++;
+        if (isSkip) skipped++;
         minutes += m;
         arr.push(m);
-        status.push(isDone ? "done" : isSkip ? "skip" : "none");
+        status.push(state);
         if (countKey) count += Number(row?.count_data?.[countKey]) || 0;
       }
 

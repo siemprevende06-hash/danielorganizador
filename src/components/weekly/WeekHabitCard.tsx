@@ -6,6 +6,15 @@ import type { WeekDayStatus } from "@/hooks/useWeekSystemsData";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
 import type { PlanObjective, PlanObjectiveKind } from "@/lib/planObjectives";
 import { Flame, Trophy } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+/** Fecha corta (d MMM) a partir de un yyyy-MM-dd o ISO completo. */
+function shortDate(value?: string | null): string | null {
+  if (!value) return null;
+  const d = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  return isNaN(d.getTime()) ? null : format(d, "d MMM", { locale: es });
+}
 
 const OBJECTIVE_EMOJI: Record<PlanObjectiveKind, string> = {
   libro: "📖",
@@ -86,20 +95,39 @@ const TIER_NONE: WeekTier = {
   dot: "bg-gray-400",
 };
 
-function weekTier(done: number, total: number, skipped: number, period: string): WeekTier {
+function weekTier(done: number, total: number, skipped: number, period: string, partial = 0): WeekTier {
   if (total > 0 && done >= total) return { ...TIER_FULL, label: PERIOD_PERFECT[period] ?? "Completo" };
-  if (done > 0) return TIER_PARTIAL;
+  if (done > 0 || partial > 0) return TIER_PARTIAL;
   if (skipped > 0) return TIER_SKIP;
   return TIER_NONE;
 }
 
-const DAY_DOT: Record<WeekDayStatus, string> = {
-  done: "bg-emerald-500",
-  skip: "bg-red-400/70",
-  none: "bg-muted-foreground/20",
+const DAY_LABELS = ["L", "M", "X", "J", "V", "S", "D"];
+
+const STATUS_LABEL: Record<WeekDayStatus, string> = {
+  done: "Cumplido",
+  partial: "Parcial",
+  skip: "Saltado",
+  none: "Sin registro",
 };
 
-const DAY_LABELS = ["L", "M", "X", "J", "V", "S", "D"];
+/**
+ * Color de un día del periodo: verde = cumplido, azul = parcial, rojo = no
+ * cumplido/saltado y gris tenue solo para los días que todavía no llegan.
+ */
+function dayColor(status: WeekDayStatus, isFuture: boolean): string {
+  if (isFuture) return "bg-muted-foreground/20";
+  switch (status) {
+    case "done":
+      return "bg-emerald-500";
+    case "partial":
+      return "bg-blue-500";
+    case "skip":
+      return "bg-red-500";
+    default:
+      return "bg-red-500/40";
+  }
+}
 
 export interface WeekHabitCardProps {
   meta: HabitMeta;
@@ -116,6 +144,8 @@ export interface WeekHabitCardProps {
   objectives?: PlanObjective[];
   coverUrl?: string | null;
   period?: string;
+  /** Fechas del periodo (yyyy-MM-dd) para distinguir días pasados de futuros y los tooltips. */
+  days?: string[];
 }
 
 function focusInfo(focus: TodayStripItem, period: string) {
@@ -156,13 +186,28 @@ export default function WeekHabitCard({
   objectives,
   coverUrl,
   period = "semana",
+  days,
 }: WeekHabitCardProps) {
-  const tier = weekTier(daysDone, daysTotal, daysSkipped, period);
+  const partialDays = status.filter(s => s === "partial").length;
+  const tier = weekTier(daysDone, daysTotal, daysSkipped, period, partialDays);
   const coverId = meta.cover?.id ?? meta.id;
   const sparkMax = Math.max(1, ...spark);
   const showCount = !!meta.system?.countKey || meta.hasWater;
   const countLabel = meta.system?.countLabel || (meta.hasWater ? "vasos" : "repeticiones");
   const fi = focus ? focusInfo(focus, period) : null;
+
+  const todayKey = format(new Date(), "yyyy-MM-dd");
+  const isFutureDay = (i: number) => !!days?.[i] && days[i] > todayKey;
+  const dayLabel = (i: number) =>
+    days?.[i] ? (shortDate(days[i]) ?? `Día ${i + 1}`) : status.length <= 7 ? DAY_LABELS[i] : `Día ${i + 1}`;
+  const dayTitle = (i: number, s: WeekDayStatus, minutes: number) =>
+    [
+      dayLabel(i),
+      minutes > 0 ? `${minutes} min` : null,
+      isFutureDay(i) ? "Pendiente" : STATUS_LABEL[s],
+    ]
+      .filter(Boolean)
+      .join(" · ");
 
   return (
     <div className={cn("relative rounded-2xl overflow-hidden ring-2 flex flex-col", tier.ring, tier.bg)}>
@@ -200,27 +245,40 @@ export default function WeekHabitCard({
           </span>
         )}
 
-        {/* Días del periodo: hecho / saltado / sin registro */}
-        <div className="flex items-center gap-0.5">
+        {/* Días del periodo: verde cumplido · azul parcial · rojo no cumplido */}
+        <div
+          className={cn("grid gap-px", status.length > 7 ? "h-2" : "h-1.5")}
+          style={{ gridTemplateColumns: `repeat(${Math.max(1, status.length)}, minmax(0, 1fr))` }}
+        >
           {status.map((s, i) => (
             <span
               key={i}
-              title={status.length <= 7 ? DAY_LABELS[i] : `Día ${i + 1}`}
-              className={cn("flex-1 h-1.5 rounded-full", DAY_DOT[s])}
+              title={dayTitle(i, s, spark[i] ?? 0)}
+              className={cn(
+                "w-full",
+                status.length > 7 ? "rounded-[2px]" : "rounded-full",
+                dayColor(s, isFutureDay(i))
+              )}
             />
           ))}
         </div>
 
-        {/* Tendencia de minutos (días del periodo) */}
+        {/* Tendencia de minutos: cada barra con el color del estado de ese día */}
         {spark.some(v => v > 0) && (
-          <div className="flex items-end gap-0.5 h-5">
-            {spark.map((v, i) => (
-              <div
-                key={i}
-                className={cn("flex-1 rounded-sm", i === spark.length - 1 ? tier.bar : "bg-muted-foreground/25")}
-                style={{ height: `${Math.max(8, (v / sparkMax) * 100)}%` }}
-              />
-            ))}
+          <div className="flex items-end gap-px h-5">
+            {spark.map((v, i) => {
+              const s = status[i] ?? "none";
+              const future = isFutureDay(i);
+              const missed = !future && s !== "done" && s !== "partial";
+              return (
+                <div
+                  key={i}
+                  title={dayTitle(i, s, v)}
+                  className={cn("flex-1 rounded-sm", dayColor(s, future))}
+                  style={{ height: `${Math.max(missed ? 16 : 8, (v / sparkMax) * 100)}%` }}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -229,21 +287,32 @@ export default function WeekHabitCard({
           <div className="space-y-1">
             {objectives.map(o => {
               const match = focus && focus.id === o.id ? focusInfo(focus, period) : null;
+              const isBook = o.kind === "libro";
+              const isRead = isBook && (o.status === "completed" || !!o.finishDate);
+              const isReading = isBook && o.isCurrent && !isRead;
+              const start = shortDate(o.startDate);
+              const finish = shortDate(o.finishDate);
+              const dates = isBook ? `${start ? `Inicio ${start}` : "Inicio —"} → ${finish ? `Fin ${finish}` : isReading ? "leyendo" : "Fin —"}` : null;
               return (
                 <div
                   key={`${o.kind}-${o.id}`}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-2 py-1.5",
-                    o.isCurrent
-                      ? "bg-emerald-500/5 ring-1 ring-emerald-500/40"
-                      : "bg-foreground/5"
+                    "flex items-center gap-2 rounded-lg px-2 py-1.5 ring-1",
+                    isRead
+                      ? "bg-emerald-500/10 ring-emerald-500/50"
+                      : isReading
+                        ? "bg-blue-500/10 ring-blue-500/50"
+                        : "bg-foreground/5 ring-transparent"
                   )}
                 >
                   {o.cover ? (
                     <img
                       src={o.cover}
                       alt={o.title}
-                      className="h-8 w-6 rounded object-cover shrink-0 border border-border/40"
+                      className={cn(
+                        "h-8 w-6 rounded object-cover shrink-0 border",
+                        isRead ? "border-emerald-500/50" : isReading ? "border-blue-500/50" : "border-border/40"
+                      )}
                     />
                   ) : (
                     <span className="text-sm shrink-0 leading-none">{OBJECTIVE_EMOJI[o.kind]}</span>
@@ -253,10 +322,34 @@ export default function WeekHabitCard({
                     <p className="text-[8px] text-muted-foreground leading-tight truncate">
                       {[o.subtitle, match?.label].filter(Boolean).join(" · ")}
                     </p>
+                    {dates && (
+                      <p
+                        className={cn(
+                          "text-[8px] leading-tight truncate tabular-nums",
+                          isRead
+                            ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                            : isReading
+                              ? "text-blue-600 dark:text-blue-400 font-semibold"
+                              : "text-muted-foreground"
+                        )}
+                      >
+                        {dates}
+                      </p>
+                    )}
                   </div>
                   {o.tag && (
                     <span className="text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0 bg-indigo-500/10 text-indigo-600 border-indigo-500/25">
                       {o.tag}
+                    </span>
+                  )}
+                  {isRead && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                      Leído ✓
+                    </span>
+                  )}
+                  {isReading && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded border shrink-0 bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30">
+                      Leyendo
                     </span>
                   )}
                 </div>

@@ -42,7 +42,7 @@ export function PeriodSystemsSection({
   const endKey = format(end, "yyyy-MM-dd");
   const { scores } = useAreaScores("sprint", "ambos", { start: startKey, end: endKey });
   const { items: focusItems } = useWeekFocusItems(startKey, endKey);
-  const { elapsedDays, daysDone, daysSkipped, weekMinutes, weekCount, weekStatus, spark } =
+  const { elapsedDays, days, daysDone, daysSkipped, weekMinutes, weekCount, weekStatus, spark } =
     usePeriodSystemsData(start, end, ALL_TRACKABLE_IDS);
 
   const monthDate = startOfMonth(start);
@@ -182,6 +182,7 @@ export function PeriodSystemsSection({
                   focusItems={focusItems}
                   objectivesByHabit={objectivesByHabit}
                   daysTotal={elapsedDays}
+                  days={days}
                   period={period}
                   hideCover={area.group === "cimientos"}
                 />
