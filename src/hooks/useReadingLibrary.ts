@@ -22,6 +22,8 @@ export interface Book {
   updated_at: string;
 }
 
+const todayISO = () => new Date().toISOString().split('T')[0];
+
 export const useReadingLibrary = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,17 +51,24 @@ export const useReadingLibrary = () => {
 
   const addBook = async (book: Partial<Book>) => {
     try {
+      const status = (book.status || 'to_read') as Book['status'];
+      const today = todayISO();
+      // Las fechas se registran solas al crear el libro en estado Leyendo/Completado.
+      const start_date = book.start_date ?? (status === 'reading' ? today : null);
+      const finish_date = book.finish_date ?? (status === 'completed' ? today : null);
       const { data, error } = await supabase
         .from('reading_library')
         .insert({
           title: book.title || '',
           author: book.author,
           cover_image_url: book.cover_image_url,
-          status: book.status || 'to_read',
+          status,
           pages_total: book.pages_total,
           pages_read: book.pages_read || 0,
           genre: book.genre,
           notes: book.notes,
+          start_date,
+          finish_date,
         })
         .select()
         .single();
@@ -86,15 +95,26 @@ export const useReadingLibrary = () => {
 
   const updateBook = async (id: string, updates: Partial<Book>) => {
     try {
+      const current = books.find(b => b.id === id);
+      const next: Partial<Book> = { ...updates };
+      // Autocompletar fechas al cambiar de estado, para no perder el histórico.
+      if (current && next.status) {
+        if (next.status === 'reading' && !current.start_date && !next.start_date) {
+          next.start_date = todayISO();
+        }
+        if (next.status === 'completed' && !current.finish_date && !next.finish_date) {
+          next.finish_date = todayISO();
+        }
+      }
       const { error } = await supabase
         .from('reading_library')
-        .update(updates)
+        .update(next)
         .eq('id', id);
 
       if (error) throw error;
 
       setBooks(prev => prev.map(book => 
-        book.id === id ? { ...book, ...updates } : book
+        book.id === id ? { ...book, ...next } : book
       ));
     } catch (error) {
       console.error('Error updating book:', error);
@@ -107,10 +127,8 @@ export const useReadingLibrary = () => {
   };
 
   const startReading = async (id: string) => {
-    await updateBook(id, { 
-      status: 'reading', 
-      start_date: new Date().toISOString().split('T')[0] 
-    });
+    // `updateBook` rellena start_date si el libro aún no tenía fecha de inicio.
+    await updateBook(id, { status: 'reading' });
     toast({
       title: "¡A leer!",
       description: "Libro marcado como 'Leyendo'",
@@ -121,7 +139,7 @@ export const useReadingLibrary = () => {
     const book = books.find(b => b.id === id);
     await updateBook(id, { 
       status: 'completed', 
-      finish_date: new Date().toISOString().split('T')[0],
+      finish_date: book?.finish_date ?? todayISO(),
       pages_read: book?.pages_total || book?.pages_read || 0,
       rating,
     });
@@ -136,9 +154,15 @@ export const useReadingLibrary = () => {
     if (!book) return;
 
     const updates: Partial<Book> = { pages_read: pagesRead, ...extra };
+    if (pagesRead > 0 && book.status === 'to_read') {
+      updates.status = 'reading';
+    }
+    if (pagesRead > 0 && !book.start_date && !updates.start_date) {
+      updates.start_date = todayISO();
+    }
     if (book.pages_total && pagesRead >= book.pages_total) {
       updates.status = 'completed';
-      updates.finish_date = new Date().toISOString().split('T')[0];
+      updates.finish_date = book.finish_date ?? todayISO();
     }
     
     await updateBook(id, updates);

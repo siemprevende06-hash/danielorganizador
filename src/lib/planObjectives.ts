@@ -11,12 +11,16 @@ export interface PlanObjective {
   status?: string;
   /** Portada pequeña (libros y canciones cuando tienen). */
   cover?: string | null;
-  /** Libro que se está leyendo actualmente: se enmarca con borde verde. */
+  /** Libro que se está leyendo actualmente: se enmarca con borde azul. */
   isCurrent?: boolean;
+  /** Fecha en que se empezó a leer (yyyy-MM-dd), solo libros. */
+  startDate?: string | null;
+  /** Fecha en que se terminó de leer (yyyy-MM-dd), solo libros. */
+  finishDate?: string | null;
 }
 
 export interface ResolvedPlanItems {
-  books: { id: string; title: string; author?: string | null; status?: string; cover_image_url?: string | null }[];
+  books: { id: string; title: string; author?: string | null; status?: string; cover_image_url?: string | null; start_date?: string | null; finish_date?: string | null }[];
   songs: { id: string; title: string; artist?: string | null; instrument?: string; cover_image_url?: string | null }[];
   projects: { id: string; name: string }[];
   subjects: { id: string; name: string }[];
@@ -69,6 +73,8 @@ export function buildHabitPlanObjectives(
       status: b.status,
       cover: b.cover_image_url ?? null,
       isCurrent: b.status === "reading",
+      startDate: b.start_date ?? null,
+      finishDate: b.finish_date ?? null,
     });
   }
 

@@ -90,6 +90,7 @@ export default function ReadingLibrary() {
       title: editingBook.title, author: editingBook.author,
       pages_total: editingBook.pages_total, genre: editingBook.genre,
       cover_image_url: editingBook.cover_image_url, notes: editingBook.notes,
+      start_date: editingBook.start_date, finish_date: editingBook.finish_date,
     });
     setEditDialogOpen(false);
     setEditingBook(null);
@@ -144,6 +145,13 @@ export default function ReadingLibrary() {
   );
 
   const hasTxt = (b: Book) => !!b.bilingual_txt && b.bilingual_txt.trim().length > 0;
+
+  /** yyyy-MM-dd (o ISO completo) → "3 oct 2026" */
+  const fmtBookDate = (value?: string | null) => {
+    if (!value) return null;
+    const d = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+    return isNaN(d.getTime()) ? null : format(d, "d MMM yyyy", { locale: es });
+  };
 
   const openReader = (book: Book) => {
     setReaderBook(book);
@@ -210,6 +218,20 @@ export default function ReadingLibrary() {
         <CardContent className="p-3 space-y-2">
           <h3 className="font-medium text-sm line-clamp-2">{book.title}</h3>
           {book.author && <p className="text-xs text-muted-foreground">{book.author}</p>}
+          {(book.start_date || book.finish_date) && (
+            <div className="space-y-0.5">
+              {book.start_date && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Calendar className="w-2.5 h-2.5 shrink-0" /> Inicio {fmtBookDate(book.start_date)}
+                </p>
+              )}
+              {book.finish_date && (
+                <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <Calendar className="w-2.5 h-2.5 shrink-0" /> Fin {fmtBookDate(book.finish_date)}
+                </p>
+              )}
+            </div>
+          )}
           {book.status === 'reading' && book.pages_total && (
             <div className="space-y-1">
               <Progress value={progressPercent} className="h-1.5" />
@@ -325,6 +347,26 @@ export default function ReadingLibrary() {
               <div className="grid grid-cols-2 gap-2">
                 <div><label className="text-sm font-medium">Páginas totales</label><Input type="number" value={editingBook.pages_total || ''} onChange={(e) => setEditingBook({...editingBook, pages_total: parseInt(e.target.value) || null})} className="mt-1" /></div>
                 <div><label className="text-sm font-medium">Páginas leídas</label><Input type="number" value={editingBook.pages_read} onChange={(e) => setEditingBook({...editingBook, pages_read: parseInt(e.target.value) || 0})} className="mt-1" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-sm font-medium">Inicio de lectura</label>
+                  <Input
+                    type="date"
+                    value={editingBook.start_date ? String(editingBook.start_date).slice(0, 10) : ''}
+                    onChange={(e) => setEditingBook({ ...editingBook, start_date: e.target.value || null })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Fin de lectura</label>
+                  <Input
+                    type="date"
+                    value={editingBook.finish_date ? String(editingBook.finish_date).slice(0, 10) : ''}
+                    onChange={(e) => setEditingBook({ ...editingBook, finish_date: e.target.value || null })}
+                    className="mt-1"
+                  />
+                </div>
               </div>
               <div>
                 <label className="text-sm font-medium">Portada</label>
@@ -593,9 +635,10 @@ export default function ReadingLibrary() {
                         <div className="flex items-center justify-between">
                           {renderStars(book.rating, (r) => { updateBook(book.id, { rating: r }); })}
                         </div>
-                        {book.finish_date && (
-                          <p className="text-[10px] text-muted-foreground">{format(new Date(book.finish_date), "d MMM yyyy", { locale: es })}</p>
-                        )}
+                        <div className="text-[10px] text-muted-foreground space-y-0.5">
+                          <p>Inicio {book.start_date ? fmtBookDate(book.start_date) : '—'}</p>
+                          <p className="text-emerald-600 dark:text-emerald-400 font-medium">Fin {book.finish_date ? fmtBookDate(book.finish_date) : '—'}</p>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -626,9 +669,10 @@ export default function ReadingLibrary() {
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          {book.finish_date && (
-                            <p className="text-xs text-muted-foreground">{format(new Date(book.finish_date), "d MMM yyyy", { locale: es })}</p>
-                          )}
+                          <div className="text-[10px] text-muted-foreground space-y-0.5">
+                            <p>Inicio {book.start_date ? fmtBookDate(book.start_date) : '—'}</p>
+                            <p className="text-emerald-600 dark:text-emerald-400 font-medium">Fin {book.finish_date ? fmtBookDate(book.finish_date) : '—'}</p>
+                          </div>
                           {book.genre && <Badge variant="outline" className="text-[10px] mt-1">{book.genre}</Badge>}
                           {book.notes && <StickyNote className="w-3 h-3 text-primary ml-auto mt-1" />}
                         </div>

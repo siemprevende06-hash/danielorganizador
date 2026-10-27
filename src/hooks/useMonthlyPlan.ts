@@ -57,7 +57,7 @@ const defaultPlanData: MonthlyPlanData = {
 
 const STORAGE_PREFIX = 'monthly_plan_';
 
-interface Book { id: string; title: string; author: string | null; status: string; cover_image_url: string | null; }
+interface Book { id: string; title: string; author: string | null; status: string; cover_image_url: string | null; start_date: string | null; finish_date: string | null; }
 interface Song { id: string; title: string; artist: string | null; instrument: string; status: string; learned_at: string | null; mastered_at: string | null; recorded_at: string | null; duration_seconds: number | null; cover_image_url: string | null; }
 interface Project { id: string; name: string; tasks: any[]; }
 interface Subject { id: string; name: string; color: string | null; }
@@ -143,7 +143,7 @@ export function useMonthlyPlan(month: Date) {
       const mStart = format(startOfMonth(month), 'yyyy-MM-dd');
       const mEnd = format(endOfMonth(month), 'yyyy-MM-dd');
       const [booksRes, songsRes, eventsRes] = await Promise.all([
-        supabase.from('reading_library').select('id, title, author, status, cover_image_url').order('title'),
+        supabase.from('reading_library').select('id, title, author, status, cover_image_url, start_date, finish_date').order('title'),
         supabase.from('music_repertoire').select('id, title, artist, instrument, status, learned_at, mastered_at, recorded_at, duration_seconds, cover_image_url').order('title'),
         supabase.from('calendar_events').select('*')
           .gte('event_date', mStart)
