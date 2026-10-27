@@ -373,7 +373,6 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
           extraMinutes={chrono.extra}
           onFixedMinutesChange={chrono.setFixed}
           onExtraMinutesChange={extraUnlocked ? chrono.setExtra : undefined}
-          totalMinutes={chrono.total}
         />
       )}
 

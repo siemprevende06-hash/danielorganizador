@@ -14,8 +14,6 @@ interface SystemChronoBoxProps {
   extraMinutes?: number;
   onFixedMinutesChange?: (minutes: number) => void;
   onExtraMinutesChange?: (minutes: number) => void;
-  /** Total del día (fijo + extra). */
-  totalMinutes?: number;
 }
 
 function readCount(value: string): number {
@@ -31,7 +29,6 @@ export function SystemChronoBox({
   extraMinutes,
   onFixedMinutesChange,
   onExtraMinutesChange,
-  totalMinutes,
 }: SystemChronoBoxProps) {
   const hasExtra = extra.length > 0;
 
@@ -103,12 +100,6 @@ export function SystemChronoBox({
             </label>
           )}
         </div>
-      )}
-
-      {totalMinutes !== undefined && (
-        <p className="text-[9px] text-right text-muted-foreground">
-          Total del día: <span className="font-bold text-foreground">{totalMinutes} min</span>
-        </p>
       )}
     </div>
   );

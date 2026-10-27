@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { getCoverGradient } from "@/components/areas/AreaCover";
-import { systemSpeedOptions, type ChessResultKey, type SpeedOption, type SystemSpeed } from "@/lib/daySystems";
+import { systemSpeedOptions, type ChessResultKey, type SpeedOption } from "@/lib/daySystems";
 import type { HabitMeta } from "@/lib/areaSystemsMap";
 import type { ChronoRange } from "@/lib/systemSchedule";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
@@ -49,13 +49,6 @@ function getTier(actual: number, skipped: boolean, meta: number, speedOptions: S
   if (baseMin > 0 && actual >= baseMin) return TIERS.blue;
   return TIERS.grey;
 }
-
-const SPEED_STYLE: Record<SystemSpeed, { active: string }> = {
-  minimo: { active: "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30" },
-  maximo: { active: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" },
-  extra: { active: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30" },
-  racha: { active: "bg-rose-500/15 text-rose-500 border-rose-500/30" },
-};
 
 const NS_DONE: Tier = { key: "green", label: "Hecho", border: "border-emerald-500/40", bg: "bg-emerald-500/5", bar: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-500/40", dot: "bg-emerald-500" };
 const NS_SKIP: Tier = { key: "red", label: "Saltado", border: "border-red-500/40", bg: "bg-red-500/5", bar: "bg-red-500", text: "text-red-500", ring: "ring-red-500/40", dot: "bg-red-500" };
@@ -150,7 +143,6 @@ export interface HabitSystemCardProps {
   count?: number;
   chessWins?: number;
   chessLosses?: number;
-  speed?: SystemSpeed;
   waterDone: boolean;
   mealUrl?: string;
   wakeTime?: string;
@@ -180,7 +172,6 @@ export interface HabitSystemCardProps {
   onTimeChange: (v: number) => void;
   onCountChange?: (v: number) => void;
   onChessResultChange?: (result: ChessResultKey, value: number) => void;
-  onSpeedChange?: (s: SystemSpeed) => void;
   onWorkoutDurationChange?: (v: number) => void;
   onWorkoutIntensityChange?: (v: string) => void;
   onWakeTimeChange?: (v: string) => void;
@@ -197,7 +188,6 @@ export default function HabitSystemCard({
   count,
   chessWins,
   chessLosses,
-  speed,
   waterDone,
   mealUrl,
   wakeTime,
@@ -222,7 +212,6 @@ export default function HabitSystemCard({
   onTimeChange,
   onCountChange,
   onChessResultChange,
-  onSpeedChange,
   onWorkoutDurationChange,
   onWorkoutIntensityChange,
   onWakeTimeChange,
@@ -407,7 +396,6 @@ export default function HabitSystemCard({
             extraMinutes={chrono.extra}
             onFixedMinutesChange={chrono.setFixed}
             onExtraMinutesChange={extraUnlocked ? chrono.setExtra : undefined}
-            totalMinutes={chrono.total}
           />
         )}
 
@@ -443,25 +431,6 @@ export default function HabitSystemCard({
                   +{m}
                 </button>
               ))}
-            </div>
-          )}
-          {isSystem && speedOptions.length > 0 && onSpeedChange && (
-            <div className="flex items-center gap-0.5 shrink-0">
-              {speedOptions.map(opt => {
-                const active = speed === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => onSpeedChange!(opt.id)}
-                    className={cn(
-                      "px-1.5 py-0.5 rounded-md text-[9px] font-bold transition-colors border",
-                      active ? SPEED_STYLE[opt.id].active : "bg-muted text-muted-foreground border-transparent"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
             </div>
           )}
             <div className="ml-auto flex items-center gap-1">

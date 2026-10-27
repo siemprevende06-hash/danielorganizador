@@ -209,7 +209,6 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         count={sys?.countKey ? interaction.countData?.[sys.countKey] ?? 0 : undefined}
         chessWins={meta.id === "ajedrez" ? interaction.countData?.[CHESS_COUNT_KEYS.wins] ?? 0 : undefined}
         chessLosses={meta.id === "ajedrez" ? interaction.countData?.[CHESS_COUNT_KEYS.losses] ?? 0 : undefined}
-        speed={interaction.getSpeed(meta.id)}
         spark={spark}
         weekTotal={weekTotal}
         today={interaction.todayItems?.[meta.id]}
@@ -241,7 +240,6 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
           sys?.countKey ? (v) => interaction.onCountChange?.(sys.countKey!, v) : undefined
         }
         onChessResultChange={interaction.onChessResultChange}
-        onSpeedChange={(s) => interaction.setSpeed(meta.id, s)}
         onWorkoutDurationChange={interaction.onWorkoutDurationChange}
         onWorkoutIntensityChange={interaction.onWorkoutIntensityChange}
         onWakeTimeChange={interaction.onWakeTimeChange}
