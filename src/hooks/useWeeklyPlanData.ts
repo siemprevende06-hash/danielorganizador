@@ -217,24 +217,24 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
         books[0] ??
         null;
       const perDayMap: Record<string, { pages: number; minutes: number }> = {};
-      let readingPages = 0;
-      let readingMinutes = 0;
       readSessions.forEach((s: any) => {
-        const d = s.session_date;
+        const d = String(s.session_date).slice(0, 10);
         const entry = (perDayMap[d] = perDayMap[d] || { pages: 0, minutes: 0 });
         entry.pages += Number(s.pages_read) || 0;
         entry.minutes += Number(s.minutes) || 0;
-        readingPages += Number(s.pages_read) || 0;
-        readingMinutes += Number(s.minutes) || 0;
       });
-      // páginas registradas manualmente en stats diario
+      // `daily_area_stats` es un espejo de `reading_sessions` (la app escribe
+      // ambas al guardar). Solo se usa en días sin sesiones, para conservar los
+      // minutos/páginas registrados a mano sin contar dos veces los mismos.
       areaStats.filter((s: any) => s.area_id === 'lectura').forEach((s: any) => {
-        const entry = (perDayMap[s.stat_date] = perDayMap[s.stat_date] || { pages: 0, minutes: 0 });
+        const d = String(s.stat_date).slice(0, 10);
+        if (perDayMap[d]) return;
+        const entry = (perDayMap[d] = perDayMap[d] || { pages: 0, minutes: 0 });
         entry.pages += Number(s.pages_done) || 0;
         entry.minutes += Number(s.time_spent_minutes) || 0;
-        readingPages += Number(s.pages_done) || 0;
-        readingMinutes += Number(s.time_spent_minutes) || 0;
       });
+      const readingPages = Object.values(perDayMap).reduce((a, v) => a + v.pages, 0);
+      const readingMinutes = Object.values(perDayMap).reduce((a, v) => a + v.minutes, 0);
 
       // --- Música ---
       const musicSessions = musicSessionsRes.data ?? [];
