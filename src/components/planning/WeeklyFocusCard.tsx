@@ -117,7 +117,7 @@ export function WeeklyFocusCard({ weekStart }: { weekStart: Date }) {
               No hay libro ni canción asignados a esta semana.
             </p>
             <p className="text-[10px] text-muted-foreground/70 mt-1">
-              Reparte los libros y canciones del mes desde el Plan Semanal.
+              Elige el libro y las canciones en las tarjetas de Lectura y Música del Plan Semanal.
             </p>
             <Link to="/weekly-planning">
               <Button size="sm" variant="outline" className="h-7 text-[10px] mt-2">

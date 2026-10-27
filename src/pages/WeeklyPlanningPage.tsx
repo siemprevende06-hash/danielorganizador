@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { format, startOfWeek, startOfMonth, endOfMonth, addDays, isToday } from 'date-fns';
+import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, Save, ListChecks, Plus, Trash2, Book, Music, FolderKanban, GraduationCap, Target,
@@ -18,7 +18,6 @@ import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { useWeeklyPlanData } from '@/hooks/useWeeklyPlanData';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { cn } from '@/lib/utils';
-import { WeeklyBookSongDistribution, type WeekDistribution } from '@/components/planning/WeeklyBookSongDistribution';
 import { WeekMinutesRings } from '@/components/plan/WeekMinutesRings';
 import { WeekEventsCalendar } from '@/components/plan/WeekEventsCalendar';
 import { UniversityRow } from '@/components/plan/UniversityRow';
@@ -94,10 +93,8 @@ export default function WeeklyPlanningPage() {
   const {
     planData: monthlyPlan,
     trimestralData,
-    loading: monthLoading,
     updatePlanData: updateMonthPlan,
     savePlan: saveMonthPlan,
-    books: monthBooks,
     songs: monthSongs,
   } = useMonthlyPlan(month);
   const { toast } = useToast();
@@ -126,24 +123,15 @@ export default function WeeklyPlanningPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const monthWeeks = (() => {
-    const first = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-    const last = endOfMonth(month);
-    const weeks: { key: string; label: string }[] = [];
-    let cursor = new Date(first);
-    while (cursor <= last) {
-      const end = addDays(cursor, 6);
-      weeks.push({
-        key: format(cursor, 'yyyy-MM-dd'),
-        label: `${format(cursor, 'd MMM', { locale: es })} - ${format(end, 'd MMM', { locale: es })}`,
-      });
-      cursor = addDays(cursor, 7);
-    }
-    return weeks;
-  })();
-
-  const setWeekDistribution = (dist: WeekDistribution) => {
-    updateMonthPlan(p => ({ ...p, week_distribution: dist }));
+  /** El libro de la semana sale del recuadro de Lectura y se refleja en el plan del mes. */
+  const handleWeekBookChange = (bookId: string) => {
+    setWeekBook(bookId);
+    updateMonthPlan(prev => {
+      const distribution = { ...(prev.week_distribution || {}) };
+      const current = distribution[weekKey] || { books: [], songs: [] };
+      distribution[weekKey] = { ...current, books: bookId ? [bookId] : [] };
+      return { ...prev, week_distribution: distribution };
+    });
   };
 
   /** Elige la canción de aprendizaje o la de dominar para la semana activa. */
@@ -154,14 +142,16 @@ export default function WeeklyPlanningPage() {
     updateMonthPlan(prev => {
       const distribution = { ...(prev.week_distribution || {}) };
       const current = distribution[weekKey] || { books: [], songs: [] };
-      const songs = [...new Set(current.songs || [])];
-      if (songId && !songs.includes(songId)) songs.push(songId);
       const other = field === 'learning_song_id' ? 'mastering_song_id' : 'learning_song_id';
+      const clearOther = !!songId && current[other] === songId;
+      const nextLearning = field === 'learning_song_id' ? songId : (clearOther ? '' : current.learning_song_id || '');
+      const nextMastering = field === 'mastering_song_id' ? songId : (clearOther ? '' : current.mastering_song_id || '');
       distribution[weekKey] = {
         ...current,
-        songs,
-        [field]: songId || null,
-        ...(songId && current[other] === songId ? { [other]: null } : {}),
+        // Las canciones de la semana son exactamente las elegidas en la tarjeta.
+        songs: [nextLearning, nextMastering].filter(Boolean),
+        learning_song_id: nextLearning || null,
+        mastering_song_id: nextMastering || null,
       };
       return { ...prev, week_distribution: distribution };
     });
@@ -525,28 +515,11 @@ export default function WeeklyPlanningPage() {
           learningSongId={monthlyPlan.week_distribution?.[weekKey]?.learning_song_id || ''}
           masteringSongId={monthlyPlan.week_distribution?.[weekKey]?.mastering_song_id || ''}
           pagesGoal={planData.lecturaPagesGoal ?? 0}
-          onBookChange={setWeekBook}
+          onBookChange={handleWeekBookChange}
           onLearningSongChange={id => setWeekSongSlot('learning_song_id', id)}
           onMasteringSongChange={id => setWeekSongSlot('mastering_song_id', id)}
           onPagesGoalChange={setLecturaPagesGoal}
         />
-
-        {/* Libros y canciones por semana */}
-        {monthLoading ? (
-          <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
-        ) : (
-          <WeeklyBookSongDistribution
-            weeks={monthWeeks}
-            activeWeekKey={format(weekStart, 'yyyy-MM-dd')}
-            monthLabel={format(month, 'MMMM yyyy', { locale: es })}
-            books={monthBooks}
-            songs={monthSongs}
-            selectedBookIds={monthlyPlan.books.selected || []}
-            selectedSongIds={monthlyPlan.songs.selected || []}
-            distribution={monthlyPlan.week_distribution || {}}
-            onChange={setWeekDistribution}
-          />
-        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
