@@ -68,29 +68,55 @@ function ChessDailyResultsInline({ games, wins, losses, onGamesChange, onResultC
   const readCount = (value: string) => Math.max(0, parseInt(value) || 0);
 
   return (
-    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 space-y-1.5">
-      <div className="flex items-center justify-between text-[9px] font-semibold">
-        <span>ELO y resultados diarios</span>
-        <span className="text-amber-600 dark:text-amber-400">+8 / −8 ELO</span>
-      </div>
-      <div className="flex items-end justify-between gap-2">
-        <div>
-          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">ELO actual</p>
-          <p className="text-lg font-extrabold leading-none tabular-nums text-amber-600 dark:text-amber-400">
-            {loading ? "—" : stats.currentElo}
+    <div className="space-y-1.5">
+      {/* Objetivo de ELO configurado en la página de Ajedrez */}
+      <div className="flex items-center gap-2 rounded-lg bg-foreground/5 px-2 py-1.5">
+        <span className="grid h-8 w-6 shrink-0 place-items-center rounded border border-border/40 bg-amber-500/15 text-sm">
+          ♟️
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] font-bold leading-tight truncate">
+            {loading
+              ? "Objetivo: …"
+              : stats.eloTarget != null
+                ? `Objetivo: ${stats.eloTarget} ELO`
+                : "Objetivo: sin definir"}
+          </p>
+          <p className="text-[8px] text-muted-foreground leading-tight truncate">
+            {loading
+              ? "Cargando…"
+              : stats.eloTarget != null
+                ? stats.currentElo >= stats.eloTarget
+                  ? `Actual ${stats.currentElo} · meta alcanzada ✓`
+                  : `Actual ${stats.currentElo} · faltan ${stats.eloTarget - stats.currentElo} ELO`
+                : "Configúralo en la página de Ajedrez"}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Objetivo</p>
-          <p className="text-sm font-bold leading-none tabular-nums text-foreground">
-            {loading || !goals ? "—" : stats.eloTarget}
-          </p>
-        </div>
       </div>
-      {goals && !loading && (
-        <Progress value={stats.eloProgress} className="h-1.5" indicatorClassName="bg-amber-500" />
-      )}
-      <div className="grid grid-cols-3 gap-1.5">
+
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 space-y-1.5">
+        <div className="flex items-center justify-between text-[9px] font-semibold">
+          <span>ELO y resultados diarios</span>
+          <span className="text-amber-600 dark:text-amber-400">+8 / −8 ELO</span>
+        </div>
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <p className="text-[8px] uppercase tracking-wider text-muted-foreground">ELO actual</p>
+            <p className="text-lg font-extrabold leading-none tabular-nums text-amber-600 dark:text-amber-400">
+              {loading ? "—" : stats.currentElo}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[8px] uppercase tracking-wider text-muted-foreground">Progreso</p>
+            <p className="text-sm font-bold leading-none tabular-nums text-foreground">
+              {loading || !goals ? "—" : `${stats.eloProgress}%`}
+            </p>
+          </div>
+        </div>
+        {goals && !loading && (
+          <Progress value={stats.eloProgress} className="h-1.5" indicatorClassName="bg-amber-500" />
+        )}
+        <div className="grid grid-cols-3 gap-1.5">
         <label className="space-y-0.5">
           <span className="text-[8px] text-muted-foreground">Partidas</span>
           <Input
@@ -127,6 +153,7 @@ function ChessDailyResultsInline({ games, wins, losses, onGamesChange, onResultC
             className="h-6 px-1 text-center text-[10px] text-red-500"
           />
         </label>
+        </div>
       </div>
     </div>
   );
@@ -387,6 +414,16 @@ export default function HabitSystemCard({
           </div>
         )}
 
+        {meta.id === "ajedrez" && (
+          <ChessDailyResultsInline
+            games={count ?? 0}
+            wins={chessWins ?? 0}
+            losses={chessLosses ?? 0}
+            onGamesChange={value => onCountChange?.(value)}
+            onResultChange={(result, value) => onChessResultChange?.(result, value)}
+          />
+        )}
+
         {(fixedBlocks || extraBlocks) && (
           <SystemChronoBox
             fixed={fixedBlocks ?? []}
@@ -485,16 +522,6 @@ export default function HabitSystemCard({
             </button>
           </div>
         </div>
-
-        {meta.id === "ajedrez" && (
-          <ChessDailyResultsInline
-            games={count ?? 0}
-            wins={chessWins ?? 0}
-            losses={chessLosses ?? 0}
-            onGamesChange={value => onCountChange?.(value)}
-            onResultChange={(result, value) => onChessResultChange?.(result, value)}
-          />
-        )}
 
         {/* Páginas leídas del libro activo (solo tarjeta de Lectura) */}
         {meta.id === "lectura" && (
