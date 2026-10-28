@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Clock, Droplets, Camera, ExternalLink, Sun, Moon, Flame, Trophy, Check } from "lucide-react";
 import { ReadingPagesInline } from "./ReadingPagesInline";
 import { SystemChronoBox } from "./SystemChronoBox";
+import { SystemRuleBox } from "@/components/systems/SystemRuleBox";
 import { WeekCheckStrip } from "./WeekCheckStrip";
 
 type TierKey = "red" | "grey" | "blue" | "green" | "gold";
@@ -364,6 +365,9 @@ export default function HabitSystemCard({
         {showMinutes && metaMinutes > 0 && (
           <Progress value={Math.min(100, pct)} className="h-1.5" indicatorClassName={st.bar} />
         )}
+
+        {/* Regla del sistema: verde solo al cumplir el estándar del sistema. */}
+        <SystemRuleBox habitId={meta.id} minutes={actualMinutes} skipped={isSkipped} />
 
         {/* Tendencia 7 días + total semana */}
         {showMinutes && spark && spark.length > 0 && (

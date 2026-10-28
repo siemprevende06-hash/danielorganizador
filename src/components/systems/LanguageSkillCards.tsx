@@ -13,6 +13,7 @@ import { useChronoTime } from '@/hooks/useChronoTime';
 import { useLanguageStats } from '@/hooks/useLanguageStats';
 import { getDayGoalEffective } from '@/lib/hierarchy';
 import { GoalMeter } from '@/components/goals/GoalMeter';
+import { SystemRuleBox } from './SystemRuleBox';
 import {
   LANGUAGE_SKILLS,
   LANGUAGE_LABELS,
@@ -117,6 +118,15 @@ export const LanguageSkillCards = ({
     if (weekTarget > 0) return Math.round(weekTarget / 7);
     return getDayGoalEffective(new Date(`${date ?? today}T12:00:00`), activeLang);
   }, [date, today, activeLang, weekPlan]);
+
+  // La regla de Idiomas es combinada: inglés + italiano cuentan juntos.
+  // Si el plan real exige más de 30 min/día, la regla sube con el plan.
+  const combinedPlanDay = useMemo(() => {
+    const weekly =
+      (weekPlan.italiano.minutesTarget || 0) +
+      (weekPlan.ingles.minutesTarget || 0);
+    return weekly > 0 ? Math.round(weekly / 7) : 0;
+  }, [weekPlan]);
 
   const applyTotalToLanguages = (nextTotal: number) => {
     const target = Math.max(0, Math.round(nextTotal));
@@ -304,6 +314,13 @@ export const LanguageSkillCards = ({
         unit=" min"
         tone={activeLang === 'ingles' ? 'sky' : 'indigo'}
         emptyLabel="sin meta en el plan"
+      />
+
+      <SystemRuleBox
+        habitId="idiomas"
+        minutes={italianoTime + inglesTime}
+        skipped={!!skipped?.italiano && !!skipped?.ingles}
+        planTargetMinutes={combinedPlanDay}
       />
 
       {/* Resumen real de la semana */}

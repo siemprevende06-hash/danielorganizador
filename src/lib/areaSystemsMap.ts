@@ -156,7 +156,7 @@ export const AREA_SYSTEMS: Record<string, AreaSystemConfig> = {
     fullWidthFromIndex: 3,
     vision: "Tocar música de forma avanzada, +24 libros/año y dominio de inglés e italiano",
     promise:
-      "30 min de música (mín 15) ⇒ aprendes canciones. 15 min de lectura/ajedrez/idiomas ⇒ dominio acumulativo.",
+      "30 min de lectura, música e idiomas (mín 15) y 20 min de ajedrez/game (mín 10) ⇒ dominio acumulativo.",
   },
   profesional: {
     habits: ["universidad", "emprendimiento", "proyectos"],

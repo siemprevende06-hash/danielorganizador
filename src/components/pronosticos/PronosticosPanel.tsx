@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { getWeekGoalEffective } from '@/lib/hierarchy';
 import { AREA_SYSTEMS } from '@/lib/areaSystemsMap';
+import { LifeAsSystems } from '@/components/systems/LifeAsSystems';
 import { forecastSeries, MODEL_LABELS, type ForecastResult } from '@/lib/forecasting/holtWinters';
 import { useAreaDetailData } from '@/hooks/useAreaDetailData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,6 +77,8 @@ type TrackingRow = {
   workout_duration: number | null;
   skipped: Record<string, boolean> | null;
   rest: Record<string, boolean> | null;
+  completions?: Record<string, boolean> | null;
+  count_data?: Record<string, number> | null;
 };
 
 const areaValue = (a: AreaDef, r?: TrackingRow): number => {
@@ -326,7 +329,7 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
     setStatus('loading');
     const start = format(subDays(anchor, HIST_DAYS - 1), 'yyyy-MM-dd');
     supabase.from('daily_systems_tracking')
-      .select('tracking_date, time_data, workout_duration, skipped, rest')
+      .select('tracking_date, time_data, workout_duration, skipped, rest, completions, count_data')
       .gte('tracking_date', start).lte('tracking_date', anchorStr)
       .order('tracking_date', { ascending: true })
       .then(({ data, error }) => {
@@ -599,6 +602,9 @@ export function PronosticosPanel({ anchorDate }: { anchorDate?: Date }) {
           </Badge>
         )}
       </div>
+
+      {/* Sección dedicada: la Rueda de la Vida leída como sistemas diarios. */}
+      <LifeAsSystems anchorDate={anchor} rows={rows} />
 
       <Tabs defaultValue="resumen">
         <TabsList className="w-full justify-start">
