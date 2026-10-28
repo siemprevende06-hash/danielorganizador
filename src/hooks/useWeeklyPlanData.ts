@@ -291,9 +291,48 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
 
       // --- Ajedrez ---
       const chess = (chessRes.data ?? []) as any[];
-      const chessMinutes = chess.reduce((a, s) => a + (Number(s.duration_minutes) || 0), 0);
-      const chessGames = chess.reduce((a, s) => a + (Number(s.games_played) || (s.result ? 1 : 0)), 0);
-      const chessWins = chess.reduce((a, s) => a + (Number(s.games_won) || 0), 0);
+      // `chess_sessions` manda; `daily_area_stats` guarda los minutos que se
+      // registran en Daily → Sistemas. Se usa solo en días sin sesión para no
+      // sumar dos veces el mismo tiempo.
+      const chessMinutesByDay: Record<string, number> = {};
+      chess.forEach((s: any) => {
+        const d = String(s.session_date ?? '').slice(0, 10);
+        if (!d) return;
+        chessMinutesByDay[d] = (chessMinutesByDay[d] || 0) + (Number(s.duration_minutes) || 0);
+      });
+      areaStats.filter((s: any) => s.area_id === 'ajedrez').forEach((s: any) => {
+        const d = String(s.stat_date).slice(0, 10);
+        if (chessMinutesByDay[d] !== undefined) return;
+        chessMinutesByDay[d] = Number(s.time_spent_minutes) || 0;
+      });
+      const chessMinutes = Object.values(chessMinutesByDay).reduce((a, v) => a + v, 0);
+
+      // Partidas/victorias: por día, la sesión de Chess manda sobre Daily →
+      // Sistemas para no contar dos veces la misma partida.
+      const chessDayTotals: Record<string, { games: number; wins: number }> = {};
+      chess.forEach((s: any) => {
+        const d = String(s.session_date ?? '').slice(0, 10);
+        if (!d) return;
+        const cur = chessDayTotals[d] || { games: 0, wins: 0 };
+        cur.games += Number(s.games_played) || (s.result ? 1 : 0);
+        cur.wins += Number(s.games_won) || 0;
+        chessDayTotals[d] = cur;
+      });
+      const chessTrackingRows = (chessTrackingRes.data ?? []) as Array<{
+        tracking_date?: string | null;
+        count_data: unknown;
+      }>;
+      chessTrackingRows.forEach(row => {
+        const d = String(row.tracking_date ?? '').slice(0, 10);
+        if (!d || d < weekStartStr || d > weekEndStr) return;
+        if (chessDayTotals[d]) return;
+        const games = readCount(row.count_data, CHESS_COUNT_KEYS.games);
+        const wins = readCount(row.count_data, CHESS_COUNT_KEYS.wins);
+        if (games === 0 && wins === 0) return;
+        chessDayTotals[d] = { games, wins };
+      });
+      const chessGames = Object.values(chessDayTotals).reduce((a, v) => a + v.games, 0);
+      const chessWins = Object.values(chessDayTotals).reduce((a, v) => a + v.wins, 0);
       const eloRows = chess.filter(s => s.current_elo != null);
       const elo = eloRows.length ? Number(eloRows[eloRows.length - 1].current_elo) : null;
       // El ELO actual se calcula igual que en la página Chess: base + 8 por
@@ -303,7 +342,6 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
         | null;
       const chessStartingElo = Number(chessGoalsRow?.starting_elo) || 1000;
       const chessMonthEloTarget = Number(chessGoalsRow?.target_elo) || null;
-      const chessTrackingRows = (chessTrackingRes.data ?? []) as Array<{ count_data: unknown }>;
       const chessTotals = chessTrackingRows.reduce(
         (acc, row) => ({
           wins: acc.wins + readCount(row.count_data, CHESS_COUNT_KEYS.wins),
