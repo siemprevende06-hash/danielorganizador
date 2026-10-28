@@ -34,6 +34,11 @@ export interface MonthlyPlanData {
   subjects: { subject_id: string; topics: string[] }[];
   events: string[];
   personal_goals: { title: string; target?: string }[];
+  /** Objetivos del área de ajedrez para el mes. */
+  chess?: {
+    /** ELO que se quiere alcanzar al cerrar el mes. */
+    elo_goal?: number;
+  };
   inherited_from?: { quarter: number; year: number };
   distribution?: Record<string, { books: string[]; songs: string[] }>;
   week_distribution?: Record<string, WeekBookSongDistribution>;
@@ -56,6 +61,7 @@ const defaultPlanData: MonthlyPlanData = {
   subjects: [],
   events: [],
   personal_goals: [],
+  chess: { elo_goal: 0 },
   week_distribution: {},
 };
 

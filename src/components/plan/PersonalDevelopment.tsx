@@ -81,6 +81,11 @@ export function PersonalDevelopment({
   learningSongId,
   masteringSongId,
   pagesGoal,
+  chessCurrentElo,
+  chessMonthGoal,
+  chessWeekStart,
+  chessWeekTarget,
+  onChessTargetChange,
   onBookChange,
   onLearningSongChange,
   onMasteringSongChange,
@@ -97,6 +102,15 @@ export function PersonalDevelopment({
   learningSongId: string;
   masteringSongId: string;
   pagesGoal: number;
+  /** ELO actual calculado en vivo, igual que en la página Chess. */
+  chessCurrentElo: number | null;
+  /** ELO objetivo planificado para el mes. */
+  chessMonthGoal: number;
+  /** ELO que tenías al planificar esta semana. */
+  chessWeekStart: number;
+  /** ELO que quieres alcanzar esta semana. */
+  chessWeekTarget: number;
+  onChessTargetChange: (elo: number) => void;
   onBookChange: (id: string) => void;
   onLearningSongChange: (id: string) => void;
   onMasteringSongChange: (id: string) => void;
@@ -131,6 +145,20 @@ export function PersonalDevelopment({
 
   const idiomasTotal = data.idiomas.inglesMinutes + data.idiomas.italianoMinutes;
   const idiomasGoal = inglesGoal + italianoGoal;
+
+  // --- Tramo de ELO de la semana ---
+  const eloCurrent = chessCurrentElo ?? data.ajedrez.elo ?? 0;
+  const eloStart = chessWeekStart || eloCurrent;
+  const eloTarget = chessWeekTarget;
+  const eloSliderMin = Math.min(eloCurrent, eloTarget || eloCurrent);
+  const eloSliderMax = Math.max(chessMonthGoal || 0, eloCurrent, eloTarget || 0);
+  const eloProgress = (() => {
+    if (!eloTarget || !eloCurrent) return 0;
+    if (eloCurrent >= eloTarget) return 100;
+    if (eloTarget <= eloStart) return 0;
+    return Math.max(0, Math.min(100, Math.round(((eloCurrent - eloStart) / (eloTarget - eloStart)) * 100)));
+  })();
+  const eloRemaining = eloTarget > eloCurrent ? eloTarget - eloCurrent : 0;
 
   return (
     <section className="rounded-2xl border-2 border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 via-background to-background backdrop-blur-sm overflow-hidden">
@@ -316,8 +344,56 @@ export function PersonalDevelopment({
               </div>
               <StatLine label="Partidas" value={data.ajedrez.games} />
               <StatLine label="Victorias" value={data.ajedrez.wins} />
-              <StatLine label="Elo" value={data.ajedrez.elo ?? '—'} />
+              <StatLine label="Elo actual" value={eloCurrent || '—'} />
             </div>
+          </div>
+          <div className="space-y-1.5 pt-1.5 border-t border-muted/40">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Target className="w-3 h-3" /> ELO de la semana
+              </span>
+              <span className="text-[10px] font-bold tabular-nums">
+                {eloStart || '—'} → {eloTarget || '—'}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={eloSliderMin}
+              max={eloSliderMax}
+              step={5}
+              value={Math.min(Math.max(eloTarget || eloSliderMin, eloSliderMin), eloSliderMax)}
+              onChange={e => onChessTargetChange(Number(e.target.value))}
+              disabled={eloSliderMax <= eloSliderMin}
+              className="w-full h-1.5 accent-amber-500 cursor-pointer disabled:opacity-50"
+              aria-label="ELO objetivo de la semana"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] text-muted-foreground">
+                {chessMonthGoal > 0 ? `Meta mes ${chessMonthGoal}` : 'Sin meta del mes'}
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] text-muted-foreground">Objetivo</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step={5}
+                  value={eloTarget || ''}
+                  onChange={e => onChessTargetChange(parseInt(e.target.value) || 0)}
+                  disabled={eloSliderMax <= 0}
+                  className="h-6 w-16 text-[10px] font-bold text-center tabular-nums"
+                />
+              </div>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-amber-500 transition-all" style={{ width: `${eloProgress}%` }} />
+            </div>
+            <p className="text-[9px] text-muted-foreground">
+              {chessMonthGoal <= 0
+                ? 'Define el ELO objetivo del mes en Planificación Mensual.'
+                : eloRemaining > 0
+                  ? `Faltan ${eloRemaining} pts para la meta de la semana.`
+                  : 'Meta semanal alcanzada ✓'}
+            </p>
           </div>
           {data.ajedrez.games > 0 && (
             <div className="pt-1.5 border-t border-muted/40">

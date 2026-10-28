@@ -1,9 +1,10 @@
 ﻿import { useState } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Save, Target } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Target, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
@@ -64,6 +65,12 @@ const handleSave = async () => {
     const { quarter, year } = getQuarterFromDate(month);
     setMonthGoal(quarter, year, getMonthKeyOf(month, quarter), area, mins);
     setGoalsVersion(v => v + 1);
+  };
+
+  /** ELO que se quiere alcanzar al cerrar el mes; el plan semanal reparte el tramo. */
+  const setChessEloGoal = (value: string) => {
+    const elo = Math.max(0, parseInt(value) || 0);
+    updatePlanData(p => ({ ...p, chess: { ...p.chess, elo_goal: elo } }));
   };
 
   const bookItems = books.map(b => ({ id: b.id, title: b.title, subtitle: b.author || undefined }));
@@ -209,6 +216,30 @@ const handleSave = async () => {
               <p className="text-[10px] text-muted-foreground mt-3">
                 Meta mes total: {ALL_HIERARCHY_AREAS.reduce((s, a) => s + (monthGoalsSummary[a] || 0), 0)} min
               </p>
+            </div>
+          </Card>
+
+          <Card className="border border-amber-200/60 dark:border-amber-800/40 shadow-sm overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+            <div className="p-4">
+              <h3 className="text-xs font-semibold mb-1 flex items-center gap-2">
+                <Trophy className="w-3.5 h-3.5 text-amber-500" /> Ajedrez · ELO objetivo del mes
+              </h3>
+              <p className="text-[10px] text-muted-foreground mb-3">
+                El plan semanal reparte este tramo entre las semanas del mes. Déjalo en 0 para usar el ELO objetivo de la página Chess.
+              </p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs">ELO objetivo al cerrar el mes</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step={25}
+                  value={planData.chess?.elo_goal || ''}
+                  onChange={e => setChessEloGoal(e.target.value)}
+                  placeholder="Ej. 800"
+                  className="h-7 w-24 text-xs text-center tabular-nums"
+                />
+              </div>
             </div>
           </Card>
         </div>

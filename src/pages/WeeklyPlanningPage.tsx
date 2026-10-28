@@ -1,5 +1,5 @@
-import { useState, useEffect, type ReactNode } from 'react';
-import { format, startOfWeek, addDays, isToday } from 'date-fns';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { format, startOfWeek, endOfMonth, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, Save, ListChecks, Plus, Trash2, Book, Music, FolderKanban, GraduationCap, Target,
@@ -93,6 +93,7 @@ export default function WeeklyPlanningPage() {
   const {
     planData: monthlyPlan,
     trimestralData,
+    loading: monthLoading,
     updatePlanData: updateMonthPlan,
     savePlan: saveMonthPlan,
     songs: monthSongs,
@@ -108,6 +109,56 @@ export default function WeeklyPlanningPage() {
   const [goalsVersion, setGoalsVersion] = useState(0);
   const [projectOptions, setProjectOptions] = useState<{ id: string; name: string }[]>([]);
   const [entreOptions, setEntreOptions] = useState<{ id: string; name: string }[]>([]);
+  // Evita volver a rellenar la meta semanal mientras el usuario la edita.
+  const autoEloWeekRef = useRef<string | null>(null);
+
+  // --- Ajedrez: tramo de ELO de esta semana dentro de la meta del mes ---
+  const chessCurrentElo = areaData.ajedrez.currentElo ?? areaData.ajedrez.elo ?? null;
+  const monthEloGoal =
+    Number(monthlyPlan.chess?.elo_goal) || Number(areaData.ajedrez.monthEloTarget) || 0;
+  const weeksLeftInMonth = (() => {
+    const lastWeekStart = startOfWeek(endOfMonth(weekStart), { weekStartsOn: 1 });
+    const diff = Math.round((lastWeekStart.getTime() - weekStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    return Math.max(1, diff + 1);
+  })();
+  // Reparte lo que falta para la meta del mes entre las semanas restantes.
+  const suggestedWeekElo = (() => {
+    if (!monthEloGoal || !chessCurrentElo) return 0;
+    if (monthEloGoal <= chessCurrentElo) return chessCurrentElo;
+    const rawStep = (monthEloGoal - chessCurrentElo) / weeksLeftInMonth;
+    const step = Math.max(5, Math.ceil(rawStep / 5) * 5);
+    return Math.min(monthEloGoal, chessCurrentElo + step);
+  })();
+
+  useEffect(() => {
+    if (loading || monthLoading || areaData.loading) return;
+    if (autoEloWeekRef.current === weekKey) return;
+    autoEloWeekRef.current = weekKey;
+    if (!suggestedWeekElo || planData.chessEloTarget) return;
+    updatePlanData(prev => prev.chessEloTarget
+      ? prev
+      : { ...prev, chessEloStart: chessCurrentElo ?? 0, chessEloTarget: suggestedWeekElo });
+  }, [
+    loading,
+    monthLoading,
+    areaData.loading,
+    suggestedWeekElo,
+    chessCurrentElo,
+    planData.chessEloTarget,
+    updatePlanData,
+    weekKey,
+  ]);
+
+  const setChessWeekTarget = (value: number) => {
+    const current = chessCurrentElo ?? 0;
+    const ceiling = monthEloGoal > 0 ? Math.max(monthEloGoal, current) : 0;
+    const next = ceiling > 0 ? Math.min(value, ceiling) : Math.max(0, value);
+    updatePlanData(prev => ({
+      ...prev,
+      chessEloStart: prev.chessEloStart || current,
+      chessEloTarget: Math.max(0, next),
+    }));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -515,6 +566,11 @@ export default function WeeklyPlanningPage() {
           learningSongId={monthlyPlan.week_distribution?.[weekKey]?.learning_song_id || ''}
           masteringSongId={monthlyPlan.week_distribution?.[weekKey]?.mastering_song_id || ''}
           pagesGoal={planData.lecturaPagesGoal ?? 0}
+          chessCurrentElo={chessCurrentElo}
+          chessMonthGoal={monthEloGoal}
+          chessWeekStart={planData.chessEloStart || chessCurrentElo || 0}
+          chessWeekTarget={planData.chessEloTarget || 0}
+          onChessTargetChange={setChessWeekTarget}
           onBookChange={handleWeekBookChange}
           onLearningSongChange={id => setWeekSongSlot('learning_song_id', id)}
           onMasteringSongChange={id => setWeekSongSlot('mastering_song_id', id)}

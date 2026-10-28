@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { calculateChessElo, CHESS_COUNT_KEYS } from '@/lib/daySystems';
 
 export interface StudySessionRow {
   id: string;
@@ -46,7 +47,19 @@ export interface WeeklyAreaData {
     perDay: { d: string; pages: number; minutes: number }[];
   };
   musica: { minutes: number; sessions: number; song: string | null; cover: string | null };
-  ajedrez: { minutes: number; games: number; wins: number; elo: number | null };
+  ajedrez: {
+    minutes: number;
+    games: number;
+    wins: number;
+    /** Último ELO registrado en una sesión de esta semana. */
+    elo: number | null;
+    /** ELO calculado en vivo, igual que en la página Chess. */
+    currentElo: number | null;
+    /** ELO base configurado en Chess. */
+    startingElo: number | null;
+    /** ELO objetivo global configurado en Chess (respaldo del plan mensual). */
+    monthEloTarget: number | null;
+  };
   idiomas: {
     inglesMinutes: number;
     italianoMinutes: number;
@@ -91,7 +104,15 @@ const EMPTY: WeeklyAreaData = {
     perDay: [],
   },
   musica: { minutes: 0, sessions: 0, song: null, cover: null },
-  ajedrez: { minutes: 0, games: 0, wins: 0, elo: null },
+  ajedrez: {
+    minutes: 0,
+    games: 0,
+    wins: 0,
+    elo: null,
+    currentElo: null,
+    startingElo: null,
+    monthEloTarget: null,
+  },
   idiomas: { inglesMinutes: 0, italianoMinutes: 0, inglesSessions: 0, italianoSessions: 0 },
   game: { citas: 0, intimidad: 0, eventos: 0, minutos: 0 },
   gym: { logs: 0, minutes: 0 },
@@ -107,6 +128,13 @@ function countTasks(rows: any[]): MonthTaskCounts {
 
 const norm = (raw: any) => String(raw ?? '').toLowerCase().trim();
 
+/** Lee un contador de `daily_systems_tracking.count_data`. */
+function readCount(countData: unknown, key: string): number {
+  if (typeof countData !== 'object' || countData === null || Array.isArray(countData)) return 0;
+  const value = Number((countData as Record<string, unknown>)[key]);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
 /** Agrega todo lo necesario para las filas por área del plan semanal */
 export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
   const [data, setData] = useState<WeeklyAreaData>(EMPTY);
@@ -121,8 +149,8 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
     try {
       const [
         tasksRes, entTasksRes, areaStatsRes, readSessionsRes, libraryRes,
-        musicSessionsRes, repertoireRes, chessRes, exerciseRes, eventsRes,
-        subjectsRes, topicsRes, focusRes, blocksRes,
+        musicSessionsRes, repertoireRes, chessRes, chessGoalsRes, chessTrackingRes,
+        exerciseRes, eventsRes, subjectsRes, topicsRes, focusRes, blocksRes,
       ] = await Promise.all([
         supabase.from('tasks').select('*').gte('due_date', `${monthStartStr}T00:00:00`).lte('due_date', `${monthEndStr}T23:59:59`),
         supabase.from('entrepreneurship_tasks').select('*').gte('due_date', `${monthStartStr}T00:00:00`).lte('due_date', `${monthEndStr}T23:59:59`),
@@ -132,6 +160,8 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
         supabase.from('music_practice_sessions').select('*').gte('practice_date', weekStartStr).lte('practice_date', weekEndStr),
         supabase.from('music_repertoire').select('id, title, artist, cover_image_url, status, practice_minutes'),
         supabase.from('chess_sessions').select('*').gte('session_date', weekStartStr).lte('session_date', weekEndStr),
+        supabase.from('chess_goals').select('starting_elo, target_elo').eq('is_active', true).maybeSingle(),
+        supabase.from('daily_systems_tracking').select('tracking_date, count_data').order('tracking_date', { ascending: true }),
         supabase.from('exercise_logs').select('*').gte('log_date', weekStartStr).lte('log_date', weekEndStr),
         supabase.from('calendar_events').select('*').gte('event_date', weekStartStr).lte('event_date', weekEndStr).order('start_time', { ascending: true }),
         supabase.from('university_subjects').select('id, name'),
@@ -266,6 +296,24 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
       const chessWins = chess.reduce((a, s) => a + (Number(s.games_won) || 0), 0);
       const eloRows = chess.filter(s => s.current_elo != null);
       const elo = eloRows.length ? Number(eloRows[eloRows.length - 1].current_elo) : null;
+      // El ELO actual se calcula igual que en la página Chess: base + 8 por
+      // victoria - 8 por derrota, contando el histórico de Daily → Sistemas.
+      const chessGoalsRow = chessGoalsRes.data as
+        | { starting_elo?: number | null; target_elo?: number | null }
+        | null;
+      const chessStartingElo = Number(chessGoalsRow?.starting_elo) || 1000;
+      const chessMonthEloTarget = Number(chessGoalsRow?.target_elo) || null;
+      const chessTrackingRows = (chessTrackingRes.data ?? []) as Array<{ count_data: unknown }>;
+      const chessTotals = chessTrackingRows.reduce(
+        (acc, row) => ({
+          wins: acc.wins + readCount(row.count_data, CHESS_COUNT_KEYS.wins),
+          losses: acc.losses + readCount(row.count_data, CHESS_COUNT_KEYS.losses),
+        }),
+        { wins: 0, losses: 0 },
+      );
+      const chessCurrentElo = chessStartingElo != null
+        ? calculateChessElo(chessStartingElo, chessTotals.wins, chessTotals.losses)
+        : null;
 
       // --- Idiomas (inglés / italiano) ---
       const langMinutes = (keys: string[]) =>
@@ -333,7 +381,15 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
           song: musicSong?.title ?? null,
           cover: musicSong?.cover_image_url ?? null,
         },
-        ajedrez: { minutes: chessMinutes, games: chessGames, wins: chessWins, elo },
+        ajedrez: {
+          minutes: chessMinutes,
+          games: chessGames,
+          wins: chessWins,
+          elo,
+          currentElo: chessCurrentElo,
+          startingElo: chessStartingElo,
+          monthEloTarget: chessMonthEloTarget,
+        },
         idiomas: {
           inglesMinutes: langMinutes(['ingles', 'english']),
           italianoMinutes: langMinutes(['italiano', 'italian']),

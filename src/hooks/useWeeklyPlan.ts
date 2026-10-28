@@ -43,6 +43,10 @@ export interface WeeklyPlanData {
   weekBookId?: string;
   /** Paginas que se espera leer esta semana */
   lecturaPagesGoal?: number;
+  /** ELO que tenías al planificar la semana (punto de partida del tramo). */
+  chessEloStart?: number;
+  /** ELO que quieres alcanzar al cerrar esta semana. */
+  chessEloTarget?: number;
   /** Enfoque de la semana por área: ids seleccionados (asignaturas de universidad, emprendimientos, proyectos...) */
   areaFocus?: Record<string, string[]>;
 }
@@ -61,6 +65,8 @@ const makeDefault = (weekNumber: number): WeeklyPlanData => ({
   areaResults: {},
   weekBookId: '',
   lecturaPagesGoal: 0,
+  chessEloStart: 0,
+  chessEloTarget: 0,
   areaFocus: {},
 });
 
@@ -121,6 +127,8 @@ export function useWeeklyPlan(weekStart: Date) {
             areaResults: local.areaResults ?? {},
             weekBookId: local.weekBookId ?? '',
             lecturaPagesGoal: local.lecturaPagesGoal ?? 0,
+            chessEloStart: local.chessEloStart ?? 0,
+            chessEloTarget: local.chessEloTarget ?? 0,
             areaFocus: local.areaFocus ?? {},
           }
         : base
