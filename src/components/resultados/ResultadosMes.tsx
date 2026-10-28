@@ -165,6 +165,21 @@ export function ResultadosMes({ month }: { month: Date }) {
             objetivo={
               <div className="space-y-1">
                 <MinutesRow area={r.byArea.idiomas} />
+                <ResultRow
+                  label="Inglés"
+                  value={`${r.idiomas.inglesMinutes} min · ${r.idiomas.inglesActiveDays} días`}
+                  ok={r.idiomas.inglesMinutes > 0}
+                />
+                <ResultRow
+                  label="Italiano"
+                  value={`${r.idiomas.italianoMinutes} min · ${r.idiomas.italianoActiveDays} días`}
+                  ok={r.idiomas.italianoMinutes > 0}
+                />
+                <ResultRow
+                  label="Cobertura de habilidades"
+                  value={`${r.idiomas.skillCoverage.length}/6`}
+                  ok={r.idiomas.skillCoverage.length >= 4}
+                />
                 <ResultRow label="Tareas completadas" value={`${r.byArea.idiomas.done}/${r.byArea.idiomas.total}`} ok={r.byArea.idiomas.total > 0 && r.byArea.idiomas.done === r.byArea.idiomas.total} />
                 {r.byArea.idiomas.minutes === 0 && r.byArea.idiomas.total === 0 && <AreaEmpty />}
               </div>
@@ -311,6 +326,10 @@ export function ResultadosMes({ month }: { month: Date }) {
             }
             objetivo={
               <div className="space-y-1">
+                <ResultRow label="XP" value={`${r.game.xp} XP`} ok={r.game.xp > 0} />
+                <ResultRow label="Acciones" value={String(r.game.actions)} ok={r.game.actions > 0} />
+                <ResultRow label="Números" value={String(r.game.numbers)} ok={r.game.numbers > 0} />
+                <ResultRow label="Tiempo" value={`${r.game.minutos} min`} ok={r.game.minutos > 0} />
                 <ResultRow label="Citas" value={String(r.game.citas)} ok={r.game.citas > 0} />
                 <ResultRow label="Eventos sociales" value={String(r.game.eventos)} ok={r.game.eventos > 0} />
                 <ResultRow label="Registros de intimidad" value={String(r.game.intimidad)} ok={r.game.intimidad > 0} />

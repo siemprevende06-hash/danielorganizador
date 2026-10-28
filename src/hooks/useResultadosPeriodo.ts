@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getQuarterFromDate, loadTrimestralPlanFromLocal } from '@/hooks/useTrimestralPlan';
 import { readActiveSelections } from '@/hooks/useActiveSelections';
+import { computeLanguagesStats } from '@/lib/languagePlan';
+import { computeGamePeriodStats } from '@/lib/game';
 
 export const AREA_ORDER = ['universidad', 'emprendimiento', 'proyectos', 'lectura', 'musica', 'ajedrez', 'game', 'idiomas', 'gym', 'general'] as const;
 export type AreaKey = (typeof AREA_ORDER)[number];
@@ -136,7 +138,27 @@ export interface ResultadoPeriodo {
   musica: { minutes: number; sessions: number; songs: number; perDay: { d: string; min: number }[] };
   ajedrez: { minutes: number; games: number; wins: number; elo: number | null; history: { d: string; elo: number }[] };
   gym: { logs: number; sets: number; maxWeight: number | null; perDay: { d: string; kg: number }[] };
-  game: { citas: number; intimidad: number; eventos: number };
+  game: {
+    citas: number;
+    intimidad: number;
+    eventos: number;
+    minutos: number;
+    actions: number;
+    numbers: number;
+    xp: number;
+    activeDays: number;
+  };
+  idiomas: {
+    inglesMinutes: number;
+    italianoMinutes: number;
+    totalMinutes: number;
+    inglesActiveDays: number;
+    italianoActiveDays: number;
+    activeDays: number;
+    inglesSkills: string[];
+    italianoSkills: string[];
+    skillCoverage: string[];
+  };
   ingreso: { count: number; amount: number };
   perDay: { date: string; score: number; label: string }[];
   score: number;
@@ -170,7 +192,18 @@ export const EMPTY_RESULTADO: ResultadoPeriodo = {
   musica: { minutes: 0, sessions: 0, songs: 0, perDay: [] },
   ajedrez: { minutes: 0, games: 0, wins: 0, elo: null, history: [] },
   gym: { logs: 0, sets: 0, maxWeight: null, perDay: [] },
-  game: { citas: 0, intimidad: 0, eventos: 0 },
+  game: { citas: 0, intimidad: 0, eventos: 0, minutos: 0, actions: 0, numbers: 0, xp: 0, activeDays: 0 },
+  idiomas: {
+    inglesMinutes: 0,
+    italianoMinutes: 0,
+    totalMinutes: 0,
+    inglesActiveDays: 0,
+    italianoActiveDays: 0,
+    activeDays: 0,
+    inglesSkills: [],
+    italianoSkills: [],
+    skillCoverage: [],
+  },
   ingreso: { count: 0, amount: 0 },
   perDay: [],
   score: 0,
@@ -275,6 +308,17 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const citas = citasRes.data || [];
       const intimidad = intimidadRes.data || [];
       const eventos = eventosRes.data || [];
+      const countRowsByDay = (rows: any[]) => rows.reduce((acc: Record<string, number>, row: any) => {
+        const day = String(row.fecha ?? '').slice(0, 10);
+        if (day) acc[day] = (acc[day] || 0) + 1;
+        return acc;
+      }, {});
+      const languageResults = computeLanguagesStats(systems);
+      const gameResults = computeGamePeriodStats(systems, {
+        citasByDay: countRowsByDay(citas),
+        socialByDay: countRowsByDay(eventos),
+        intimacyByDay: countRowsByDay(intimidad),
+      });
       const ingreso = ingresoRes.data || [];
       const library = libraryRes.data || [];
       const repertoire = repertoireRes.data || [];
@@ -598,6 +642,9 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         const day = s.tracking_date;
         const td = s.time_data || {};
         for (const [k, v] of Object.entries(td)) {
+          // `idiomas` es un acumulado legado: el tiempo real está en `ingles` e
+          // `italiano`, que ya se suman al área.
+          if (k === 'idiomas') continue;
           addRawMinutes(day, k, Number(v) || 0);
         }
         addRawMinutes(day, 'gym', s.workout_duration || 0);
@@ -613,7 +660,9 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       const systemsTotal = systems.length > 0
         ? Math.max(...systems.map((s: any) => Object.keys(s.completions || {}).filter(k => !k.startsWith('streak:')).length))
         : 0;
-      const systemsMin = systems.reduce((a: number, s: any) => a + (Object.values(s.time_data || {}) as any[]).reduce((x: number, v: any) => x + (Number(v) || 0), 0), 0);
+      const systemsMin = systems.reduce((a: number, s: any) => a + Object.entries(s.time_data || {})
+        .filter(([key]) => key !== 'idiomas')
+        .reduce((x: number, [, v]: [string, any]) => x + (Number(v) || 0), 0), 0);
       const workoutMin = systems.reduce((a: number, s: any) => a + (s.workout_duration || 0), 0);
       const focusMin = focus.reduce((a: number, f: any) => a + (f.duration_minutes || 0), 0);
 
@@ -729,7 +778,27 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         },
         ajedrez: { minutes: byArea.ajedrez.minutes, games: chessGames, wins: chessWins, elo: chessElo, history: chessHistory },
         gym: { logs: gymLogs, sets: gymSets, maxWeight: gymMax, perDay: Object.entries(gymPerDay).sort().map(([d, kg]) => ({ d, kg })) },
-        game: { citas: citas.length, intimidad: intimidad.length, eventos: eventos.length },
+        game: {
+          citas: gameResults.citas,
+          intimidad: gameResults.intimacy,
+          eventos: gameResults.social,
+          minutos: gameResults.minutes,
+          actions: gameResults.actions,
+          numbers: gameResults.numbers,
+          xp: gameResults.xp,
+          activeDays: gameResults.activeDays,
+        },
+        idiomas: {
+          inglesMinutes: languageResults.ingles.minutes,
+          italianoMinutes: languageResults.italiano.minutes,
+          totalMinutes: languageResults.totalMinutes,
+          inglesActiveDays: languageResults.ingles.activeDays,
+          italianoActiveDays: languageResults.italiano.activeDays,
+          activeDays: languageResults.activeDays,
+          inglesSkills: languageResults.ingles.skillCoverage,
+          italianoSkills: languageResults.italiano.skillCoverage,
+          skillCoverage: languageResults.skillCoverage,
+        },
         ingreso: { count: ingreso.length, amount: ingAmount },
         perDay,
         score,
