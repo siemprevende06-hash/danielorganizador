@@ -19,9 +19,10 @@ export interface TaskItem {
 }
 
 export function useDailyPlanData(date?: Date) {
+  const targetDate = date || new Date();
   const queryClient = useQueryClient();
   const { blocks, isLoaded: blocksLoaded } = useRoutineBlocksDB();
-  const { completions: blockCompletions, isLoading: completionsLoading, toggleBlockComplete, isBlockCompleted } = useBlockCompletions();
+  const { completions: blockCompletions, isLoading: completionsLoading, toggleBlockComplete, isBlockCompleted } = useBlockCompletions(targetDate);
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
@@ -32,7 +33,6 @@ export function useDailyPlanData(date?: Date) {
   const [planIntensity, setPlanIntensity] = useState<Record<string, string> | null>(null);
   const [planLoaded, setPlanLoaded] = useState(false);
 
-  const targetDate = date || new Date();
   const dateStr = format(targetDate, 'yyyy-MM-dd');
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 

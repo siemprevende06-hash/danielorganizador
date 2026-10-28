@@ -1,10 +1,25 @@
-import type { RoutineBlock } from "@/hooks/useRoutineBlocks";
-
 export interface ChronoRange {
+  /** Id real del bloque de rutina (para saber si está completado). */
+  id: string;
   title: string;
   start: string;
   end: string;
   minutes: number;
+}
+
+/**
+ * Lo mínimo que necesita el cronograma. Sirve tanto para los bloques de
+ * `useRoutineBlocks` como para los de `useRoutineBlocksDB`.
+ */
+export interface ChronoBlockLike {
+  id?: string;
+  title?: string;
+  startTime?: string;
+  endTime?: string;
+  currentFocus?: string;
+  defaultFocus?: string;
+  blockType?: string;
+  isFocusBlock?: boolean;
 }
 
 export interface AreaChrono {
@@ -38,11 +53,11 @@ export const COUNT_AREAS = new Set(["universidad", "emprendimiento", "proyectos"
 
 const normalize = (value: string) => value.toLowerCase();
 
-export function isFocusRoutineBlock(block: RoutineBlock): boolean {
+export function isFocusRoutineBlock(block: ChronoBlockLike): boolean {
   return block.isFocusBlock === true;
 }
 
-function matchesArea(block: RoutineBlock, areaId: string, titleFallback: boolean): boolean {
+function matchesArea(block: ChronoBlockLike, areaId: string, titleFallback: boolean): boolean {
   const focus = block.currentFocus || block.defaultFocus;
   if (focus && focus !== "none") return focus === areaId;
   if (!titleFallback) return false;
@@ -52,7 +67,7 @@ function matchesArea(block: RoutineBlock, areaId: string, titleFallback: boolean
   return keywords.some((keyword) => title.includes(keyword));
 }
 
-export function getBlockMinutes(block: RoutineBlock): number {
+export function getBlockMinutes(block: ChronoBlockLike): number {
   const [startHour, startMinute] = (block.startTime || "0:00").split(":").map(Number);
   const [endHour, endMinute] = (block.endTime || "0:00").split(":").map(Number);
   const start = startHour * 60 + startMinute;
@@ -61,16 +76,17 @@ export function getBlockMinutes(block: RoutineBlock): number {
   return Math.max(0, end - start);
 }
 
-function toRange(block: RoutineBlock): ChronoRange {
+function toRange(block: ChronoBlockLike): ChronoRange {
   return {
-    title: block.title,
-    start: block.startTime,
-    end: block.endTime,
+    id: block.id ?? "",
+    title: block.title ?? "",
+    start: block.startTime ?? "0:00",
+    end: block.endTime ?? "0:00",
     minutes: getBlockMinutes(block),
   };
 }
 
-export function getAreaChrono(blocks: RoutineBlock[] | undefined, areaId: string): AreaChrono {
+export function getAreaChrono(blocks: ChronoBlockLike[] | undefined, areaId: string): AreaChrono {
   if (!Array.isArray(blocks) || blocks.length === 0) return { fixed: [], extra: [] };
 
   const usable = blocks.filter((block) => block && block.blockType !== "evitar");

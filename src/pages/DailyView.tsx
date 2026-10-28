@@ -767,6 +767,8 @@ export default function DailyView() {
             countData={data.countData}
             onCountChange={setCountValue}
             onChessResultChange={setChessResultValue}
+            tasks={tasks}
+            isBlockCompleted={isBlockCompleted}
             waterData={data.waterData}
             onWaterToggle={toggleWater}
             mealPhotos={data.mealPhotos}

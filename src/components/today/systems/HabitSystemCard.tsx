@@ -16,7 +16,9 @@ import { toast } from "sonner";
 import { Clock, Droplets, Camera, ExternalLink, Sun, Moon, Flame, Trophy, Check } from "lucide-react";
 import { ReadingPagesInline } from "./ReadingPagesInline";
 import { SystemChronoBox } from "./SystemChronoBox";
-import { SystemRuleBox } from "@/components/systems/SystemRuleBox";
+import { SystemRuleBox, SystemRuleBoxView } from "@/components/systems/SystemRuleBox";
+import { GymSystemRuleBox } from "@/components/systems/GymSystemRuleBox";
+import type { SystemRuleView } from "@/lib/systemRules";
 import { WeekCheckStrip } from "./WeekCheckStrip";
 
 type TierKey = "red" | "grey" | "blue" | "green" | "gold";
@@ -192,6 +194,11 @@ export interface HabitSystemCardProps {
   extraBlocks?: ChronoRange[];
   /** Muestra el número de bloques fijos (universidad/emprendimiento/proyectos). */
   showFixedCount?: boolean;
+  /**
+   * Regla específica del sistema cuando no es una regla de minutos
+   * (Universidad = bloques, Emprendimiento = bloques, Proyectos = tareas).
+   */
+  systemRule?: SystemRuleView | null;
   onToggle: () => void;
   onSkip: () => void;
   onRest?: () => void;
@@ -232,6 +239,7 @@ export default function HabitSystemCard({
   fixedBlocks,
   extraBlocks,
   showFixedCount,
+  systemRule,
   onToggle,
   onSkip,
   onRest,
@@ -367,7 +375,20 @@ export default function HabitSystemCard({
         )}
 
         {/* Regla del sistema: verde solo al cumplir el estándar del sistema. */}
-        <SystemRuleBox habitId={meta.id} minutes={actualMinutes} skipped={isSkipped} />
+        {systemRule ? (
+          <SystemRuleBoxView data={systemRule} />
+        ) : (
+          <SystemRuleBox habitId={meta.id} minutes={actualMinutes} skipped={isSkipped} />
+        )}
+        {isGym && (
+          <GymSystemRuleBox
+            date={date}
+            minutes={workoutDuration ?? actualMinutes}
+            done={done}
+            isRest={isRest}
+            isSkipped={isSkipped}
+          />
+        )}
 
         {/* Tendencia 7 días + total semana */}
         {showMinutes && spark && spark.length > 0 && (

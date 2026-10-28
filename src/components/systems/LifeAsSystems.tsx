@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
 import { Activity, ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { POINT_B_AREAS } from "@/data/pointB2027";
 import { useAreaScores } from "@/hooks/useAreaScores";
+import { useDailyPlanData } from "@/hooks/useDailyPlanData";
+import { useGymDayPlan } from "@/hooks/useGymDayPlan";
+import { useRoutineBlocks } from "@/hooks/useRoutineBlocks";
 import {
   AREA_SYSTEMS,
   DIAGNOSIS_TONE,
@@ -23,11 +26,17 @@ import {
   systemMinForSpeed,
   type DaySystem,
 } from "@/lib/daySystems";
+import { getAreaChrono } from "@/lib/systemSchedule";
+import { getWeekLanguagePlans } from "@/lib/languagePlan";
 import {
-  getSystemRule,
-  getSystemRuleStatus,
+  buildBlocksRuleView,
+  buildGymRuleView,
+  buildMinuteRuleView,
+  buildProjectTasksRuleView,
+  buildRuleView,
   SYSTEM_RULE_IDS,
   type SystemRuleStatus,
+  type SystemRuleView,
 } from "@/lib/systemRules";
 import { cn } from "@/lib/utils";
 
@@ -38,15 +47,6 @@ const SYSTEM_BY_ID = new Map<string, DaySystem>(
 );
 
 const GROUP_ORDER: PointBGroup[] = ["cimientos", "construccion", "recompensas"];
-
-const STATUS_LABEL: Record<SystemRuleStatus, string> = {
-  cumplido: "Cumplido",
-  minimo: "Mínimo",
-  "en-progreso": "En curso",
-  "sin-registro": "Sin registro",
-  saltado: "Saltado",
-  "sin-meta": "Sin meta",
-};
 
 const STATUS_TEXT: Record<SystemRuleStatus, string> = {
   cumplido: "text-emerald-600 dark:text-emerald-400",
@@ -81,10 +81,21 @@ interface LinkedSystem {
   name: string;
   actual: number;
   target: number;
+  unit: string;
   ruleText?: string;
+  detail?: string;
   status: SystemRuleStatus;
   statusLabel: string;
   progress: number;
+}
+
+interface HabitGroupView {
+  id: string;
+  title: string;
+  emoji?: string;
+  done: number;
+  total: number;
+  pending: string[];
 }
 
 interface LifeAreaView {
@@ -96,6 +107,7 @@ interface LifeAreaView {
   timed: LinkedSystem[];
   trackedHabitIds: string[];
   doneHabits: number;
+  habitGroups: HabitGroupView[];
   effort: number;
   results: number;
   hasScore: boolean;
@@ -109,10 +121,91 @@ interface LifeAsSystemsProps {
   loading?: boolean;
 }
 
+const isProjectTask = (task: {
+  source?: string | null;
+  area_id?: string | null;
+}) =>
+  task.source === "project" ||
+  task.source === "projects" ||
+  task.area_id === "proyectos" ||
+  task.area_id === "proyectos-personales";
+
+function toLinked(view: SystemRuleView): LinkedSystem {
+  return {
+    id: view.id,
+    name: view.name,
+    actual: view.actual,
+    target: view.target,
+    unit: view.unit,
+    ruleText: view.text,
+    detail: view.detail,
+    status: view.status,
+    statusLabel: view.label,
+    progress: view.progress,
+  };
+}
+
+function buildHabitGroups(
+  config: AreaSystemConfig | undefined,
+  trackedHabitIds: string[],
+  completions: Record<string, boolean>,
+): HabitGroupView[] {
+  const tracked = new Set(trackedHabitIds);
+  const used = new Set<string>();
+  const groups: HabitGroupView[] = [];
+
+  const addGroup = (
+    id: string,
+    title: string,
+    emoji: string | undefined,
+    ids: string[],
+  ) => {
+    const valid = ids.filter(id => tracked.has(id));
+    if (valid.length === 0) return;
+    valid.forEach(id => used.add(id));
+
+    groups.push({
+      id,
+      title,
+      emoji,
+      total: valid.length,
+      done: valid.filter(id => !!completions[id]).length,
+      pending: valid
+        .filter(id => !completions[id])
+        .map(id => HABIT_META[id]?.name ?? id),
+    });
+  };
+
+  for (const section of config?.habitSections ?? []) {
+    addGroup(section.id, section.title, section.emoji, section.habitIds);
+  }
+
+  const rest = trackedHabitIds.filter(id => !used.has(id));
+  if (rest.length > 0) {
+    addGroup(
+      "otros",
+      (config?.habitSections?.length ?? 0) > 0
+        ? "Otros hábitos"
+        : "Hábitos de sostén",
+      undefined,
+      rest,
+    );
+  }
+
+  return groups;
+}
+
 /**
  * La Rueda de la Vida leída como sistemas: cada área muestra su diagnóstico,
  * los sistemas diarios que la alimentan y el sistema concreto que falla hoy.
  * Solo usa datos reales: sin meta => "sin registro", sin sistema => hueco.
+ *
+ * Los sistemas no son solo minutos:
+ *  - Universidad = bloques de estudio completados.
+ *  - Emprendimiento = bloques de trabajo completados.
+ *  - Proyectos = tareas del proyecto realizadas.
+ *  - Gym = rutina y grupos musculares que toca hoy según Gym 2.0.
+ *  - Áreas estructurales = hábitos de sostén agrupados por subárea.
  */
 export function LifeAsSystems({
   anchorDate,
@@ -125,37 +218,61 @@ export function LifeAsSystems({
     [rows, anchorKey],
   );
   const timeData = useMemo(() => todayRow?.time_data ?? {}, [todayRow]);
+  const completions = useMemo(
+    () => todayRow?.completions ?? {},
+    [todayRow],
+  );
 
   const { scores, loading: scoresLoading } = useAreaScores("month", "ambos");
+  const { blocks: dbBlocks, tasks, isBlockCompleted } = useDailyPlanData(anchorDate);
+  // Misma rutina que ve el usuario en el día (local); si no hay, la de la DB.
+  const { blocks: routineBlocks } = useRoutineBlocks();
+  const chronoBlocks = routineBlocks.length > 0 ? routineBlocks : dbBlocks;
+  const gymPlan = useGymDayPlan(anchorKey);
 
   const scoreById = useMemo(
     () => Object.fromEntries(scores.map(score => [score.id, score])),
     [scores],
   );
 
+  // Meta diaria combinada de idiomas según el plan real de la semana.
+  // Si el plan exige más de 30 min/día, la regla sube con él.
+  const languagePlanDay = useMemo(() => {
+    const weekStart = startOfWeek(new Date(`${anchorKey}T12:00:00`), {
+      weekStartsOn: 1,
+    });
+    const plan = getWeekLanguagePlans(weekStart);
+    const weekly =
+      (plan.italiano.minutesTarget || 0) + (plan.ingles.minutesTarget || 0);
+    return weekly > 0 ? Math.round(weekly / 7) : 0;
+  }, [anchorKey]);
+
   const fiveToday = useMemo(() => {
     return SYSTEM_RULE_IDS.flatMap(id => {
-      const rule = getSystemRule(id);
       const system = SYSTEM_BY_ID.get(id);
-      if (!rule || !system) return [];
+      if (!system) return [];
 
       const actual = systemActualMinutes(system, { timeData });
       const skipped =
         id === "idiomas"
           ? !!todayRow?.skipped?.italiano && !!todayRow?.skipped?.ingles
           : !!todayRow?.skipped?.[id];
-      const result = getSystemRuleStatus(rule, { minutes: actual, skipped });
+      const view = buildMinuteRuleView(id, actual, {
+        skipped,
+        planTargetMinutes: id === "idiomas" ? languagePlanDay : undefined,
+      });
+      if (!view) return [];
 
       return [{
         id,
-        name: rule.name,
-        actual,
-        target: rule.targetMinutes,
-        status: result.status,
-        statusLabel: result.label,
+        name: view.name,
+        actual: view.actual,
+        target: view.target,
+        status: view.status,
+        statusLabel: view.label,
       }];
     });
-  }, [timeData, todayRow]);
+  }, [timeData, todayRow, languagePlanDay]);
 
   const areas = useMemo<LifeAreaView[]>(() => {
     return POINT_B_AREAS.map(area => {
@@ -165,25 +282,63 @@ export function LifeAsSystems({
       const trackedHabitIds: string[] = [];
 
       for (const id of linkedIds) {
-        // Gym no es DAY_SYSTEM: se mide por workout_duration.
+        // Gym: rutina y grupos musculares del día según Gym 2.0.
         if (id === "gym") {
-          const actual = Number(todayRow?.workout_duration) || 0;
-          const target = 60;
-          const status: SystemRuleStatus =
-            actual >= target
-              ? "cumplido"
-              : actual > 0
-                ? "en-progreso"
-                : "sin-registro";
-          timed.push({
-            id,
-            name: "Gym",
-            actual,
-            target,
-            status,
-            statusLabel: STATUS_LABEL[status],
-            progress: Math.min(100, Math.round((actual / target) * 100)),
+          const view = buildGymRuleView({
+            plan: gymPlan,
+            minutes: Number(todayRow?.workout_duration) || 0,
+            done:
+              !!todayRow?.completions?.["gym"] ||
+              !!todayRow?.completions?.["entrenamiento-fisico"],
+            rest:
+              !!todayRow?.rest?.["gym"] ||
+              !!todayRow?.rest?.["entrenamiento-fisico"],
+            skipped:
+              !!todayRow?.skipped?.["gym"] ||
+              !!todayRow?.skipped?.["entrenamiento-fisico"],
           });
+          if (view) timed.push(toLinked(view));
+          continue;
+        }
+
+        // Universidad / Emprendimiento: bloques reales del plan del día.
+        if (id === "universidad" || id === "emprendimiento") {
+          const chrono = getAreaChrono(chronoBlocks, id);
+          // Horario fijo + bloques de enfoque (Deep Work / Focus) del área.
+          const dayBlocks = [...chrono.fixed, ...chrono.extra];
+          const completed = dayBlocks.filter(
+            block => block.id && isBlockCompleted(block.id),
+          ).length;
+
+          timed.push(
+            toLinked(
+              buildBlocksRuleView({
+                id,
+                name:
+                  HABIT_META[id]?.name ??
+                  (id === "universidad" ? "Universidad" : "Emprendimiento"),
+                noun: id === "universidad" ? "estudio" : "trabajo",
+                total: dayBlocks.length,
+                completed,
+                skipped: !!todayRow?.skipped?.[id],
+              }),
+            ),
+          );
+          continue;
+        }
+
+        // Proyectos: tareas del proyecto realizadas hoy.
+        if (id === "proyectos") {
+          const projectTasks = (tasks ?? []).filter(isProjectTask);
+          timed.push(
+            toLinked(
+              buildProjectTasksRuleView({
+                done: projectTasks.filter(task => task.completed).length,
+                total: projectTasks.length,
+                skipped: !!todayRow?.skipped?.[id],
+              }),
+            ),
+          );
           continue;
         }
 
@@ -191,50 +346,46 @@ export function LifeAsSystems({
         const system = meta?.system;
 
         if (system) {
-          const rule = getSystemRule(system.id);
           const actual = systemActualMinutes(system, { timeData });
-          const target = rule?.targetMinutes ?? systemMinForSpeed(system, "minimo");
           const skipped =
             system.id === "idiomas"
               ? !!todayRow?.skipped?.italiano && !!todayRow?.skipped?.ingles
               : !!todayRow?.skipped?.[system.id];
-          const result = rule
-            ? getSystemRuleStatus(rule, { minutes: actual, skipped })
-            : {
-                status: (actual >= target && target > 0
-                  ? "cumplido"
-                  : actual > 0
-                    ? "en-progreso"
-                    : "sin-registro") as SystemRuleStatus,
-                label:
-                  actual >= target && target > 0
-                    ? "Cumplido"
-                    : actual > 0
-                      ? "En curso"
-                      : "Sin registro",
-              };
 
-          timed.push({
-            id: system.id,
-            name: rule?.name ?? system.name,
-            actual,
-            target,
-            ruleText: rule?.text,
-            status: result.status,
-            statusLabel: result.label,
-            progress:
-              target > 0
-                ? Math.min(100, Math.round((actual / target) * 100))
-                : 0,
-          });
+          const minuteView = buildMinuteRuleView(system.id, actual, { skipped });
+          if (minuteView) {
+            timed.push(toLinked(minuteView));
+          } else {
+            // Sistemas sin regla fija (ej. Finanzas): mínimo real del sistema.
+            const target = systemMinForSpeed(system, "minimo");
+            timed.push(
+              toLinked(
+                buildRuleView({
+                  id: system.id,
+                  name: system.name,
+                  text: `${target} min diarios de ${system.name.toLowerCase()}`,
+                  actual,
+                  target,
+                  unit: "min",
+                  minimum: Math.min(1, target),
+                  skipped,
+                }),
+              ),
+            );
+          }
         } else if (meta) {
           trackedHabitIds.push(id);
         }
       }
 
       const doneHabits = trackedHabitIds.filter(
-        id => !!todayRow?.completions?.[id],
+        id => !!completions[id],
       ).length;
+      const habitGroups = buildHabitGroups(
+        config,
+        trackedHabitIds,
+        completions,
+      );
 
       const score = scoreById[area.id];
       const effort = Number(score?.esfuerzo) || 0;
@@ -259,6 +410,7 @@ export function LifeAsSystems({
         timed,
         trackedHabitIds,
         doneHabits,
+        habitGroups,
         effort,
         results,
         hasScore: !!score,
@@ -266,7 +418,16 @@ export function LifeAsSystems({
         failing,
       };
     });
-  }, [scoreById, timeData, todayRow]);
+  }, [
+    chronoBlocks,
+    completions,
+    gymPlan,
+    isBlockCompleted,
+    scoreById,
+    tasks,
+    timeData,
+    todayRow,
+  ]);
 
   if (loading || scoresLoading) {
     return (
@@ -366,6 +527,7 @@ export function LifeAsSystems({
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {groupAreas.map(area => {
                 const tone = DIAGNOSIS_TONE[area.diagnosis.tone];
+                const hasTarget = area.timed.some(system => system.target > 0);
 
                 return (
                   <Card key={area.id} className="border-border/60">
@@ -403,11 +565,11 @@ export function LifeAsSystems({
                         </p>
                       )}
 
-                      {area.timed.length > 0 ? (
+                      {area.timed.length > 0 && (
                         <div className="space-y-1">
                           {area.timed.map(system => (
                             <div
-                              key={system.id}
+                              key={`${area.id}-${system.id}`}
                               className="space-y-0.5 rounded-md border border-border/50 bg-muted/20 px-1.5 py-1"
                             >
                               <div className="flex items-center gap-1">
@@ -415,7 +577,8 @@ export function LifeAsSystems({
                                   {system.name}
                                 </span>
                                 <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground">
-                                  {system.actual}/{system.target || "—"} min
+                                  {system.actual}/{system.target || "—"}{" "}
+                                  {system.unit}
                                 </span>
                                 <span
                                   className={cn(
@@ -429,6 +592,11 @@ export function LifeAsSystems({
                               {system.ruleText && (
                                 <p className="text-[8px] leading-tight text-muted-foreground">
                                   {system.ruleText}
+                                </p>
+                              )}
+                              {system.detail && (
+                                <p className="text-[8px] font-medium leading-tight text-foreground/80">
+                                  {system.detail}
                                 </p>
                               )}
                               <Progress
@@ -445,27 +613,78 @@ export function LifeAsSystems({
                             </div>
                           ))}
                         </div>
-                      ) : area.trackedHabitIds.length > 0 ? (
-                        <div className="rounded-md border border-border/60 bg-muted/20 px-1.5 py-1">
-                          <p className="text-[9px] font-semibold">
-                            Hábitos diarios sin meta de minutos
-                          </p>
-                          <p className="text-[8px] text-muted-foreground">
-                            Se miden por cumplimiento, no por tiempo.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="rounded-md border border-dashed border-border/60 px-1.5 py-1">
-                          <p className="text-[9px] font-semibold">
-                            Hueco: sin sistema diario
-                          </p>
-                          {area.config?.systemNote && (
-                            <p className="text-[8px] leading-snug text-muted-foreground">
-                              {area.config.systemNote}
-                            </p>
-                          )}
+                      )}
+
+                      {area.habitGroups.length > 0 && (
+                        <div className="space-y-1">
+                          {area.habitGroups.map(group => (
+                            <div
+                              key={`${area.id}-${group.id}`}
+                              className="space-y-0.5 rounded-md border border-border/50 bg-muted/10 px-1.5 py-1"
+                            >
+                              <div className="flex items-center gap-1">
+                                <span className="truncate text-[10px] font-semibold">
+                                  {group.emoji ? `${group.emoji} ` : ""}
+                                  {group.title}
+                                </span>
+                                <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground">
+                                  {group.done}/{group.total} hábitos
+                                </span>
+                                <span
+                                  className={cn(
+                                    "text-[8px] font-bold",
+                                    group.done === group.total
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : group.done > 0
+                                        ? "text-sky-600 dark:text-sky-400"
+                                        : "text-muted-foreground",
+                                  )}
+                                >
+                                  {group.done === group.total
+                                    ? "Cumplido"
+                                    : group.done > 0
+                                      ? "En curso"
+                                      : "Sin registro"}
+                                </span>
+                              </div>
+                              {group.pending.length > 0 && (
+                                <p className="text-[8px] leading-tight text-muted-foreground">
+                                  Pendiente: {group.pending.join(" · ")}
+                                </p>
+                              )}
+                              <Progress
+                                value={
+                                  group.total > 0
+                                    ? Math.round(
+                                        (group.done / group.total) * 100,
+                                      )
+                                    : 0
+                                }
+                                className="h-1"
+                                indicatorClassName={
+                                  group.done === group.total
+                                    ? "bg-emerald-500"
+                                    : "bg-muted-foreground/40"
+                                }
+                              />
+                            </div>
+                          ))}
                         </div>
                       )}
+
+                      {area.timed.length === 0 &&
+                        area.habitGroups.length === 0 && (
+                          <div className="rounded-md border border-dashed border-border/60 px-1.5 py-1">
+                            <p className="text-[9px] font-semibold">
+                              Hueco: sin sistema diario
+                            </p>
+                            {area.config?.systemNote && (
+                              <p className="text-[8px] leading-snug text-muted-foreground">
+                                {area.config.systemNote}
+                              </p>
+                            )}
+                          </div>
+                        )}
 
                       {area.trackedHabitIds.length > 0 && (
                         <p className="text-[8px] text-muted-foreground">
@@ -480,21 +699,25 @@ export function LifeAsSystems({
                         className={cn(
                           "rounded-md px-1.5 py-1 text-[9px] font-semibold",
                           area.timed.length === 0
-                            ? area.trackedHabitIds.length > 0
+                            ? area.habitGroups.length > 0
                               ? "bg-muted/40 text-muted-foreground"
                               : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                             : area.failing
                               ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                              : hasTarget
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                : "bg-muted/40 text-muted-foreground",
                         )}
                       >
                         {area.timed.length === 0
-                          ? area.trackedHabitIds.length > 0
-                            ? "Sin meta de minutos: se mide por hábitos."
+                          ? area.habitGroups.length > 0
+                            ? "Se mide por los hábitos de sostén del área."
                             : "Este es el hueco que hay que cerrar con un sistema."
                           : area.failing
-                            ? `Falla: ${area.failing.name} · ${area.failing.actual}/${area.failing.target} min`
-                            : "Los sistemas del área están en pie."}
+                            ? `Falla: ${area.failing.name} · ${area.failing.actual}/${area.failing.target} ${area.failing.unit}`
+                            : hasTarget
+                              ? "Los sistemas del área están en pie."
+                              : "Sin metas registradas para hoy (datos reales)."}
                       </div>
 
                       {area.config?.systemNote &&

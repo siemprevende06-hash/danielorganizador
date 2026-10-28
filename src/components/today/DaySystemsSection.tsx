@@ -40,6 +40,8 @@ export function DaySystemsSection({
   countData,
   onCountChange,
   onChessResultChange,
+  tasks,
+  isBlockCompleted,
   waterData,
   onWaterToggle,
   mealPhotos,
@@ -68,6 +70,16 @@ export function DaySystemsSection({
   countData?: Record<string, number>;
   onCountChange?: (id: string, count: number) => void;
   onChessResultChange?: (result: ChessResultKey, value: number) => void;
+  /** Tareas del día (incluye proyectos): sistema de Proyectos. */
+  tasks?: Array<{
+    id: string;
+    title: string;
+    completed: boolean;
+    source?: string | null;
+    area_id?: string | null;
+  }>;
+  /** Bloques completados del día: sistema de Universidad/Emprendimiento. */
+  isBlockCompleted?: (blockId: string) => boolean;
   waterData?: Record<string, boolean>;
   onWaterToggle?: (id: string) => void;
   mealPhotos?: Record<string, string>;
@@ -178,6 +190,8 @@ export function DaySystemsSection({
     todayItems,
     generalTasks,
     onToggleGeneralTask: toggleGeneralTask,
+    isBlockCompleted,
+    tasks,
     subStats,
     getSpeed,
     setSpeed,

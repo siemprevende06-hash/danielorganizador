@@ -1,3 +1,6 @@
+/** Clave de localStorage donde Gym 2.0 persiste su estado (plan semanal incluido). */
+export const GYM_STATE_KEY = "gym20_state_v1";
+
 export type Mode = "reps" | "time" | "cardio";
 
 export interface ExConfig {

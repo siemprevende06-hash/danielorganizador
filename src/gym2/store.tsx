@@ -11,8 +11,9 @@ import {
 import { registerCustom } from "./lib/exercises";
 import { schedulePush, pullState, forcePush } from "./lib/sync";
 import type { GymState } from "./lib/types";
+import { GYM_STATE_KEY } from "./lib/types";
 
-const KEY = "gym20_state_v1";
+const KEY = GYM_STATE_KEY;
 
 export const DEF: GymState = {
   unit: "kg",

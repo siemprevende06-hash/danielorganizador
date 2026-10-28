@@ -13,10 +13,13 @@ export interface BlockCompletion {
   completion_date: string;
 }
 
-export const useBlockCompletions = () => {
+export const useBlockCompletions = (date?: Date | string) => {
   const [completions, setCompletions] = useState<BlockCompletion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const dateKey =
+    typeof date === 'string'
+      ? date
+      : format(date ?? new Date(), 'yyyy-MM-dd');
 
   const loadCompletions = useCallback(async () => {
     setIsLoading(true);
@@ -24,7 +27,7 @@ export const useBlockCompletions = () => {
       const { data, error } = await supabase
         .from('block_completions')
         .select('*')
-        .eq('completion_date', today);
+        .eq('completion_date', dateKey);
 
       if (error) throw error;
       setCompletions(data || []);
@@ -33,7 +36,7 @@ export const useBlockCompletions = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [today]);
+  }, [dateKey]);
 
   useEffect(() => {
     loadCompletions();
@@ -69,7 +72,7 @@ export const useBlockCompletions = () => {
           .from('block_completions')
           .insert({
             block_id: blockId,
-            completion_date: today,
+            completion_date: dateKey,
             completed: true,
             completed_at: new Date().toISOString(),
             tasks_total: tasksTotal,
@@ -84,7 +87,7 @@ export const useBlockCompletions = () => {
       console.error('Error toggling block:', error);
       toast.error('Error al actualizar bloque');
     }
-  }, [getBlockCompletion, today, loadCompletions]);
+  }, [getBlockCompletion, dateKey, loadCompletions]);
 
   const updateTasksCount = useCallback(async (blockId: string, tasksCompleted: number, tasksTotal: number) => {
     const existing = getBlockCompletion(blockId);
@@ -105,7 +108,7 @@ export const useBlockCompletions = () => {
           .from('block_completions')
           .insert({
             block_id: blockId,
-            completion_date: today,
+            completion_date: dateKey,
             tasks_completed: tasksCompleted,
             tasks_total: tasksTotal,
           });
@@ -117,7 +120,7 @@ export const useBlockCompletions = () => {
     } catch (error) {
       console.error('Error updating tasks count:', error);
     }
-  }, [getBlockCompletion, today, loadCompletions]);
+  }, [getBlockCompletion, dateKey, loadCompletions]);
 
   const getCompletedBlocksCount = useCallback((): number => {
     return completions.filter(c => c.completed).length;

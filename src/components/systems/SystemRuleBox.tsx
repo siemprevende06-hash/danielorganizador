@@ -1,9 +1,9 @@
 import { Shield, ShieldAlert, ShieldCheck, ShieldX, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  getSystemRule,
-  getSystemRuleStatus,
+  buildMinuteRuleView,
   type SystemRuleStatus,
+  type SystemRuleView,
 } from "@/lib/systemRules";
 
 const TONE: Record<
@@ -57,6 +57,73 @@ const ICON: Record<SystemRuleStatus, LucideIcon> = {
   "sin-meta": Shield,
 };
 
+interface SystemRuleBoxViewProps {
+  data: SystemRuleView;
+  compact?: boolean;
+  className?: string;
+}
+
+/**
+ * Caja "Sistema X: regla" para cualquier familia de sistema
+ * (minutos, bloques de estudio/trabajo, tareas, gym).
+ */
+export function SystemRuleBoxView({
+  data,
+  compact = false,
+  className,
+}: SystemRuleBoxViewProps) {
+  const tone = TONE[data.status];
+  const Icon = ICON[data.status];
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-1.5 rounded-lg border px-2 py-1.5 transition-colors",
+        tone.box,
+        className,
+      )}
+      title={data.detail ? `${data.text} · ${data.detail}` : data.text}
+    >
+      <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", tone.icon)} />
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "text-[9px] font-bold uppercase leading-tight tracking-wide",
+            tone.title,
+          )}
+        >
+          Sistema {data.name}
+        </p>
+        {!compact && (
+          <>
+            <p className="text-[9px] leading-tight text-muted-foreground">
+              {data.text}
+            </p>
+            {data.detail && (
+              <p className="text-[8px] leading-tight text-muted-foreground/90">
+                {data.detail}
+              </p>
+            )}
+            {data.target > 0 && (
+              <p className="mt-0.5 font-mono text-[8px] font-semibold tabular-nums text-muted-foreground">
+                {data.actual}/{data.target} {data.unit}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+      <span
+        className={cn(
+          "shrink-0 pt-0.5 text-[8px] font-bold uppercase tracking-wide",
+          tone.chip,
+        )}
+      >
+        {data.label}
+      </span>
+    </div>
+  );
+}
+
 interface SystemRuleBoxProps {
   habitId: string;
   minutes: number;
@@ -68,8 +135,9 @@ interface SystemRuleBoxProps {
 }
 
 /**
- * Caja "Sistema X: regla". Se pinta verde cuando se cumple la regla del
- * sistema, no solo la meta de velocidad del día.
+ * Caja de la regla fija de minutos (Lectura, Música, Ajedrez, Game, Idiomas).
+ * Se pinta verde cuando se cumple la regla del sistema, no solo la meta de
+ * velocidad del día.
  */
 export function SystemRuleBox({
   habitId,
@@ -79,46 +147,13 @@ export function SystemRuleBox({
   compact = false,
   className,
 }: SystemRuleBoxProps) {
-  const rule = getSystemRule(habitId, planTargetMinutes);
-  if (!rule) return null;
-
-  const result = getSystemRuleStatus(rule, { minutes, skipped });
-  const tone = TONE[result.status];
-  const Icon = ICON[result.status];
+  const view = buildMinuteRuleView(habitId, minutes, {
+    skipped,
+    planTargetMinutes,
+  });
+  if (!view) return null;
 
   return (
-    <div
-      className={cn(
-        "flex items-start gap-1.5 rounded-lg border px-2 py-1.5 transition-colors",
-        tone.box,
-        className,
-      )}
-      title={rule.text}
-    >
-      <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", tone.icon)} />
-      <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "text-[9px] font-bold uppercase leading-tight tracking-wide",
-            tone.title,
-          )}
-        >
-          Sistema {rule.name}
-        </p>
-        {!compact && (
-          <p className="text-[9px] leading-tight text-muted-foreground">
-            {rule.text}
-          </p>
-        )}
-      </div>
-      <span
-        className={cn(
-          "shrink-0 pt-0.5 text-[8px] font-bold uppercase tracking-wide",
-          tone.chip,
-        )}
-      >
-        {result.label}
-      </span>
-    </div>
+    <SystemRuleBoxView data={view} compact={compact} className={className} />
   );
 }

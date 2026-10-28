@@ -16,6 +16,11 @@ import {
 } from "@/lib/areaSystemsMap";
 import type { PointBArea } from "@/lib/definitions";
 import { CHRONO_AREAS, COUNT_AREAS, getAreaChrono } from "@/lib/systemSchedule";
+import {
+  buildBlocksRuleView,
+  buildProjectTasksRuleView,
+  type SystemRuleView,
+} from "@/lib/systemRules";
 import type { RoutineBlock } from "@/hooks/useRoutineBlocks";
 import { useMiniHabits } from "@/hooks/useMiniHabits";
 import type { AreaScore } from "@/hooks/useAreaScores";
@@ -37,6 +42,16 @@ const QUICK_ADD_MINUTES: Record<string, number[]> = {
   proyectos: [30, 80],
 };
 
+/** Tareas que pertenecen al sistema de Proyectos. */
+const isProjectTask = (task: {
+  source?: string | null;
+  area_id?: string | null;
+}) =>
+  task.source === "project" ||
+  task.source === "projects" ||
+  task.area_id === "proyectos" ||
+  task.area_id === "proyectos-personales";
+
 export interface AreaInteraction {
   blocks?: RoutineBlock[];
   /** Fecha ISO (yyyy-MM-dd) del día mostrado. */
@@ -57,6 +72,16 @@ export interface AreaInteraction {
   sparks?: Record<string, number[]>;
   weekTotals?: Record<string, number>;
   todayItems?: Record<string, TodayStripItem>;
+  /** Bloques de rutina completados (misma fuente que la línea de tiempo). */
+  isBlockCompleted?: (blockId: string) => boolean;
+  /** Tareas del día: alimenta el sistema de Proyectos (tareas realizadas). */
+  tasks?: Array<{
+    id: string;
+    title: string;
+    completed: boolean;
+    source?: string | null;
+    area_id?: string | null;
+  }>;
   generalTasks?: { planned: TodayTaskItem[]; doneCount: number; totalCount: number };
   onToggleGeneralTask?: (id: string, done: boolean) => void;
   subStats?: Record<string, { consistency: number; minutes: number }>;
@@ -129,6 +154,32 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
     const chrono = interaction.blocks && CHRONO_AREAS.has(meta.id)
       ? getAreaChrono(interaction.blocks, meta.id)
       : undefined;
+
+    // Universidad = bloques de estudio; Emprendimiento = bloques de trabajo.
+    // Proyectos = tareas del proyecto realizadas hoy.
+    let systemRule: SystemRuleView | null = null;
+    if (meta.id === "universidad" || meta.id === "emprendimiento") {
+      // Los bloques de estudio/trabajo pueden ser parte del horario fijo o
+      // bloques de enfoque (Deep Work / Focus) asignados al área.
+      const blocks = [...(chrono?.fixed ?? []), ...(chrono?.extra ?? [])];
+      systemRule = buildBlocksRuleView({
+        id: meta.id,
+        name: meta.name,
+        noun: meta.id === "universidad" ? "estudio" : "trabajo",
+        total: blocks.length,
+        completed: blocks.filter(
+          block => block.id && interaction.isBlockCompleted?.(block.id),
+        ).length,
+        skipped: !!interaction.skipped?.[meta.id],
+      });
+    } else if (meta.id === "proyectos") {
+      const projectTasks = (interaction.tasks ?? []).filter(isProjectTask);
+      systemRule = buildProjectTasksRuleView({
+        done: projectTasks.filter(task => task.completed).length,
+        total: projectTasks.length,
+        skipped: !!interaction.skipped?.[meta.id],
+      });
+    }
 
     if (meta.id === 'idiomas') {
       return (
@@ -217,6 +268,7 @@ export default function AreaSystemCard({ area, score, trackables, interaction, h
         fixedBlocks={chrono?.fixed}
         extraBlocks={chrono?.extra}
         showFixedCount={COUNT_AREAS.has(meta.id)}
+        systemRule={systemRule}
         waterDone={!!interaction.waterData?.[meta.id]}
         mealUrl={interaction.mealPhotos?.[meta.id]}
         wakeTime={interaction.wakeTime}
