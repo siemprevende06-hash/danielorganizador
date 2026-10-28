@@ -1,6 +1,6 @@
 import type { MonthlyPlanData, SongPlanType } from "@/hooks/useMonthlyPlan";
 
-export type PlanObjectiveKind = "libro" | "cancion" | "materia" | "proyecto";
+export type PlanObjectiveKind = "libro" | "cancion" | "materia" | "proyecto" | "elo";
 
 export interface PlanObjective {
   kind: PlanObjectiveKind;
@@ -38,22 +38,35 @@ export const OBJECTIVE_HABIT: Record<PlanObjectiveKind, string> = {
   cancion: "musica",
   materia: "universidad",
   proyecto: "proyectos",
+  elo: "ajedrez",
 };
 
 /**
- * Objetivos planificados (libros, canciones, asignaturas y proyectos) del plan
- * mensual agrupados por tarjeta de hábito: `lectura`, `musica`, `universidad`
- * y `proyectos`.
+ * Objetivos planificados (libros, canciones, asignaturas, proyectos y ELO de
+ * ajedrez) del plan mensual agrupados por tarjeta de hábito: `lectura`,
+ * `musica`, `universidad`, `proyectos` y `ajedrez`.
  *
- * Si se pasa `weekKey`, los libros/canciones se toman del reparto semanal
+ * Si se pasa `weekKey`, los libros/canciones/ELO se toman del reparto semanal
  * (`week_distribution`); si esa semana no tiene reparto, cae a los del mes.
  */
 export function buildHabitPlanObjectives(
   planData: MonthlyPlanData,
   resolved: ResolvedPlanItems,
-  opts?: { weekKey?: string }
+  opts?: {
+    weekKey?: string;
+    /** ELO objetivo del mes resuelto (plan mensual o respaldo de Chess). */
+    monthEloGoal?: number;
+    /** ELO de la semana resuelto (plan semanal o espejo en el plan mensual). */
+    weekElo?: { start?: number; target?: number } | null;
+  }
 ): Record<string, PlanObjective[]> {
-  const out: Record<string, PlanObjective[]> = { lectura: [], musica: [], universidad: [], proyectos: [] };
+  const out: Record<string, PlanObjective[]> = {
+    lectura: [],
+    musica: [],
+    universidad: [],
+    proyectos: [],
+    ajedrez: [],
+  };
 
   const weekSlot = opts?.weekKey ? planData.week_distribution?.[opts.weekKey] : undefined;
   const bookIds = weekSlot?.books?.length ? weekSlot.books : planData.books.selected;
@@ -104,6 +117,35 @@ export function buildHabitPlanObjectives(
     const p = projectMap.get(id);
     if (!p) continue;
     out.proyectos.push({ kind: "proyecto", id, title: p.name });
+  }
+
+  // --- Ajedrez: meta del mes o tramo de la semana ---
+  const monthEloGoal = Number(opts?.monthEloGoal) || Number(planData.chess?.elo_goal) || 0;
+  const monthObjective: PlanObjective = {
+    kind: "elo",
+    id: "elo-mes",
+    title: `${monthEloGoal} ELO`,
+    subtitle: "Objetivo del mes",
+    tag: "Mes",
+  };
+
+  if (opts?.weekKey) {
+    const start = Number(opts.weekElo?.start) || Number(weekSlot?.elo_start) || 0;
+    const target = Number(opts.weekElo?.target) || Number(weekSlot?.elo_target) || 0;
+    if (target > 0) {
+      out.ajedrez.push({
+        kind: "elo",
+        id: `elo-sem-${opts.weekKey}`,
+        title: `${target} ELO`,
+        subtitle: start > 0 && start !== target ? `${start} → ${target}` : "Objetivo de la semana",
+        tag: "Semana",
+      });
+    } else if (monthEloGoal > 0) {
+      // Sin meta semanal, se muestra la del mes (igual que con libros/canciones).
+      out.ajedrez.push(monthObjective);
+    }
+  } else if (monthEloGoal > 0) {
+    out.ajedrez.push(monthObjective);
   }
 
   return out;

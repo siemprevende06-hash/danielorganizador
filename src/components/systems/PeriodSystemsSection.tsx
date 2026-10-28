@@ -7,6 +7,7 @@ import { useSystemStreaks } from "@/hooks/useSystemStreaks";
 import { usePeriodSystemsData } from "@/hooks/usePeriodSystemsData";
 import { useWeekFocusItems } from "@/hooks/useWeekFocusItems";
 import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
+import { useChessGoalsSummary } from "@/hooks/useChessGoalsSummary";
 import { buildHabitPlanObjectives } from "@/lib/planObjectives";
 import {
   ALL_TRACKABLE_IDS,
@@ -47,12 +48,18 @@ export function PeriodSystemsSection({
 
   const monthDate = startOfMonth(start);
   const { planData, books, songs, projects, subjects } = useMonthlyPlan(monthDate);
+  const chessGoals = useChessGoalsSummary();
+  const monthEloGoal = Number(planData.chess?.elo_goal) || chessGoals.targetElo || 0;
   const objectivesByHabit = useMemo(
     () =>
       period === "mes"
-        ? buildHabitPlanObjectives(planData, { books, songs, projects, subjects })
+        ? buildHabitPlanObjectives(
+            planData,
+            { books, songs, projects, subjects },
+            { monthEloGoal }
+          )
         : {},
-    [period, planData, books, songs, projects, subjects]
+    [period, planData, books, songs, projects, subjects, monthEloGoal]
   );
 
   const [activeGroup, setActiveGroup] = useState<PointBGroup | null>(null);

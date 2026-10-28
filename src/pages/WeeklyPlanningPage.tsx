@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { format, startOfWeek, endOfMonth, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -130,22 +130,45 @@ export default function WeeklyPlanningPage() {
     return Math.min(monthEloGoal, chessCurrentElo + step);
   })();
 
+  /** Refleja el tramo semanal en el plan del mes (lo leen las tarjetas de Sistemas). */
+  const syncChessEloToMonth = useCallback((start: number, target: number) => {
+    updateMonthPlan(prev => {
+      const distribution = { ...(prev.week_distribution || {}) };
+      const current = distribution[weekKey] || { books: [], songs: [] };
+      distribution[weekKey] = { ...current, elo_start: start, elo_target: target };
+      return { ...prev, week_distribution: distribution };
+    });
+  }, [updateMonthPlan, weekKey]);
+
   useEffect(() => {
     if (loading || monthLoading || areaData.loading) return;
     if (autoEloWeekRef.current === weekKey) return;
     autoEloWeekRef.current = weekKey;
-    if (!suggestedWeekElo || planData.chessEloTarget) return;
-    updatePlanData(prev => prev.chessEloTarget
-      ? prev
-      : { ...prev, chessEloStart: chessCurrentElo ?? 0, chessEloTarget: suggestedWeekElo });
+
+    const savedTarget = planData.chessEloTarget || 0;
+    const start = planData.chessEloStart || chessCurrentElo || 0;
+    const target = savedTarget || suggestedWeekElo;
+    if (!target) return;
+
+    if (!savedTarget) {
+      updatePlanData(prev => prev.chessEloTarget
+        ? prev
+        : { ...prev, chessEloStart: start, chessEloTarget: target });
+    }
+    if (Number(monthlyPlan.week_distribution?.[weekKey]?.elo_target) !== target) {
+      syncChessEloToMonth(start, target);
+    }
   }, [
     loading,
     monthLoading,
     areaData.loading,
     suggestedWeekElo,
     chessCurrentElo,
+    planData.chessEloStart,
     planData.chessEloTarget,
+    monthlyPlan.week_distribution,
     updatePlanData,
+    syncChessEloToMonth,
     weekKey,
   ]);
 
@@ -153,11 +176,13 @@ export default function WeeklyPlanningPage() {
     const current = chessCurrentElo ?? 0;
     const ceiling = monthEloGoal > 0 ? Math.max(monthEloGoal, current) : 0;
     const next = ceiling > 0 ? Math.min(value, ceiling) : Math.max(0, value);
+    const start = planData.chessEloStart || current;
     updatePlanData(prev => ({
       ...prev,
       chessEloStart: prev.chessEloStart || current,
       chessEloTarget: Math.max(0, next),
     }));
+    syncChessEloToMonth(start, Math.max(0, next));
   };
 
   useEffect(() => {

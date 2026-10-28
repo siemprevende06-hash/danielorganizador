@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { startOfWeek } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Link } from "react-router-dom";
 import { useReadingLibrary } from "@/hooks/useReadingLibrary";
 import { useMusicRepertoire, type Song } from "@/hooks/useMusicRepertoire";
 import { useChessTracking } from "@/hooks/useChessTracking";
+import { useWeekEloPlan } from "@/hooks/useWeekEloPlan";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
@@ -315,9 +317,13 @@ const ChessCard = ({
 
   const todayPct = Math.min(100, Math.round((todayMin / MAX_GOAL) * 100));
   const monthlyPct = goals?.target_games_per_month ? Math.min(100, Math.round((stats.month.games / goals.target_games_per_month) * 100)) : 0;
-  const eloGap = (goals?.target_elo || 0) - stats.currentElo;
+  const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const weekElo = useWeekEloPlan(weekStart);
+  const monthTarget = goals?.target_elo || 0;
+  const weekTarget = weekElo.target || monthTarget;
+  const weekStartElo = weekElo.start || stats.currentElo;
+  const eloGap = weekTarget - stats.currentElo;
   const eloCurrent = stats.currentElo || 0;
-  const eloTarget = goals?.target_elo || 0;
 
   return (
     <Card className={cn("overflow-hidden p-0 ring-2 transition-all", sem.ring)}>
@@ -327,8 +333,8 @@ const ChessCard = ({
           <span className="text-white font-semibold text-sm">Ajedrez</span>
         </div>
         <div className="flex items-center gap-2">
-          {eloTarget > 0 && (
-            <span className="text-[10px] text-white/80 font-medium">ELO {eloCurrent} → {eloTarget}</span>
+          {weekTarget > 0 && (
+            <span className="text-[10px] text-white/80 font-medium">ELO {eloCurrent} → {weekTarget}</span>
           )}
           <Link to="/chess"><ArrowRight className="h-4 w-4 text-white/80" /></Link>
         </div>
@@ -340,7 +346,10 @@ const ChessCard = ({
         <div className="flex items-baseline justify-between">
           <div>
             <p className="text-2xl font-bold">{stats.currentElo}</p>
-            <p className="text-[10px] text-muted-foreground">ELO {goals?.target_elo ? `· obj ${goals.target_elo}` : ""}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {weekTarget > 0 ? `Semana ${weekStartElo} → ${weekTarget}` : "Sin meta semanal"}
+              {monthTarget > 0 && monthTarget !== weekTarget ? ` · mes ${monthTarget}` : ""}
+            </p>
           </div>
           <Link to="/chess">
             <Button size="sm" variant="outline" className="h-7 text-[11px]"><Plus className="h-3 w-3" /> Sesión</Button>
@@ -356,7 +365,11 @@ const ChessCard = ({
           </div>
           <Progress value={monthlyPct} className="h-1.5" />
           <p className={cn("text-[9px] text-center", eloGap > 0 ? "text-muted-foreground" : "text-green-600")}>
-            {eloGap > 0 ? `A ${eloGap} pts de tu ELO objetivo` : "ELO objetivo alcanzado ✓"}
+            {weekTarget <= 0
+              ? "Sin meta semanal planificada"
+              : eloGap > 0
+                ? `A ${eloGap} pts de tu ELO semanal`
+                : "Meta semanal alcanzada ✓"}
           </p>
         </div>
 

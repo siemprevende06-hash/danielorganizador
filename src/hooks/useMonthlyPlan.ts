@@ -22,6 +22,10 @@ export interface WeekBookSongDistribution {
   learning_song_id?: string | null;
   /** Canción de la semana que se quiere dominar. */
   mastering_song_id?: string | null;
+  /** ELO al planificar la semana (espejo del plan semanal). */
+  elo_start?: number | null;
+  /** ELO objetivo de la semana (espejo del plan semanal). */
+  elo_target?: number | null;
 }
 
 export type SongPlanType = 'learned' | 'mastered' | 'recorded';

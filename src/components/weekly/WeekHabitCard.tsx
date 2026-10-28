@@ -21,6 +21,7 @@ const OBJECTIVE_EMOJI: Record<PlanObjectiveKind, string> = {
   cancion: "🎹",
   materia: "🎓",
   proyecto: "📦",
+  elo: "♟️",
 };
 
 interface WeekTier {
