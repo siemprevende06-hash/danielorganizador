@@ -182,6 +182,8 @@ export interface GameWeekPlan {
   challenge: string;
   actionsTarget: number;
   numbersTarget: number;
+  /** XP objetivo de la semana (0 = reparto del objetivo mensual). */
+  xpTarget: number;
 }
 
 export interface GameQuarterPlan {
@@ -197,7 +199,7 @@ export function emptyGameMonthPlan(): GameMonthPlan {
 }
 
 export function emptyGameWeekPlan(): GameWeekPlan {
-  return { focusSkill: '', challenge: '', actionsTarget: 0, numbersTarget: 0 };
+  return { focusSkill: '', challenge: '', actionsTarget: 0, numbersTarget: 0, xpTarget: 0 };
 }
 
 export function emptyGameQuarterPlan(): GameQuarterPlan {
@@ -238,6 +240,7 @@ export function readGameWeekPlan(raw: unknown): GameWeekPlan {
     challenge: str(source.challenge),
     actionsTarget: num(source.actionsTarget ?? source.actions_target),
     numbersTarget: num(source.numbersTarget ?? source.numbers_target),
+    xpTarget: num(source.xpTarget ?? source.xp_target),
   };
 }
 
@@ -381,7 +384,7 @@ export function getWeekGamePlan(weekStart: Date): GameWeekPlan {
   const mirrored = getMirroredWeekGame(weekStart);
   if (mirrored) {
     const parsed = readGameWeekPlan(mirrored);
-    if (parsed.focusSkill || parsed.challenge || parsed.actionsTarget || parsed.numbersTarget) return parsed;
+    if (parsed.focusSkill || parsed.challenge || parsed.actionsTarget || parsed.numbersTarget || parsed.xpTarget) return parsed;
   }
   const weekId = format(startOfWeek(weekStart, { weekStartsOn: 1 }), 'yyyy-ww');
   const weekly = readJson<{ game?: unknown }>(`weekly_plan_${weekId}`);

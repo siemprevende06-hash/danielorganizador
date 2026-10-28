@@ -722,7 +722,7 @@ export default function DailyView() {
                 />
               </div>
               <div>
-                <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} italianoTime={data.timeData?.italiano || 0} inglesTime={data.timeData?.ingles || 0} onItalianoTimeChange={(m) => setTimeValue('italiano', m)} onInglesTimeChange={(m) => setTimeValue('ingles', m)} skipped={data.skipped} onSkipToggle={toggleSkip} />
+                <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} italianoTime={data.timeData?.italiano || 0} inglesTime={data.timeData?.ingles || 0} onItalianoTimeChange={(m) => setTimeValue('italiano', m)} onInglesTimeChange={(m) => setTimeValue('ingles', m)} skipped={data.skipped} onSkipToggle={toggleSkip} date={format(selectedDate, 'yyyy-MM-dd')} />
               </div>
             </CardContent>
           </Card>

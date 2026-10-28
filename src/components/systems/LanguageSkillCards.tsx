@@ -11,6 +11,8 @@ import { getCoverGradient } from '@/components/areas/AreaCover';
 import { SystemChronoBox } from '@/components/today/systems/SystemChronoBox';
 import { useChronoTime } from '@/hooks/useChronoTime';
 import { useLanguageStats } from '@/hooks/useLanguageStats';
+import { getDayGoalEffective } from '@/lib/hierarchy';
+import { GoalMeter } from '@/components/goals/GoalMeter';
 import {
   LANGUAGE_SKILLS,
   LANGUAGE_LABELS,
@@ -100,14 +102,21 @@ export const LanguageSkillCards = ({
   }, []);
 
   const weekStart = useMemo(
-    () => startOfWeek(new Date(`${today}T12:00:00`), { weekStartsOn: 1 }),
-    [today],
+    () => startOfWeek(new Date(`${date ?? today}T12:00:00`), { weekStartsOn: 1 }),
+    [date, today],
   );
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
   const { stats } = useLanguageStats(weekStart, weekEnd);
   const weekPlan = useMemo(() => getWeekLanguagePlans(weekStart), [weekStart]);
   const langStats = stats[activeLang];
   const focusSkill = LANGUAGE_SKILLS.find(s => s.id === weekPlan[activeLang].focusSkill) ?? null;
+  const dayGoal = useMemo(() => {
+    // La meta semanal del plan manda; si no existe, se usa la jerarquía
+    // (mes → semana → día) para no inventar un objetivo.
+    const weekTarget = weekPlan[activeLang].minutesTarget;
+    if (weekTarget > 0) return Math.round(weekTarget / 7);
+    return getDayGoalEffective(new Date(`${date ?? today}T12:00:00`), activeLang);
+  }, [date, today, activeLang, weekPlan]);
 
   const applyTotalToLanguages = (nextTotal: number) => {
     const target = Math.max(0, Math.round(nextTotal));
@@ -137,8 +146,8 @@ export const LanguageSkillCards = ({
   const totalItems = SKILLS.length + (showPassive ? PASSIVE.length : 0);
   const totalDone = doneCount + passiveDone;
 
-  const minTime = 15;
-  const maxTime = 30;
+  const hasDayGoal = dayGoal > 0;
+  const goalReached = hasDayGoal && currentTime >= dayGoal;
 
   const ring = totalDone === 0
     ? 'ring-red-500/40'
@@ -146,11 +155,11 @@ export const LanguageSkillCards = ({
       ? 'ring-green-500/60'
       : 'ring-blue-500/60';
 
-  const timeColor = currentTime >= maxTime
-    ? 'ring-green-500/60'
-    : currentTime >= minTime
-      ? 'ring-blue-500/60'
-      : 'ring-red-500/40';
+  const timeColor = currentTime <= 0
+    ? 'ring-red-500/40'
+    : goalReached
+      ? 'ring-green-500/60'
+      : 'ring-blue-500/60';
 
   const setTime = (value: number) => {
     const minutes = Math.max(0, Math.round(value) || 0);
@@ -183,7 +192,7 @@ export const LanguageSkillCards = ({
         </div>
         <div className="text-right">
           <span className="text-lg font-bold text-emerald-600 tabular-nums">{currentTime}</span>
-          <span className="text-xs text-muted-foreground">/{maxTime} min</span>
+          <span className="text-xs text-muted-foreground">{hasDayGoal ? `/${dayGoal} min` : ' min'}</span>
           <div className="text-[9px] font-bold text-emerald-600">{totalDone}/{totalItems} hoy</div>
         </div>
       </div>
@@ -280,13 +289,22 @@ export const LanguageSkillCards = ({
         </button>
         <div className="flex-1" />
         <div className="flex items-center gap-1">
-          <span className={cn('text-[9px] font-medium', currentTime >= maxTime ? 'text-green-600' : currentTime >= minTime ? 'text-blue-600' : 'text-red-500')}>
-            {currentTime >= maxTime ? 'Máx ✓' : currentTime >= minTime ? 'Mín ✓' : '—'}
+          <span className={cn('text-[9px] font-medium', goalReached ? 'text-green-600' : currentTime > 0 ? 'text-blue-600' : 'text-red-500')}>
+            {goalReached ? 'Meta ✓' : hasDayGoal ? `${Math.max(0, dayGoal - currentTime)} min` : currentTime > 0 ? 'Sin meta' : '—'}
           </span>
-          <div className={cn('w-2 h-2 rounded-full', currentTime >= maxTime ? 'bg-green-500' : currentTime >= minTime ? 'bg-blue-500' : 'bg-red-500')} />
+          <div className={cn('w-2 h-2 rounded-full', goalReached ? 'bg-green-500' : currentTime > 0 ? 'bg-blue-500' : 'bg-red-500')} />
         </div>
       </div>
       <p className="text-[9px] text-muted-foreground text-center -mt-1">Se guarda automáticamente</p>
+
+      <GoalMeter
+        label={`Objetivo de hoy · ${LANGUAGE_LABELS[activeLang]}`}
+        value={currentTime}
+        goal={dayGoal}
+        unit=" min"
+        tone={activeLang === 'ingles' ? 'sky' : 'indigo'}
+        emptyLabel="sin meta en el plan"
+      />
 
       {/* Resumen real de la semana */}
       <div className="grid grid-cols-3 gap-1.5 border-t border-border/40 pt-2">

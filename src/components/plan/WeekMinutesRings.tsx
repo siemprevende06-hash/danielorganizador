@@ -22,6 +22,7 @@ function Ring({
   label,
   sublabel,
   center,
+  suffix = 'm',
 }: {
   value: number;
   goal: number;
@@ -31,10 +32,11 @@ function Ring({
   label: string;
   sublabel?: string;
   center?: React.ReactNode;
+  suffix?: string;
 }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const pct = goal > 0 ? Math.min(value / goal, 1) : value > 0 ? 1 : 0;
+  const pct = goal > 0 ? Math.min(value / goal, 1) : 0;
   const over = goal > 0 && value > goal;
 
   return (
@@ -57,7 +59,7 @@ function Ring({
             <>
               <span className="text-[11px] font-bold tabular-nums leading-none">{goal > 0 ? `${Math.round((value / goal) * 100)}%` : '—'}</span>
               <span className="text-[8px] tabular-nums text-muted-foreground leading-none mt-0.5">
-                {value}/{goal}m
+                {goal > 0 ? `${value}/${goal}${suffix}` : `${value}${suffix}`}
               </span>
             </>
           )}

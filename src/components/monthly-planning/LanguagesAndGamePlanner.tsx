@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Languages, Flame, Target, Sparkles, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MonthlyPlanData } from '@/hooks/useMonthlyPlan';
+import { GoalMeter } from '@/components/goals/GoalMeter';
 import { useLanguageStats } from '@/hooks/useLanguageStats';
 import { useGameTracking } from '@/hooks/useGameTracking';
 import {
@@ -157,6 +158,16 @@ export function LanguagesAndGamePlanner({ month, planData, updatePlanData }: Pro
                   </button>
                 </div>
 
+                <GoalMeter
+                  label="Minutos reales vs objetivo"
+                  value={actual.minutes}
+                  goal={plan.monthMinutes}
+                  unit=" min"
+                  tone={lang === 'ingles' ? 'sky' : 'indigo'}
+                  size="xs"
+                  emptyLabel="sin objetivo"
+                />
+
                 <Input
                   value={plan.milestone}
                   onChange={e => saveLanguage(lang, { milestone: e.target.value })}
@@ -214,10 +225,14 @@ export function LanguagesAndGamePlanner({ month, planData, updatePlanData }: Pro
             </Badge>
           </div>
 
-          <div className="rounded-lg bg-muted/40 p-2 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg bg-muted/40 p-2 grid grid-cols-4 gap-2 text-center">
             <div>
               <p className="text-[13px] font-bold tabular-nums">{gameStats.activeDays}</p>
               <p className="text-[8px] uppercase tracking-wide text-muted-foreground">días activos</p>
+            </div>
+            <div>
+              <p className="text-[13px] font-bold tabular-nums">{gameStats.minutes}</p>
+              <p className="text-[8px] uppercase tracking-wide text-muted-foreground">minutos</p>
             </div>
             <div>
               <p className="text-[13px] font-bold tabular-nums">{gameStats.actions}</p>
@@ -227,6 +242,13 @@ export function LanguagesAndGamePlanner({ month, planData, updatePlanData }: Pro
               <p className="text-[13px] font-bold tabular-nums">{gameStats.citas}</p>
               <p className="text-[8px] uppercase tracking-wide text-muted-foreground">citas</p>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
+            <GoalMeter label="XP del mes" value={gameStats.xp} goal={gameMonth.xpGoal} unit=" XP" tone="rose" size="xs" />
+            <GoalMeter label="Acciones" value={gameStats.actions} goal={gameMonth.actionsGoal} tone="rose" size="xs" />
+            <GoalMeter label="Números" value={gameStats.numbers} goal={gameMonth.numbersGoal} tone="rose" size="xs" />
+            <GoalMeter label="Citas" value={gameStats.citas} goal={gameMonth.citasGoal} tone="rose" size="xs" />
           </div>
 
           <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">

@@ -133,7 +133,11 @@ export default function WeeklyPlanningPage() {
       distribution[weekKey] = { ...current, languages: next };
       return { ...prev, week_distribution: distribution };
     });
-  }, [languageWeek, updatePlanData, updateMonthPlan, weekKey]);
+    // La meta semanal de minutos es la misma que usan el anillo y el día.
+    if (patch.minutesTarget !== undefined) {
+      setWeekGoal(weekStart, lang, Math.max(0, patch.minutesTarget || 0));
+    }
+  }, [languageWeek, updatePlanData, updateMonthPlan, weekKey, weekStart]);
 
   /** Guarda el foco/reto de Game y lo refleja en el plan del mes. */
   const updateGameWeek = useCallback((patch: Partial<GameWeekPlan>) => {

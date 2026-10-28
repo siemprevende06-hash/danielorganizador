@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGameTracking } from '@/hooks/useGameTracking';
+import { getDayGoalEffective } from '@/lib/hierarchy';
+import { GoalMeter } from '@/components/goals/GoalMeter';
 import {
   gameDayXp,
   gameLevel,
@@ -88,6 +90,7 @@ export function GameCard({
   const { stats, totalXp } = useGameTracking(day, day);
   const weekPlan = useMemo(() => getWeekGamePlan(weekStart), [weekStart]);
   const monthPlan = useMemo(() => getMonthGamePlan(day), [day]);
+  const dayGoal = useMemo(() => getDayGoalEffective(day, 'game'), [day]);
 
   const liveXp = gameDayXp({
     minutes,
@@ -133,6 +136,15 @@ export function GameCard({
           <span>{level.xpToNext} XP para el nivel {level.level + 1}</span>
         </div>
       </div>
+
+      <GoalMeter
+        label="Minutos de hoy"
+        value={minutes}
+        goal={dayGoal}
+        unit=" min"
+        tone="rose"
+        emptyLabel="sin meta en el plan"
+      />
 
       <div className="flex items-center gap-2 rounded-lg ring-2 ring-rose-500/20 p-1.5">
         <Clock className="h-4 w-4 text-muted-foreground shrink-0" />

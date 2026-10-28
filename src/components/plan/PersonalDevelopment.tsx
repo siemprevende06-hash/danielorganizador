@@ -5,7 +5,7 @@ import {
   BookOpen, Brain, Flame, Languages, Music, Sparkles, Target, Timer, Trophy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getWeekGoalEffective, setWeekGoal } from '@/lib/hierarchy';
+import { getWeekGoalEffective, getWeeksOfMonth, setWeekGoal } from '@/lib/hierarchy';
 import type { WeeklyAreaData } from '@/hooks/useWeeklyPlanData';
 import { useGameTracking } from '@/hooks/useGameTracking';
 import {
@@ -18,7 +18,6 @@ import {
 } from '@/lib/languagePlan';
 import {
   GAME_SKILLS,
-  GAME_XP,
   type GameMonthPlan,
   type GameWeekPlan,
 } from '@/lib/game';
@@ -165,10 +164,25 @@ export function PersonalDevelopment({
   const lecturaGoal = getWeekGoalEffective(weekStart, 'lectura');
   const musicaGoal = getWeekGoalEffective(weekStart, 'musica');
   const ajedrezGoal = getWeekGoalEffective(weekStart, 'ajedrez');
-  const inglesGoal = getWeekGoalEffective(weekStart, 'ingles');
-  const italianoGoal = getWeekGoalEffective(weekStart, 'italiano');
+  const inglesGoal = languageWeek.ingles.minutesTarget > 0
+    ? languageWeek.ingles.minutesTarget
+    : getWeekGoalEffective(weekStart, 'ingles');
+  const italianoGoal = languageWeek.italiano.minutesTarget > 0
+    ? languageWeek.italiano.minutesTarget
+    : getWeekGoalEffective(weekStart, 'italiano');
   const gameGoal = getWeekGoalEffective(weekStart, 'game');
   const gymGoal = getWeekGoalEffective(weekStart, 'gym');
+
+  // El anillo de Game mide XP: meta explícita de la semana o reparto del mes.
+  const weeksOfMonth = Math.max(
+    1,
+    getWeeksOfMonth(new Date(weekStart.getFullYear(), weekStart.getMonth(), 1)).length,
+  );
+  const gameXpGoal = gameWeek.xpTarget > 0
+    ? gameWeek.xpTarget
+    : gameMonth.xpGoal > 0
+      ? Math.round(gameMonth.xpGoal / weeksOfMonth)
+      : 0;
 
   const idiomasTotal = data.idiomas.inglesMinutes + data.idiomas.italianoMinutes;
   const idiomasGoal = inglesGoal + italianoGoal;
@@ -358,7 +372,7 @@ export function PersonalDevelopment({
                     <span className={cn('text-[10px] font-bold', view.text)}>{LANGUAGE_LABELS[lang]}</span>
                     <span className="text-[8px] rounded bg-muted px-1 py-0.5 font-semibold">{languageMonth[lang].level}</span>
                     <span className="ml-auto text-[9px] tabular-nums text-muted-foreground">
-                      {view.stats.minutes}/{view.goal}m · {view.stats.activeDays}d
+                      {view.goal > 0 ? `${view.stats.minutes}/${view.goal}m` : `${view.stats.minutes} min`} · {view.stats.activeDays}d
                     </span>
                   </div>
                   <div className="flex gap-0.5">
@@ -485,12 +499,13 @@ export function PersonalDevelopment({
         <Tile title="Game · Seducción" icon={<Flame className="w-3.5 h-3.5" />} accent="text-rose-600 dark:text-rose-400">
           <div className="flex items-center gap-2.5">
             <Ring
-              label={`Nv ${gameLevelInfo.level}`}
-              value={gameLevelInfo.xpIntoLevel}
-              goal={GAME_XP.levelXp}
+              label="XP semanal"
+              value={data.game.xp}
+              goal={gameXpGoal}
               size={58}
               stroke={5}
               color="#f43f5e"
+              suffix=" XP"
             />
             <div className="flex-1 space-y-1">
               <div className="flex items-center justify-between text-[10px]">
@@ -498,18 +513,32 @@ export function PersonalDevelopment({
                 <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400">{data.game.xp} XP</span>
               </div>
               <div className="flex items-center justify-between text-[10px]">
-                <span className="text-muted-foreground">XP total / nivel</span>
-                <span className="font-bold tabular-nums">{totalXp} · Nv {gameLevelInfo.level}</span>
+                <span className="text-muted-foreground">Nivel</span>
+                <span className="font-bold tabular-nums">Nv {gameLevelInfo.level} · {totalXp} XP total</span>
               </div>
               <div className="flex items-center justify-between text-[10px]">
                 <span className="text-muted-foreground">Minutos</span>
-                <span className="font-bold tabular-nums">{data.game.minutos}/{gameGoal}m</span>
+                <span className="font-bold tabular-nums">
+                  {gameGoal > 0 ? `${data.game.minutos}/${gameGoal}m` : `${data.game.minutos} min`}
+                </span>
               </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-rose-500" style={{ width: `${gameLevelInfo.progress}%` }} />
+              <div className="flex items-center justify-between gap-1 text-[10px]">
+                <span className="text-muted-foreground shrink-0">Meta XP semanal</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={gameWeek.xpTarget || ''}
+                  placeholder={gameXpGoal > 0 ? String(gameXpGoal) : '0'}
+                  onChange={e => onGameWeekChange({ xpTarget: Math.max(0, parseInt(e.target.value) || 0) })}
+                  className="h-6 w-16 text-[9px] text-center tabular-nums"
+                />
               </div>
               <p className="text-[9px] text-muted-foreground">
-                Faltan {gameLevelInfo.xpToNext} XP para el nivel {gameLevelInfo.level + 1}.
+                {gameXpGoal <= 0
+                  ? 'Sin meta semanal: escribe una o define el XP del mes.'
+                  : data.game.xp >= gameXpGoal
+                    ? 'Meta semanal alcanzada ✓'
+                    : `Faltan ${gameXpGoal - data.game.xp} XP para la meta semanal.`}
               </p>
             </div>
           </div>
