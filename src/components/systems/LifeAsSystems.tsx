@@ -193,7 +193,7 @@ export function LifeAsSystems({
         if (system) {
           const rule = getSystemRule(system.id);
           const actual = systemActualMinutes(system, { timeData });
-          const target = rule?.targetMinutes ?? systemMinForSpeed(system, "maximo");
+          const target = rule?.targetMinutes ?? systemMinForSpeed(system, "minimo");
           const skipped =
             system.id === "idiomas"
               ? !!todayRow?.skipped?.italiano && !!todayRow?.skipped?.ingles
@@ -311,7 +311,7 @@ export function LifeAsSystems({
             fuerza de voluntad: es una regla que no se está ejecutando.
           </p>
           <p className="text-[9px] text-muted-foreground">
-            Diagnóstico con datos reales de la Rueda (últimos 30 días) y del día
+            Diagnóstico actual de la Rueda (últimos 30 días) y estado del día
             seleccionado.
           </p>
 
