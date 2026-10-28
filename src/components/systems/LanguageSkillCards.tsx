@@ -1,17 +1,23 @@
-// @ts-nocheck
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { BookText, BookOpen, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check, Clock, Tv, Gamepad2, XCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { WeekStreakBar } from "./WeekStreakBar";
-import { supabase } from "@/integrations/supabase/client";
-import { getCubaDate } from "@/lib/cubaTime";
-import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
-import { getCoverGradient } from "@/components/areas/AreaCover";
-import { SystemChronoBox } from "@/components/today/systems/SystemChronoBox";
-import { useChronoTime } from "@/hooks/useChronoTime";
-import type { ChronoRange } from "@/lib/systemSchedule";
+import { useState, useMemo, useEffect } from 'react';
+import { startOfWeek, addDays } from 'date-fns';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { BookText, BookOpen, Headphones, MessageCircle, PenLine, Languages as LangIcon, Sparkles, Check, Clock, Tv, Gamepad2, XCircle, Flame, Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { WeekStreakBar } from './WeekStreakBar';
+import { getCubaDate } from '@/lib/cubaTime';
+import { useAreaCovers, coverKey } from '@/hooks/useAreaCovers';
+import { getCoverGradient } from '@/components/areas/AreaCover';
+import { SystemChronoBox } from '@/components/today/systems/SystemChronoBox';
+import { useChronoTime } from '@/hooks/useChronoTime';
+import { useLanguageStats } from '@/hooks/useLanguageStats';
+import {
+  LANGUAGE_SKILLS,
+  LANGUAGE_LABELS,
+  getWeekLanguagePlans,
+  type LanguageId,
+} from '@/lib/languagePlan';
+import type { ChronoRange } from '@/lib/systemSchedule';
 
 interface Skill {
   id: string;
@@ -21,19 +27,19 @@ interface Skill {
   bg: string;
 }
 
-const SKILLS: Skill[] = [
-  { id: "gramatica",   name: "Gramática",   icon: BookText,      color: "text-purple-600",  bg: "bg-purple-500/10" },
-  { id: "vocabulario", name: "Vocabulario", icon: Sparkles,      color: "text-pink-600",    bg: "bg-pink-500/10" },
-  { id: "lectura-l",   name: "Lectura",     icon: BookText,      color: "text-amber-600",   bg: "bg-amber-500/10" },
-  { id: "listening",   name: "Listening",   icon: Headphones,    color: "text-blue-600",    bg: "bg-blue-500/10" },
-  { id: "speaking",    name: "Speaking",    icon: MessageCircle, color: "text-emerald-600", bg: "bg-emerald-500/10" },
-  { id: "escritura",   name: "Escritura",   icon: PenLine,       color: "text-rose-600",    bg: "bg-rose-500/10" },
-];
+const SKILL_ICONS: Record<string, { icon: Skill['icon']; color: string; bg: string }> = {
+  gramatica: { icon: BookText, color: 'text-purple-600', bg: 'bg-purple-500/10' },
+  vocabulario: { icon: Sparkles, color: 'text-pink-600', bg: 'bg-pink-500/10' },
+  'lectura-l': { icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+  listening: { icon: Headphones, color: 'text-blue-600', bg: 'bg-blue-500/10' },
+  speaking: { icon: MessageCircle, color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
+  escritura: { icon: PenLine, color: 'text-rose-600', bg: 'bg-rose-500/10' },
+};
 
-type PassiveColumn =
-  | "passive_reading_podcast_completed"
-  | "passive_tv_completed"
-  | "passive_videogames_completed";
+const SKILLS: Skill[] = LANGUAGE_SKILLS.map(skill => ({
+  ...skill,
+  ...(SKILL_ICONS[skill.id] ?? { icon: Sparkles, color: 'text-slate-600', bg: 'bg-slate-500/10' }),
+}));
 
 interface PassiveActivity {
   id: string;
@@ -41,16 +47,16 @@ interface PassiveActivity {
   icon: React.ComponentType<{ className?: string }>;
   color: string;
   bg: string;
-  /** Columna de language_sessions donde se guarda (solo inglés). */
-  column: PassiveColumn;
 }
 
 // Idioma pasivo: solo existe para inglés.
 const PASSIVE: PassiveActivity[] = [
-  { id: "reading_podcast", name: "Lectura o podcast", icon: BookOpen, color: "text-amber-600",  bg: "bg-amber-500/10",  column: "passive_reading_podcast_completed" },
-  { id: "tv",             name: "Televisión",         icon: Tv,       color: "text-sky-600",    bg: "bg-sky-500/10",    column: "passive_tv_completed" },
-  { id: "videogames",     name: "Videojuegos",        icon: Gamepad2, color: "text-violet-600", bg: "bg-violet-500/10", column: "passive_videogames_completed" },
+  { id: 'reading_podcast', name: 'Lectura o podcast', icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+  { id: 'tv', name: 'Televisión', icon: Tv, color: 'text-sky-600', bg: 'bg-sky-500/10' },
+  { id: 'videogames', name: 'Videojuegos', icon: Gamepad2, color: 'text-violet-600', bg: 'bg-violet-500/10' },
 ];
+
+const passiveKey = (id: string) => `idioma-ingles-pasivo-${id}`;
 
 interface Props {
   completions: Record<string, boolean>;
@@ -61,33 +67,54 @@ interface Props {
   onInglesTimeChange?: (minutes: number) => void;
   skipped?: Record<string, boolean>;
   onSkipToggle?: (id: string) => void;
-  /** Fecha ISO (yyyy-MM-dd) del día (para persistir el reparte fijo/extra). */
+  /** Fecha ISO (yyyy-MM-dd) del día (para persistir el reparto fijo/extra). */
   date?: string;
   fixedBlocks?: ChronoRange[];
   extraBlocks?: ChronoRange[];
 }
 
-export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, inglesTime = 0, onItalianoTimeChange, onInglesTimeChange, skipped, onSkipToggle, date, fixedBlocks, extraBlocks }: Props) => {
+export const LanguageSkillCards = ({
+  completions,
+  onToggle,
+  italianoTime = 0,
+  inglesTime = 0,
+  onItalianoTimeChange,
+  onInglesTimeChange,
+  skipped,
+  onSkipToggle,
+  date,
+  fixedBlocks,
+  extraBlocks,
+}: Props) => {
   const { covers } = useAreaCovers();
-  const idiomasCover = covers[coverKey("sub", "idiomas")] ?? null;
-  const [activeLang, setActiveLang] = useState<'italian' | 'english'>('english');
-  const langPrefix = activeLang === 'italian' ? 'idioma-italiano' : 'idioma-ingles';
-  const currentTime = activeLang === 'italian' ? italianoTime : inglesTime;
+  const idiomasCover = covers[coverKey('sub', 'idiomas')] ?? null;
+  const [activeLang, setActiveLang] = useState<LanguageId>('ingles');
   const [today, setToday] = useState(() => getCubaDate());
-  const showPassive = activeLang === 'english';
+  const currentTime = activeLang === 'italiano' ? italianoTime : inglesTime;
+  const langPrefix = `idioma-${activeLang}`;
+  const showPassive = activeLang === 'ingles';
 
   useEffect(() => {
     const id = setInterval(() => setToday(getCubaDate()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  const extraUnlocked = (extraBlocks?.length ?? 0) > 0;
+  const weekStart = useMemo(
+    () => startOfWeek(new Date(`${today}T12:00:00`), { weekStartsOn: 1 }),
+    [today],
+  );
+  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
+  const { stats } = useLanguageStats(weekStart, weekEnd);
+  const weekPlan = useMemo(() => getWeekLanguagePlans(weekStart), [weekStart]);
+  const langStats = stats[activeLang];
+  const focusSkill = LANGUAGE_SKILLS.find(s => s.id === weekPlan[activeLang].focusSkill) ?? null;
+
   const applyTotalToLanguages = (nextTotal: number) => {
     const target = Math.max(0, Math.round(nextTotal));
-    const other = activeLang === 'italian' ? inglesTime : italianoTime;
+    const other = activeLang === 'italiano' ? inglesTime : italianoTime;
     const otherNew = Math.min(other, target);
     const activeNew = Math.max(0, target - otherNew);
-    if (activeLang === 'italian') {
+    if (activeLang === 'italiano') {
       if (otherNew !== inglesTime) onInglesTimeChange?.(otherNew);
       onItalianoTimeChange?.(activeNew);
     } else {
@@ -95,6 +122,8 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
       onInglesTimeChange?.(activeNew);
     }
   };
+
+  const extraUnlocked = (extraBlocks?.length ?? 0) > 0;
   const chrono = useChronoTime({
     enabled: fixedBlocks !== undefined || extraBlocks !== undefined,
     date,
@@ -104,158 +133,34 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
   });
 
   const doneCount = SKILLS.filter(s => completions[`${langPrefix}-${s.id}`]).length;
-  const pct = Math.round((doneCount / SKILLS.length) * 100);
-  const [localTime, setLocalTime] = useState(currentTime);
-  const [passive, setPassive] = useState<Record<string, 'done' | 'skip' | 'none'>>({});
-
-  useEffect(() => { setLocalTime(currentTime); }, [currentTime]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let lastDay: string | null = null;
-    try { lastDay = localStorage.getItem('languages_passive_seen_day'); } catch { /* ignore */ }
-    const dayChanged = !!lastDay && lastDay < today;
-    try { localStorage.setItem('languages_passive_seen_day', today); } catch { /* ignore */ }
-    if (dayChanged) setPassive({});
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from('language_sessions')
-          .select('id, passive_reading_podcast_completed, passive_tv_completed, passive_videogames_completed')
-          .eq('session_date', today)
-          .eq('language', 'english')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (cancelled) return;
-        if (!data) {
-          setPassive({});
-          return;
-        }
-        if (dayChanged) {
-          await supabase.from('language_sessions').update({
-            passive_reading_podcast_completed: null,
-            passive_tv_completed: null,
-            passive_videogames_completed: null,
-          }).eq('id', (data as { id: string }).id);
-          if (!cancelled) setPassive({});
-          return;
-        }
-        const row = data as Record<string, boolean | null>;
-        const stateOf = (v: boolean | null | undefined): 'done' | 'skip' | 'none' =>
-          v === true ? 'done' : v === false ? 'skip' : 'none';
-        setPassive({
-          reading_podcast: stateOf(row.passive_reading_podcast_completed),
-          tv: stateOf(row.passive_tv_completed),
-          videogames: stateOf(row.passive_videogames_completed),
-        });
-      } catch (e) { console.error('Error loading passive language:', e); }
-    })();
-    return () => { cancelled = true; };
-  }, [today]);
-
-  const passiveDone = showPassive ? PASSIVE.filter(p => passive[p.id] === 'done').length : 0;
+  const passiveDone = showPassive ? PASSIVE.filter(p => completions[passiveKey(p.id)]).length : 0;
   const totalItems = SKILLS.length + (showPassive ? PASSIVE.length : 0);
   const totalDone = doneCount + passiveDone;
 
   const minTime = 15;
   const maxTime = 30;
-  const timeRatio = Math.max(0, Math.min(1, (localTime - minTime) / (maxTime - minTime)));
-  const timeColor = localTime >= maxTime
-    ? "ring-green-500/60"
-    : localTime >= minTime
-    ? "ring-blue-500/60"
-    : "ring-red-500/40";
 
   const ring = totalDone === 0
-    ? "ring-red-500/40"
+    ? 'ring-red-500/40'
     : totalDone >= totalItems
-    ? "ring-green-500/60"
-    : "ring-blue-500/60";
+      ? 'ring-green-500/60'
+      : 'ring-blue-500/60';
 
-  const upsertLanguageSession = async () => {
-    try {
-      const { data: existing } = await supabase
-        .from('language_sessions')
-        .select('id')
-        .eq('session_date', today)
-        .eq('language', activeLang)
-        .maybeSingle();
+  const timeColor = currentTime >= maxTime
+    ? 'ring-green-500/60'
+    : currentTime >= minTime
+      ? 'ring-blue-500/60'
+      : 'ring-red-500/40';
 
-      const updateData = {
-        session_date: today,
-        language: activeLang,
-        block_type: 'morning',
-        total_duration: localTime,
-      };
-
-      if (existing) {
-        await supabase.from('language_sessions').update(updateData).eq('id', existing.id);
-      } else {
-        await supabase.from('language_sessions').insert({
-          ...updateData,
-          passive_reading_podcast_completed: null,
-          passive_tv_completed: null,
-          passive_videogames_completed: null,
-        });
-      }
-    } catch (e) { console.error('Error saving language session:', e); }
-  };
-
-  const handleToggle = (skillId: string) => {
-    const key = `${langPrefix}-${skillId}`;
-    onToggle(key);
-    upsertLanguageSession();
-  };
-
-  const handlePassiveSet = async (id: string, column: PassiveColumn, target: 'done' | 'skip') => {
-    const current = passive[id] ?? 'none';
-    const next = current === target ? 'none' : target;
-    setPassive(prev => ({ ...prev, [id]: next }));
-    const value = next === 'done' ? true : next === 'skip' ? false : null;
-    try {
-      const { data: existing } = await supabase
-        .from('language_sessions')
-        .select('id')
-        .eq('session_date', today)
-        .eq('language', 'english')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase.from('language_sessions').update({ [column]: value }).eq('id', existing.id);
-      } else if (value !== null) {
-        await supabase.from('language_sessions').insert({
-          session_date: today,
-          language: 'english',
-          block_type: 'morning',
-          passive_reading_podcast_completed: null,
-          passive_tv_completed: null,
-          passive_videogames_completed: null,
-          [column]: value,
-        });
-      }
-    } catch (e) { console.error('Error saving passive language:', e); }
-  };
-
-  const handleTimeSave = () => {
-    if (activeLang === 'italian' && onItalianoTimeChange && localTime !== italianoTime) {
-      onItalianoTimeChange(localTime);
-    } else if (activeLang === 'english' && onInglesTimeChange && localTime !== inglesTime) {
-      onInglesTimeChange(localTime);
-    }
-    if (localTime > 0) upsertLanguageSession();
-  };
-
-  const switchLang = (lang: 'italian' | 'english') => {
-    setLocalTime(lang === 'italian' ? italianoTime : inglesTime);
-    setActiveLang(lang);
+  const setTime = (value: number) => {
+    const minutes = Math.max(0, Math.round(value) || 0);
+    if (activeLang === 'italiano') onItalianoTimeChange?.(minutes);
+    else onInglesTimeChange?.(minutes);
   };
 
   return (
-    <Card className={cn("p-3 ring-2 transition-all space-y-3", ring, "bg-emerald-500/5")}>
-      <div className={cn("relative -m-3 mb-3 h-14 overflow-hidden bg-gradient-to-br", getCoverGradient("idiomas"))}>
+    <Card className={cn('p-3 ring-2 transition-all space-y-3', ring, 'bg-emerald-500/5')}>
+      <div className={cn('relative -m-3 mb-3 h-14 overflow-hidden bg-gradient-to-br', getCoverGradient('idiomas'))}>
         {idiomasCover ? (
           <img src={idiomasCover} alt="Portada de Idiomas" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
@@ -265,105 +170,141 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
         )}
         <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent" />
       </div>
+
       <div className="flex items-center gap-2">
         <div className="p-1.5 rounded-lg bg-emerald-500/20">
           <LangIcon className="h-4 w-4 text-emerald-600" />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold">🌐 Idiomas</p>
           <p className="text-[10px] text-muted-foreground">
-            {showPassive ? "6 habilidades + 3 pasivas" : "6 habilidades"} · Marca lo que practicaste hoy
+            {LANGUAGE_LABELS[activeLang]} · minutos y habilidades reales
           </p>
         </div>
         <div className="text-right">
-          <span className="text-lg font-bold text-emerald-600">{localTime}</span>
+          <span className="text-lg font-bold text-emerald-600 tabular-nums">{currentTime}</span>
           <span className="text-xs text-muted-foreground">/{maxTime} min</span>
-          <div className="text-[9px] font-bold text-emerald-600">{totalDone}/{totalItems}</div>
+          <div className="text-[9px] font-bold text-emerald-600">{totalDone}/{totalItems} hoy</div>
         </div>
       </div>
 
       {/* ITA / ING switch */}
       <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-0.5 w-fit mx-auto">
-        <button onClick={() => switchLang('italian')}
-          className={cn("px-3 py-1 rounded-md text-xs font-semibold transition-all", activeLang === 'italian' ? "bg-green-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-          ITA
-        </button>
-        <button onClick={() => switchLang('english')}
-          className={cn("px-3 py-1 rounded-md text-xs font-semibold transition-all", activeLang === 'english' ? "bg-blue-500 text-white shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-          ING
-        </button>
+        {(['italiano', 'ingles'] as LanguageId[]).map(lang => (
+          <button
+            key={lang}
+            onClick={() => setActiveLang(lang)}
+            className={cn(
+              'px-3 py-1 rounded-md text-xs font-semibold transition-all',
+              activeLang === lang
+                ? lang === 'italiano' ? 'bg-green-500 text-white shadow-sm' : 'bg-blue-500 text-white shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {lang === 'italiano' ? 'ITA' : 'ING'}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
-        {SKILLS.map((s) => {
+        {SKILLS.map(s => {
           const Icon = s.icon;
           const id = `${langPrefix}-${s.id}`;
           const done = !!completions[id];
           return (
             <button
               key={`${activeLang}-${s.id}`}
-              onClick={() => handleToggle(s.id)}
+              onClick={() => onToggle(id)}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg border-2 p-2 transition-all text-left",
+                'flex items-center gap-1.5 rounded-lg border-2 p-2 transition-all text-left',
                 done
-                  ? "bg-green-500/15 border-green-500/50"
+                  ? 'bg-green-500/15 border-green-500/50'
                   : `${s.bg} border-transparent hover:border-muted-foreground/30`,
               )}
             >
               <div className={cn(
-                "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                done ? "bg-green-500 border-green-500" : "border-muted-foreground/40"
+                'h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0',
+                done ? 'bg-green-500 border-green-500' : 'border-muted-foreground/40',
               )}>
                 {done && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
               </div>
-              <Icon className={cn("h-3.5 w-3.5 shrink-0", s.color)} />
+              <Icon className={cn('h-3.5 w-3.5 shrink-0', s.color)} />
               <span className="text-[11px] font-medium truncate flex-1">{s.name}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Time input */}
-      <div className={cn("flex items-center gap-2 p-2 rounded-lg ring-2 transition-all", timeColor)}>
+      {/* Enfoque de la semana */}
+      {(focusSkill || weekPlan[activeLang].challenge) && (
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-2 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <Target className="h-3 w-3 text-sky-600 shrink-0" />
+            <span className="text-[9px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">Foco de la semana</span>
+            {focusSkill && <span className="text-[10px] font-semibold">{focusSkill.name}</span>}
+          </div>
+          {weekPlan[activeLang].challenge && (
+            <p className="text-[10px] text-muted-foreground flex items-start gap-1">
+              <Flame className="h-3 w-3 text-rose-500 shrink-0 mt-0.5" />
+              {weekPlan[activeLang].challenge}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Tiempo */}
+      <div className={cn('flex items-center gap-2 p-2 rounded-lg ring-2 transition-all', timeColor)}>
         <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="text-[11px] font-medium text-muted-foreground shrink-0">Tiempo</span>
         <Input
           type="number"
           min={0}
-          max={120}
-          value={localTime || ""}
-          onChange={e => { const v = parseInt(e.target.value) || 0; setLocalTime(v); }}
+          max={240}
+          value={currentTime || ''}
+          onChange={e => setTime(parseInt(e.target.value) || 0)}
           className="h-7 w-14 text-xs text-center font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         <span className="text-[10px] text-muted-foreground">min</span>
         <button
           onClick={() => {
-            const langKey = activeLang === 'italian' ? 'italiano' : 'ingles';
-            const timeChange = activeLang === 'italian' ? onItalianoTimeChange : onInglesTimeChange;
-            timeChange?.(0);
-            onSkipToggle?.(langKey);
+            setTime(0);
+            onSkipToggle?.(activeLang);
           }}
           className={cn(
-            "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
-            skipped?.[activeLang === 'italian' ? 'italiano' : 'ingles'] ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
+            'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors',
+            skipped?.[activeLang] ? 'bg-red-500/20 text-red-500' : 'bg-muted text-muted-foreground hover:bg-red-500/10',
           )}
         >
           <XCircle className="h-3 w-3" />
-          {skipped?.[activeLang === 'italian' ? 'italiano' : 'ingles'] ? "Saltado" : "No hice"}
+          {skipped?.[activeLang] ? 'Saltado' : 'No hice'}
         </button>
         <div className="flex-1" />
         <div className="flex items-center gap-1">
-          <span className={cn("text-[9px] font-medium", localTime >= maxTime ? "text-green-600" : localTime >= minTime ? "text-blue-600" : "text-red-500")}>
-            {localTime >= maxTime ? "Máx ✓" : localTime >= minTime ? "Mín ✓" : "—"}
+          <span className={cn('text-[9px] font-medium', currentTime >= maxTime ? 'text-green-600' : currentTime >= minTime ? 'text-blue-600' : 'text-red-500')}>
+            {currentTime >= maxTime ? 'Máx ✓' : currentTime >= minTime ? 'Mín ✓' : '—'}
           </span>
-          <div className={cn("w-2 h-2 rounded-full", localTime >= maxTime ? "bg-green-500" : localTime >= minTime ? "bg-blue-500" : "bg-red-500")} />
+          <div className={cn('w-2 h-2 rounded-full', currentTime >= maxTime ? 'bg-green-500' : currentTime >= minTime ? 'bg-blue-500' : 'bg-red-500')} />
         </div>
       </div>
+      <p className="text-[9px] text-muted-foreground text-center -mt-1">Se guarda automáticamente</p>
 
-      <button onClick={handleTimeSave}
-        className="w-full py-1 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors">
-        Guardar tiempo
-      </button>
+      {/* Resumen real de la semana */}
+      <div className="grid grid-cols-3 gap-1.5 border-t border-border/40 pt-2">
+        <div className="text-center rounded-md bg-muted/40 py-1">
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Semana</p>
+          <p className="text-[12px] font-bold tabular-nums">{langStats.minutes} min</p>
+        </div>
+        <div className="text-center rounded-md bg-muted/40 py-1">
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Días activos</p>
+          <p className="text-[12px] font-bold tabular-nums">{langStats.activeDays}/7</p>
+        </div>
+        <div className="text-center rounded-md bg-muted/40 py-1">
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Cobertura</p>
+          <p className={cn('text-[12px] font-bold tabular-nums', langStats.skillCoverage.length >= 4 ? 'text-emerald-600' : '')}>
+            {langStats.skillCoverage.length}/6
+          </p>
+        </div>
+      </div>
 
       {(fixedBlocks || extraBlocks) && (
         <SystemChronoBox
@@ -380,53 +321,32 @@ export const LanguageSkillCards = ({ completions, onToggle, italianoTime = 0, in
         <div className="space-y-1.5 border-t border-border/40 pt-3">
           <div className="flex items-center gap-1.5">
             <span className="text-[13px] font-extrabold uppercase tracking-wide text-foreground">🌐 Idioma pasivo</span>
-            <span className={cn("text-[10px] font-bold tabular-nums", passiveDone === PASSIVE.length ? "text-emerald-500" : "text-muted-foreground")}>
+            <span className={cn('text-[10px] font-bold tabular-nums', passiveDone === PASSIVE.length ? 'text-emerald-500' : 'text-muted-foreground')}>
               {passiveDone}/{PASSIVE.length}
             </span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
-            {PASSIVE.map((p) => {
+            {PASSIVE.map(p => {
               const Icon = p.icon;
-              const state = passive[p.id] ?? 'none';
-              const done = state === 'done';
-              const skip = state === 'skip';
+              const done = !!completions[passiveKey(p.id)];
               return (
-                <div
+                <button
                   key={p.id}
+                  onClick={() => onToggle(passiveKey(p.id))}
                   className={cn(
-                    "flex items-center gap-1 rounded-lg border-2 p-1.5 transition-all",
-                    done
-                      ? "bg-indigo-500/15 border-indigo-500/50"
-                      : skip
-                      ? "bg-red-500/10 border-red-500/50"
-                      : `${p.bg} border-transparent`,
+                    'flex items-center gap-1 rounded-lg border-2 p-1.5 transition-all text-left',
+                    done ? 'bg-indigo-500/15 border-indigo-500/50' : `${p.bg} border-transparent`,
                   )}
                 >
-                  <button
-                    onClick={() => handlePassiveSet(p.id, p.column, 'done')}
-                    title="Marcar como hecho"
-                    className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
-                  >
-                    <div className={cn(
-                      "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      done ? "bg-indigo-500 border-indigo-500" : "border-muted-foreground/40"
-                    )}>
-                      {done && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
-                    </div>
-                    <Icon className={cn("h-3.5 w-3.5 shrink-0", p.color)} />
-                    <span className="text-[11px] font-medium truncate flex-1">{p.name}</span>
-                  </button>
-                  <button
-                    onClick={() => handlePassiveSet(p.id, p.column, 'skip')}
-                    title="Marcar como no hecho"
-                    className={cn(
-                      "h-5 w-5 rounded-md flex items-center justify-center shrink-0 transition-colors",
-                      skip ? "bg-red-500 text-white" : "text-muted-foreground/50 hover:bg-red-500/15 hover:text-red-500"
-                    )}
-                  >
-                    <XCircle className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                  <div className={cn(
+                    'h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0',
+                    done ? 'bg-indigo-500 border-indigo-500' : 'border-muted-foreground/40',
+                  )}>
+                    {done && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                  </div>
+                  <Icon className={cn('h-3.5 w-3.5 shrink-0', p.color)} />
+                  <span className="text-[11px] font-medium truncate flex-1">{p.name}</span>
+                </button>
               );
             })}
           </div>

@@ -32,7 +32,10 @@ export function LanguageQuickStats({
             <span className="text-xs sm:text-sm font-normal">min</span>
           </p>
           <p className="text-xs text-muted-foreground">Tiempo hoy</p>
-          <Progress value={Math.min((todayMinutes / dailyGoal) * 100, 100)} className="h-1.5 mt-2" />
+          <Progress
+            value={dailyGoal > 0 ? Math.min((todayMinutes / dailyGoal) * 100, 100) : 0}
+            className="h-1.5 mt-2"
+          />
         </CardContent>
       </Card>
       <Card>

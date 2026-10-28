@@ -125,7 +125,9 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
         cover: { type: "sub", id: "idiomas" },
         streakMinutes: 5,
         speedOptions: HOBBY_SMALL,
-        getMinutes: (d) => (d.timeData?.idiomas ?? 0) + (d.timeData?.italiano ?? 0) + (d.timeData?.ingles ?? 0),
+        // Los minutos de idiomas se guardan por idioma. `time_data.idiomas` es
+        // un valor legado y no debe sumarse (duplicaba el tiempo real).
+        getMinutes: (d) => (d.timeData?.italiano ?? 0) + (d.timeData?.ingles ?? 0),
       },
       {
         id: "game",

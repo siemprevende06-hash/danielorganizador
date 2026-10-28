@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { startOfWeek } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguageLearning } from '@/hooks/useLanguageLearning';
 import { useLanguageWeeklyStats } from '@/hooks/useLanguageWeeklyStats';
+import { getDayGoalEffective, getWeekGoalEffective } from '@/lib/hierarchy';
+import { normalizeCefr } from '@/lib/languagePlan';
 import { LanguageHeader } from '@/components/languages/LanguageHeader';
 import { LanguageQuickStats } from '@/components/languages/LanguageQuickStats';
 import { LanguageSkillsChecklist } from '@/components/languages/LanguageSkillsChecklist';
@@ -26,15 +29,16 @@ export default function LanguagesDashboard() {
   const [activeSkill, setActiveSkill] = useState<LanguageSkillId>('vocabulary');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const weeklyGoal = 300;
-  const dailyGoal = 45;
+  const currentArea = currentLanguage === 'italian' ? 'italiano' : 'ingles';
+  const weeklyGoal = getWeekGoalEffective(startOfWeek(new Date(), { weekStartsOn: 1 }), currentArea);
+  const dailyGoal = getDayGoalEffective(new Date(), currentArea);
 
   const todayMinutes = todaySession?.totalDuration || 0;
   const progress = getProgress();
   const subTasks = getSubTasksForDuration(90);
 
   const weeklyTotal = useMemo(() => weeklyData.reduce((sum, d) => sum + d.minutes, 0), [weeklyData]);
-  const weeklyPercent = Math.min((weeklyTotal / weeklyGoal) * 100, 100);
+  const weeklyPercent = weeklyGoal > 0 ? Math.min((weeklyTotal / weeklyGoal) * 100, 100) : 0;
 
   const pieData = useMemo(
     () =>
@@ -154,7 +158,7 @@ export default function LanguagesDashboard() {
           <TabsContent value="tutor" className="space-y-4">
             <LanguageTutorPanel
               language={currentLanguage}
-              level={currentLanguage === 'italian' ? settings?.italianLevel || 'beginner' : settings?.englishLevel || 'intermediate'}
+              level={normalizeCefr(currentLanguage === 'italian' ? settings?.italianLevel : settings?.englishLevel)}
               onLogPractice={logPracticeMinutes}
             />
           </TabsContent>

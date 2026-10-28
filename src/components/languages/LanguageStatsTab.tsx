@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { LanguageWeeklyDay } from '@/hooks/useLanguageWeeklyStats';
 import type { LanguageSettings } from '@/hooks/useLanguageLearning';
+import { normalizeCefr } from '@/lib/languagePlan';
 
 export function LanguageStatsTab({
   weeklyData,
@@ -80,7 +81,7 @@ export function LanguageStatsTab({
             <p className="text-xl sm:text-2xl mb-1">🇺🇸</p>
             <p className="font-bold text-sm sm:text-base">Inglés</p>
             <Badge variant="outline" className="mt-1 text-xs">
-              {settings?.englishLevel || 'intermediate'}
+              {normalizeCefr(settings?.englishLevel, 'B1.1')}
             </Badge>
           </CardContent>
         </Card>
@@ -89,7 +90,7 @@ export function LanguageStatsTab({
             <p className="text-xl sm:text-2xl mb-1">🇮🇹</p>
             <p className="font-bold text-sm sm:text-base">Italiano</p>
             <Badge variant="outline" className="mt-1 text-xs">
-              {settings?.italianLevel || 'beginner'}
+              {normalizeCefr(settings?.italianLevel, 'A1.1')}
             </Badge>
           </CardContent>
         </Card>

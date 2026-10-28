@@ -19,6 +19,8 @@ const INDICATOR_QUERY_KEYS = [
   "weeklyAreaStatsTime",
   "monthlySystemsTime",
   "monthlyAreaStatsTime",
+  "languageStats",
+  "gameStats",
 ];
 
 const DEFAULT_TIME_GOALS: Record<string, number> = {
@@ -188,6 +190,9 @@ export function useSystemsTracking(targetDate?: Date) {
     const areaUpdates = new Map<string, { time_spent_minutes: number; completed: boolean; completed_at: string | null }>()
 
     for (const [id, minutes] of Object.entries(newData.timeData)) {
+      // `idiomas` es un acumulado legado: el tiempo real vive en `ingles` e
+      // `italiano`. Escribirlo aquí duplicaba los minutos del área.
+      if (id === 'idiomas') continue;
       areaUpdates.set(id, {
         time_spent_minutes: minutes,
         completed: areaUpdates.get(id)?.completed ?? !!newData.completions[id],
