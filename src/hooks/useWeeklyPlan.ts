@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
 import { format, startOfWeek, getISOWeek } from 'date-fns';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
+import { readLanguageWeekPlans, type LanguageWeekPlans } from '@/lib/languagePlan';
+import { readGameWeekPlan, type GameWeekPlan } from '@/lib/game';
 
 export type Priority = 'high' | 'medium' | 'low';
 
@@ -49,6 +51,10 @@ export interface WeeklyPlanData {
   chessEloTarget?: number;
   /** Enfoque de la semana por área: ids seleccionados (asignaturas de universidad, emprendimientos, proyectos...) */
   areaFocus?: Record<string, string[]>;
+  /** Habilidad foco, reto y minutos por idioma. */
+  languages?: LanguageWeekPlans;
+  /** Habilidad foco, reto y metas de Game. */
+  game?: GameWeekPlan;
 }
 
 const makeDefault = (weekNumber: number): WeeklyPlanData => ({
@@ -68,6 +74,8 @@ const makeDefault = (weekNumber: number): WeeklyPlanData => ({
   chessEloStart: 0,
   chessEloTarget: 0,
   areaFocus: {},
+  languages: readLanguageWeekPlans(undefined),
+  game: readGameWeekPlan(undefined),
 });
 
 const STORAGE_PREFIX = 'weekly_plan_';
@@ -130,6 +138,8 @@ export function useWeeklyPlan(weekStart: Date) {
             chessEloStart: local.chessEloStart ?? 0,
             chessEloTarget: local.chessEloTarget ?? 0,
             areaFocus: local.areaFocus ?? {},
+            languages: readLanguageWeekPlans(local.languages),
+            game: readGameWeekPlan(local.game),
           }
         : base
     );

@@ -3,6 +3,8 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 import { syncMonthlyFromQuarter } from '@/lib/hierarchy';
+import type { LanguageMonthPlans, LanguageWeekPlans } from '@/lib/languagePlan';
+import type { GameMonthPlan, GameWeekPlan } from '@/lib/game';
 
 export interface DayRange {
   startDay?: string | null;
@@ -26,6 +28,10 @@ export interface WeekBookSongDistribution {
   elo_start?: number | null;
   /** ELO objetivo de la semana (espejo del plan semanal). */
   elo_target?: number | null;
+  /** Plan de idiomas de la semana (espejo del plan semanal). */
+  languages?: LanguageWeekPlans;
+  /** Plan de Game de la semana (espejo del plan semanal). */
+  game?: GameWeekPlan;
 }
 
 export type SongPlanType = 'learned' | 'mastered' | 'recorded';
@@ -43,6 +49,10 @@ export interface MonthlyPlanData {
     /** ELO que se quiere alcanzar al cerrar el mes. */
     elo_goal?: number;
   };
+  /** Nivel, hito, metas y autoevaluación de cada idioma. */
+  languages?: LanguageMonthPlans;
+  /** Habilidades, hito y metas del mes de Game. */
+  game?: GameMonthPlan;
   inherited_from?: { quarter: number; year: number };
   distribution?: Record<string, { books: string[]; songs: string[] }>;
   week_distribution?: Record<string, WeekBookSongDistribution>;
@@ -66,6 +76,8 @@ const defaultPlanData: MonthlyPlanData = {
   events: [],
   personal_goals: [],
   chess: { elo_goal: 0 },
+  languages: undefined,
+  game: undefined,
   week_distribution: {},
 };
 

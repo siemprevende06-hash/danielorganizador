@@ -14,6 +14,8 @@ import { PlanFocusPicker } from '@/components/today/PlanFocusPicker';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
 import { HobbyCards } from '@/components/systems/HobbyCards';
 import { LanguageSkillCards } from '@/components/systems/LanguageSkillCards';
+import { GameCard } from '@/components/systems/GameCard';
+import { GAME_COUNT_KEYS } from '@/lib/game';
 import { WorkoutVisual } from '@/components/systems/WorkoutVisual';
 import { MySystemsSection } from '@/components/dashboard/MySystemsSection';
 import { MejoraProcessPanel } from '@/components/mejora/MejoraProcessPanel';
@@ -707,35 +709,17 @@ export default function DailyView() {
               <ReadingTrackingPanel minutes={data.timeData["lectura"] || 0} onMinChange={(v) => setTimeValue("lectura", v)} />
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Gaming</p>
-                <Card className="p-3 ring-2 ring-purple-500/30">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Gamepad2 className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm font-semibold">Game (Seducción)</span>
-                    </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      type="number"
-                      min={0}
-                      value={data.timeData["game"] || ""}
-                      onChange={e => setTimeValue("game", parseInt(e.target.value) || 0)}
-                      placeholder="min"
-                      className="w-16 h-7 text-xs text-center"
-                    />
-                    <button
-                      onClick={() => toggleSkip("game")}
-                      className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
-                        data.skipped?.["game"] ? "bg-red-500/20 text-red-500" : "bg-muted text-muted-foreground hover:bg-red-500/10"
-                      )}
-                    >
-                      {data.skipped?.["game"] ? "Saltado" : "No hice"}
-                    </button>
-                  </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Tiempo diario para aprender seducción</p>
-                </Card>
+                <GameCard
+                  date={format(selectedDate, 'yyyy-MM-dd')}
+                  minutes={data.timeData["game"] || 0}
+                  actions={data.countData[GAME_COUNT_KEYS.actions] || 0}
+                  numbers={data.countData[GAME_COUNT_KEYS.numbers] || 0}
+                  onMinutesChange={v => setTimeValue("game", v)}
+                  onActionsChange={v => setCountValue(GAME_COUNT_KEYS.actions, v)}
+                  onNumbersChange={v => setCountValue(GAME_COUNT_KEYS.numbers, v)}
+                  skipped={!!data.skipped?.["game"]}
+                  onSkipToggle={() => toggleSkip("game")}
+                />
               </div>
               <div>
                 <LanguageSkillCards completions={data.completions} onToggle={toggleCompletion} italianoTime={data.timeData?.italiano || 0} inglesTime={data.timeData?.ingles || 0} onItalianoTimeChange={(m) => setTimeValue('italiano', m)} onInglesTimeChange={(m) => setTimeValue('ingles', m)} skipped={data.skipped} onSkipToggle={toggleSkip} />

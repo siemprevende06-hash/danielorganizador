@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { startOfQuarter, format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
+import { readLanguageQuarterPlans, type LanguageQuarterPlans } from '@/lib/languagePlan';
+import { readGameQuarterPlan, type GameQuarterPlan } from '@/lib/game';
 
 export interface TrimestralPlanData {
   books: { goal: number; selected: string[] };
@@ -24,6 +26,10 @@ export interface TrimestralPlanData {
   timeGoals: Record<string, Record<string, number>>;
   areaTimeGoals: Record<string, Record<string, number>>;
   chessGoals: Record<string, { partidas: number; minutos: number }>;
+  /** Nivel objetivo y hito del trimestre por idioma. */
+  languages?: LanguageQuarterPlans;
+  /** XP/nivel objetivo, hito y habilidades del trimestre. */
+  game?: GameQuarterPlan;
 }
 
 const defaultTrimestralData: TrimestralPlanData = {
@@ -59,6 +65,8 @@ const defaultTrimestralData: TrimestralPlanData = {
     month2: { partidas: 0, minutos: 0 },
     month3: { partidas: 0, minutos: 0 },
   },
+  languages: readLanguageQuarterPlans(undefined),
+  game: readGameQuarterPlan(undefined),
 };
 
 interface Book { id: string; title: string; author: string | null; cover_image_url: string | null; }
@@ -97,6 +105,8 @@ function migrateDistribution(data: any): TrimestralPlanData {
   if (!data.completedTasks) data.completedTasks = { month1: [], month2: [], month3: [] };
   if (!data.completedEvents) data.completedEvents = { month1: [], month2: [], month3: [] };
   if (!data.timeGoals) data.timeGoals = defaultTrimestralData.timeGoals;
+  if (!data.languages) data.languages = defaultTrimestralData.languages;
+  if (!data.game) data.game = defaultTrimestralData.game;
   if (!data.areaTimeGoals) data.areaTimeGoals = defaultTrimestralData.areaTimeGoals;
   if (!data.chessGoals) data.chessGoals = defaultTrimestralData.chessGoals;
   if (!data.distribution) return { ...defaultTrimestralData, ...data, distribution: defaultTrimestralData.distribution };

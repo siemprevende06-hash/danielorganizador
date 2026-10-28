@@ -7,6 +7,21 @@ import {
 import { cn } from '@/lib/utils';
 import { getWeekGoalEffective, setWeekGoal } from '@/lib/hierarchy';
 import type { WeeklyAreaData } from '@/hooks/useWeeklyPlanData';
+import { useGameTracking } from '@/hooks/useGameTracking';
+import {
+  LANGUAGE_LABELS,
+  LANGUAGE_SKILLS,
+  type LanguageId,
+  type LanguageMonthPlans,
+  type LanguageWeekPlan,
+  type LanguageWeekPlans,
+} from '@/lib/languagePlan';
+import {
+  GAME_SKILLS,
+  GAME_XP,
+  type GameMonthPlan,
+  type GameWeekPlan,
+} from '@/lib/game';
 import { Ring } from './WeekMinutesRings';
 import { fmtMin } from './AreaRow';
 
@@ -90,6 +105,12 @@ export function PersonalDevelopment({
   onLearningSongChange,
   onMasteringSongChange,
   onPagesGoalChange,
+  languageMonth,
+  languageWeek,
+  gameMonth,
+  gameWeek,
+  onLanguageWeekChange,
+  onGameWeekChange,
 }: {
   weekStart: Date;
   data: WeeklyAreaData;
@@ -115,6 +136,12 @@ export function PersonalDevelopment({
   onLearningSongChange: (id: string) => void;
   onMasteringSongChange: (id: string) => void;
   onPagesGoalChange: (pages: number) => void;
+  languageMonth: LanguageMonthPlans;
+  languageWeek: LanguageWeekPlans;
+  gameMonth: GameMonthPlan;
+  gameWeek: GameWeekPlan;
+  onLanguageWeekChange: (lang: LanguageId, patch: Partial<LanguageWeekPlan>) => void;
+  onGameWeekChange: (patch: Partial<GameWeekPlan>) => void;
 }) {
   const book = data.reading.book;
   const plannedBooks = plannedBookIds.length > 0
@@ -145,6 +172,33 @@ export function PersonalDevelopment({
 
   const idiomasTotal = data.idiomas.inglesMinutes + data.idiomas.italianoMinutes;
   const idiomasGoal = inglesGoal + italianoGoal;
+  const gameWeekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+  const { totalXp, level: gameLevelInfo } = useGameTracking(weekStart, gameWeekEnd);
+  const gameFocusOptions = gameMonth.selectedSkills.length > 0
+    ? GAME_SKILLS.filter(skill => gameMonth.selectedSkills.includes(skill.id))
+    : GAME_SKILLS;
+
+  const languageView = (lang: LanguageId) => lang === 'ingles'
+    ? {
+        stats: {
+          minutes: data.idiomas.inglesMinutes,
+          activeDays: data.idiomas.inglesActiveDays,
+          skills: data.idiomas.inglesSkills,
+        },
+        goal: inglesGoal,
+        color: 'bg-sky-500',
+        text: 'text-sky-600 dark:text-sky-400',
+      }
+    : {
+        stats: {
+          minutes: data.idiomas.italianoMinutes,
+          activeDays: data.idiomas.italianoActiveDays,
+          skills: data.idiomas.italianoSkills,
+        },
+        goal: italianoGoal,
+        color: 'bg-indigo-500',
+        text: 'text-indigo-600 dark:text-indigo-400',
+      };
 
   // --- Tramo de ELO de la semana ---
   const eloCurrent = chessCurrentElo ?? data.ajedrez.elo ?? 0;
@@ -276,58 +330,80 @@ export function PersonalDevelopment({
         <Tile title="Idiomas" icon={<Languages className="w-3.5 h-3.5" />} accent="text-sky-600 dark:text-sky-400">
           <div className="flex items-center gap-2.5">
             <Ring label="Total" value={idiomasTotal} goal={idiomasGoal} size={58} stroke={5} color="#0ea5e9" />
-            <div className="flex-1 space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 w-12">Inglés</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-sky-500 transition-all duration-500"
-                    style={{ width: `${inglesGoal > 0 ? Math.min(100, (data.idiomas.inglesMinutes / inglesGoal) * 100) : 0}%` }}
-                  />
-                </div>
-                <span className="text-[9px] tabular-nums text-muted-foreground w-16 text-right">
-                  {data.idiomas.inglesMinutes}/{inglesGoal}m
-                </span>
-                <GoalInput weekStart={weekStart} area="ingles" />
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-muted-foreground">Minutos esta semana</span>
+                <span className="font-bold tabular-nums">{fmtMin(idiomasTotal)}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 w-12">Italiano</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-indigo-500 transition-all duration-500"
-                    style={{ width: `${italianoGoal > 0 ? Math.min(100, (data.idiomas.italianoMinutes / italianoGoal) * 100) : 0}%` }}
-                  />
-                </div>
-                <span className="text-[9px] tabular-nums text-muted-foreground w-16 text-right">
-                  {data.idiomas.italianoMinutes}/{italianoGoal}m
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-muted-foreground">Días activos</span>
+                <span className="font-bold tabular-nums">{data.idiomas.activeDays}/7</span>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-muted-foreground">Cobertura de habilidades</span>
+                <span className={cn('font-bold tabular-nums', data.idiomas.skillCoverage.length >= 4 && 'text-emerald-600')}>
+                  {data.idiomas.skillCoverage.length}/6
                 </span>
-                <GoalInput weekStart={weekStart} area="italiano" />
               </div>
             </div>
           </div>
 
-          <div className="space-y-1 pt-1.5 border-t border-muted/40">
-            <StatLine label="Inglés · sesiones" value={data.idiomas.inglesSessions} />
-            <StatLine label="Italiano · sesiones" value={data.idiomas.italianoSessions} />
-            <StatLine label="Total dedicado" value={fmtMin(idiomasTotal)} />
-          </div>
-
-          <div className="flex gap-1 pt-1">
-            {[
-              { k: 'ingles', label: 'Inglés', min: data.idiomas.inglesMinutes, goal: inglesGoal, color: 'bg-sky-500' },
-              { k: 'italiano', label: 'Italiano', min: data.idiomas.italianoMinutes, goal: italianoGoal, color: 'bg-indigo-500' },
-            ].map(l => (
-              <div key={l.k} className="flex-1 rounded-lg border border-muted/50 p-1.5 text-center">
-                <p className="text-[9px] font-semibold">{l.label}</p>
-                <p className="text-[11px] font-bold tabular-nums">{l.min}m</p>
-                <div className="h-1 mt-0.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn('h-full rounded-full', l.color)}
-                    style={{ width: `${l.goal > 0 ? Math.min(100, (l.min / l.goal) * 100) : 0}%` }}
+          <div className="space-y-2 pt-1.5 border-t border-muted/40">
+            {(['ingles', 'italiano'] as LanguageId[]).map(lang => {
+              const view = languageView(lang);
+              const week = languageWeek[lang];
+              return (
+                <div key={lang} className="rounded-lg border border-muted/50 p-1.5 space-y-1">
+                  <div className="flex items-center gap-1">
+                    <span className={cn('text-[10px] font-bold', view.text)}>{LANGUAGE_LABELS[lang]}</span>
+                    <span className="text-[8px] rounded bg-muted px-1 py-0.5 font-semibold">{languageMonth[lang].level}</span>
+                    <span className="ml-auto text-[9px] tabular-nums text-muted-foreground">
+                      {view.stats.minutes}/{view.goal}m · {view.stats.activeDays}d
+                    </span>
+                  </div>
+                  <div className="flex gap-0.5">
+                    {LANGUAGE_SKILLS.map(skill => {
+                      const done = view.stats.skills.includes(skill.id);
+                      return (
+                        <span
+                          key={skill.id}
+                          title={`${skill.name}${done ? ' ✓' : ''}`}
+                          className={cn('h-1.5 flex-1 rounded-full', done ? 'bg-emerald-500' : 'bg-muted')}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-muted-foreground shrink-0">Foco</span>
+                    <select
+                      value={week.focusSkill}
+                      onChange={e => onLanguageWeekChange(lang, { focusSkill: e.target.value })}
+                      className="h-6 flex-1 min-w-0 rounded border border-input bg-background px-1 text-[9px]"
+                    >
+                      <option value="">Sin foco</option>
+                      {LANGUAGE_SKILLS.map(skill => (
+                        <option key={skill.id} value={skill.id}>{skill.name}</option>
+                      ))}
+                    </select>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={week.minutesTarget || ''}
+                      onChange={e => onLanguageWeekChange(lang, { minutesTarget: Math.max(0, parseInt(e.target.value) || 0) })}
+                      placeholder="min"
+                      title="Minutos objetivo de la semana"
+                      className="h-6 w-12 text-[9px] text-center tabular-nums"
+                    />
+                  </div>
+                  <Input
+                    value={week.challenge}
+                    onChange={e => onLanguageWeekChange(lang, { challenge: e.target.value })}
+                    placeholder="Reto de la semana…"
+                    className="h-6 text-[9px]"
                   />
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Tile>
 
@@ -408,19 +484,105 @@ export function PersonalDevelopment({
         {/* GAME / SEDUCCIÓN */}
         <Tile title="Game · Seducción" icon={<Flame className="w-3.5 h-3.5" />} accent="text-rose-600 dark:text-rose-400">
           <div className="flex items-center gap-2.5">
-            <Ring label="Minutos" value={data.game.minutos} goal={gameGoal} size={58} stroke={5} color="#f43f5e" />
-            <div className="flex-1 space-y-1.5">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Target className="w-3 h-3" /> Objetivo de minutos
-                </span>
-                <GoalInput weekStart={weekStart} area="game" />
+            <Ring
+              label={`Nv ${gameLevelInfo.level}`}
+              value={gameLevelInfo.xpIntoLevel}
+              goal={GAME_XP.levelXp}
+              size={58}
+              stroke={5}
+              color="#f43f5e"
+            />
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-muted-foreground">XP esta semana</span>
+                <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400">{data.game.xp} XP</span>
               </div>
-              <StatLine label="Citas" value={data.game.citas} />
-              <StatLine label="Eventos / salidas" value={data.game.eventos} />
-              <StatLine label="Días de intimidad" value={data.game.intimidad} />
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-muted-foreground">XP total / nivel</span>
+                <span className="font-bold tabular-nums">{totalXp} · Nv {gameLevelInfo.level}</span>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-muted-foreground">Minutos</span>
+                <span className="font-bold tabular-nums">{data.game.minutos}/{gameGoal}m</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-rose-500" style={{ width: `${gameLevelInfo.progress}%` }} />
+              </div>
+              <p className="text-[9px] text-muted-foreground">
+                Faltan {gameLevelInfo.xpToNext} XP para el nivel {gameLevelInfo.level + 1}.
+              </p>
             </div>
           </div>
+
+          <div className="grid grid-cols-4 gap-1 text-center">
+            {[
+              { label: 'Acciones', value: data.game.actions },
+              { label: 'Números', value: data.game.numbers },
+              { label: 'Citas', value: data.game.citas },
+              { label: 'Sociales', value: data.game.eventos },
+            ].map(item => (
+              <div key={item.label} className="rounded-md bg-muted/50 py-1">
+                <p className="text-[13px] font-bold tabular-nums">{item.value}</p>
+                <p className="text-[8px] uppercase tracking-wide text-muted-foreground">{item.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-1 pt-1.5 border-t border-muted/40">
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] text-muted-foreground shrink-0">Habilidad foco</span>
+              <select
+                value={gameWeek.focusSkill}
+                onChange={e => onGameWeekChange({ focusSkill: e.target.value })}
+                className="h-6 flex-1 min-w-0 rounded border border-input bg-background px-1 text-[9px]"
+              >
+                <option value="">Sin foco</option>
+                {gameFocusOptions.map(skill => (
+                  <option key={skill.id} value={skill.id}>{skill.name}</option>
+                ))}
+              </select>
+            </div>
+            <Input
+              value={gameWeek.challenge}
+              onChange={e => onGameWeekChange({ challenge: e.target.value })}
+              placeholder="Reto de la semana…"
+              className="h-6 text-[9px]"
+            />
+            <div className="grid grid-cols-2 gap-1">
+              <Input
+                type="number"
+                min={0}
+                value={gameWeek.actionsTarget || ''}
+                onChange={e => onGameWeekChange({ actionsTarget: Math.max(0, parseInt(e.target.value) || 0) })}
+                placeholder="Acciones"
+                className="h-6 text-[9px]"
+              />
+              <Input
+                type="number"
+                min={0}
+                value={gameWeek.numbersTarget || ''}
+                onChange={e => onGameWeekChange({ numbersTarget: Math.max(0, parseInt(e.target.value) || 0) })}
+                placeholder="Números"
+                className="h-6 text-[9px]"
+              />
+            </div>
+          </div>
+
+          {(gameMonth.milestone || gameMonth.selectedSkills.length > 0) && (
+            <div className="rounded-md bg-rose-500/5 border border-rose-500/20 p-1.5 space-y-0.5">
+              {gameMonth.milestone && (
+                <p className="text-[9px] text-muted-foreground">
+                  <span className="font-semibold text-rose-600 dark:text-rose-400">Hito del mes:</span> {gameMonth.milestone}
+                </p>
+              )}
+              {gameMonth.selectedSkills.length > 0 && (
+                <p className="text-[9px] text-muted-foreground">
+                  <span className="font-semibold">Habilidades del mes:</span>{' '}
+                  {gameMonth.selectedSkills.map(id => GAME_SKILLS.find(s => s.id === id)?.name).filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
+          )}
         </Tile>
 
         {/* MÚSICA */}

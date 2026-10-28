@@ -16,6 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWeeklyPlan, type Priority } from '@/hooks/useWeeklyPlan';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { useWeeklyPlanData } from '@/hooks/useWeeklyPlanData';
+import { readLanguageMonthPlans, readLanguageWeekPlans, type LanguageId, type LanguageWeekPlan } from '@/lib/languagePlan';
+import { readGameMonthPlan, readGameWeekPlan, type GameWeekPlan } from '@/lib/game';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { cn } from '@/lib/utils';
 import { WeekMinutesRings } from '@/components/plan/WeekMinutesRings';
@@ -116,6 +118,34 @@ export default function WeeklyPlanningPage() {
   const chessCurrentElo = areaData.ajedrez.currentElo ?? areaData.ajedrez.elo ?? null;
   const monthEloGoal =
     Number(monthlyPlan.chess?.elo_goal) || Number(areaData.ajedrez.monthEloTarget) || 0;
+  const languageMonth = readLanguageMonthPlans(monthlyPlan.languages);
+  const languageWeek = planData.languages ?? readLanguageWeekPlans(undefined);
+  const gameMonth = readGameMonthPlan(monthlyPlan.game);
+  const gameWeek = planData.game ?? readGameWeekPlan(undefined);
+
+  /** Guarda el foco/reto de la semana y lo refleja en el plan del mes. */
+  const updateLanguageWeek = useCallback((lang: LanguageId, patch: Partial<LanguageWeekPlan>) => {
+    const next = { ...languageWeek, [lang]: { ...languageWeek[lang], ...patch } };
+    updatePlanData(prev => ({ ...prev, languages: next }));
+    updateMonthPlan(prev => {
+      const distribution = { ...(prev.week_distribution || {}) };
+      const current = distribution[weekKey] || { books: [], songs: [] };
+      distribution[weekKey] = { ...current, languages: next };
+      return { ...prev, week_distribution: distribution };
+    });
+  }, [languageWeek, updatePlanData, updateMonthPlan, weekKey]);
+
+  /** Guarda el foco/reto de Game y lo refleja en el plan del mes. */
+  const updateGameWeek = useCallback((patch: Partial<GameWeekPlan>) => {
+    const next = { ...gameWeek, ...patch };
+    updatePlanData(prev => ({ ...prev, game: next }));
+    updateMonthPlan(prev => {
+      const distribution = { ...(prev.week_distribution || {}) };
+      const current = distribution[weekKey] || { books: [], songs: [] };
+      distribution[weekKey] = { ...current, game: next };
+      return { ...prev, week_distribution: distribution };
+    });
+  }, [gameWeek, updatePlanData, updateMonthPlan, weekKey]);
   const weeksLeftInMonth = (() => {
     const lastWeekStart = startOfWeek(endOfMonth(weekStart), { weekStartsOn: 1 });
     const diff = Math.round((lastWeekStart.getTime() - weekStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
@@ -600,6 +630,12 @@ export default function WeeklyPlanningPage() {
           onLearningSongChange={id => setWeekSongSlot('learning_song_id', id)}
           onMasteringSongChange={id => setWeekSongSlot('mastering_song_id', id)}
           onPagesGoalChange={setLecturaPagesGoal}
+          languageMonth={languageMonth}
+          languageWeek={languageWeek}
+          gameMonth={gameMonth}
+          gameWeek={gameWeek}
+          onLanguageWeekChange={updateLanguageWeek}
+          onGameWeekChange={updateGameWeek}
         />
       </div>
 

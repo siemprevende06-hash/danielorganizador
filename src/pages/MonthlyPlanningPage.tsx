@@ -31,6 +31,7 @@ import { MonthBookSongOverview } from '@/components/monthly-planning/MonthBookSo
 import { ScorecardMensual } from '@/components/monthly-planning/ScorecardMensual';
 import { FinanzasDelMes } from '@/components/monthly-planning/FinanzasDelMes';
 import { CalendarioAcademico } from '@/components/monthly-planning/CalendarioAcademico';
+import { LanguagesAndGamePlanner } from '@/components/monthly-planning/LanguagesAndGamePlanner';
 
 export default function MonthlyPlanningPage() {
   const [month, setMonth] = useState(new Date());
@@ -242,6 +243,12 @@ const handleSave = async () => {
               </div>
             </div>
           </Card>
+
+          <LanguagesAndGamePlanner
+            month={month}
+            planData={planData}
+            updatePlanData={updatePlanData}
+          />
         </div>
       )}
 

@@ -17,6 +17,7 @@ import { ResultadosTrimestre } from '@/components/resultados/ResultadosTrimestre
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 import { PeriodSystemsSection } from '@/components/systems/PeriodSystemsSection';
+import { LanguagesAndGameQuarterPlanner } from '@/components/monthly-planning/LanguagesAndGameQuarterPlanner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -462,6 +463,11 @@ export default function TrimestralPlanningPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Sub-área: Idiomas y Game */}
+            <div className="pl-4">
+              <LanguagesAndGameQuarterPlanner planData={planData} updatePlanData={updatePlanData} />
             </div>
           </div>
 

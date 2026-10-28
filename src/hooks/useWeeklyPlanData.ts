@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateChessElo, CHESS_COUNT_KEYS } from '@/lib/daySystems';
+import { computeLanguagesStats } from '@/lib/languagePlan';
+import { computeGamePeriodStats } from '@/lib/game';
 
 export interface StudySessionRow {
   id: string;
@@ -63,10 +65,28 @@ export interface WeeklyAreaData {
   idiomas: {
     inglesMinutes: number;
     italianoMinutes: number;
+    totalMinutes: number;
+    inglesActiveDays: number;
+    italianoActiveDays: number;
+    /** Días con actividad en cualquiera de los dos idiomas. */
+    activeDays: number;
+    inglesSkills: string[];
+    italianoSkills: string[];
+    skillCoverage: string[];
     inglesSessions: number;
     italianoSessions: number;
   };
-  game: { citas: number; intimidad: number; eventos: number; minutos: number };
+  game: {
+    citas: number;
+    intimidad: number;
+    eventos: number;
+    minutos: number;
+    actions: number;
+    numbers: number;
+    xp: number;
+    activeDays: number;
+    perDay: { date: string; xp: number }[];
+  };
   gym: { logs: number; minutes: number };
   events: {
     id: string;
@@ -113,8 +133,30 @@ const EMPTY: WeeklyAreaData = {
     startingElo: null,
     monthEloTarget: null,
   },
-  idiomas: { inglesMinutes: 0, italianoMinutes: 0, inglesSessions: 0, italianoSessions: 0 },
-  game: { citas: 0, intimidad: 0, eventos: 0, minutos: 0 },
+  idiomas: {
+    inglesMinutes: 0,
+    italianoMinutes: 0,
+    totalMinutes: 0,
+    inglesActiveDays: 0,
+    italianoActiveDays: 0,
+    activeDays: 0,
+    inglesSkills: [],
+    italianoSkills: [],
+    skillCoverage: [],
+    inglesSessions: 0,
+    italianoSessions: 0,
+  },
+  game: {
+    citas: 0,
+    intimidad: 0,
+    eventos: 0,
+    minutos: 0,
+    actions: 0,
+    numbers: 0,
+    xp: 0,
+    activeDays: 0,
+    perDay: [],
+  },
   gym: { logs: 0, minutes: 0 },
   events: [],
   loading: true,
@@ -135,6 +177,17 @@ function readCount(countData: unknown, key: string): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
+/** Cuenta filas por fecha (`yyyy-MM-dd`). */
+function countByDay(rows: Array<Record<string, any>> | null | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  (rows ?? []).forEach(row => {
+    const day = String(row.fecha ?? '').slice(0, 10);
+    if (!day) return;
+    out[day] = (out[day] || 0) + 1;
+  });
+  return out;
+}
+
 /** Agrega todo lo necesario para las filas por área del plan semanal */
 export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
   const [data, setData] = useState<WeeklyAreaData>(EMPTY);
@@ -150,6 +203,7 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
       const [
         tasksRes, entTasksRes, areaStatsRes, readSessionsRes, libraryRes,
         musicSessionsRes, repertoireRes, chessRes, chessGoalsRes, chessTrackingRes,
+        weekSystemsRes, citasRes, socialRes, intimacyRes,
         exerciseRes, eventsRes, subjectsRes, topicsRes, focusRes, blocksRes,
       ] = await Promise.all([
         supabase.from('tasks').select('*').gte('due_date', `${monthStartStr}T00:00:00`).lte('due_date', `${monthEndStr}T23:59:59`),
@@ -162,6 +216,10 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
         supabase.from('chess_sessions').select('*').gte('session_date', weekStartStr).lte('session_date', weekEndStr),
         supabase.from('chess_goals').select('starting_elo, target_elo').eq('is_active', true).maybeSingle(),
         supabase.from('daily_systems_tracking').select('tracking_date, count_data').order('tracking_date', { ascending: true }),
+        supabase.from('daily_systems_tracking').select('tracking_date, time_data, count_data, completions').gte('tracking_date', weekStartStr).lte('tracking_date', weekEndStr),
+        supabase.from('citas').select('id, fecha').gte('fecha', weekStartStr).lte('fecha', weekEndStr),
+        supabase.from('eventos_sociales').select('id, fecha').gte('fecha', weekStartStr).lte('fecha', weekEndStr),
+        supabase.from('intimidad_tracking').select('id, fecha').gte('fecha', weekStartStr).lte('fecha', weekEndStr),
         supabase.from('exercise_logs').select('*').gte('log_date', weekStartStr).lte('log_date', weekEndStr),
         supabase.from('calendar_events').select('*').gte('event_date', weekStartStr).lte('event_date', weekEndStr).order('start_time', { ascending: true }),
         supabase.from('university_subjects').select('id, name'),
@@ -354,20 +412,18 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
         : null;
 
       // --- Idiomas (inglés / italiano) ---
-      const langMinutes = (keys: string[]) =>
-        areaStats
-          .filter((s: any) => keys.includes(s.area_id))
-          .reduce((a, s) => a + (Number(s.time_spent_minutes) || 0), 0);
-      const langSessions = (keys: string[]) =>
-        tasks.filter((t: any) => {
-          const blob = norm(`${t.title} ${t.area_id ?? ''} ${t.source ?? ''} ${t.description ?? ''}`);
-          return keys.some(k => blob.includes(k));
-        }).length;
+      // Fuente canónica: minutos y habilidades de `daily_systems_tracking`.
+      // Las "sesiones" son días con minutos > 0 (no texto de tareas).
+      const weekSystems = weekSystemsRes.data ?? [];
+      const languageStats = computeLanguagesStats(weekSystems);
 
       // --- Game / seducción ---
       const socialEvents = eventsRes.data ?? [];
-      const gameAreaMinutes = minutesByArea(['game']);
-      const citas = tasks.filter((t: any) => norm(`${t.title} ${t.description ?? ''}`).includes('cita')).length;
+      const gameStats = computeGamePeriodStats(weekSystems, {
+        citasByDay: countByDay(citasRes.data),
+        socialByDay: countByDay(socialRes.data),
+        intimacyByDay: countByDay(intimacyRes.data),
+      });
 
       // --- Gym ---
       const exercises = exerciseRes.data ?? [];
@@ -429,16 +485,28 @@ export function useWeeklyPlanData(weekStart: Date, weekEnd: Date) {
           monthEloTarget: chessMonthEloTarget,
         },
         idiomas: {
-          inglesMinutes: langMinutes(['ingles', 'english']),
-          italianoMinutes: langMinutes(['italiano', 'italian']),
-          inglesSessions: langSessions(['ingles', 'english']),
-          italianoSessions: langSessions(['italiano', 'italian']),
+          inglesMinutes: languageStats.ingles.minutes,
+          italianoMinutes: languageStats.italiano.minutes,
+          totalMinutes: languageStats.totalMinutes,
+          inglesActiveDays: languageStats.ingles.activeDays,
+          italianoActiveDays: languageStats.italiano.activeDays,
+          activeDays: languageStats.activeDays,
+          inglesSkills: languageStats.ingles.skillCoverage,
+          italianoSkills: languageStats.italiano.skillCoverage,
+          skillCoverage: languageStats.skillCoverage,
+          inglesSessions: languageStats.ingles.sessions,
+          italianoSessions: languageStats.italiano.sessions,
         },
         game: {
-          citas,
-          intimidad: areaStats.filter((s: any) => s.area_id === 'game' && Number(s.exercises_done) > 0).length,
-          eventos: socialEvents.filter(e => norm(e.category).includes('social')).length,
-          minutos: gameAreaMinutes,
+          citas: gameStats.citas,
+          intimidad: gameStats.intimacy,
+          eventos: gameStats.social,
+          minutos: gameStats.minutes,
+          actions: gameStats.actions,
+          numbers: gameStats.numbers,
+          xp: gameStats.xp,
+          activeDays: gameStats.activeDays,
+          perDay: gameStats.perDay.map(day => ({ date: day.date, xp: day.xp })),
         },
         gym: {
           logs: exercises.length,
