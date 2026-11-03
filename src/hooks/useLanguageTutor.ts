@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/env';
@@ -6,7 +5,23 @@ import type { CoachVisual } from '@/components/coach/VisualCanvas';
 import type { Language } from './useLanguageLearning';
 import type { TutorSkill } from '@/components/languages/tutorModes';
 
+// El cliente tipado de Supabase dispara TS2589 (instantiation too deep) en estas cadenas.
+const db = supabase as any;
+
+/** Escritura de fondo: nunca debe romper la conversación ni lanzar rechazos sueltos. */
+const fire = (query: any) => {
+  try {
+    query?.then?.(
+      () => undefined,
+      () => undefined
+    );
+  } catch {
+    /* noop */
+  }
+};
+
 const FN_URL = edgeFunctionUrl('language-tutor');
+const REQUEST_TIMEOUT_MS = 60000;
 
 export type TutorAccion = {
   tipo: string;
@@ -20,6 +35,8 @@ export interface TutorMessage {
   content: string;
   visuals: CoachVisual[];
   acciones: TutorAccion[];
+  /** true mientras llega el texto en streaming */
+  streaming?: boolean;
 }
 
 export interface TutorConversation {
@@ -37,6 +54,46 @@ export interface TutorMemory {
 
 const scopeFor = (language: Language) => `tutor-${language}`;
 
+/** Recorta el historial: prompts más cortos = primera palabra mucho antes. */
+const buildHistory = (messages: TutorMessage[], limit = 10) =>
+  messages
+    .filter(m => m.content.trim())
+    .slice(-limit)
+    .map(m => ({ role: m.role, content: m.content.slice(0, 1200) }));
+
+async function* leerEventos(res: Response): AsyncGenerator<any> {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, idx).replace(/\r$/, '');
+        buffer = buffer.slice(idx + 1);
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload) continue;
+        if (payload === '[DONE]') return;
+        try {
+          yield JSON.parse(payload);
+        } catch {
+          /* fragmento incompleto */
+        }
+      }
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      /* noop */
+    }
+  }
+}
+
 export function useLanguageTutor(language: Language, level: string, skill: TutorSkill | null) {
   const [conversations, setConversations] = useState<TutorConversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -49,8 +106,17 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
   const skillRef = useRef<TutorSkill | null>(skill);
   skillRef.current = skill;
 
+  const messagesRef = useRef<TutorMessage[]>([]);
+  messagesRef.current = messages;
+  const convRef = useRef<string | null>(null);
+  const busyRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const canceladoRef = useRef(false);
+  const flushRef = useRef<number | null>(null);
+  const pendienteRef = useRef<{ id: string; content: string } | null>(null);
+
   const loadConversations = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await db
       .from('ai_conversations')
       .select('id,title,updated_at')
       .eq('scope', scope)
@@ -60,7 +126,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
   }, [scope]);
 
   const loadMemories = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await db
       .from('ai_memories')
       .select('id,kind,content,importance')
       .eq('source', 'language-tutor')
@@ -71,8 +137,14 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
   }, []);
 
   const openConversation = useCallback(async (id: string) => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    busyRef.current = false;
+    setLoading(false);
+    canceladoRef.current = true;
     setConversationId(id);
-    const { data } = await supabase
+    convRef.current = id;
+    const { data } = await db
       .from('ai_messages')
       .select('id,role,content,visual')
       .eq('conversation_id', id)
@@ -89,13 +161,57 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
   }, []);
 
   const newConversation = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    busyRef.current = false;
+    setLoading(false);
+    canceladoRef.current = true;
+    convRef.current = null;
     setConversationId(null);
     setMessages([]);
     setError(null);
   }, []);
 
+  const applyPatch = useCallback((id: string, patch: Partial<TutorMessage>) => {
+    setMessages(prev => prev.map(m => (m.id === id ? { ...m, ...patch } : m)));
+  }, []);
+
+  /** Pinta los deltas como máximo cada 60 ms para no re-renderizar por token. */
+  const pushDelta = useCallback(
+    (id: string, content: string) => {
+      pendienteRef.current = { id, content };
+      if (flushRef.current !== null) return;
+      flushRef.current = window.setTimeout(() => {
+        flushRef.current = null;
+        const p = pendienteRef.current;
+        if (!p) return;
+        pendienteRef.current = null;
+        applyPatch(p.id, { content: p.content });
+      }, 60);
+    },
+    [applyPatch]
+  );
+
+  const flushDelta = useCallback(
+    (id: string, content: string) => {
+      if (flushRef.current !== null) {
+        clearTimeout(flushRef.current);
+        flushRef.current = null;
+      }
+      pendienteRef.current = null;
+      applyPatch(id, { content });
+    },
+    [applyPatch]
+  );
+
   // Al cambiar de idioma, el historial y los mensajes son otros
   useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    busyRef.current = false;
+    setLoading(false);
+    canceladoRef.current = true;
+    convRef.current = null;
     setConversationId(null);
     setMessages([]);
     setError(null);
@@ -106,36 +222,93 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     loadMemories();
   }, [loadMemories]);
 
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      if (flushRef.current !== null) clearTimeout(flushRef.current);
+    },
+    []
+  );
+
   const deleteMemory = useCallback(async (id: string) => {
-    await supabase.from('ai_memories').delete().eq('id', id);
+    await db.from('ai_memories').delete().eq('id', id);
     setMemories(prev => prev.filter(m => m.id !== id));
+  }, []);
+
+  /** Corta la respuesta en curso conservando lo ya escrito. */
+  const stop = useCallback(() => {
+    canceladoRef.current = true;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+    busyRef.current = false;
+    setMessages(prev => prev.map(m => (m.streaming ? { ...m, streaming: false } : m)));
   }, []);
 
   const sendMessage = useCallback(
     async (text: string, scenario?: string) => {
       const trimmed = text.trim();
-      if (!trimmed || loading) return;
-      setError(null);
+      if (!trimmed || busyRef.current) return;
+
+      busyRef.current = true;
+      canceladoRef.current = false;
       setLoading(true);
+      setError(null);
 
-      const history = messages.map(m => ({ role: m.role, content: m.content }));
-      setMessages(prev => [...prev, { id: `local-${Date.now()}`, role: 'user', content: trimmed, visuals: [], acciones: [] }]);
+      const stamp = Date.now();
+      const userId = `tmp-u-${stamp}`;
+      const assistantId = `tmp-a-${stamp}`;
+      const history = buildHistory(messagesRef.current, skillRef.current === 'speaking' ? 6 : 10);
 
-      let convId = conversationId;
-      try {
-        if (!convId) {
-          const { data, error: convErr } = await supabase
+      setMessages(prev => [
+        ...prev,
+        { id: userId, role: 'user', content: trimmed, visuals: [], acciones: [] },
+        { id: assistantId, role: 'assistant', content: '', visuals: [], acciones: [], streaming: true },
+      ]);
+
+      // La conversación se crea en paralelo: no bloquea la llamada al modelo.
+      const convId = convRef.current;
+      const convPromise: Promise<string | null> = (async () => {
+        try {
+          if (convId) {
+            fire(db.from('ai_messages').insert({ conversation_id: convId, role: 'user', content: trimmed }));
+            return convId;
+          }
+          const { data, error: convErr } = await db
             .from('ai_conversations')
             .insert({ title: trimmed.slice(0, 60), scope })
             .select('id')
             .single();
-          if (convErr) throw new Error(convErr.message);
-          convId = data.id;
-          setConversationId(convId);
+          if (convErr || !data) return null;
+          convRef.current = data.id;
+          setConversationId(data.id);
+          fire(db.from('ai_messages').insert({ conversation_id: data.id, role: 'user', content: trimmed }));
+          return data.id;
+        } catch {
+          return null;
         }
+      })();
 
-        await supabase.from('ai_messages').insert({ conversation_id: convId, role: 'user', content: trimmed });
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      // Es un tiempo máximo SIN recibir nada: mientras el stream avanza no se corta.
+      let timedOut = false;
+      let timeout = window.setTimeout(() => {
+        timedOut = true;
+        ctrl.abort();
+      }, REQUEST_TIMEOUT_MS);
+      const reiniciarTimeout = () => {
+        clearTimeout(timeout);
+        timeout = window.setTimeout(() => {
+          timedOut = true;
+          ctrl.abort();
+        }, REQUEST_TIMEOUT_MS);
+      };
 
+      let content = '';
+      let meta: { visuals?: any[]; acciones?: any[]; fuentes?: any[] } = {};
+
+      try {
         const res = await fetch(FN_URL, {
           method: 'POST',
           headers: {
@@ -150,40 +323,101 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
             level,
             skill: skillRef.current,
             scenario: scenario || undefined,
+            stream: true,
           }),
+          signal: ctrl.signal,
         });
 
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data || data.error) {
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
           throw new Error(data?.error || `Error del servidor (${res.status})`);
         }
 
-        const assistant: TutorMessage = {
-          id: `local-a-${Date.now()}`,
-          role: 'assistant',
-          content: data.content || '',
-          visuals: Array.isArray(data.visuals) ? data.visuals : [],
-          acciones: Array.isArray(data.acciones) ? data.acciones : [],
-        };
-        setMessages(prev => [...prev, assistant]);
+        const tipo = res.headers.get('content-type') || '';
+        if (tipo.includes('text/event-stream') && res.body) {
+          for await (const ev of leerEventos(res)) {
+            reiniciarTimeout();
+            if (ev?.t === 'd' && typeof ev.v === 'string') {
+              content += ev.v;
+              pushDelta(assistantId, content);
+            } else if (ev?.t === 'm') {
+              meta = ev;
+            } else if (ev?.t === 'e') {
+              throw new Error(String(ev.v || 'Error del tutor'));
+            }
+          }
+        } else {
+          // Compatibilidad con respuestas JSON antiguas
+          const data = await res.json().catch(() => null);
+          if (!data) throw new Error('Respuesta vacía del tutor');
+          if (data.error) throw new Error(String(data.error));
+          content = data.content || '';
+          meta = data;
+        }
 
-        await supabase.from('ai_messages').insert({
-          conversation_id: convId,
-          role: 'assistant',
-          content: assistant.content,
-          visual: { visuals: assistant.visuals, acciones: assistant.acciones, fuentes: data.fuentes || [] } as any,
+        flushDelta(assistantId, content);
+        applyPatch(assistantId, {
+          content,
+          visuals: Array.isArray(meta.visuals) ? meta.visuals : [],
+          acciones: Array.isArray(meta.acciones) ? meta.acciones : [],
+          streaming: false,
         });
-        await supabase.from('ai_conversations').update({ updated_at: new Date().toISOString() }).eq('id', convId);
 
-        loadConversations();
-        loadMemories();
+        const id = await convPromise;
+        if (id && content.trim()) {
+          fire(
+            db.from('ai_messages').insert({
+              conversation_id: id,
+              role: 'assistant',
+              content,
+              visual: {
+                visuals: meta.visuals || [],
+                acciones: meta.acciones || [],
+                fuentes: meta.fuentes || [],
+              },
+            })
+          );
+          fire(db.from('ai_conversations').update({ updated_at: new Date().toISOString() }).eq('id', id));
+          fire(loadConversations());
+        }
+        if (meta.acciones?.some((a: any) => a.tipo === 'memoria_guardada')) void loadMemories();
       } catch (e) {
-        setError((e as Error).message);
+        // Solo es cancelación si la pidió el usuario; un AbortError sin cancelar es timeout.
+        const cancelado = canceladoRef.current;
+        if (cancelado) {
+          flushDelta(assistantId, content);
+          applyPatch(assistantId, { content, streaming: false });
+          if (!content.trim()) {
+            setMessages(prev => prev.filter(m => m.id !== assistantId));
+          }
+        } else {
+          setError(
+            timedOut
+              ? 'El tutor ha tardado demasiado en responder. Prueba otra vez.'
+              : (e as Error).message || 'No se pudo hablar con el tutor'
+          );
+          if (content.trim()) {
+            // Si el corte llega a mitad de respuesta, no se tira lo ya escrito.
+            applyPatch(assistantId, {
+              content,
+              visuals: Array.isArray(meta.visuals) ? meta.visuals : [],
+              acciones: Array.isArray(meta.acciones) ? meta.acciones : [],
+              streaming: false,
+            });
+          } else {
+            setMessages(prev => prev.filter(m => m.id !== assistantId));
+          }
+        }
       } finally {
-        setLoading(false);
+        clearTimeout(timeout);
+        if (abortRef.current === ctrl) {
+          abortRef.current = null;
+          busyRef.current = false;
+          setLoading(false);
+        }
       }
     },
-    [conversationId, level, language, loading, messages, loadConversations, loadMemories, scope]
+    [applyPatch, flushDelta, language, level, loadConversations, loadMemories, pushDelta, scope]
   );
 
   return {
@@ -194,6 +428,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     loading,
     error,
     sendMessage,
+    stop,
     openConversation,
     newConversation,
     deleteMemory,

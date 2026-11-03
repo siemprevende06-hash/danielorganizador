@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -44,82 +43,94 @@ interface SpeechRecognitionConstructor {
   new (): SpeechRecognitionLike;
 }
 
-declare global {
-  interface Window {
+const getSpeechRecognition = (): SpeechRecognitionConstructor | undefined => {
+  if (typeof window === 'undefined') return undefined;
+  const w = window as unknown as {
     SpeechRecognition?: SpeechRecognitionConstructor;
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+};
 
 interface Options {
   lang: string;
   /** Transcripción final completa al terminar la escucha (manual o por silencio). */
   onFinal?: (text: string) => void;
+  /** Códigos de error relevantes: 'not-allowed', 'network', 'silencio'... */
+  onError?: (code: string) => void;
 }
 
-export function useSpeechRecognition({ lang, onFinal }: Options) {
+/** Silencios seguidos permitidos en modo manos libres antes de rendirse. */
+const MAX_SILENCIOS = 4;
+
+export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState('');
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const finalRef = useRef('');
   const langRef = useRef(lang);
   const onFinalRef = useRef(onFinal);
+  const onErrorRef = useRef(onError);
+  const manualRef = useRef(false);
+  const listeningRef = useRef(false);
+  const silenciosRef = useRef(0);
 
   useEffect(() => {
     langRef.current = lang;
     onFinalRef.current = onFinal;
+    onErrorRef.current = onError;
   });
 
-  const supported =
-    typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const supported = !!getSpeechRecognition();
 
+  const soltar = useCallback(() => {
+    const rec = recRef.current;
+    if (!rec) return;
+    rec.onresult = null;
+    rec.onerror = null;
+    rec.onend = null;
+    try {
+      rec.abort();
+    } catch {
+      /* noop */
+    }
+    recRef.current = null;
+  }, []);
+
+  /** Para y entrega la transcripción (es lo que hace "soltar para enviar"). */
   const stop = useCallback(() => {
+    manualRef.current = true;
     try {
       recRef.current?.stop();
     } catch {
       /* noop */
     }
-    setListening(false);
-    setInterim('');
   }, []);
 
-  /** Corta la escucha SIN entregar la transcripción (para descartar lo grabado). */
+  /** Corta la escucha SIN entregar la transcripción. */
   const abort = useCallback(() => {
-    const rec = recRef.current;
-    if (rec) {
-      rec.onresult = null;
-      rec.onerror = null;
-      rec.onend = null;
-      try {
-        rec.abort();
-      } catch {
-        /* noop */
-      }
-    }
-    recRef.current = null;
+    manualRef.current = true;
+    soltar();
     finalRef.current = '';
+    listeningRef.current = false;
     setListening(false);
     setInterim('');
-  }, []);
+  }, [soltar]);
 
   const start = useCallback(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SR = getSpeechRecognition();
     if (!SR) {
       toast.error('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.');
       return;
     }
-    const prev = recRef.current;
-    if (prev) {
-      prev.onresult = null;
-      prev.onerror = null;
-      prev.onend = null;
-      try {
-        prev.abort();
-      } catch {
-        /* noop */
-      }
+    if (recRef.current) {
+      // Se evita relanzar mientras el micrófono sigue abierto
+      if (listeningRef.current) return;
+      soltar();
     }
+
     finalRef.current = '';
+    manualRef.current = false;
     setInterim('');
 
     const rec = new SR();
@@ -134,54 +145,69 @@ export function useSpeechRecognition({ lang, onFinal }: Options) {
       for (let i = e.resultIndex ?? 0; i < e.results.length; i++) {
         const res = e.results[i];
         const text = res?.[0]?.transcript || '';
-        if (res.isFinal) finalRef.current = `${finalRef.current} ${text}`.trim();
-        else live += text;
+        if (res.isFinal) {
+          if (text.trim()) silenciosRef.current = 0;
+          finalRef.current = `${finalRef.current} ${text}`.trim();
+        } else {
+          live += text;
+        }
       }
-      setInterim(live);
+      const final = finalRef.current;
+      setInterim((final ? `${final} ` : '') + live);
     };
 
     rec.onerror = e => {
       const code = e?.error;
       if (code === 'not-allowed' || code === 'service-not-allowed') {
+        manualRef.current = true;
         toast.error('Permiso de micrófono denegado. Actívalo en la configuración de tu navegador.');
-      } else if (code === 'no-speech') {
-        toast('No te escuché. Pulsa el micro e inténtalo otra vez.');
+        onErrorRef.current?.(code);
       } else if (code === 'network') {
-        toast.error('Error de red en el reconocimiento de voz.');
+        manualRef.current = true;
+        toast.error('Error de red en el reconocimiento de voz. Revisa tu conexión.');
+        onErrorRef.current?.(code);
+      } else if (code === 'audio-capture') {
+        manualRef.current = true;
+        toast.error('No encuentro el micrófono. Revisa tu dispositivo.');
+        onErrorRef.current?.(code);
       }
     };
 
     rec.onend = () => {
       const text = finalRef.current.trim();
       finalRef.current = '';
+      listeningRef.current = false;
       setListening(false);
       setInterim('');
-      if (text) onFinalRef.current?.(text);
+
+      if (text) {
+        silenciosRef.current = 0;
+        onFinalRef.current?.(text);
+        return;
+      }
+
+      // Silencio seguido: no insistir eternamente con el micro abierto
+      if (!manualRef.current) {
+        silenciosRef.current += 1;
+        if (silenciosRef.current >= MAX_SILENCIOS) {
+          silenciosRef.current = 0;
+          manualRef.current = true;
+          onErrorRef.current?.('silencio');
+        }
+      }
     };
 
     try {
       rec.start();
+      listeningRef.current = true;
       setListening(true);
     } catch {
+      listeningRef.current = false;
       setListening(false);
     }
-  }, []);
+  }, [soltar]);
 
-  useEffect(
-    () => () => {
-      const rec = recRef.current;
-      if (!rec) return;
-      rec.onresult = null;
-      rec.onerror = null;
-      rec.onend = null;
-      try {
-        rec.abort();
-      } catch {
-        /* noop */
-      }
-    },
-    []
-  );
+  useEffect(() => () => soltar(), [soltar]);
 
   return { supported, listening, interim, start, stop, abort };
 }

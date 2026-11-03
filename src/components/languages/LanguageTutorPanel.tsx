@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   CornerDownLeft,
   GraduationCap,
+  Hand,
   History,
   Loader2,
   Maximize2,
@@ -20,6 +21,7 @@ import {
   Plus,
   Send,
   Sparkles,
+  Square,
   SquarePen,
   Trash2,
   Volume2,
@@ -79,41 +81,70 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const [input, setInput] = useState('');
   const [logged, setLogged] = useState<string[]>([]);
   const [scenario, setScenario] = useState<string | null>(null);
-  const [autoSend, setAutoSend] = useState(true);
+  const [autoSend, setAutoSend] = useState(false);
+  const [handsFree, setHandsFree] = useState(false);
+  const [micArmed, setMicArmed] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const autoSpokenRef = useRef<string | null>(null);
+  const lastSendRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   /** true cuando la grabación viene del botón de pantalla completa (siempre envía al soltar) */
   const fullSendRef = useRef(false);
 
-  const { conversations, conversationId, messages, memories, loading, error, sendMessage, openConversation, newConversation, deleteMemory } =
-    useLanguageTutor(language, level, mode);
+  const {
+    conversations,
+    conversationId,
+    messages,
+    memories,
+    loading,
+    error,
+    sendMessage,
+    stop,
+    openConversation,
+    newConversation,
+    deleteMemory,
+  } = useLanguageTutor(language, level, mode);
 
   const speechLang = language === 'italian' ? 'it-IT' : 'en-US';
-  const { supported: speechSupported, speakingId, isSpeaking, speak, stop: stopSpeak, autoSpeak, setAutoSpeak } = useSpeechSynthesis(
-    speechLang,
-    mode === 'listening' ? 0.9 : 0.95
-  );
+  const rate = mode === 'listening' ? 0.9 : 1;
+  const {
+    supported: speechSupported,
+    speakingId,
+    speaking,
+    isSpeaking,
+    speak,
+    speakStream,
+    stop: stopSpeak,
+    autoSpeak,
+    setAutoSpeak,
+    voiceOk,
+  } = useSpeechSynthesis(speechLang, rate);
 
   const header = TUTOR_HEADER[language];
   const activeMode: TutorModeDef | null = TUTOR_MODES.find(m => m.id === mode) ?? null;
   const activeScenario = scenario ? SPEAKING_SCENARIOS.find(s => s.id === scenario) ?? null : null;
   const quick = activeMode ? activeMode.quick[language] : TUTOR_GENERAL[language];
+  const esSpeaking = mode === 'speaking';
   const placeholder = activeScenario
-    ? 'Responde hablando: pulsa el micro y suéltalo para enviar...'
-    : activeMode
-      ? activeMode.placeholder
-      : 'Escribe tu pregunta o tu texto para corregirlo...';
+    ? 'Habla con el micro (se envía solo) o escribe tu respuesta...'
+    : esSpeaking
+      ? 'Pulsa el micro y habla, o escribe lo que quieras decir...'
+      : activeMode
+        ? activeMode.placeholder
+        : 'Escribe tu pregunta o tu texto para corregirlo...';
   const allVisuals = messages.flatMap(m => m.visuals);
+
+  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant') ?? null;
+  const lastAssistantId = lastAssistant?.id;
+  const showLogButton = !loading && messages.length > 0 && lastAssistantId && !logged.includes(lastAssistantId);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
   useEffect(() => {
-    if (!loading) inputRef.current?.focus();
-  }, [loading, conversationId]);
+    if (!loading && !handsFree) inputRef.current?.focus();
+  }, [loading, conversationId, handsFree]);
 
   // Al cambiar de pestaña/idioma el registro de práctica ya no aplica
   useEffect(() => {
@@ -121,25 +152,48 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     setMode(null);
     setInput('');
     setScenario(null);
-    autoSpokenRef.current = null;
-  }, [language]);
+    setHandsFree(false);
+    setMicArmed(false);
+    stopSpeak();
+  }, [language, stopSpeak]);
 
-  // Lectura automática: al terminar una respuesta del tutor, suéltala en voz alta
+  // La voz empieza a sonar en cuanto hay una frase, sin esperar la respuesta completa
   useEffect(() => {
-    if (!autoSpeak || loading) return;
+    if (!autoSpeak) return;
     const last = [...messages].reverse().find(m => m.role === 'assistant');
-    if (!last || autoSpokenRef.current === last.id) return;
-    autoSpokenRef.current = last.id;
-    speak(last.id, last.content);
-  }, [messages, loading, autoSpeak, speak]);
+    if (!last || !last.content) return;
+    // El historial guardado no se lee en voz alta al abrirlo
+    if (!last.id.startsWith('tmp-a-')) return;
+    speakStream(last.id, last.content, !loading);
+  }, [messages, loading, autoSpeak, speakStream]);
+
+  const { supported: sttSupported, listening: sttListening, interim: sttInterim, start: sttStart, stop: sttStop, abort: sttAbort } =
+    useSpeechRecognition({
+      lang: speechLang,
+      onFinal: text => handleFinal(text),
+      onError: code => {
+        if (code === 'silencio') {
+          setMicArmed(false);
+        }
+      },
+    });
+
+  const startListening = () => {
+    if (!sttSupported || loading) return;
+    stopSpeak();
+    sttStart();
+  };
 
   const applyMode = (next: TutorSkill | null) => {
     setMode(next);
-    setAutoSpeak(next === 'listening' || next === 'speaking');
+    const conVoz = next === 'listening' || next === 'speaking';
+    setAutoSpeak(conVoz);
     setAutoSend(next === 'speaking');
-    if (next !== 'listening' && next !== 'speaking') stopSpeak();
+    setHandsFree(next === 'speaking');
+    setMicArmed(false);
+    if (!conVoz) stopSpeak();
     if (next !== 'speaking') setScenario(null);
-    if (stt.listening) stt.stop();
+    if (sttListening) sttAbort();
   };
 
   const toggleSpeak = (id: string, text: string) => {
@@ -151,27 +205,42 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     speak(id, text);
   };
 
-  const handleFinal = (text: string) => {
+  function submit(text: string, scenarioId?: string | null) {
+    const limpio = text.trim();
+    if (!limpio || loading) return;
+    // Evita el doble envío típico: onend del micro + clic en enviar
+    const ahora = Date.now();
+    if (lastSendRef.current.text === limpio && ahora - lastSendRef.current.at < 1500) return;
+    lastSendRef.current = { text: limpio, at: ahora };
+    fullSendRef.current = false;
+
+    stopSpeak();
+    sendMessage(limpio, scenarioId ?? scenario ?? undefined);
+    setInput('');
+    if (sttListening) sttAbort();
+  }
+
+  function handleFinal(text: string) {
     const fromFullscreen = fullSendRef.current;
     fullSendRef.current = false;
-    if (fromFullscreen || (autoSend && !loading)) {
+    if (!text.trim()) return;
+    if (fromFullscreen || autoSend || handsFree) {
       submit(text);
     } else {
       setInput(prev => (prev ? `${prev} ${text}` : text));
       inputRef.current?.focus();
     }
-  };
+  }
 
-  const stt = useSpeechRecognition({ lang: speechLang, onFinal: handleFinal });
-
-  const submit = (text: string, scenarioId?: string | null) => {
-    if (!text.trim() || loading) return;
-    stopSpeak();
-    autoSpokenRef.current = null;
-    sendMessage(text, scenarioId ?? scenario ?? undefined);
-    setInput('');
-    if (stt.listening) stt.stop();
-  };
+  // Manos libres: tras la respuesta (y su voz) el micro se reactiva solo
+  useEffect(() => {
+    if (!handsFree || !micArmed || !esSpeaking) return;
+    if (loading || speaking || sttListening || !sttSupported) return;
+    // Margen para que arranque el TTS antes de abrir el micro (evita eco)
+    const t = window.setTimeout(() => sttStart(), 700);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handsFree, micArmed, esSpeaking, loading, speaking, sttListening, sttSupported]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,6 +250,8 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const startScenario = (id: string) => {
     if (loading) return;
     setScenario(id);
+    setHandsFree(true);
+    setAutoSpeak(true);
     submit(SCENARIO_START_MSG, id);
   };
 
@@ -196,9 +267,15 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     setLogged(prev => [...prev, messageId]);
   };
 
-  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant') ?? null;
-  const lastAssistantId = lastAssistant?.id;
-  const showLogButton = !loading && messages.length > 0 && lastAssistantId && !logged.includes(lastAssistantId);
+  const status = sttListening
+    ? 'Escuchando…'
+    : loading
+      ? lastAssistant?.content
+        ? 'Respondiendo…'
+        : 'Pensando…'
+      : speaking
+        ? 'Hablando…'
+        : '';
 
   return (
     <div className="space-y-3">
@@ -230,16 +307,34 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
         ))}
 
         {speechSupported && (
-          <Button
-            variant={autoSpeak ? 'default' : 'outline'}
-            size="sm"
-            className="h-8 text-xs ml-auto"
-            onClick={() => (autoSpeak ? (setAutoSpeak(false), stopSpeak()) : setAutoSpeak(true))}
-            title={autoSpeak ? 'La IA lee sus respuestas en voz alta' : 'Activar lectura en voz alta'}
-          >
-            {autoSpeak ? <Volume2 className="w-3.5 h-3.5 mr-1 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5 mr-1" />}
-            {autoSpeak ? 'Voz on' : 'Voz off'}
-          </Button>
+          <div className="ml-auto flex gap-1.5">
+            {esSpeaking && sttSupported && (
+              <Button
+                variant={handsFree ? 'default' : 'outline'}
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => (handsFree ? (setHandsFree(false), setMicArmed(false)) : setHandsFree(true))}
+                title={
+                  handsFree
+                    ? 'Manos libres: hablas, el tutor contesta en voz alta y el micro se reactiva solo'
+                    : 'Activar modo manos libres (conversación continua)'
+                }
+              >
+                <Hand className="w-3.5 h-3.5 mr-1" />
+                {handsFree ? 'Manos libres on' : 'Manos libres off'}
+              </Button>
+            )}
+            <Button
+              variant={autoSpeak ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => (autoSpeak ? (setAutoSpeak(false), stopSpeak()) : setAutoSpeak(true))}
+              title={autoSpeak ? 'La IA lee sus respuestas en voz alta' : 'Activar lectura en voz alta'}
+            >
+              {autoSpeak ? <Volume2 className="w-3.5 h-3.5 mr-1 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5 mr-1" />}
+              {autoSpeak ? 'Voz on' : 'Voz off'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -264,6 +359,16 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             );
           })}
         </div>
+      )}
+
+      {esSpeaking && handsFree && (
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          {micArmed
+            ? 'Manos libres activo: habla cuando quieras, se envía al dejar de hablar y el micro se reactiva solo al terminar la respuesta.'
+            : 'Toca el micro una vez: a partir de ahí tú hablas y el tutor responde en voz alta sin que toques nada más.'}
+          {!sttSupported && ' (Este navegador no tiene reconocimiento de voz: usa Chrome o Edge.)'}
+          {speechSupported && !voiceOk && ' Instala una voz de inglés/italiano en tu sistema para que la pronunciación sea correcta.'}
+        </p>
       )}
 
       {activeScenario && (
@@ -295,7 +400,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               </p>
               <p className="text-[11px] text-muted-foreground leading-tight">
                 Nivel {level} · {activeMode ? activeMode.label : 'Chat libre'}
-                {speechSupported && autoSpeak ? ' · leyendo en voz alta' : ''}
+                {status ? ` · ${status}` : speechSupported && autoSpeak ? ' · leyendo en voz alta' : ''}
               </p>
             </div>
             <Button
@@ -304,8 +409,8 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               className="h-7 px-2 text-xs"
               onClick={() => {
                 stopSpeak();
-                autoSpokenRef.current = null;
                 setScenario(null);
+                setMicArmed(false);
                 newConversation();
               }}
             >
@@ -348,8 +453,8 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                             key={c.id}
                             onClick={() => {
                               stopSpeak();
-                              autoSpokenRef.current = null;
                               setScenario(null);
+                              setMicArmed(false);
                               openConversation(c.id);
                             }}
                             className={cn(
@@ -415,11 +520,22 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                     <div className="space-y-2">
                       <div className="flex items-start gap-2">
                         <div className="text-sm flex-1">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={md}>
-                            {m.content}
-                          </ReactMarkdown>
+                          {m.content ? (
+                            <>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={md}>
+                                {m.content}
+                              </ReactMarkdown>
+                              {m.streaming && (
+                                <span className="inline-block w-1.5 h-4 align-middle bg-primary/60 animate-pulse rounded-sm" />
+                              )}
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="w-4 h-4 animate-spin" /> Pensando...
+                            </span>
+                          )}
                         </div>
-                        {speechSupported && (
+                        {speechSupported && m.content && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -474,11 +590,6 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                 </div>
               ))}
 
-              {loading && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Pensando...
-                </div>
-              )}
               {error && <div className="text-sm text-destructive border border-destructive/30 rounded-md p-2">{error}</div>}
               <div ref={endRef} />
             </div>
@@ -501,10 +612,10 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             </div>
           )}
 
-          {stt.listening && (
+          {sttListening && (
             <div className="px-3 pb-1 text-[11px] italic text-muted-foreground flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive animate-pulse flex-shrink-0" />
-              <span className="truncate">{stt.interim || 'Escuchando... pulsa el micro para parar'}</span>
+              <span className="truncate">{sttInterim || 'Escuchando... habla con normalidad'}</span>
             </div>
           )}
 
@@ -525,7 +636,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               className="text-sm resize-none min-h-[2.5rem] max-h-32"
             />
             <div className="flex flex-col gap-1">
-              {stt.supported && (
+              {sttSupported && (
                 <Button
                   type="button"
                   variant={autoSend ? 'default' : 'outline'}
@@ -545,27 +656,51 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               )}
               <Button
                 type="button"
-                variant={stt.listening ? 'default' : 'outline'}
+                variant={sttListening ? 'default' : 'outline'}
                 size="sm"
-                className={cn('w-9 h-9 p-0', stt.listening && 'animate-pulse')}
-                onClick={() => (stt.listening ? stt.stop() : stt.start())}
-                disabled={loading || !stt.supported}
-                aria-label={stt.listening ? 'Parar dictado' : 'Hablar con el Tutor'}
+                className={cn('w-9 h-9 p-0', sttListening && 'animate-pulse')}
+                onClick={() => {
+                  if (sttListening) {
+                    setMicArmed(false);
+                    sttStop();
+                  } else {
+                    setMicArmed(handsFree && esSpeaking);
+                    startListening();
+                  }
+                }}
+                disabled={loading || !sttSupported}
+                aria-label={sttListening ? 'Parar y enviar' : 'Hablar con el Tutor'}
                 title={
-                  !stt.supported
+                  !sttSupported
                     ? 'Reconocimiento de voz no disponible: usa Chrome o Edge'
-                    : stt.listening
-                      ? autoSend
-                        ? 'Parar y enviar lo que has dicho'
-                        : 'Parar dictado'
+                    : sttListening
+                      ? 'Parar y enviar lo que has dicho'
                       : 'Hablar con el Tutor'
                 }
               >
-                {stt.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {sttListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </Button>
-              <Button type="submit" size="sm" className="w-9 h-9 p-0" disabled={loading || !input.trim()} aria-label="Enviar">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </Button>
+              {loading ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-9 h-9 p-0"
+                  onClick={() => {
+                    setMicArmed(false);
+                    stopSpeak();
+                    stop();
+                  }}
+                  aria-label="Detener respuesta"
+                  title="Detener la respuesta del tutor"
+                >
+                  <Square className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button type="submit" size="sm" className="w-9 h-9 p-0" disabled={!input.trim()} aria-label="Enviar">
+                  <Send className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </form>
         </Card>
@@ -587,7 +722,9 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
       <TutorVoiceFullscreen
         open={fullScreen}
         onClose={() => {
-          if (stt.listening) stt.abort();
+          if (sttListening) sttAbort();
+          fullSendRef.current = false;
+          setMicArmed(false);
           setFullScreen(false);
         }}
         flag={header.flag}
@@ -598,15 +735,29 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
         aiSpeaking={speakingId !== null}
         loading={loading}
         stopSpeak={stopSpeak}
-        sttSupported={stt.supported}
-        sttListening={stt.listening}
-        sttInterim={stt.interim}
+        sttSupported={sttSupported}
+        sttListening={sttListening}
+        sttInterim={sttInterim}
+        handsFree={handsFree}
+        onToggleHandsFree={() => {
+          if (handsFree) {
+            setHandsFree(false);
+            setMicArmed(false);
+          } else {
+            setHandsFree(true);
+          }
+        }}
         onHoldStart={() => {
           fullSendRef.current = true;
-          stt.start();
+          setMicArmed(true);
+          startListening();
         }}
-        onHoldEnd={() => stt.stop()}
-        onHoldCancel={() => stt.abort()}
+        onHoldEnd={() => sttStop()}
+        onHoldCancel={() => {
+          fullSendRef.current = false;
+          setMicArmed(false);
+          sttAbort();
+        }}
       />
     </div>
   );

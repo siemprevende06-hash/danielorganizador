@@ -85,7 +85,7 @@ export const TUTOR_MODES: TutorModeDef[] = [
 
 /** Atajos que funcionan con cualquier habilidad seleccionada. */
 export const TUTOR_GENERAL: Record<Language, string[]> = {
-  english: ['Evalúa mi progreso y dime qué practise', 'Examen de nivel: ¿qué me falta?', 'Dame una rutina de 15 minutos'],
+  english: ['Evalúa mi progreso y dime qué practicar', 'Examen de nivel: ¿qué me falta?', 'Dame una rutina de 15 minutos'],
   italian: ['Valuta i miei progressi e dimmi cosa praticare', 'Esame di livello: che cosa mi manca?', 'Dammi una routine di 15 minuti'],
 };
 

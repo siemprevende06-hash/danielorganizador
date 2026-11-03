@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, Loader2, Mic, Minimize2, X } from 'lucide-react';
+import { GraduationCap, Hand, Loader2, Mic, Minimize2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const md: Components = {
@@ -116,6 +116,8 @@ interface Props {
   sttSupported: boolean;
   sttListening: boolean;
   sttInterim: string;
+  handsFree: boolean;
+  onToggleHandsFree: () => void;
   onHoldStart: () => void;
   onHoldEnd: () => void;
   onHoldCancel: () => void;
@@ -137,6 +139,8 @@ export function TutorVoiceFullscreen({
   sttSupported,
   sttListening,
   sttInterim,
+  handsFree,
+  onToggleHandsFree,
   onHoldStart,
   onHoldEnd,
   onHoldCancel,
@@ -214,6 +218,16 @@ export function TutorVoiceFullscreen({
             Nivel {level} · {modeLabel}
           </p>
         </div>
+        <Button
+          variant={handsFree ? 'default' : 'outline'}
+          size="sm"
+          className="h-8 px-2 text-[11px]"
+          onClick={onToggleHandsFree}
+          title={handsFree ? 'Manos libres activo' : 'Activar manos libres'}
+        >
+          <Hand className="w-3.5 h-3.5 sm:mr-1" />
+          <span className="hidden sm:inline">{handsFree ? 'Manos libres' : 'Pulsar para hablar'}</span>
+        </Button>
         <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={onClose} aria-label="Salir de pantalla completa">
           <Minimize2 className="w-4 h-4" />
         </Button>
@@ -230,19 +244,24 @@ export function TutorVoiceFullscreen({
             <p className="text-center text-lg text-muted-foreground italic whitespace-pre-wrap">
               {sttInterim || 'Escuchando...'}
             </p>
-          ) : loading ? (
-            <p className="flex items-center justify-center gap-2 text-lg text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin" /> Pensando...
-            </p>
           ) : aiText ? (
             <div className="text-foreground">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={md}>
                 {aiText}
               </ReactMarkdown>
+              {loading && (
+                <span className="inline-block w-2 h-5 align-middle bg-primary/60 animate-pulse rounded-sm ml-0.5" />
+              )}
             </div>
+          ) : loading ? (
+            <p className="flex items-center justify-center gap-2 text-lg text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" /> Pensando...
+            </p>
           ) : (
             <p className="text-center text-lg text-muted-foreground">
-              Mantén pulsado el botón y habla. Al soltarlo se envía al Tutor.
+              {handsFree
+                ? 'Toca el micro una vez y habla: el tutor te contesta en voz alta y el micro se reactiva solo.'
+                : 'Mantén pulsado el botón y habla. Al soltarlo se envía al Tutor.'}
             </p>
           )}
         </div>
@@ -268,10 +287,18 @@ export function TutorVoiceFullscreen({
         <button
           type="button"
           disabled={!sttSupported || loading}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={e => finishHold(e.clientY, false)}
-          onPointerCancel={() => finishHold(null, true)}
+          onClick={
+            handsFree
+              ? () => {
+                  if (sttListening) onHoldEnd();
+                  else onHoldStart();
+                }
+              : undefined
+          }
+          onPointerDown={handsFree ? undefined : handlePointerDown}
+          onPointerMove={handsFree ? undefined : handlePointerMove}
+          onPointerUp={handsFree ? undefined : e => finishHold(e.clientY, false)}
+          onPointerCancel={handsFree ? undefined : () => finishHold(null, true)}
           onContextMenu={e => e.preventDefault()}
           className={cn(
             'touch-none select-none rounded-full flex items-center justify-center transition-all duration-150',
@@ -283,14 +310,18 @@ export function TutorVoiceFullscreen({
                 : 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 hover:bg-blue-500 active:scale-95',
             (!sttSupported || loading) && 'opacity-40 pointer-events-none'
           )}
-          aria-label="Mantén pulsado para hablar"
+          aria-label={handsFree ? (sttListening ? 'Parar y enviar' : 'Hablar') : 'Mantén pulsado para hablar'}
         >
           {showCancel ? <X className="w-9 h-9" /> : <Mic className="w-9 h-9" />}
         </button>
         <p className="text-xs text-muted-foreground text-center max-w-xs">
           {!sttSupported
             ? 'Reconocimiento de voz no disponible: usa Chrome o Edge'
-            : 'Mantén pulsado para hablar · suelta para enviar · desliza hacia arriba para descartar'}
+            : handsFree
+              ? sttListening
+                ? 'Habla con normalidad · toca para parar y enviar'
+                : 'Toca una vez y habla · el tutor te responde en voz alta y el micro se reactiva solo'
+              : 'Mantén pulsado para hablar · suelta para enviar · desliza hacia arriba para descartar'}
         </p>
       </div>
     </div>
