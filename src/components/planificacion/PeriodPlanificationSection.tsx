@@ -4,12 +4,10 @@ import {
   format, startOfMonth, startOfWeek, endOfMonth, endOfWeek, isToday,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  BookOpen, CalendarDays, FolderKanban, Gamepad2, GraduationCap, Languages,
-  LayoutGrid, ListChecks, Music, Pencil, Sparkles, Target, Timer, Trophy, Zap,
-} from 'lucide-react';
+import { Pencil, Sparkles, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { coverKey, useAreaCovers } from '@/hooks/useAreaCovers';
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { useWeeklyPlan } from '@/hooks/useWeeklyPlan';
@@ -22,7 +20,8 @@ import {
 import { buildHabitPlanObjectives } from '@/lib/planObjectives';
 import { LANGUAGE_IDS, LANGUAGE_LABELS, readLanguageMonthPlans, readLanguageWeekPlans } from '@/lib/languagePlan';
 import { readGameMonthPlan, readGameWeekPlan } from '@/lib/game';
-import { PlanCard, type PlanItem } from './PlanCard';
+import { cn } from '@/lib/utils';
+import { PlanAreaCard, type PlanAreaCardData, type PlanObjectiveRow } from './PlanAreaCard';
 
 export type PlanificationScope = 'day' | 'week' | 'month';
 
@@ -52,19 +51,19 @@ const dateLabel = (value?: string | null) => {
   return format(date, 'EEE d MMM', { locale: es });
 };
 
-function goalItems(goals: Record<string, number>): PlanItem[] {
-  return ALL_HIERARCHY_AREAS
-    .map(area => ({ area, min: Math.max(0, Math.round(goals[area] || 0)) }))
-    .filter(x => x.min > 0)
-    .map(x => ({ id: x.area, title: AREA_LABELS[x.area] || x.area, meta: minutesLabel(x.min) }));
+/** Suma las metas de minutos de varias áreas de la jerarquía. */
+function minutesFrom(goals: Record<string, number>, ids: string[]): number {
+  return ids.reduce((sum, id) => sum + Math.max(0, Math.round(Number(goals[id]) || 0)), 0);
 }
+
+const PRIORITY_TAG: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
 
 const INTENSITY_LABEL: Record<string, string> = { minimo: 'Mín', maximo: 'Máx', extra: 'Extra' };
 const INTENSITY_MULT: Record<string, number> = { minimo: 0.5, maximo: 1, extra: 1.5 };
 const INTENSITY_BASE_MIN: Record<string, number> = { lectura: 30, ajedrez: 20, game: 20, idiomas: 30, gym: 60, musica: 30 };
 const SYSTEM_NAMES: Record<string, string> = { lectura: 'Lectura', ajedrez: 'Ajedrez', game: 'Game', idiomas: 'Idiomas', gym: 'Gym', musica: 'Música' };
 
-function intensityItems(planIntensity?: Record<string, string> | null): PlanItem[] {
+function intensityRows(planIntensity?: Record<string, string> | null): PlanObjectiveRow[] {
   return Object.entries(planIntensity || {})
     .filter(([, value]) => value === 'minimo' || value === 'maximo' || value === 'extra')
     .map(([id, value]) => ({
@@ -72,6 +71,7 @@ function intensityItems(planIntensity?: Record<string, string> | null): PlanItem
       title: SYSTEM_NAMES[id] || id,
       tag: INTENSITY_LABEL[value],
       meta: `~${Math.round((INTENSITY_BASE_MIN[id] || 30) * (INTENSITY_MULT[value] ?? 1))} min`,
+      emoji: '⚡',
     }));
 }
 
@@ -106,43 +106,142 @@ function useEntrepreneurshipNames(ids: string[]) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Tarjetas por área (mismo lenguaje visual que Sistemas)               */
+/* ------------------------------------------------------------------ */
+
+interface PlanGroup {
+  key: string;
+  title: string;
+  note?: string;
+  dot: string;
+  cards: PlanAreaCardData[];
+}
+
+const GROUP_KEYS = {
+  desarrollo: { key: 'desarrollo', title: 'Desarrollo Personal', note: 'Lectura · Música · Idiomas · Ajedrez · Game · Gym', dot: 'bg-emerald-500' },
+  profesional: { key: 'profesional', title: 'Profesional / Académico', note: 'Universidad · Emprendimiento · Proyectos', dot: 'bg-sky-500' },
+} as const;
+
+function periodGroup(title: string, note: string, cards: PlanAreaCardData[]): PlanGroup {
+  return { key: 'periodo', title, note, dot: 'bg-indigo-500', cards };
+}
+
+/** Tarjeta de un área de la jerarquía: portada propia con respaldo del área padre. */
+function areaCard(
+  covers: Record<string, string>,
+  args: {
+    id: string;
+    parentId: string;
+    title: string;
+    emoji: string;
+    minutes?: number;
+    minutesUnit: string;
+    note?: string;
+    items: PlanObjectiveRow[];
+  },
+): PlanAreaCardData {
+  return {
+    id: args.id,
+    title: args.title,
+    note: args.note,
+    emoji: args.emoji,
+    cover: covers[coverKey('sub', args.id)]
+      ?? covers[coverKey('area', args.id)]
+      ?? covers[coverKey('area', args.parentId)]
+      ?? null,
+    minutes: args.minutes,
+    minutesUnit: args.minutesUnit,
+    items: args.items,
+  };
+}
+
+/** Tarjeta para bloques del plan que no son un área de vida (tareas, eventos…). */
+function plainCard(args: {
+  id: string;
+  title: string;
+  emoji: string;
+  note?: string;
+  items: PlanObjectiveRow[];
+}): PlanAreaCardData {
+  return {
+    id: args.id,
+    title: args.title,
+    note: args.note,
+    emoji: args.emoji,
+    cover: null,
+    items: args.items,
+  };
+}
+
+const isCardVisible = (card: PlanAreaCardData) =>
+  card.items.length > 0 || (card.minutes ?? 0) > 0;
+
+function taskRows(
+  tasks: { id: string; title: string; completed: boolean; due_date: string | null; area_id: string | null }[],
+  onToggle: (id: string) => void,
+  showDate: boolean,
+): PlanObjectiveRow[] {
+  return tasks.map(task => ({
+    id: task.id,
+    title: task.title,
+    subtitle: [
+      showDate ? dateLabel(task.due_date) : undefined,
+      task.area_id ? (AREA_LABELS[task.area_id] || task.area_id) : undefined,
+    ].filter(Boolean).join(' · ') || undefined,
+    emoji: '✅',
+    done: task.completed,
+    onToggle: () => onToggle(task.id),
+  }));
+}
+
+/* ------------------------------------------------------------------ */
 /* Estructura visual                                                   */
 /* ------------------------------------------------------------------ */
 
 function PlanShell({
-  title, subtitle, editUrl, empty, loading, children,
+  title, subtitle, editUrl, empty, loading, totalMinutes, children,
 }: {
   title: string;
   subtitle: string;
   editUrl: string;
   empty: boolean;
   loading?: boolean;
+  totalMinutes?: number;
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 shrink-0 rounded-full text-xs"
-          onClick={() => navigate(editUrl)}
-        >
-          <Pencil className="h-3.5 w-3.5 mr-1.5" />
-          Editar
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {(totalMinutes ?? 0) > 0 && (
+            <span className="hidden items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 sm:flex">
+              <Timer className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-bold tabular-nums text-primary">{minutesLabel(totalMinutes ?? 0)}</span>
+              <span className="text-[10px] text-muted-foreground">planificados</span>
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 rounded-full text-xs"
+            onClick={() => navigate(editUrl)}
+          >
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            Editar
+          </Button>
+        </div>
       </header>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl bg-muted/40 animate-pulse" />
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-36 animate-pulse rounded-2xl bg-muted/40" />
           ))}
         </div>
       ) : empty ? (
@@ -154,37 +253,38 @@ function PlanShell({
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{children}</div>
+        children
       )}
     </section>
   );
 }
 
-function PlanGroupHeading({ children, hint }: { children: React.ReactNode; hint?: string }) {
+function PlanGroups({ groups }: { groups: PlanGroup[] }) {
   return (
-    <div className="flex items-baseline gap-2 pt-1 md:col-span-2">
-      <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground/70">{children}</h3>
-      {hint && <span className="text-[10px] text-muted-foreground">{hint}</span>}
-      <span className="h-px flex-1 bg-border/60" />
+    <div className="space-y-5">
+      {groups.map(group => {
+        const cards = group.cards.filter(isCardVisible);
+        if (cards.length === 0) return null;
+        return (
+          <section key={group.key} className="space-y-2.5">
+            <div className="flex items-center gap-2 px-0.5">
+              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', group.dot)} />
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground/70">{group.title}</h3>
+              {group.note && (
+                <span className="hidden text-[10px] text-muted-foreground sm:inline">{group.note}</span>
+              )}
+              <span className="h-px flex-1 bg-border/60" />
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
+              {cards.map(card => (
+                <PlanAreaCard key={card.id} card={card} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
-}
-
-function taskItems(
-  tasks: { id: string; title: string; completed: boolean; due_date: string | null; area_id: string | null }[],
-  onToggle: (id: string) => void,
-  showDate: boolean,
-): PlanItem[] {
-  return tasks.map(task => ({
-    id: task.id,
-    title: task.title,
-    subtitle: [
-      showDate ? dateLabel(task.due_date) : undefined,
-      task.area_id ? (AREA_LABELS[task.area_id] || task.area_id) : undefined,
-    ].filter(Boolean).join(' · ') || undefined,
-    done: task.completed,
-    onToggle: () => onToggle(task.id),
-  }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -196,8 +296,11 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
   const { planData, books, songs, projects, subjects, topics, events, loading } = useMonthlyPlan(month);
   const { tasks, toggleTask, loading: tasksLoading } = usePeriodPlanTasks(month, endOfMonth(month));
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
+  const { covers } = useAreaCovers();
 
   const goals = useMemo(() => getMonthGoalsSummary(month), [month]);
+  const minutesOf = (ids: string[]) => minutesFrom(goals, ids);
+  const unit = 'min mes';
 
   const booksById = useMemo(() => new Map(books.map(b => [b.id, b])), [books]);
   const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
@@ -206,9 +309,7 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
   const topicsById = useMemo(() => new Map(topics.map(t => [t.id, t])), [topics]);
   const eventsById = useMemo(() => new Map(events.map(e => [e.id, e])), [events]);
 
-  const goalsList = goalItems(goals);
-
-  const bookList: PlanItem[] = (planData.books?.selected || []).flatMap(id => {
+  const bookRows: PlanObjectiveRow[] = (planData.books?.selected || []).flatMap(id => {
     const book = booksById.get(id);
     if (!book) return [];
     const done = isBookDone(id);
@@ -216,13 +317,15 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       id,
       title: book.title,
       subtitle: book.author || undefined,
+      cover: book.cover_image_url,
+      emoji: '📖',
       tag: done ? 'Leído' : book.status === 'reading' ? 'Leyendo' : undefined,
       done,
       onToggle: () => toggleBook(id),
     }];
   });
 
-  const songList: PlanItem[] = (planData.songs?.selected || []).flatMap(id => {
+  const songRows: PlanObjectiveRow[] = (planData.songs?.selected || []).flatMap(id => {
     const song = songsById.get(id);
     if (!song) return [];
     const plan = planData.songs_plan?.[id];
@@ -230,13 +333,15 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       id,
       title: song.title,
       subtitle: [song.artist, song.instrument].filter(Boolean).join(' · ') || undefined,
+      cover: song.cover_image_url,
+      emoji: '🎹',
       tag: songTag(plan),
       done: isSongDone(id, plan),
       onToggle: () => toggleSong(id, plan),
     }];
   });
 
-  const subjectList: PlanItem[] = (planData.subjects || []).flatMap(entry => {
+  const subjectRows: PlanObjectiveRow[] = (planData.subjects || []).flatMap(entry => {
     const subject = subjectsById.get(entry.subject_id);
     if (!subject) return [];
     const topicNames = (entry.topics || [])
@@ -245,52 +350,54 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
     return [{
       id: entry.subject_id,
       title: subject.name,
-      subtitle: topicNames.length > 0 ? topicNames.join(' · ') : undefined,
+      subtitle: topicNames.slice(0, 3).join(' · ') || undefined,
       meta: topicNames.length > 0 ? `${topicNames.length} temas` : undefined,
+      emoji: '🎓',
     }];
   });
 
-  const projectList: PlanItem[] = (planData.projects || []).flatMap(id => {
+  const projectRows: PlanObjectiveRow[] = (planData.projects || []).flatMap(id => {
     const project = projectsById.get(id);
-    return project ? [{ id, title: project.name }] : [];
+    return project ? [{ id, title: project.name, emoji: '📦' }] : [];
   });
 
   const eloGoal = Number(planData.chess?.elo_goal) || 0;
-  const chessList: PlanItem[] = eloGoal > 0
-    ? [{ id: 'elo-mes', title: `${eloGoal} ELO`, subtitle: 'Objetivo al cerrar el mes' }]
+  const chessRows: PlanObjectiveRow[] = eloGoal > 0
+    ? [{ id: 'elo-mes', title: `${eloGoal} ELO`, subtitle: 'Objetivo al cerrar el mes', emoji: '♟️' }]
     : [];
 
   const languageMonth = useMemo(() => readLanguageMonthPlans(planData.languages), [planData.languages]);
-  const languageList: PlanItem[] = LANGUAGE_IDS.flatMap(lang => {
+  const languageRows: PlanObjectiveRow[] = LANGUAGE_IDS.flatMap(lang => {
     const plan = languageMonth[lang];
     const hasContent = plan.milestone || plan.monthMinutes > 0 || plan.level;
     if (!hasContent) return [];
     return [{
       id: lang,
-      title: `${LANGUAGE_LABELS[lang]}${plan.level ? ` · ${plan.level}` : ''}`,
-      subtitle: plan.milestone || undefined,
+      title: LANGUAGE_LABELS[lang],
+      subtitle: [plan.level, plan.milestone].filter(Boolean).join(' · ') || undefined,
       meta: plan.monthMinutes > 0 ? minutesLabel(plan.monthMinutes) : undefined,
+      emoji: '🌍',
     }];
   });
 
   const gameMonth = useMemo(() => readGameMonthPlan(planData.game), [planData.game]);
-  const gameList: PlanItem[] = (() => {
-    const parts = [
-      gameMonth.milestone,
-      gameMonth.xpGoal > 0 ? `${gameMonth.xpGoal} XP` : '',
-    ].filter(Boolean);
-    return parts.length > 0
-      ? [{ id: 'game-mes', title: 'Game', subtitle: gameMonth.milestone || undefined, meta: gameMonth.xpGoal > 0 ? `${gameMonth.xpGoal} XP` : undefined }]
-      : [];
-  })();
+  const gameRows: PlanObjectiveRow[] = (gameMonth.milestone || gameMonth.xpGoal > 0)
+    ? [{
+        id: 'game-mes',
+        title: gameMonth.milestone || 'XP del mes',
+        meta: gameMonth.xpGoal > 0 ? `${gameMonth.xpGoal} XP` : undefined,
+        emoji: '🎮',
+      }]
+    : [];
 
-  const personalGoals: PlanItem[] = (planData.personal_goals || []).map((goal, index) => ({
+  const personalGoalRows: PlanObjectiveRow[] = (planData.personal_goals || []).map((goal, index) => ({
     id: `goal-${index}`,
     title: goal.title,
     meta: goal.target || undefined,
+    emoji: '🎯',
   }));
 
-  const eventList: PlanItem[] = (planData.events || []).flatMap(id => {
+  const eventRows: PlanObjectiveRow[] = (planData.events || []).flatMap(id => {
     const event = eventsById.get(id);
     if (!event) return [];
     return [{
@@ -298,16 +405,67 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       title: event.title,
       subtitle: event.category || undefined,
       meta: dateLabel(event.event_date),
+      emoji: '📅',
     }];
   });
 
-  const taskList = taskItems(tasks, toggleTask, true);
+  const taskList = taskRows(tasks, toggleTask, true);
 
-  const empty = [
-    goalsList, taskList, bookList, songList, subjectList, projectList,
-    chessList, languageList, gameList, personalGoals, eventList,
-  ].every(list => list.length === 0);
+  const desarrollo: PlanAreaCardData[] = [
+    areaCard(covers, {
+      id: 'lectura', parentId: 'desarrollo', title: 'Lectura', emoji: '📖',
+      minutes: minutesOf(['lectura']), minutesUnit: unit, items: bookRows,
+    }),
+    areaCard(covers, {
+      id: 'musica', parentId: 'desarrollo', title: 'Música', emoji: '🎹',
+      minutes: minutesOf(['musica']), minutesUnit: unit, items: songRows,
+    }),
+    areaCard(covers, {
+      id: 'idiomas', parentId: 'desarrollo', title: 'Idiomas', emoji: '🌍', note: 'inglés + italiano',
+      minutes: minutesOf(['ingles', 'italiano']), minutesUnit: unit, items: languageRows,
+    }),
+    areaCard(covers, {
+      id: 'ajedrez', parentId: 'desarrollo', title: 'Ajedrez', emoji: '♟️',
+      minutes: minutesOf(['ajedrez']), minutesUnit: unit, items: chessRows,
+    }),
+    areaCard(covers, {
+      id: 'game', parentId: 'desarrollo', title: 'Game', emoji: '🎮',
+      minutes: minutesOf(['game']), minutesUnit: unit, items: gameRows,
+    }),
+    areaCard(covers, {
+      id: 'gym', parentId: 'salud', title: 'Gym', emoji: '🏋️',
+      minutes: minutesOf(['gym']), minutesUnit: unit, items: [],
+    }),
+  ];
 
+  const profesional: PlanAreaCardData[] = [
+    areaCard(covers, {
+      id: 'universidad', parentId: 'profesional', title: 'Universidad', emoji: '🎓',
+      minutes: minutesOf(['universidad']), minutesUnit: unit, items: subjectRows,
+    }),
+    areaCard(covers, {
+      id: 'emprendimiento', parentId: 'profesional', title: 'Emprendimiento', emoji: '🚀',
+      minutes: minutesOf(['emprendimiento']), minutesUnit: unit, items: [],
+    }),
+    areaCard(covers, {
+      id: 'proyectos', parentId: 'profesional', title: 'Proyectos', emoji: '📦',
+      minutes: minutesOf(['proyectos']), minutesUnit: unit, items: projectRows,
+    }),
+  ];
+
+  const periodo: PlanAreaCardData[] = [
+    plainCard({ id: 'tareas', title: 'Tareas del mes', emoji: '✅', items: taskList }),
+    plainCard({ id: 'metas', title: 'Metas personales', emoji: '🎯', items: personalGoalRows }),
+    plainCard({ id: 'eventos', title: 'Eventos', emoji: '📅', items: eventRows }),
+  ];
+
+  const groups: PlanGroup[] = [
+    { ...GROUP_KEYS.desarrollo, cards: desarrollo },
+    { ...GROUP_KEYS.profesional, cards: profesional },
+    periodGroup('Plan del periodo', 'Tareas · metas personales · eventos', periodo),
+  ];
+
+  const empty = !groups.some(group => group.cards.some(isCardVisible));
   const monthTotal = ALL_HIERARCHY_AREAS.reduce((sum, area) => sum + (goals[area] || 0), 0);
 
   return (
@@ -317,24 +475,9 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       editUrl={`/monthly-planning?month=${format(month, 'yyyy-MM')}`}
       empty={empty}
       loading={loading || tasksLoading}
+      totalMinutes={monthTotal}
     >
-      <PlanCard
-        icon={<Timer className="h-3.5 w-3.5" />}
-        title="Metas de minutos"
-        items={goalsList}
-        accent="bg-sky-500/10 text-sky-500"
-        hint={monthTotal > 0 ? `Total del mes: ${minutesLabel(monthTotal)}` : undefined}
-      />
-      <PlanCard icon={<ListChecks className="h-3.5 w-3.5" />} title="Tareas del mes" items={taskList} accent="bg-indigo-500/10 text-indigo-500" />
-      <PlanCard icon={<BookOpen className="h-3.5 w-3.5" />} title="Lectura" items={bookList} accent="bg-blue-500/10 text-blue-500" />
-      <PlanCard icon={<Music className="h-3.5 w-3.5" />} title="Música" items={songList} accent="bg-violet-500/10 text-violet-500" />
-      <PlanCard icon={<GraduationCap className="h-3.5 w-3.5" />} title="Universidad" items={subjectList} accent="bg-indigo-500/10 text-indigo-500" />
-      <PlanCard icon={<FolderKanban className="h-3.5 w-3.5" />} title="Proyectos" items={projectList} accent="bg-amber-500/10 text-amber-500" />
-      <PlanCard icon={<Trophy className="h-3.5 w-3.5" />} title="Ajedrez" items={chessList} accent="bg-emerald-500/10 text-emerald-500" />
-      <PlanCard icon={<Languages className="h-3.5 w-3.5" />} title="Idiomas" items={languageList} accent="bg-cyan-500/10 text-cyan-500" />
-      <PlanCard icon={<Gamepad2 className="h-3.5 w-3.5" />} title="Game" items={gameList} accent="bg-rose-500/10 text-rose-500" />
-      <PlanCard icon={<Target className="h-3.5 w-3.5" />} title="Metas personales" items={personalGoals} accent="bg-purple-500/10 text-purple-500" />
-      <PlanCard icon={<CalendarDays className="h-3.5 w-3.5" />} title="Eventos" items={eventList} accent="bg-slate-500/10 text-slate-500" />
+      <PlanGroups groups={groups} />
     </PlanShell>
   );
 }
@@ -353,6 +496,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const { planData: monthPlan, books, songs, projects, subjects } = useMonthlyPlan(month);
   const { tasks, toggleTask, loading: tasksLoading } = usePeriodPlanTasks(weekStart, weekEnd);
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
+  const { covers } = useAreaCovers();
   const entrepreneurshipIds = planData.areaFocus?.emprendimiento || [];
   const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
 
@@ -364,24 +508,33 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     return out;
   }, [weekStart]);
 
-  const goalsList = goalItems(weekGoals);
+  const minutesOf = (ids: string[]) => minutesFrom(weekGoals, ids);
+  const unit = 'min sem.';
 
-  const objectivesList: PlanItem[] = (planData.objectives || []).map((objective, index) => ({
+  const outcomesById = useMemo(
+    () => new Map((planData.outcomes || []).map(o => [o.id, o.title])),
+    [planData.outcomes],
+  );
+
+  const objectiveRows: PlanObjectiveRow[] = (planData.objectives || []).map((objective, index) => ({
     id: `objetivo-${index}`,
     title: objective,
+    emoji: '🎯',
   }));
 
-  const personalGoalsList: PlanItem[] = (planData.personal_goals || []).map((goal, index) => ({
+  const personalGoalRows: PlanObjectiveRow[] = (planData.personal_goals || []).map((goal, index) => ({
     id: `meta-${index}`,
     title: goal.title,
     meta: goal.target || undefined,
+    emoji: '🎯',
   }));
 
-  const outcomeList: PlanItem[] = (planData.outcomes || []).map(outcome => ({
+  const outcomeRows: PlanObjectiveRow[] = (planData.outcomes || []).map(outcome => ({
     id: outcome.id,
     title: outcome.title,
     subtitle: outcome.successCriteria || undefined,
-    tag: outcome.priority === 'high' ? 'Alta' : outcome.priority === 'medium' ? 'Media' : outcome.priority === 'low' ? 'Baja' : undefined,
+    tag: outcome.priority ? PRIORITY_TAG[outcome.priority] : undefined,
+    emoji: '🏁',
     done: outcome.completed,
     onToggle: () => patchPlan(prev => ({
       ...prev,
@@ -389,7 +542,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     })),
   }));
 
-  const actionList: PlanItem[] = (planData.actions || []).map(action => ({
+  const actionRows: PlanObjectiveRow[] = (planData.actions || []).map(action => ({
     id: action.id,
     title: action.title,
     subtitle: [
@@ -397,6 +550,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       action.area || undefined,
     ].filter(Boolean).join(' · ') || undefined,
     meta: action.estimatedMinutes ? minutesLabel(action.estimatedMinutes) : undefined,
+    emoji: '⚡',
     done: action.completed,
     onToggle: () => patchPlan(prev => ({
       ...prev,
@@ -404,32 +558,50 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     })),
   }));
 
-  const areaList: PlanItem[] = (() => {
-    const subjectsById = new Map(subjects.map(s => [s.id, s.name]));
-    const projectsById = new Map(projects.map(p => [p.id, p.name]));
-    const areas: { id: string; label: string; focusIds: string[]; resolve: (id: string) => string | undefined }[] = [
-      { id: 'universidad', label: 'Universidad', focusIds: planData.areaFocus?.universidad || [], resolve: id => subjectsById.get(id) },
-      { id: 'emprendimiento', label: 'Emprendimiento', focusIds: planData.areaFocus?.emprendimiento || [], resolve: id => entrepreneurshipNames[id] },
-      { id: 'proyectos', label: 'Proyectos', focusIds: planData.areaFocus?.proyectos || [], resolve: id => projectsById.get(id) },
-      { id: 'general', label: 'Tareas generales', focusIds: [], resolve: () => undefined },
-    ];
-
-    return areas.flatMap(area => {
-      const names = area.focusIds.map(area.resolve).filter(Boolean) as string[];
-      const rawResult = planData.areaResults?.[area.id];
-      const resultTitle = rawResult
-        ? (planData.outcomes || []).find(o => o.id === rawResult)?.title || rawResult
-        : '';
-      const minutes = weekGoals[area.id] || 0;
-      if (names.length === 0 && !resultTitle && minutes <= 0) return [];
-      return [{
-        id: area.id,
-        title: area.label,
-        subtitle: [names.join(' · '), resultTitle ? `→ ${resultTitle}` : ''].filter(Boolean).join(' · ') || undefined,
-        meta: minutes > 0 ? minutesLabel(minutes) : undefined,
-      }];
+  /** Focos semanales + resultado al que apunta un área de construcción. */
+  const focusRows = (
+    areaId: string,
+    ids: string[],
+    resolve: (id: string) => string | undefined,
+    emoji: string,
+  ): PlanObjectiveRow[] => {
+    const rows: PlanObjectiveRow[] = ids.flatMap(id => {
+      const title = resolve(id);
+      return title ? [{ id: `${areaId}-focus-${id}`, title, emoji }] : [];
     });
-  })();
+    const rawResult = planData.areaResults?.[areaId];
+    if (rawResult) {
+      rows.unshift({
+        id: `${areaId}-result`,
+        title: outcomesById.get(rawResult) ?? rawResult,
+        subtitle: 'Resultado de la semana',
+        emoji: '🏁',
+      });
+    }
+    return rows;
+  };
+
+  const subjectsById = useMemo(() => new Map(subjects.map(s => [s.id, s.name])), [subjects]);
+  const projectsById = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
+
+  const universityRows = focusRows(
+    'universidad',
+    planData.areaFocus?.universidad || [],
+    id => subjectsById.get(id),
+    '🎓',
+  );
+  const entrepreneurshipNamesRows = focusRows(
+    'emprendimiento',
+    entrepreneurshipIds,
+    id => entrepreneurshipNames[id],
+    '🚀',
+  );
+  const projectRows = focusRows(
+    'proyectos',
+    planData.areaFocus?.proyectos || [],
+    id => projectsById.get(id),
+    '📦',
+  );
 
   const booksById = useMemo(() => new Map(books.map(b => [b.id, b])), [books]);
   const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
@@ -453,7 +625,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     return monthPlan.songs_plan?.[id];
   };
 
-  const bookList: PlanItem[] = weekBookIds.flatMap(id => {
+  const bookRows: PlanObjectiveRow[] = weekBookIds.flatMap(id => {
     const book = booksById.get(id);
     if (!book) return [];
     const done = isBookDone(id);
@@ -461,13 +633,15 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       id,
       title: book.title,
       subtitle: book.author || undefined,
+      cover: book.cover_image_url,
+      emoji: '📖',
       tag: done ? 'Leído' : book.status === 'reading' ? 'Leyendo' : undefined,
       done,
       onToggle: () => toggleBook(id),
     }];
   });
 
-  const songList: PlanItem[] = weekSongIds.flatMap(id => {
+  const songRows: PlanObjectiveRow[] = weekSongIds.flatMap(id => {
     const song = songsById.get(id);
     if (!song) return [];
     const plan = planTypeFor(id);
@@ -475,6 +649,8 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       id,
       title: song.title,
       subtitle: [song.artist, song.instrument].filter(Boolean).join(' · ') || undefined,
+      cover: song.cover_image_url,
+      emoji: '🎹',
       tag: songTag(plan),
       done: isSongDone(id, plan),
       onToggle: () => toggleSong(id, plan),
@@ -483,16 +659,17 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
 
   const eloStart = Number(planData.chessEloStart) || Number(weekDist?.elo_start) || 0;
   const eloTarget = Number(planData.chessEloTarget) || Number(weekDist?.elo_target) || 0;
-  const chessList: PlanItem[] = eloTarget > 0
+  const chessRows: PlanObjectiveRow[] = eloTarget > 0
     ? [{
         id: 'elo-sem',
         title: `${eloTarget} ELO`,
         subtitle: eloStart > 0 && eloStart !== eloTarget ? `${eloStart} → ${eloTarget}` : 'Objetivo de la semana',
+        emoji: '♟️',
       }]
     : [];
 
   const languageWeek = useMemo(() => readLanguageWeekPlans(planData.languages), [planData.languages]);
-  const languageList: PlanItem[] = LANGUAGE_IDS.flatMap(lang => {
+  const languageRows: PlanObjectiveRow[] = LANGUAGE_IDS.flatMap(lang => {
     const plan = languageWeek[lang];
     if (!plan.focusSkill && !plan.challenge && !plan.minutesTarget) return [];
     return [{
@@ -500,26 +677,80 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       title: LANGUAGE_LABELS[lang],
       subtitle: [plan.focusSkill, plan.challenge].filter(Boolean).join(' · ') || undefined,
       meta: plan.minutesTarget > 0 ? minutesLabel(plan.minutesTarget) : undefined,
+      emoji: '🌍',
     }];
   });
 
   const gameWeek = useMemo(() => readGameWeekPlan(planData.game), [planData.game]);
-  const gameList: PlanItem[] = (gameWeek.focusSkill || gameWeek.challenge || gameWeek.xpTarget > 0)
+  const gameRows: PlanObjectiveRow[] = (gameWeek.focusSkill || gameWeek.challenge || gameWeek.xpTarget > 0)
     ? [{
         id: 'game-sem',
-        title: 'Game',
-        subtitle: [gameWeek.focusSkill, gameWeek.challenge].filter(Boolean).join(' · ') || undefined,
+        title: gameWeek.focusSkill || 'Game',
+        subtitle: gameWeek.challenge || undefined,
         meta: gameWeek.xpTarget > 0 ? `${gameWeek.xpTarget} XP` : undefined,
+        emoji: '🎮',
       }]
     : [];
 
-  const taskList = taskItems(tasks, toggleTask, true);
+  const taskList = taskRows(tasks, toggleTask, true);
 
-  const empty = [
-    goalsList, objectivesList, personalGoalsList, outcomeList, actionList, areaList, bookList, songList,
-    chessList, languageList, gameList, taskList,
-  ].every(list => list.length === 0);
+  const desarrollo: PlanAreaCardData[] = [
+    areaCard(covers, {
+      id: 'lectura', parentId: 'desarrollo', title: 'Lectura', emoji: '📖',
+      minutes: minutesOf(['lectura']), minutesUnit: unit, items: bookRows,
+    }),
+    areaCard(covers, {
+      id: 'musica', parentId: 'desarrollo', title: 'Música', emoji: '🎹',
+      minutes: minutesOf(['musica']), minutesUnit: unit, items: songRows,
+    }),
+    areaCard(covers, {
+      id: 'idiomas', parentId: 'desarrollo', title: 'Idiomas', emoji: '🌍', note: 'inglés + italiano',
+      minutes: minutesOf(['ingles', 'italiano']), minutesUnit: unit, items: languageRows,
+    }),
+    areaCard(covers, {
+      id: 'ajedrez', parentId: 'desarrollo', title: 'Ajedrez', emoji: '♟️',
+      minutes: minutesOf(['ajedrez']), minutesUnit: unit, items: chessRows,
+    }),
+    areaCard(covers, {
+      id: 'game', parentId: 'desarrollo', title: 'Game', emoji: '🎮',
+      minutes: minutesOf(['game']), minutesUnit: unit, items: gameRows,
+    }),
+    areaCard(covers, {
+      id: 'gym', parentId: 'salud', title: 'Gym', emoji: '🏋️',
+      minutes: minutesOf(['gym']), minutesUnit: unit, items: [],
+    }),
+  ];
 
+  const profesional: PlanAreaCardData[] = [
+    areaCard(covers, {
+      id: 'universidad', parentId: 'profesional', title: 'Universidad', emoji: '🎓',
+      minutes: minutesOf(['universidad']), minutesUnit: unit, items: universityRows,
+    }),
+    areaCard(covers, {
+      id: 'emprendimiento', parentId: 'profesional', title: 'Emprendimiento', emoji: '🚀',
+      minutes: minutesOf(['emprendimiento']), minutesUnit: unit, items: entrepreneurshipNamesRows,
+    }),
+    areaCard(covers, {
+      id: 'proyectos', parentId: 'profesional', title: 'Proyectos', emoji: '📦',
+      minutes: minutesOf(['proyectos']), minutesUnit: unit, items: projectRows,
+    }),
+  ];
+
+  const periodo: PlanAreaCardData[] = [
+    plainCard({ id: 'objetivos', title: 'Objetivos', emoji: '🎯', items: objectiveRows }),
+    plainCard({ id: 'resultados', title: 'Resultados', emoji: '🏁', items: outcomeRows }),
+    plainCard({ id: 'acciones', title: 'Acciones', emoji: '⚡', items: actionRows }),
+    plainCard({ id: 'metas', title: 'Metas personales', emoji: '🎯', items: personalGoalRows }),
+    plainCard({ id: 'tareas', title: 'Tareas de la semana', emoji: '✅', items: taskList }),
+  ];
+
+  const groups: PlanGroup[] = [
+    { ...GROUP_KEYS.desarrollo, cards: desarrollo },
+    { ...GROUP_KEYS.profesional, cards: profesional },
+    periodGroup('Plan del periodo', 'Objetivos · resultados · acciones · metas · tareas', periodo),
+  ];
+
+  const empty = !groups.some(group => group.cards.some(isCardVisible));
   const weekTotal = ALL_HIERARCHY_AREAS.reduce((sum, area) => sum + (weekGoals[area] || 0), 0);
 
   return (
@@ -529,25 +760,9 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       editUrl={`/weekly-planning?week=${weekKey}`}
       empty={empty}
       loading={loading || tasksLoading}
+      totalMinutes={weekTotal}
     >
-      <PlanCard
-        icon={<Timer className="h-3.5 w-3.5" />}
-        title="Metas de minutos"
-        items={goalsList}
-        accent="bg-sky-500/10 text-sky-500"
-        hint={weekTotal > 0 ? `Total de la semana: ${minutesLabel(weekTotal)}` : undefined}
-      />
-      <PlanCard icon={<Target className="h-3.5 w-3.5" />} title="Objetivos de la semana" items={objectivesList} accent="bg-emerald-500/10 text-emerald-500" />
-      <PlanCard icon={<Target className="h-3.5 w-3.5" />} title="Metas personales" items={personalGoalsList} accent="bg-purple-500/10 text-purple-500" />
-      <PlanCard icon={<Target className="h-3.5 w-3.5" />} title="Resultados" items={outcomeList} accent="bg-emerald-500/10 text-emerald-500" />
-      <PlanCard icon={<Zap className="h-3.5 w-3.5" />} title="Acciones" items={actionList} accent="bg-amber-500/10 text-amber-500" />
-      <PlanCard icon={<LayoutGrid className="h-3.5 w-3.5" />} title="Áreas de la semana" items={areaList} accent="bg-primary/10 text-primary" />
-      <PlanCard icon={<BookOpen className="h-3.5 w-3.5" />} title="Lectura" items={bookList} accent="bg-blue-500/10 text-blue-500" />
-      <PlanCard icon={<Music className="h-3.5 w-3.5" />} title="Música" items={songList} accent="bg-violet-500/10 text-violet-500" />
-      <PlanCard icon={<Trophy className="h-3.5 w-3.5" />} title="Ajedrez" items={chessList} accent="bg-emerald-500/10 text-emerald-500" />
-      <PlanCard icon={<Languages className="h-3.5 w-3.5" />} title="Idiomas" items={languageList} accent="bg-cyan-500/10 text-cyan-500" />
-      <PlanCard icon={<Gamepad2 className="h-3.5 w-3.5" />} title="Game" items={gameList} accent="bg-rose-500/10 text-rose-500" />
-      <PlanCard icon={<ListChecks className="h-3.5 w-3.5" />} title="Tareas de la semana" items={taskList} accent="bg-indigo-500/10 text-indigo-500" />
+      <PlanGroups groups={groups} />
     </PlanShell>
   );
 }
@@ -568,6 +783,7 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const { planData: weekPlan, loading: weekLoading } = useWeeklyPlan(weekStart);
   const { planData: monthPlan, books, songs, projects, subjects, loading: monthLoading } = useMonthlyPlan(startOfMonth(anchorDate));
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
+  const { covers } = useAreaCovers();
 
   const dayGoals = useMemo(() => {
     const out: Record<string, number> = {};
@@ -577,9 +793,10 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
     return out;
   }, [anchorDate, planGoals]);
 
-  const goalsList = goalItems(dayGoals);
+  const minutesOf = (id: string) => Math.max(0, Math.round(Number(dayGoals[id]) || 0));
+  const unit = 'min día';
   const dayTotal = getDayGoalTotal(anchorDate, planGoals);
-  const intensityList = intensityItems(planIntensity);
+  const intensity = intensityRows(planIntensity);
 
   const blockTitleByTaskId = useMemo(() => {
     const map = new Map<string, string>();
@@ -591,23 +808,25 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
     return map;
   }, [tasksByBlock, blocks]);
 
-  const blockList: PlanItem[] = blocks.map(block => {
+  const blockRows: PlanObjectiveRow[] = blocks.map(block => {
     const blockTasks = tasksByBlock[block.id] || [];
     const done = blockTasks.filter(t => t.completed).length;
     return {
       id: block.id,
       title: block.title,
       subtitle: [block.startTime, block.endTime].filter(Boolean).join(' – ') || undefined,
-      meta: blockTasks.length > 0 ? `${done}/${blockTasks.length}` : undefined,
+      meta: blockTasks.length > 0 ? `${done}/${blockTasks.length} tareas` : undefined,
+      emoji: '🕒',
       done: isBlockCompleted(block.id),
       onToggle: () => toggleBlockComplete(block.id, blockTasks.length),
     };
   });
 
-  const dayTasks: PlanItem[] = tasks.map(task => ({
+  const dayTaskRows: PlanObjectiveRow[] = tasks.map(task => ({
     id: task.id,
     title: task.title,
     subtitle: blockTitleByTaskId.get(task.id) || task.sourceName || undefined,
+    emoji: '✅',
     done: task.completed,
     onToggle: () => toggleTaskDone(task.id),
   }));
@@ -625,53 +844,60 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
     [monthPlan, books, songs, projects, subjects, weekKey, weekPlan.chessEloStart, weekPlan.chessEloTarget],
   );
 
-  const readingList: PlanItem[] = inherited.lectura.map(item => {
+  const readingRows: PlanObjectiveRow[] = inherited.lectura.map(item => {
     const done = isBookDone(item.id);
     return {
       id: item.id,
       title: item.title,
       subtitle: item.subtitle,
+      cover: item.cover,
+      emoji: '📖',
       tag: done ? 'Leído' : item.isCurrent ? 'Leyendo' : undefined,
       done,
       onToggle: () => toggleBook(item.id),
     };
   });
 
-  const musicList: PlanItem[] = inherited.musica.map(item => {
+  const musicRows: PlanObjectiveRow[] = inherited.musica.map(item => {
     const plan = monthPlan.songs_plan?.[item.id];
     return {
       id: item.id,
       title: item.title,
       subtitle: item.subtitle,
+      cover: item.cover,
+      emoji: '🎹',
       tag: songTag(plan),
       done: isSongDone(item.id, plan),
       onToggle: () => toggleSong(item.id, plan),
     };
   });
 
-  const subjectList: PlanItem[] = inherited.universidad.map(item => ({
+  const subjectRows: PlanObjectiveRow[] = inherited.universidad.map(item => ({
     id: item.id,
     title: item.title,
     subtitle: item.subtitle,
     tag: item.tag,
+    emoji: '🎓',
   }));
 
-  const projectList: PlanItem[] = inherited.proyectos.map(item => ({
+  const projectRows: PlanObjectiveRow[] = inherited.proyectos.map(item => ({
     id: item.id,
     title: item.title,
     subtitle: item.subtitle,
     tag: item.tag,
+    emoji: '📦',
   }));
 
-  const chessList: PlanItem[] = inherited.ajedrez.map(item => ({
+  const chessRows: PlanObjectiveRow[] = inherited.ajedrez.map(item => ({
     id: item.id,
     title: item.title,
     subtitle: item.subtitle,
     tag: item.tag,
+    emoji: '♟️',
   }));
 
   const languageWeek = useMemo(() => readLanguageWeekPlans(weekPlan.languages), [weekPlan.languages]);
-  const languageList: PlanItem[] = LANGUAGE_IDS.flatMap(lang => {
+  const languageRows: PlanObjectiveRow[] = LANGUAGE_IDS.flatMap(lang => {
     const plan = languageWeek[lang];
     if (!plan.focusSkill && !plan.challenge && !plan.minutesTarget) return [];
     return [{
@@ -679,30 +905,78 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
       title: LANGUAGE_LABELS[lang],
       subtitle: [plan.focusSkill, plan.challenge].filter(Boolean).join(' · ') || undefined,
       meta: plan.minutesTarget > 0 ? minutesLabel(plan.minutesTarget) : undefined,
+      emoji: '🌍',
     }];
   });
 
   const gameWeek = useMemo(() => readGameWeekPlan(weekPlan.game), [weekPlan.game]);
-  const gameList: PlanItem[] = (gameWeek.focusSkill || gameWeek.challenge || gameWeek.xpTarget > 0)
+  const gameRows: PlanObjectiveRow[] = (gameWeek.focusSkill || gameWeek.challenge || gameWeek.xpTarget > 0)
     ? [{
         id: 'game-sem',
-        title: 'Game',
-        subtitle: [gameWeek.focusSkill, gameWeek.challenge].filter(Boolean).join(' · ') || undefined,
+        title: gameWeek.focusSkill || 'Game',
+        subtitle: gameWeek.challenge || undefined,
         meta: gameWeek.xpTarget > 0 ? `${gameWeek.xpTarget} XP` : undefined,
+        emoji: '🎮',
       }]
     : [];
 
+  const desarrollo: PlanAreaCardData[] = [
+    areaCard(covers, {
+      id: 'lectura', parentId: 'desarrollo', title: 'Lectura', emoji: '📖',
+      minutes: minutesOf('lectura'), minutesUnit: unit, items: readingRows,
+    }),
+    areaCard(covers, {
+      id: 'musica', parentId: 'desarrollo', title: 'Música', emoji: '🎹',
+      minutes: minutesOf('musica'), minutesUnit: unit, items: musicRows,
+    }),
+    areaCard(covers, {
+      id: 'idiomas', parentId: 'desarrollo', title: 'Idiomas', emoji: '🌍', note: 'inglés + italiano',
+      minutes: minutesOf('ingles') + minutesOf('italiano'), minutesUnit: unit, items: languageRows,
+    }),
+    areaCard(covers, {
+      id: 'ajedrez', parentId: 'desarrollo', title: 'Ajedrez', emoji: '♟️',
+      minutes: minutesOf('ajedrez'), minutesUnit: unit, items: chessRows,
+    }),
+    areaCard(covers, {
+      id: 'game', parentId: 'desarrollo', title: 'Game', emoji: '🎮',
+      minutes: minutesOf('game'), minutesUnit: unit, items: gameRows,
+    }),
+    areaCard(covers, {
+      id: 'gym', parentId: 'salud', title: 'Gym', emoji: '🏋️',
+      minutes: minutesOf('gym'), minutesUnit: unit, items: [],
+    }),
+  ];
+
+  const profesional: PlanAreaCardData[] = [
+    areaCard(covers, {
+      id: 'universidad', parentId: 'profesional', title: 'Universidad', emoji: '🎓',
+      minutes: minutesOf('universidad'), minutesUnit: unit, items: subjectRows,
+    }),
+    areaCard(covers, {
+      id: 'emprendimiento', parentId: 'profesional', title: 'Emprendimiento', emoji: '🚀',
+      minutes: minutesOf('emprendimiento'), minutesUnit: unit, items: [],
+    }),
+    areaCard(covers, {
+      id: 'proyectos', parentId: 'profesional', title: 'Proyectos', emoji: '📦',
+      minutes: minutesOf('proyectos'), minutesUnit: unit, items: projectRows,
+    }),
+  ];
+
+  const periodo: PlanAreaCardData[] = [
+    plainCard({ id: 'bloques', title: 'Bloques del día', emoji: '🕒', items: blockRows }),
+    plainCard({ id: 'tareas', title: 'Tareas del día', emoji: '✅', items: dayTaskRows }),
+    plainCard({ id: 'intensidad', title: 'Intensidad de sistemas', emoji: '⚡', items: intensity }),
+  ];
+
+  const groups: PlanGroup[] = [
+    { ...GROUP_KEYS.desarrollo, cards: desarrollo },
+    { ...GROUP_KEYS.profesional, cards: profesional },
+    periodGroup('Plan del día', 'Bloques · tareas · intensidad', periodo),
+  ];
+
+  const empty = !groups.some(group => group.cards.some(isCardVisible));
+
   const routineLabel = planRoutineType ? ` · Rutina: ${planRoutineType}` : '';
-
-  const hasDayPlan = goalsList.length + intensityList.length + blockList.length + dayTasks.length > 0;
-  const hasPeriodGoals = readingList.length + musicList.length + subjectList.length
-    + projectList.length + chessList.length + languageList.length + gameList.length > 0;
-
-  const empty = [
-    goalsList, intensityList, blockList, dayTasks, readingList,
-    musicList, subjectList, projectList, chessList, languageList, gameList,
-  ].every(list => list.length === 0);
-
   const editUrl = isToday(anchorDate) ? '/plan-manana?mode=hoy' : '/plan-manana';
 
   return (
@@ -712,26 +986,9 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
       editUrl={editUrl}
       empty={empty}
       loading={tasksLoading || weekLoading || monthLoading || !planLoaded}
+      totalMinutes={dayTotal}
     >
-      {hasDayPlan && <PlanGroupHeading hint="Lo guardado en Planificación de hoy">Plan del día</PlanGroupHeading>}
-      <PlanCard
-        icon={<Timer className="h-3.5 w-3.5" />}
-        title="Metas de minutos del día"
-        items={goalsList}
-        accent="bg-sky-500/10 text-sky-500"
-        hint={dayTotal > 0 ? `Total del día: ${minutesLabel(dayTotal)}` : undefined}
-      />
-      <PlanCard icon={<Zap className="h-3.5 w-3.5" />} title="Intensidad de sistemas" items={intensityList} accent="bg-amber-500/10 text-amber-500" />
-      <PlanCard icon={<LayoutGrid className="h-3.5 w-3.5" />} title="Bloques del día" items={blockList} accent="bg-blue-500/10 text-blue-500" />
-      <PlanCard icon={<ListChecks className="h-3.5 w-3.5" />} title="Tareas del día" items={dayTasks} accent="bg-indigo-500/10 text-indigo-500" />
-      {hasPeriodGoals && <PlanGroupHeading hint="Heredados de la semana y del mes">Objetivos del periodo</PlanGroupHeading>}
-      <PlanCard icon={<BookOpen className="h-3.5 w-3.5" />} title="Lectura" items={readingList} accent="bg-blue-500/10 text-blue-500" />
-      <PlanCard icon={<Music className="h-3.5 w-3.5" />} title="Música" items={musicList} accent="bg-violet-500/10 text-violet-500" />
-      <PlanCard icon={<GraduationCap className="h-3.5 w-3.5" />} title="Universidad" items={subjectList} accent="bg-indigo-500/10 text-indigo-500" />
-      <PlanCard icon={<FolderKanban className="h-3.5 w-3.5" />} title="Proyectos" items={projectList} accent="bg-amber-500/10 text-amber-500" />
-      <PlanCard icon={<Trophy className="h-3.5 w-3.5" />} title="Ajedrez" items={chessList} accent="bg-emerald-500/10 text-emerald-500" />
-      <PlanCard icon={<Languages className="h-3.5 w-3.5" />} title="Idiomas" items={languageList} accent="bg-cyan-500/10 text-cyan-500" />
-      <PlanCard icon={<Gamepad2 className="h-3.5 w-3.5" />} title="Game" items={gameList} accent="bg-rose-500/10 text-rose-500" />
+      <PlanGroups groups={groups} />
     </PlanShell>
   );
 }
