@@ -17,7 +17,6 @@ import {
   ALL_HIERARCHY_AREAS, AREA_LABELS,
   getDayGoalEffective, getDayGoalTotal, getMonthGoalsSummary, getWeekGoalEffective,
 } from '@/lib/hierarchy';
-import { buildHabitPlanObjectives } from '@/lib/planObjectives';
 import { LANGUAGE_IDS, LANGUAGE_LABELS, readLanguageMonthPlans, readLanguageWeekPlans } from '@/lib/languagePlan';
 import { readGameMonthPlan, readGameWeekPlan } from '@/lib/game';
 import { cn } from '@/lib/utils';
@@ -606,18 +605,19 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const booksById = useMemo(() => new Map(books.map(b => [b.id, b])), [books]);
   const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
 
+  // Solo los objetivos de ESTA semana (el reparto semanal), no los del mes.
   const weekBookIds = useMemo(() => {
-    const ids = weekDist?.books?.length ? [...weekDist.books] : [...(monthPlan.books?.selected || [])];
+    const ids = [...(weekDist?.books || [])];
     if (planData.weekBookId && !ids.includes(planData.weekBookId)) ids.unshift(planData.weekBookId);
     return ids;
-  }, [weekDist, monthPlan.books, planData.weekBookId]);
+  }, [weekDist, planData.weekBookId]);
 
   const weekSongIds = useMemo(() => {
-    const ids = weekDist?.songs?.length ? [...weekDist.songs] : [...(monthPlan.songs?.selected || [])];
+    const ids = [...(weekDist?.songs || [])];
     const extras = [weekDist?.learning_song_id, weekDist?.mastering_song_id, planData.learningSongId, planData.masteringSongId];
     extras.forEach(id => { if (id && !ids.includes(id)) ids.unshift(id); });
     return ids;
-  }, [weekDist, monthPlan.songs, planData]);
+  }, [weekDist, planData]);
 
   const planTypeFor = (id: string): SongPlanTypeLite => {
     if (id === weekDist?.learning_song_id) return 'learned';
@@ -781,7 +781,8 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 });
   const weekKey = format(weekStart, 'yyyy-MM-dd');
   const { planData: weekPlan, loading: weekLoading } = useWeeklyPlan(weekStart);
-  const { planData: monthPlan, books, songs, projects, subjects, loading: monthLoading } = useMonthlyPlan(startOfMonth(anchorDate));
+  // El reparto semanal vive en el mes de la semana, no en el mes del día.
+  const { planData: monthPlan, books, songs, projects, subjects, loading: monthLoading } = useMonthlyPlan(startOfMonth(weekStart));
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
 
@@ -831,70 +832,124 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
     onToggle: () => toggleTaskDone(task.id),
   }));
 
-  const inherited = useMemo(
-    () => buildHabitPlanObjectives(
-      monthPlan,
-      { books, songs, projects, subjects },
-      {
-        weekKey,
-        monthEloGoal: Number(monthPlan.chess?.elo_goal) || 0,
-        weekElo: { start: Number(weekPlan.chessEloStart) || 0, target: Number(weekPlan.chessEloTarget) || 0 },
-      },
-    ),
-    [monthPlan, books, songs, projects, subjects, weekKey, weekPlan.chessEloStart, weekPlan.chessEloTarget],
+  // El día se trabaja con el objetivo de la SEMANA (no con el del mes).
+  const weekDist = monthPlan.week_distribution?.[weekKey];
+
+  const booksById = useMemo(() => new Map(books.map(b => [b.id, b])), [books]);
+  const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
+  const subjectsById = useMemo(() => new Map(subjects.map(s => [s.id, s.name])), [subjects]);
+  const projectsById = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
+  const outcomesById = useMemo(
+    () => new Map((weekPlan.outcomes || []).map(o => [o.id, o.title])),
+    [weekPlan.outcomes],
   );
 
-  const readingRows: PlanObjectiveRow[] = inherited.lectura.map(item => {
-    const done = isBookDone(item.id);
-    return {
-      id: item.id,
-      title: item.title,
-      subtitle: item.subtitle,
-      cover: item.cover,
+  const entrepreneurshipIds = weekPlan.areaFocus?.emprendimiento || [];
+  const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
+
+  const weekBookIds = useMemo(() => {
+    const ids = [...(weekDist?.books || [])];
+    if (weekPlan.weekBookId && !ids.includes(weekPlan.weekBookId)) ids.unshift(weekPlan.weekBookId);
+    return ids;
+  }, [weekDist, weekPlan.weekBookId]);
+
+  const weekSongIds = useMemo(() => {
+    const ids = [...(weekDist?.songs || [])];
+    const extras = [weekDist?.learning_song_id, weekDist?.mastering_song_id, weekPlan.learningSongId, weekPlan.masteringSongId];
+    extras.forEach(id => { if (id && !ids.includes(id)) ids.unshift(id); });
+    return ids;
+  }, [weekDist, weekPlan]);
+
+  const planTypeFor = (id: string): SongPlanTypeLite => {
+    if (id === weekDist?.learning_song_id) return 'learned';
+    if (id === weekDist?.mastering_song_id) return 'mastered';
+    return monthPlan.songs_plan?.[id];
+  };
+
+  const readingRows: PlanObjectiveRow[] = weekBookIds.flatMap(id => {
+    const book = booksById.get(id);
+    if (!book) return [];
+    const done = isBookDone(id);
+    return [{
+      id,
+      title: book.title,
+      subtitle: book.author || undefined,
+      cover: book.cover_image_url,
       emoji: '📖',
-      tag: done ? 'Leído' : item.isCurrent ? 'Leyendo' : undefined,
+      tag: done ? 'Leído' : book.status === 'reading' ? 'Leyendo' : undefined,
       done,
-      onToggle: () => toggleBook(item.id),
-    };
+      onToggle: () => toggleBook(id),
+    }];
   });
 
-  const musicRows: PlanObjectiveRow[] = inherited.musica.map(item => {
-    const plan = monthPlan.songs_plan?.[item.id];
-    return {
-      id: item.id,
-      title: item.title,
-      subtitle: item.subtitle,
-      cover: item.cover,
+  const musicRows: PlanObjectiveRow[] = weekSongIds.flatMap(id => {
+    const song = songsById.get(id);
+    if (!song) return [];
+    const plan = planTypeFor(id);
+    return [{
+      id,
+      title: song.title,
+      subtitle: [song.artist, song.instrument].filter(Boolean).join(' · ') || undefined,
+      cover: song.cover_image_url,
       emoji: '🎹',
       tag: songTag(plan),
-      done: isSongDone(item.id, plan),
-      onToggle: () => toggleSong(item.id, plan),
-    };
+      done: isSongDone(id, plan),
+      onToggle: () => toggleSong(id, plan),
+    }];
   });
 
-  const subjectRows: PlanObjectiveRow[] = inherited.universidad.map(item => ({
-    id: item.id,
-    title: item.title,
-    subtitle: item.subtitle,
-    tag: item.tag,
-    emoji: '🎓',
-  }));
+  /** Focos de la semana en un área + resultado al que apunta. */
+  const focusRows = (
+    areaId: string,
+    ids: string[],
+    resolve: (id: string) => string | undefined,
+    emoji: string,
+  ): PlanObjectiveRow[] => {
+    const rows: PlanObjectiveRow[] = ids.flatMap(id => {
+      const title = resolve(id);
+      return title ? [{ id: `${areaId}-focus-${id}`, title, emoji }] : [];
+    });
+    const rawResult = weekPlan.areaResults?.[areaId];
+    if (rawResult) {
+      rows.unshift({
+        id: `${areaId}-result`,
+        title: outcomesById.get(rawResult) ?? rawResult,
+        subtitle: 'Resultado de la semana',
+        emoji: '🏁',
+      });
+    }
+    return rows;
+  };
 
-  const projectRows: PlanObjectiveRow[] = inherited.proyectos.map(item => ({
-    id: item.id,
-    title: item.title,
-    subtitle: item.subtitle,
-    tag: item.tag,
-    emoji: '📦',
-  }));
+  const subjectRows = focusRows(
+    'universidad',
+    weekPlan.areaFocus?.universidad || [],
+    id => subjectsById.get(id),
+    '🎓',
+  );
+  const entrepreneurshipRows = focusRows(
+    'emprendimiento',
+    entrepreneurshipIds,
+    id => entrepreneurshipNames[id],
+    '🚀',
+  );
+  const projectRows = focusRows(
+    'proyectos',
+    weekPlan.areaFocus?.proyectos || [],
+    id => projectsById.get(id),
+    '📦',
+  );
 
-  const chessRows: PlanObjectiveRow[] = inherited.ajedrez.map(item => ({
-    id: item.id,
-    title: item.title,
-    subtitle: item.subtitle,
-    tag: item.tag,
-    emoji: '♟️',
-  }));
+  const eloStart = Number(weekPlan.chessEloStart) || Number(weekDist?.elo_start) || 0;
+  const eloTarget = Number(weekPlan.chessEloTarget) || Number(weekDist?.elo_target) || 0;
+  const chessRows: PlanObjectiveRow[] = eloTarget > 0
+    ? [{
+        id: 'elo-sem',
+        title: `${eloTarget} ELO`,
+        subtitle: eloStart > 0 && eloStart !== eloTarget ? `${eloStart} → ${eloTarget}` : 'Objetivo de la semana',
+        emoji: '♟️',
+      }]
+    : [];
 
   const languageWeek = useMemo(() => readLanguageWeekPlans(weekPlan.languages), [weekPlan.languages]);
   const languageRows: PlanObjectiveRow[] = LANGUAGE_IDS.flatMap(lang => {
@@ -954,7 +1009,7 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
     }),
     areaCard(covers, {
       id: 'emprendimiento', parentId: 'profesional', title: 'Emprendimiento', emoji: '🚀',
-      minutes: minutesOf('emprendimiento'), minutesUnit: unit, items: [],
+      minutes: minutesOf('emprendimiento'), minutesUnit: unit, items: entrepreneurshipRows,
     }),
     areaCard(covers, {
       id: 'proyectos', parentId: 'profesional', title: 'Proyectos', emoji: '📦',
