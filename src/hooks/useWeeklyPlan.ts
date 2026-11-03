@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, startOfWeek, getISOWeek } from 'date-fns';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
 import { readLanguageWeekPlans, type LanguageWeekPlans } from '@/lib/languagePlan';
@@ -171,6 +171,20 @@ export function useWeeklyPlan(weekStart: Date) {
     setPlanData(prev => updater(prev));
   }, []);
 
+  /**
+   * Cambia el plan y lo guarda al instante (localStorage + sync), sin pasar por
+   * el botón "Guardar". Se usa desde la pestaña Planificación de Hoy/Semana.
+   */
+  const planRef = useRef(planData);
+  useEffect(() => { planRef.current = planData; }, [planData]);
+
+  const patchPlan = useCallback((updater: (prev: WeeklyPlanData) => WeeklyPlanData) => {
+    const next = updater(planRef.current);
+    planRef.current = next;
+    setPlanData(next);
+    saveToLocal(weekId, next);
+  }, [weekId]);
+
   const addAction = useCallback((action: Omit<WeeklyAction, 'id'>) => {
     setPlanData(prev => ({ ...prev, actions: [...(prev.actions ?? []), { ...action, id: genId() }] }));
   }, []);
@@ -253,6 +267,7 @@ export function useWeeklyPlan(weekStart: Date) {
     planData, loading, saving, weekId,
     books, songs,
     updatePlanData, savePlan, fetchPlan,
+    patchPlan,
     addAction, toggleAction, removeAction, updateAction,
     addOutcome, toggleOutcome, removeOutcome, updateOutcome,
     setDailyCapacity, removeDailyCapacity,

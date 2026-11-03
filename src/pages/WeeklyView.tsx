@@ -29,8 +29,9 @@ import { ResultadosSemana } from '@/components/resultados/ResultadosSemana';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
 import { WeekComparisonCard } from '@/components/dashboard/WeekComparisonCard';
+import { PeriodPlanificationSection } from '@/components/planificacion/PeriodPlanificationSection';
 
-const VALID_MODES: PeriodViewMode[] = ['plan', 'esfuerzo', 'focus', 'sistemas', 'resultados', 'autocritica'];
+const VALID_MODES: PeriodViewMode[] = ['plan', 'planificacion', 'esfuerzo', 'focus', 'sistemas', 'resultados', 'autocritica'];
 const WEEK_PARAM_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export default function WeeklyView() {
@@ -82,7 +83,7 @@ export default function WeeklyView() {
 
   const { data: weekData, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['weeklyData', weekStartKey],
-    enabled: viewMode !== 'autocritica',
+    enabled: viewMode !== 'autocritica' && viewMode !== 'planificacion',
     queryFn: async () => {
       const startStr = weekStartKey;
       const endStr = weekEndKey;
@@ -149,7 +150,7 @@ export default function WeeklyView() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={changeMode} withAutocritica />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={changeMode} withAutocritica withPlanificacion />
         </div>
 
         {/* Header */}
@@ -164,7 +165,7 @@ export default function WeeklyView() {
             )}
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" className="h-8 text-xs rounded-full" onClick={() => navigate('/weekly-planning')}>
+            <Button variant="outline" size="sm" className="h-8 text-xs rounded-full" onClick={() => navigate(`/weekly-planning?week=${weekStartKey}`)}>
               <ListChecks className="w-4 h-4 mr-1" /> Planificación
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => goWeek(-1)} aria-label="Semana anterior">
@@ -342,6 +343,8 @@ export default function WeeklyView() {
               </Card>
             </section>
           </>
+        ) : viewMode === 'planificacion' ? (
+          <PeriodPlanificationSection scope="week" anchorDate={weekStart} />
         ) : viewMode === 'focus' ? (
           <PeriodFocusSection scope="week" anchorDate={weekStart} />
         ) : viewMode === 'sistemas' ? (

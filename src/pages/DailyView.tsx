@@ -37,6 +37,7 @@ import { useAbcCategories } from '@/hooks/useAbcCategories';
 import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { PanelControlSection } from '@/components/control/PanelControlSection';
 import { EsfuerzoResultadosToggle, type PeriodViewMode } from '@/components/control/EsfuerzoResultadosToggle';
+import { PeriodPlanificationSection } from '@/components/planificacion/PeriodPlanificationSection';
 import { PeriodFocusSectionView } from '@/components/focus/PeriodFocusSection';
 import { FocusSystemsSection } from '@/components/focus/FocusSystemsSection';
 import { FocusRoutineBoard } from '@/components/focus/FocusRoutineBoard';
@@ -294,7 +295,7 @@ export default function DailyView() {
     <div className="min-h-screen bg-background p-3 md:p-6 pt-20 pb-24">
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica withDireccion withPronosticos />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica withDireccion withPronosticos withPlanificacion />
         </div>
 
         <div className="flex items-center justify-between">
@@ -453,6 +454,8 @@ export default function DailyView() {
 
             <AbcKanbanBoard key={`abc-${format(selectedDate, 'yyyy-MM-dd')}`} tasks={tasks} onToggle={toggleTaskDone} map={abc.map} onMove={abc.move} onRotate={abc.rotate} />
           </>
+        ) : viewMode === 'planificacion' ? (
+          <PeriodPlanificationSection scope="day" anchorDate={selectedDate} />
         ) : viewMode === 'focus' ? (
           <div className="space-y-4">
             <PeriodFocusSectionView scope="day" anchorDate={selectedDate} controller={dayFocus} />

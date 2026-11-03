@@ -16,6 +16,7 @@ import { PeriodFocusSection } from '@/components/focus/PeriodFocusSection';
 import { ResultadosMes } from '@/components/resultados/ResultadosMes';
 import { PeriodAreaTasks } from '@/components/tasks/PeriodAreaTasks';
 import { AutocriticaSection } from '@/components/autocritica/AutocriticaSection';
+import { PeriodPlanificationSection } from '@/components/planificacion/PeriodPlanificationSection';
 
 export default function MonthlyView() {
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -43,7 +44,7 @@ export default function MonthlyView() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.04)_0%,_transparent_50%)] p-4 md:p-6 pt-20 pb-24">
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica withPlanificacion />
         </div>
 
         {/* Header */}
@@ -57,7 +58,7 @@ export default function MonthlyView() {
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" className="h-8 text-xs rounded-full" onClick={() => navigate('/monthly-planning')}>
+            <Button variant="outline" size="sm" className="h-8 text-xs rounded-full" onClick={() => navigate(`/monthly-planning?month=${format(currentMonth, 'yyyy-MM')}`)}>
               <Target className="w-4 h-4 mr-1" /> Planificación
             </Button>
             <Button variant="ghost" size="icon" onClick={() => navigateMonth('prev')}>
@@ -120,6 +121,8 @@ export default function MonthlyView() {
           </section>
         ) : viewMode === 'autocritica' ? (
           <AutocriticaSection start={monthStart} end={monthEnd} scope="month" />
+        ) : viewMode === 'planificacion' ? (
+          <PeriodPlanificationSection scope="month" anchorDate={currentMonth} />
         ) : (
           <ResultadosMes month={currentMonth} />
         )}

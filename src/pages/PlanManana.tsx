@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -145,7 +146,8 @@ function DateSwitchTabs({ mode, onModeChange }: { mode: TabMode; onModeChange: (
 }
 
 export default function PlanManana() {
-  const [mode, setMode] = useState<TabMode>('manana');
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<TabMode>(() => (searchParams.get('mode') === 'hoy' ? 'hoy' : 'manana'));
 
   // --- ALL HOOKS MUST BE UNCONDITIONAL (before any return) ---
   const targetDate = mode === 'hoy' ? new Date() : addDays(new Date(), 1);

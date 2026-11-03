@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Save, Target, Trophy } from 'lucide-react';
@@ -34,7 +35,15 @@ import { CalendarioAcademico } from '@/components/monthly-planning/CalendarioAca
 import { LanguagesAndGamePlanner } from '@/components/monthly-planning/LanguagesAndGamePlanner';
 
 export default function MonthlyPlanningPage() {
-  const [month, setMonth] = useState(new Date());
+  const [searchParams] = useSearchParams();
+  const [month, setMonth] = useState(() => {
+    const param = searchParams.get('month');
+    if (param && /^\d{4}-\d{2}$/.test(param)) {
+      const parsed = new Date(`${param}-01T12:00:00`);
+      if (!isNaN(parsed.getTime())) return startOfMonth(parsed);
+    }
+    return new Date();
+  });
   const {
     planData, loading, saving, monthStr,
     books, songs, projects, subjects, topics, events,

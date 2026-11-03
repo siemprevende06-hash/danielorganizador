@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, startOfWeek, endOfMonth, addDays, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -70,7 +71,15 @@ function loadTone(pct: number): { bar: string; text: string; label: string } {
 }
 
 export default function WeeklyPlanningPage() {
-  const [weekDate, setWeekDate] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [searchParams] = useSearchParams();
+  const [weekDate, setWeekDate] = useState(() => {
+    const param = searchParams.get('week');
+    if (param && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
+      const parsed = new Date(`${param}T12:00:00`);
+      if (!isNaN(parsed.getTime())) return startOfWeek(parsed, { weekStartsOn: 1 });
+    }
+    return startOfWeek(new Date(), { weekStartsOn: 1 });
+  });
   const {
     planData,
     loading,
