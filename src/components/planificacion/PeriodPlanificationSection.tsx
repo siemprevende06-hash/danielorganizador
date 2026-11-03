@@ -55,6 +55,24 @@ function minutesFrom(goals: Record<string, number>, ids: string[]): number {
   return ids.reduce((sum, id) => sum + Math.max(0, Math.round(Number(goals[id]) || 0)), 0);
 }
 
+/**
+ * Libros de la semana: reparto explícito o, si la semana aún no tiene reparto,
+ * el mismo libro que muestra la planificación semanal (lectura actual o el
+ * primero planificado del mes).
+ */
+function effectiveWeekBookIds(
+  weekIds: string[] | undefined,
+  weekBookId: string | undefined,
+  monthSelected: string[],
+  booksById: Map<string, { status?: string | null }>,
+): string[] {
+  const ids = [...(weekIds || [])];
+  if (weekBookId && !ids.includes(weekBookId)) ids.unshift(weekBookId);
+  if (ids.length > 0) return ids;
+  const current = monthSelected.find(id => booksById.get(id)?.status === 'reading');
+  return current ? [current] : monthSelected.slice(0, 1);
+}
+
 const PRIORITY_TAG: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
 
 const INTENSITY_LABEL: Record<string, string> = { minimo: 'Mín', maximo: 'Máx', extra: 'Extra' };
@@ -606,11 +624,10 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
 
   // Solo los objetivos de ESTA semana (el reparto semanal), no los del mes.
-  const weekBookIds = useMemo(() => {
-    const ids = [...(weekDist?.books || [])];
-    if (planData.weekBookId && !ids.includes(planData.weekBookId)) ids.unshift(planData.weekBookId);
-    return ids;
-  }, [weekDist, planData.weekBookId]);
+  const weekBookIds = useMemo(
+    () => effectiveWeekBookIds(weekDist?.books, planData.weekBookId, monthPlan.books?.selected || [], booksById),
+    [weekDist, planData.weekBookId, monthPlan.books, booksById],
+  );
 
   const weekSongIds = useMemo(() => {
     const ids = [...(weekDist?.songs || [])];
@@ -847,11 +864,10 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const entrepreneurshipIds = weekPlan.areaFocus?.emprendimiento || [];
   const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
 
-  const weekBookIds = useMemo(() => {
-    const ids = [...(weekDist?.books || [])];
-    if (weekPlan.weekBookId && !ids.includes(weekPlan.weekBookId)) ids.unshift(weekPlan.weekBookId);
-    return ids;
-  }, [weekDist, weekPlan.weekBookId]);
+  const weekBookIds = useMemo(
+    () => effectiveWeekBookIds(weekDist?.books, weekPlan.weekBookId, monthPlan.books?.selected || [], booksById),
+    [weekDist, weekPlan.weekBookId, monthPlan.books, booksById],
+  );
 
   const weekSongIds = useMemo(() => {
     const ids = [...(weekDist?.songs || [])];
