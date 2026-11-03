@@ -1,9 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -11,9 +8,9 @@ import {
   PlusCircle, GraduationCap, BookOpen, Clock, Target,
   Calendar, AlertTriangle, CheckCircle2, Play, BarChart3, Award, AlarmClock, CalendarClock, Sparkles
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useUniversity, type SubjectTask } from '@/hooks/useUniversity';
 import { useExams, Exam } from '@/hooks/useExams';
+import { AddSubjectDialog } from '@/components/university/AddSubjectDialog';
 import { ExamCard } from '@/components/university/ExamCard';
 import { AddExamDialog } from '@/components/university/AddExamDialog';
 import { AddSubjectTaskDialog } from '@/components/university/AddSubjectTaskDialog';
@@ -35,14 +32,6 @@ import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useActiveSelections } from '@/hooks/useActiveSelections';
 import { cn } from '@/lib/utils';
-import { z } from 'zod';
-
-const subjectSchema = z.object({
-  name: z.string().trim().min(1, "El nombre es requerido").max(200, "El nombre es muy largo"),
-  code: z.string().max(50).optional(),
-  professor: z.string().max(100).optional(),
-  schedule: z.string().max(200).optional()
-});
 
 interface AssignTarget {
   id: string;
@@ -52,7 +41,6 @@ interface AssignTarget {
 
 export default function UniversityPage() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const {
     subjects, settings, loading, gpaData, overallGPA,
     updateSettings, createSubject, deleteSubject, toggleApproved,
@@ -66,10 +54,6 @@ export default function UniversityPage() {
   const { uploadImage, deleteImage } = useImageUpload();
 
   const [isSubjectDialogOpen, setIsSubjectDialogOpen] = useState(false);
-  const [subjectName, setSubjectName] = useState('');
-  const [subjectCode, setSubjectCode] = useState('');
-  const [professor, setProfessor] = useState('');
-  const [schedule, setSchedule] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
 
   const [isExamDialogOpen, setIsExamDialogOpen] = useState(false);
@@ -138,34 +122,6 @@ export default function UniversityPage() {
       try { await deleteImage(cover); } catch {}
     }
     removeCover('sub', subjectId);
-  };
-
-  const handleCreateSubject = async () => {
-    try {
-      const validated = subjectSchema.parse({
-        name: subjectName,
-        code: subjectCode || undefined,
-        professor: professor || undefined,
-        schedule: schedule || undefined
-      });
-      const success = await createSubject({
-        name: validated.name,
-        code: validated.code,
-        professor: validated.professor,
-        schedule: validated.schedule
-      });
-      if (success) {
-        setSubjectName('');
-        setSubjectCode('');
-        setProfessor('');
-        setSchedule('');
-        setIsSubjectDialogOpen(false);
-      }
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        toast({ variant: "destructive", title: "Error", description: error.errors[0].message });
-      }
-    }
   };
 
   const goToFocusWithTask = (taskId: string, title: string) => {
@@ -431,6 +387,15 @@ export default function UniversityPage() {
             </div>
           ) : (
             <>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  {semesterLabel}
+                </h2>
+                <Button size="sm" onClick={() => setIsSubjectDialogOpen(true)}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Nueva Asignatura
+                </Button>
+              </div>
               {currentSemesterSubjects.length > 0 ? (
                 currentSemesterSubjects.map(subject => (
                   <SubjectDetailCard
@@ -733,6 +698,13 @@ export default function UniversityPage() {
       </Tabs>
 
       {/* Dialogs */}
+      <AddSubjectDialog
+        open={isSubjectDialogOpen}
+        onOpenChange={setIsSubjectDialogOpen}
+        year={settings.current_year}
+        semester={settings.current_semester}
+        onSubmit={createSubject}
+      />
       <AddExamDialog
         open={isExamDialogOpen}
         onOpenChange={setIsExamDialogOpen}
