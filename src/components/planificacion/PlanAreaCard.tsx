@@ -255,6 +255,45 @@ function trendTone(trend: number | null): string {
   return 'text-muted-foreground';
 }
 
+/** Estado visual compartido por la tarjeta y la fila compacta estructural. */
+function structuralTone(system: PlanSystemMetrics) {
+  const tone: 'green' | 'amber' | 'red' | 'grey' =
+    system.compliance == null
+      ? 'grey'
+      : system.targetMet === true || system.compliance >= 80
+        ? 'green'
+        : system.compliance >= 50
+          ? 'amber'
+          : 'red';
+
+  return {
+    tone,
+    palette: DIAGNOSIS_TONE[tone],
+    dot: tone === 'green'
+      ? 'bg-emerald-500'
+      : tone === 'amber'
+        ? 'bg-amber-500'
+        : tone === 'red'
+          ? 'bg-red-500'
+          : 'bg-muted-foreground/60',
+    barColor: tone === 'green'
+      ? 'bg-emerald-500'
+      : tone === 'amber'
+        ? 'bg-amber-500'
+        : tone === 'red'
+          ? 'bg-red-500'
+          : 'bg-muted-foreground/40',
+    stateLabel: tone === 'green'
+      ? 'Cumpliendo'
+      : tone === 'amber'
+        ? 'Irregular'
+        : tone === 'red'
+          ? 'Roto'
+          : 'Sin datos',
+    pct: Math.max(0, Math.min(100, system.compliance ?? 0)),
+  };
+}
+
 /**
  * Sistema estructural: el dato grande son los días cumplidos sobre los días
  * disponibles. Debajo se mide dosis mínima, racha, brecha, recuperación,
@@ -268,37 +307,7 @@ function StructuralMetrics({
   system: PlanSystemMetrics;
   onTargetChange?: (pct: number) => void;
 }) {
-  const tone: 'green' | 'amber' | 'red' | 'grey' =
-    system.compliance == null
-      ? 'grey'
-      : system.targetMet === true || system.compliance >= 80
-        ? 'green'
-        : system.compliance >= 50
-          ? 'amber'
-          : 'red';
-  const palette = DIAGNOSIS_TONE[tone];
-  const dot = tone === 'green'
-    ? 'bg-emerald-500'
-    : tone === 'amber'
-      ? 'bg-amber-500'
-      : tone === 'red'
-        ? 'bg-red-500'
-        : 'bg-muted-foreground/60';
-  const barColor = tone === 'green'
-    ? 'bg-emerald-500'
-    : tone === 'amber'
-      ? 'bg-amber-500'
-      : tone === 'red'
-        ? 'bg-red-500'
-        : 'bg-muted-foreground/40';
-  const stateLabel = tone === 'green'
-    ? 'Cumpliendo'
-    : tone === 'amber'
-      ? 'Irregular'
-      : tone === 'red'
-        ? 'Roto'
-        : 'Sin datos';
-  const pct = Math.max(0, Math.min(100, system.compliance ?? 0));
+  const { palette, dot, barColor, stateLabel, pct } = structuralTone(system);
   const todayKey = format(new Date(), 'yyyy-MM-dd');
   const spark = system.spark ?? [];
   const sparkMax = Math.max(1, ...spark);
@@ -443,6 +452,186 @@ function StructuralMetrics({
             {system.daysSkipped > 0 && system.restDays > 0 ? ' · ' : ''}
             {system.restDays > 0 ? `${system.restDays} desc.` : ''}
           </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RowStat({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: string;
+}) {
+  return (
+    <span
+      className="inline-flex items-baseline gap-1 rounded border border-border/40 bg-foreground/[0.03] px-1 py-0.5"
+      title={hint}
+    >
+      <span className="text-[7px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={cn('text-[8px] font-bold tabular-nums', tone ?? 'text-foreground/80')}>{value}</span>
+    </span>
+  );
+}
+
+/**
+ * Fila compacta de un sistema estructural. Sustituye la tarjeta con portada
+ * por una línea de tabla: conserva días, meta, dosis, racha, brecha,
+ * recuperación, tendencia, semanas verdes, último día, ajustes, minutos,
+ * franja de estados y sparkline.
+ */
+export function StructuralSystemRow({ card }: { card: PlanAreaCardData }) {
+  const system = card.system;
+  if (!system) return null;
+
+  const { palette, dot, barColor, stateLabel, pct } = structuralTone(system);
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const spark = system.spark ?? [];
+  const sparkMax = Math.max(1, ...spark);
+  const targetLabel = system.daysTotal > 0
+    ? `${system.targetDays}d · ${system.targetPct}%`
+    : `${system.targetPct}%`;
+  const restText = [
+    system.daysSkipped > 0 ? `${system.daysSkipped} salt.` : '',
+    system.restDays > 0 ? `${system.restDays} desc.` : '',
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <div className="px-2.5 py-1.5 transition-colors hover:bg-foreground/[0.02]">
+      <div className="flex items-center gap-1.5">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} title={stateLabel} />
+        <span className="shrink-0 text-[11px] leading-none">{card.emoji}</span>
+        <span className="min-w-0 truncate text-[10px] font-bold leading-tight">{card.title}</span>
+        {card.note && (
+          <span className="shrink-0 rounded border border-border/50 bg-foreground/5 px-1 py-0.5 text-[7px] font-semibold uppercase text-muted-foreground">
+            {card.note}
+          </span>
+        )}
+        <span className="ml-auto flex shrink-0 items-baseline gap-0.5">
+          <span className={cn('text-[13px] font-extrabold leading-none tabular-nums', palette.text)}>
+            {system.daysDone}
+          </span>
+          <span className="text-[9px] font-bold text-muted-foreground">/{system.daysTotal}</span>
+          <span className="text-[8px] text-muted-foreground">días</span>
+        </span>
+        <span className={cn('w-8 shrink-0 text-right text-[10px] font-extrabold leading-none tabular-nums', palette.text)}>
+          {system.compliance == null ? '—' : `${system.compliance}%`}
+        </span>
+        {system.streak > 0 && (
+          <span
+            className="shrink-0 text-[8px] font-bold text-orange-500"
+            title={`Racha actual${system.bestStreak ? ` · mejor ${system.bestStreak}` : ''}`}
+          >
+            🔥 {system.streak}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          onClick={() => card.onTargetChange?.(nextTarget(system.targetPct))}
+          disabled={!card.onTargetChange}
+          title={`Meta ${system.targetPct}% (${system.targetDays} de ${system.daysTotal} días). Clic para cambiarla.`}
+          className={cn(
+            'inline-flex items-baseline gap-1 rounded border px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide transition-colors',
+            system.targetMet
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              : 'border-border/40 bg-foreground/[0.03] text-muted-foreground',
+            card.onTargetChange && 'hover:bg-foreground/10',
+          )}
+        >
+          Meta
+          <span className="text-[8px] font-bold tabular-nums">{targetLabel}</span>
+        </button>
+        <RowStat
+          label="Estado"
+          value={stateLabel}
+          hint="Estado del sistema según cumplimiento y meta"
+          tone={palette.text}
+        />
+        <RowStat
+          label="Dosis"
+          value={system.timed ? `${system.minimumDose}m` : '✓'}
+          hint="Dosis mínima para contar el día"
+        />
+        <RowStat label="Brecha" value={`${system.maxGap}d`} hint="Mayor cantidad de días seguidos sin cumplir" />
+        <RowStat label="Recup." value={`${system.recoveries}`} hint="Veces que retomaste el sistema después de una brecha" />
+        <RowStat
+          label="Tend."
+          value={trendLabel(system.trend)}
+          hint="Cumplimiento vs periodo anterior"
+          tone={trendTone(system.trend)}
+        />
+        <RowStat label="Verde" value={`${system.greenWeeks}/${system.totalWeeks}`} hint="Semanas con ≥80% de cumplimiento" />
+        <RowStat
+          label="Últ."
+          value={system.lastDone ? shortDate(system.lastDone) ?? '—' : '—'}
+          hint="Último día cumplido"
+        />
+        {restText && <RowStat label="Ajustes" value={restText} hint="Días saltados y descansos" />}
+        {system.timed && (
+          <RowStat
+            label="Min"
+            value={`${system.actualMinutes}${(system.plannedMinutes ?? 0) > 0 ? ` / ${system.plannedMinutes}` : ''}`}
+            hint="Minutos reales del periodo y meta planificada"
+          />
+        )}
+      </div>
+
+      <div className="mt-1 flex items-center gap-2">
+        <div className="relative h-1.5 min-w-[70px] flex-1 overflow-hidden rounded-full bg-muted">
+          <div className={cn('h-full rounded-full', barColor)} style={{ width: `${pct}%` }} />
+          <span
+            className="absolute inset-y-0 w-px bg-foreground/60"
+            style={{ left: `${Math.max(0, Math.min(100, system.targetPct))}%` }}
+            title={`Meta: ${system.targetPct}%`}
+          />
+        </div>
+
+        {system.status && system.status.length > 1 && (
+          <div className="flex w-20 shrink-0 gap-px">
+            {system.status.map((status, index) => {
+              const future = !!system.days?.[index] && system.days[index] > todayKey;
+              return (
+                <span
+                  key={index}
+                  title={future ? 'Pendiente' : STATUS_LABEL[status]}
+                  className={cn(
+                    'h-1.5 flex-1 rounded-[1px]',
+                    future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
+                  )}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {system.timed && spark.some(value => value > 0) && (
+          <div className="flex h-3 w-16 shrink-0 items-end gap-px">
+            {spark.map((value, index) => {
+              const status = system.status?.[index] ?? 'none';
+              const future = !!system.days?.[index] && system.days[index] > todayKey;
+              const missed = !future && status !== 'done' && status !== 'partial';
+              return (
+                <span
+                  key={index}
+                  title={`${value} min`}
+                  className={cn(
+                    'flex-1 rounded-sm',
+                    future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
+                  )}
+                  style={{ height: `${Math.max(missed ? 16 : 8, (value / sparkMax) * 100)}%` }}
+                />
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
@@ -684,9 +873,12 @@ function HeaderChip({
 export function PlanAreaHeader({
   area,
   scope,
+  embedded = false,
 }: {
   area: PlanAreaMetrics;
   scope: PlanificationScope;
+  /** Sin portada ni tarjeta propia: se integra como cabecera de la tabla. */
+  embedded?: boolean;
 }) {
   const status = AREA_STATUS_META[area.status];
   const trendToneValue = area.trend == null
@@ -699,13 +891,15 @@ export function PlanAreaHeader({
 
   return (
     <div className={cn(
-      'overflow-hidden rounded-2xl border bg-white/80 shadow-sm dark:bg-zinc-950/80',
-      status.border,
+      'overflow-hidden bg-white/80 dark:bg-zinc-950/80',
+      embedded
+        ? 'rounded-none border-b border-border/50'
+        : cn('rounded-2xl border shadow-sm', status.border),
     )}>
       <div className="flex items-center gap-2 px-2.5 pt-2.5">
         <div className={cn(
-          'grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-lg',
-          getCoverGradient(area.id),
+          'grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg',
+          embedded ? 'bg-muted' : cn('bg-gradient-to-br', getCoverGradient(area.id)),
         )}>
           {area.icon}
         </div>

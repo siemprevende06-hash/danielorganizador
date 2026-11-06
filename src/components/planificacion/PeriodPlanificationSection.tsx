@@ -33,7 +33,13 @@ import {
   type PlanificationScope,
 } from '@/lib/planSystems';
 import { cn } from '@/lib/utils';
-import { PlanAreaCard, PlanAreaHeader, type PlanAreaCardData, type PlanObjectiveRow } from './PlanAreaCard';
+import {
+  PlanAreaCard,
+  PlanAreaHeader,
+  StructuralSystemRow,
+  type PlanAreaCardData,
+  type PlanObjectiveRow,
+} from './PlanAreaCard';
 
 export type { PlanificationScope } from '@/lib/planSystems';
 
@@ -349,43 +355,76 @@ function GroupHeading({ group }: { group: PlanGroup }) {
   );
 }
 
-function PlanAreaSection({ data, scope }: { data: PlanAreaSectionData; scope: PlanificationScope }) {
-  return (
-    <section className="space-y-2.5">
-      <PlanAreaHeader area={data.area} scope={scope} />
-      {data.sections.map(section => {
-        const done = section.cards.reduce((sum, card) => sum + (card.system?.daysDone ?? 0), 0);
-        const total = section.cards.reduce((sum, card) => sum + (card.system?.daysTotal ?? 0), 0);
-        const pct = total > 0 ? Math.round((done / total) * 100) : null;
+function SectionHeading({
+  section,
+  boxed = false,
+}: {
+  section: PlanAreaSectionData['sections'][number];
+  boxed?: boolean;
+}) {
+  const done = section.cards.reduce((sum, card) => sum + (card.system?.daysDone ?? 0), 0);
+  const total = section.cards.reduce((sum, card) => sum + (card.system?.daysTotal ?? 0), 0);
+  const pct = total > 0 ? Math.round((done / total) * 100) : null;
 
-        return (
-          <div key={section.id} className="space-y-1.5">
-            <div className="flex items-center gap-1.5 px-0.5">
-              {section.emoji && <span className="text-[11px] leading-none">{section.emoji}</span>}
-              <h5 className="text-[10px] font-bold uppercase tracking-wide text-foreground/70">
-                {section.title}
-              </h5>
-              <span className="text-[8px] font-semibold text-muted-foreground">
-                {section.cards.length} sistemas
-              </span>
-              {pct != null && (
-                <span className={cn(
-                  'text-[8px] font-bold tabular-nums',
-                  pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-600' : 'text-red-500'
-                )}>
-                  {pct}%
-                </span>
-              )}
-              <span className="h-px flex-1 bg-border/50" />
-            </div>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
+  return (
+    <div className={cn(
+      'flex items-center gap-1.5',
+      boxed ? 'border-b border-border/40 bg-muted/30 px-2.5 py-1' : 'px-0.5',
+    )}>
+      {section.emoji && <span className="text-[11px] leading-none">{section.emoji}</span>}
+      <h5 className="text-[10px] font-bold uppercase tracking-wide text-foreground/70">
+        {section.title}
+      </h5>
+      <span className="text-[8px] font-semibold text-muted-foreground">
+        {section.cards.length} sistemas
+      </span>
+      {pct != null && (
+        <span className={cn(
+          'text-[8px] font-bold tabular-nums',
+          pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-600' : 'text-red-500'
+        )}>
+          {pct}%
+        </span>
+      )}
+      <span className="h-px flex-1 bg-border/50" />
+    </div>
+  );
+}
+
+function PlanAreaSection({ data, scope }: { data: PlanAreaSectionData; scope: PlanificationScope }) {
+  // Las áreas estructurales se muestran como una tabla compacta sin portadas:
+  // una fila por sistema y todas las subáreas dentro del mismo bloque.
+  if (data.area.kind === 'estructural') {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-border/50 bg-white/80 dark:bg-zinc-950/80">
+        <PlanAreaHeader area={data.area} scope={scope} embedded />
+        {data.sections.map((section, index) => (
+          <div key={section.id} className={cn(index > 0 && 'border-t border-border/50')}>
+            <SectionHeading section={section} boxed />
+            <div className="divide-y divide-border/40">
               {section.cards.map(card => (
-                <PlanAreaCard key={card.id} card={card} />
+                <StructuralSystemRow key={card.id} card={card} />
               ))}
             </div>
           </div>
-        );
-      })}
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <section className="space-y-2.5">
+      <PlanAreaHeader area={data.area} scope={scope} />
+      {data.sections.map(section => (
+        <div key={section.id} className="space-y-1.5">
+          <SectionHeading section={section} />
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
+            {section.cards.map(card => (
+              <PlanAreaCard key={card.id} card={card} />
+            ))}
+          </div>
+        </div>
+      ))}
     </section>
   );
 }
@@ -398,7 +437,7 @@ function PlanGroups({ groups, scope }: { groups: PlanGroup[]; scope: Planificati
           return (
             <section key={group.key} className="space-y-3">
               <GroupHeading group={group} />
-              <div className="space-y-4">
+              <div className={group.key === 'estructural' ? 'space-y-2.5' : 'space-y-4'}>
                 {group.areas.map(area => (
                   <PlanAreaSection key={area.area.id} data={area} scope={scope} />
                 ))}
