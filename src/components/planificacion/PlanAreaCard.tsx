@@ -242,6 +242,14 @@ function SystemMetrics({
   // El diagnóstico sí puede apoyarse en el Punto B cuando el periodo no tiene
   // objetivos marcables; la barra "Res" nunca usa ese respaldo.
   const diagnosis = diagnoseArea(system.effort ?? 0, objectivesPct ?? system.results ?? 0);
+  const objectivesBar =
+    objectivesPct == null
+      ? 'bg-muted-foreground/40'
+      : objectivesPct >= 100
+        ? 'bg-emerald-500'
+        : objectivesPct >= 50
+          ? 'bg-amber-500'
+          : 'bg-red-500';
   const tone = DIAGNOSIS_TONE[diagnosis.tone];
   const state = AREA_STATE_COLOR[areaStateColor(diagnosis)];
   const planned = Math.max(0, Math.round(system.plannedMinutes ?? 0));
@@ -273,7 +281,7 @@ function SystemMetrics({
         <Meter
           label={hasObjectives ? `Res ${objectivesDone}/${objectivesTotal}` : 'Res'}
           value={objectivesPct}
-          bar="bg-emerald-500"
+          bar={objectivesBar}
           hint={
             hasObjectives
               ? `Objetivos del periodo: ${objectivesDone}/${objectivesTotal} marcados`
