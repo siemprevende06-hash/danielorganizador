@@ -473,8 +473,8 @@ export function reconcileMonthlyToQuarter(month: Date) {
       return prev
         ? {
             ...g,
-            createdAt: prev.createdAt ?? g.createdAt,
-            completedAt: prev.completedAt ?? g.completedAt,
+            createdAt: prev.createdAt !== undefined ? prev.createdAt : g.createdAt,
+            completedAt: prev.completedAt !== undefined ? prev.completedAt : g.completedAt,
           }
         : g;
     });
@@ -528,7 +528,13 @@ export function syncMonthlyFromQuarter(month: Date): QuarterPlanLike | null {
     songs: { ...(monthly.songs || { goal: 0, selected: [] }), goal: dist.songs.length, selected: dist.songs },
     personal_goals: (qp.personal_goals || []).map(g => {
       const prev = stamps.get(g.title);
-      return prev ? { ...g, createdAt: prev.createdAt, completedAt: prev.completedAt } : g;
+      return prev
+        ? {
+            ...g,
+            createdAt: prev.createdAt !== undefined ? prev.createdAt : g.createdAt,
+            completedAt: prev.completedAt !== undefined ? prev.completedAt : g.completedAt,
+          }
+        : g;
     }),
   };
   return next;

@@ -95,7 +95,10 @@ const STATUS_COLOR: Record<PlanDayStatus, string> = {
 
 const shortDate = (value?: string | null): string | null => {
   if (!value) return null;
-  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  const raw = String(value);
+  // Fechas puras (yyyy-MM-dd) se anclan al mediodía; los ISO completos se
+  // interpretan en la zona horaria local para no saltar de día.
+  const date = new Date(raw.length === 10 ? `${raw}T12:00:00` : raw);
   return isNaN(date.getTime()) ? null : format(date, 'd MMM', { locale: es });
 };
 
