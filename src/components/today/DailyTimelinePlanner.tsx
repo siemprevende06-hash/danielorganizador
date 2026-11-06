@@ -234,6 +234,9 @@ export function DailyTimelinePlanner({
         let startM = 0, endM = 0;
         try { startM = parseTime(block.startTime || '0:00'); } catch (e) { startM = 0; }
         try { endM = parseTime(block.endTime || '0:00'); } catch (e) { endM = 0; }
+        if (endM <= startM) {
+          return currentMinutes >= startM || currentMinutes < endM;
+        }
         return currentMinutes >= startM && currentMinutes < endM;
       } catch (e) {
         return false;
@@ -371,7 +374,9 @@ export function DailyTimelinePlanner({
           const focusKey = getBlockFocus(block);
           const colors = FOCUS_COLORS[focusKey] || FOCUS_COLORS.default;
           const isCurrent = !isFutureView && index === currentBlockIndex;
-          const isPast = !isFutureView && endM <= currentMinutes;
+          const isPast = !isFutureView && (endM > startM
+            ? endM <= currentMinutes
+            : currentMinutes >= endM && currentMinutes < startM);
           const isDragOver = dragOverBlockId === blockId;
           const tasks = safeTasksByBlock[blockId] || [];
           const isDW = isDeepWork(block.title) || (block.id && block.id.includes('bloque-extra'));
