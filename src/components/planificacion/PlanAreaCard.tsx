@@ -27,7 +27,10 @@ export interface PlanSystemMetrics {
   daysSkipped?: number;
   /** % de esfuerzo del área a la que pertenece el sistema. */
   effort?: number;
-  /** % de resultados del área a la que pertenece el sistema. */
+  /**
+   * % de resultados del Punto B. Se usa solo cuando el sistema no tiene
+   * objetivos marcables en el periodo (la barra "Res" prioriza los objetivos).
+   */
   results?: number;
   streak?: number;
   bestStreak?: number;
@@ -112,14 +115,6 @@ const rowDateText = (item: PlanObjectiveRow): string | null => {
   return parts.join(' · ');
 };
 
-const minutesShort = (min: number) => {
-  const value = Math.max(0, Math.round(Number(min) || 0));
-  if (value < 60) return `${value}m`;
-  const h = Math.floor(value / 60);
-  const m = value % 60;
-  return m ? `${h}h ${m}m` : `${h}h`;
-};
-
 /**
  * Tarjeta de área con el mismo lenguaje visual que las tarjetas de Sistemas:
  * portada arriba, rendimiento real del sistema, objetivos dentro y los minutos
@@ -128,6 +123,8 @@ const minutesShort = (min: number) => {
 export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
   const toggleable = card.items.filter(i => i.onToggle);
   const doneCount = toggleable.filter(i => i.done).length;
+  // Objetivos con estado de cumplimiento: alimentan la barra "Res" del sistema.
+  const measurable = card.items.filter(i => i.done !== undefined);
   const complete = toggleable.length > 0 && doneCount === toggleable.length;
   const counter = toggleable.length > 0
     ? `${doneCount}/${toggleable.length}`
@@ -167,7 +164,13 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
           )}
         </div>
 
-        {card.system && <SystemMetrics system={card.system} />}
+        {card.system && (
+          <SystemMetrics
+            system={card.system}
+            objectivesDone={measurable.filter(item => item.done === true).length}
+            objectivesTotal={measurable.length}
+          />
+        )}
 
         {card.items.length > 0 ? (
           <div className="space-y-1">
@@ -190,10 +193,20 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
   );
 }
 
-function Meter({ label, value, bar }: { label: string; value?: number | null; bar: string }) {
+function Meter({
+  label,
+  value,
+  bar,
+  hint,
+}: {
+  label: string;
+  value?: number | null;
+  bar: string;
+  hint?: string;
+}) {
   const pct = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
   return (
-    <div className="min-w-0">
+    <div className="min-w-0" title={hint}>
       <div className="flex items-baseline justify-between gap-0.5">
         <span className="text-[7px] uppercase tracking-wide text-muted-foreground">{label}</span>
         <span className="text-[9px] font-bold leading-none tabular-nums">
@@ -207,12 +220,28 @@ function Meter({ label, value, bar }: { label: string; value?: number | null; ba
   );
 }
 
-/** Rendimiento del sistema: diagnóstico, esfuerzo/resultados, minutos, días y racha. */
-function SystemMetrics({ system }: { system: PlanSystemMetrics }) {
-  const diagnosis = diagnoseArea(system.effort ?? 0, system.results ?? 0);
+/**
+ * Rendimiento del sistema: diagnóstico, esfuerzo/resultados, minutos, días y racha.
+ * La barra "Res" se calcula con los objetivos marcados en el periodo; el Punto B
+ * solo se usa como respaldo cuando el sistema no tiene objetivos marcables.
+ */
+function SystemMetrics({
+  system,
+  objectivesDone = 0,
+  objectivesTotal = 0,
+}: {
+  system: PlanSystemMetrics;
+  objectivesDone?: number;
+  objectivesTotal?: number;
+}) {
+  const hasObjectives = objectivesTotal > 0;
+  const results = hasObjectives
+    ? Math.round((objectivesDone / objectivesTotal) * 100)
+    : system.results;
+  const diagnosis = diagnoseArea(system.effort ?? 0, results ?? 0);
   const tone = DIAGNOSIS_TONE[diagnosis.tone];
   const state = AREA_STATE_COLOR[areaStateColor(diagnosis)];
-  const planned = system.plannedMinutes ?? 0;
+  const planned = Math.max(0, Math.round(system.plannedMinutes ?? 0));
   const actual = Math.max(0, Math.round(system.actualMinutes ?? 0));
   const pct = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : null;
   const todayKey = format(new Date(), 'yyyy-MM-dd');
@@ -237,17 +266,42 @@ function SystemMetrics({ system }: { system: PlanSystemMetrics }) {
       </div>
 
       <div className="grid grid-cols-2 gap-1.5">
-        <Meter label="Esf" value={system.effort} bar="bg-violet-500" />
-        <Meter label="Res" value={system.results} bar="bg-emerald-500" />
+        <Meter label="Esf" value={system.effort} bar="bg-violet-500" hint="Esfuerzo del área (Punto B)" />
+        <Meter
+          label="Res"
+          value={results}
+          bar="bg-emerald-500"
+          hint={
+            hasObjectives
+              ? `Objetivos del periodo: ${objectivesDone}/${objectivesTotal} marcados`
+              : 'Resultados del área (Punto B): sin objetivos marcables en el periodo'
+          }
+        />
       </div>
 
-      <div className="flex items-baseline justify-between gap-1">
-        <span className="truncate text-[8px] text-muted-foreground tabular-nums">
-          <b className="text-[10px] font-extrabold text-foreground">{minutesShort(actual)}</b>
-          {planned > 0 ? ` / ${minutesShort(planned)}` : ''}
+      {/* Minutos acumulados + meta del periodo, igual que las tarjetas de Sistemas. */}
+      <div className="flex items-end justify-between gap-1">
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl font-extrabold leading-none tabular-nums">{actual}</span>
+          <span className="text-[9px] text-muted-foreground">min</span>
+        </div>
+        {planned > 0 && (
+          <span
+            className="shrink-0 text-[9px] font-semibold text-muted-foreground tabular-nums"
+            title="Objetivo de minutos del periodo"
+          >
+            /{planned}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-1 text-[8px] font-semibold tabular-nums">
+        <span className={cn('truncate', pct != null && pct >= 100 ? 'text-emerald-500' : 'text-muted-foreground')}>
+          {pct != null ? `${pct}% de la meta` : 'Sin meta de minutos'}
+          {system.daysSkipped ? ` · ${system.daysSkipped} saltados` : ''}
         </span>
         <span
-          className="shrink-0 text-[8px] font-semibold tabular-nums"
+          className="shrink-0 text-muted-foreground"
           title={`${system.daysDone ?? 0} de ${system.daysTotal ?? 0} días cumplidos${system.daysSkipped ? ` · ${system.daysSkipped} saltados` : ''}`}
         >
           {system.daysDone ?? 0}/{system.daysTotal ?? 0} días

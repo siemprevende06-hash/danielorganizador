@@ -633,7 +633,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const unit = 'min sem.';
 
   const outcomesById = useMemo(
-    () => new Map((planData.outcomes || []).map(o => [o.id, o.title])),
+    () => new Map((planData.outcomes || []).map(o => [o.id, o])),
     [planData.outcomes],
   );
 
@@ -722,11 +722,29 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     });
     const rawResult = planData.areaResults?.[areaId];
     if (rawResult) {
+      const outcome = outcomesById.get(rawResult);
       rows.unshift({
         id: `${areaId}-result`,
-        title: outcomesById.get(rawResult) ?? rawResult,
+        title: outcome?.title ?? rawResult,
         subtitle: 'Resultado de la semana',
         emoji: '🏁',
+        // Marcar el resultado en Planificación cuenta como objetivo del sistema.
+        done: outcome?.completed,
+        createdAt: outcome?.createdAt,
+        completedAt: outcome?.completedAt,
+        onToggle: outcome
+          ? () => patchPlan(prev => {
+              const now = new Date().toISOString();
+              return {
+                ...prev,
+                outcomes: (prev.outcomes || []).map(o => {
+                  if (o.id !== rawResult) return o;
+                  const completed = !o.completed;
+                  return { ...o, completed, completedAt: completed ? now : null };
+                }),
+              };
+            })
+          : undefined,
       });
     }
     return rows;
@@ -941,7 +959,7 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
 
   const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 });
   const weekKey = format(weekStart, 'yyyy-MM-dd');
-  const { planData: weekPlan, loading: weekLoading } = useWeeklyPlan(weekStart);
+  const { planData: weekPlan, patchPlan, loading: weekLoading } = useWeeklyPlan(weekStart);
   // El reparto semanal vive en el mes de la semana, no en el mes del día.
   const { planData: monthPlan, books, songs, projects, subjects, loading: monthLoading } = useMonthlyPlan(startOfMonth(weekStart));
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
@@ -1002,7 +1020,7 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const subjectsById = useMemo(() => new Map(subjects.map(s => [s.id, s.name])), [subjects]);
   const projectsById = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
   const outcomesById = useMemo(
-    () => new Map((weekPlan.outcomes || []).map(o => [o.id, o.title])),
+    () => new Map((weekPlan.outcomes || []).map(o => [o.id, o])),
     [weekPlan.outcomes],
   );
 
@@ -1082,11 +1100,29 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
     });
     const rawResult = weekPlan.areaResults?.[areaId];
     if (rawResult) {
+      const outcome = outcomesById.get(rawResult);
       rows.unshift({
         id: `${areaId}-result`,
-        title: outcomesById.get(rawResult) ?? rawResult,
+        title: outcome?.title ?? rawResult,
         subtitle: 'Resultado de la semana',
         emoji: '🏁',
+        // Marcar el resultado en Planificación cuenta como objetivo del sistema.
+        done: outcome?.completed,
+        createdAt: outcome?.createdAt,
+        completedAt: outcome?.completedAt,
+        onToggle: outcome
+          ? () => patchPlan(prev => {
+              const now = new Date().toISOString();
+              return {
+                ...prev,
+                outcomes: (prev.outcomes || []).map(o => {
+                  if (o.id !== rawResult) return o;
+                  const completed = !o.completed;
+                  return { ...o, completed, completedAt: completed ? now : null };
+                }),
+              };
+            })
+          : undefined,
       });
     }
     return rows;
