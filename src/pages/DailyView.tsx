@@ -45,6 +45,7 @@ import { PronosticosPanel } from '@/components/pronosticos/PronosticosPanel';
 import { ResultadosDia } from '@/components/resultados/ResultadosDia';
 import { DaySystemsSection } from '@/components/today/DaySystemsSection';
 import { DaySpeedSection } from '@/components/today/DaySpeedSection';
+import { useDaySpeedPlan } from '@/hooks/useDaySpeedPlan';
 import { PlanSistemaSection } from '@/components/today/PlanSistemaSection';
 import { UniEntrepreneurshipProjectPanel } from '@/components/today/UniEntrepreneurshipProjectPanel';
 import { WorkBlocksSection } from '@/components/today/WorkBlocksSection';
@@ -260,6 +261,12 @@ export default function DailyView() {
     [routineLoaded, routineBlocks, adjustedBlocks]
   );
 
+  const { plan: speedPlan, setPlan: setSpeedPlan } = useDaySpeedPlan(selectedDate, {
+    autoSave: true,
+    routineType,
+    blocks: planBlocks,
+  });
+
   const activeFocusAreas = useMemo(
     () => (Array.isArray(data.activeFocusAreas) ? data.activeFocusAreas : []),
     [data.activeFocusAreas]
@@ -350,7 +357,7 @@ export default function DailyView() {
               })}
             </div>
 
-            <PlanGoalsCard date={selectedDate} planGoals={planGoals} planIntensity={planIntensity} plannedTasks={plannedTasksTotal.length} />
+            <PlanGoalsCard date={selectedDate} planGoals={planGoals} planIntensity={planIntensity} plannedTasks={plannedTasksTotal.length} speedPlan={speedPlan} blocks={planBlocks} />
 
             {/* ===== SECCIÓN: ENFOQUE Y ACUMULATIVOS (acordeón) ===== */}
             <button
@@ -380,8 +387,8 @@ export default function DailyView() {
                 <DireccionBoard />
                 <PlanFocusPicker activeFocusAreas={activeFocusAreas} />
                 <EnfoqueSection {...enfoqueSectionProps} />
-                <DaySpeedSection />
-                <MySystemsSection date={selectedDate} blocks={planBlocks} />
+                <DaySpeedSection speedPlan={speedPlan} blocks={planBlocks} />
+                <MySystemsSection date={selectedDate} blocks={planBlocks} speedPlan={speedPlan} />
               </div>
             )}
 
@@ -435,9 +442,11 @@ export default function DailyView() {
                   covers={covers}
                   onUpdateFocus={updateRoutineBlockFocus}
                   isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')}
+                  speedPlan={speedPlan}
+                  onSpeedPlanChange={setSpeedPlan}
                 />
               ) : (
-                <DailyTimelinePlanner blocks={planBlocks} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} />
+                <DailyTimelinePlanner blocks={planBlocks} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')} speedPlan={speedPlan} onSpeedPlanChange={setSpeedPlan} />
               )}
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)] flex flex-col gap-3">
                 <div className="flex-1 min-h-0">
@@ -615,7 +624,7 @@ export default function DailyView() {
             <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock || {}} />
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-              <DailyTimelinePlanner blocks={(routineLoaded && Array.isArray(routineBlocks) && routineBlocks.length > 0 ? routineBlocks : (Array.isArray(adjustedBlocks) ? adjustedBlocks : [])) as any} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} />
+              <DailyTimelinePlanner blocks={planBlocks} tasksByBlock={tasksByBlock || {}} onToggleBlock={toggleBlockComplete} isBlockCompleted={isBlockCompleted} onDropTask={assignTaskToBlock} onRemoveTask={removeTaskFromBlock} onUpdateFocus={updateRoutineBlockFocus} events={todayEvents || []} musicInstrument={musicInstrument} languageChoice={planLanguage || undefined} speedPlan={speedPlan} onSpeedPlanChange={setSpeedPlan} />
               <div className="lg:sticky lg:top-20 lg:self-start h-[calc(100vh-280px)]">
                 <TaskPoolPanel unassignedTasks={unassignedTasks} onTaskCreated={refreshTasks} abcMap={abc.map} />
               </div>
@@ -685,7 +694,7 @@ export default function DailyView() {
               </CardContent>
             </Card>
             <MejoraProcessPanel todayMinutes={todayMinutes}>
-              <MySystemsSection date={selectedDate} blocks={planBlocks} />
+              <MySystemsSection date={selectedDate} blocks={planBlocks} speedPlan={speedPlan} />
               <Card className="border-purple-500/20">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">

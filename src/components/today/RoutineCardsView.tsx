@@ -11,6 +11,8 @@ import type { RoutineBlock } from '@/hooks/useRoutineBlocks';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { isExtraRoutineBlock, routineBlockCoverId } from '@/lib/routineCovers';
+import { BlockSpeedPlanControl } from '@/components/today/BlockSpeedPlanControl';
+import { blockEffectiveEnd, type SpeedPlan } from '@/lib/speedPlan';
 import {
   Clock, BookOpen, Briefcase, FolderKanban, Dumbbell, Sun, Moon, Coffee,
   Languages, Target, Music, Book, ImagePlus, X, Camera, Loader2, CheckCircle2,
@@ -27,6 +29,8 @@ interface Props {
   onUpdateFocus?: (blockId: string, focus: string) => void;
   covers?: Record<string, string>;
   isFutureView?: boolean;
+  speedPlan?: SpeedPlan;
+  onSpeedPlanChange?: (next: SpeedPlan) => void;
 }
 
 const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; label: string }> = {
@@ -36,6 +40,7 @@ const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; la
   idiomas: { border: 'border-l-teal-500', bg: 'bg-teal-500/10', dot: 'bg-teal-500', label: 'Idiomas' },
   musica: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Música' },
   lectura: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Lectura' },
+  tareas: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500', label: 'Tareas generales' },
   descanso: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', dot: 'bg-slate-500', label: 'Descanso' },
   ocio: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Ocio' },
   entretenimiento: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Entretenimiento' },
@@ -50,6 +55,7 @@ const FOCUS_OPTIONS = [
   { value: 'universidad', label: '🎓 Universidad' },
   { value: 'emprendimiento', label: '💼 Emprendimiento' },
   { value: 'proyectos', label: '💻 Proyectos' },
+  { value: 'tareas', label: '📋 Tareas generales' },
   { value: 'idiomas', label: '🗣️ Idiomas' },
   { value: 'musica', label: '🎵 Música' },
   { value: 'lectura', label: '📖 Lectura' },
@@ -103,6 +109,7 @@ function getBlockIcon(block: RoutineBlock) {
 
 interface CardProps {
   block: RoutineBlock;
+  nextBlock?: RoutineBlock;
   tasks: TaskItem[];
   completed: boolean;
   isActive: boolean;
@@ -114,11 +121,14 @@ interface CardProps {
   onToggleTask: (taskId: string) => void;
   onUpdateCover: (blockId: string, url: string) => void;
   onUpdateFocus?: (blockId: string, focus: string) => void;
+  speedPlan?: SpeedPlan;
+  onSpeedPlanChange?: (next: SpeedPlan) => void;
 }
 
 function RoutineCard({
-  block, tasks, completed, isActive, isPast, progress, cover,
+  block, nextBlock, tasks, completed, isActive, isPast, progress, cover,
   onToggleBlock, onRemoveTask, onToggleTask, onUpdateCover, onUpdateFocus,
+  speedPlan, onSpeedPlanChange,
 }: CardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, uploading } = useImageUpload();
@@ -129,6 +139,7 @@ function RoutineCard({
   const extra = isExtraBlock(block);
   const selectedFocus = block.currentFocus || block.defaultFocus || 'none';
   const coverId = getCoverId(block);
+  const displayEnd = blockEffectiveEnd(block, speedPlan?.blocks[block.id], nextBlock);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -211,7 +222,7 @@ function RoutineCard({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
             <Clock className="h-3 w-3" />
-            <span>{formatTime(block.startTime)} – {formatTime(block.endTime)}</span>
+            <span>{formatTime(block.startTime)} – {formatTime(displayEnd)}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {isActive && (
@@ -232,7 +243,15 @@ function RoutineCard({
           </div>
         </div>
 
-        {(block.isFocusBlock || extra) && onUpdateFocus && (
+        {speedPlan && onSpeedPlanChange ? (
+          <BlockSpeedPlanControl
+            block={block}
+            nextBlock={nextBlock}
+            plan={speedPlan}
+            onChange={onSpeedPlanChange}
+            compact
+          />
+        ) : (block.isFocusBlock || extra) && onUpdateFocus ? (
           <div className="flex items-center gap-2">
             <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
               {extra ? 'Tipo' : 'Objetivo'}
@@ -254,7 +273,7 @@ function RoutineCard({
               </SelectContent>
             </Select>
           </div>
-        )}
+        ) : null}
 
         {isActive && (
           <div className="space-y-1">
@@ -340,6 +359,8 @@ export function RoutineCardsView({
   onUpdateFocus,
   covers = {},
   isFutureView = false,
+  speedPlan,
+  onSpeedPlanChange,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -391,6 +412,7 @@ export function RoutineCardsView({
           <RoutineCard
             key={block.id}
             block={block}
+            nextBlock={sortedBlocks[index + 1]}
             tasks={safeTasksByBlock[block.id] || []}
             completed={isBlockCompleted(block.id)}
             isActive={isActive}
@@ -402,6 +424,8 @@ export function RoutineCardsView({
             onToggleTask={onToggleTask}
             onUpdateCover={onUpdateCover}
             onUpdateFocus={onUpdateFocus}
+            speedPlan={speedPlan}
+            onSpeedPlanChange={onSpeedPlanChange}
           />
         );
       })}

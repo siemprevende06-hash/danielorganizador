@@ -4,6 +4,7 @@ import { useRoutineBlocksDB, type RoutineBlock } from '@/hooks/useRoutineBlocksD
 import { useBlockCompletions } from '@/hooks/useBlockCompletions';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { normalizeSpeedPlan, type SpeedPlan } from '@/lib/speedPlan';
 
 export interface TaskItem {
   id: string;
@@ -31,6 +32,7 @@ export function useDailyPlanData(date?: Date) {
   const [planLanguage, setPlanLanguage] = useState<'ingles' | 'italiano' | null>(null);
   const [planGoals, setPlanGoals] = useState<Record<string, number> | null>(null);
   const [planIntensity, setPlanIntensity] = useState<Record<string, string> | null>(null);
+  const [planSpeedPlan, setPlanSpeedPlan] = useState<SpeedPlan | null>(null);
   const [planLoaded, setPlanLoaded] = useState(false);
 
   const dateStr = format(targetDate, 'yyyy-MM-dd');
@@ -43,6 +45,7 @@ export function useDailyPlanData(date?: Date) {
 
   const loadPlanForDate = async () => {
     setPlanLoaded(false);
+    setPlanSpeedPlan(null);
     try {
       const { data: plan } = await supabase.from('daily_plans').select('routine_type, block_assignments, notes').eq('plan_date', dateStr).maybeSingle();
 
@@ -66,6 +69,11 @@ if (plan && plan.block_assignments) {
             } else {
               setPlanIntensity(null);
             }
+            if (parsed.speedPlan) {
+              setPlanSpeedPlan(normalizeSpeedPlan(parsed.speedPlan));
+            } else {
+              setPlanSpeedPlan(null);
+            }
           } catch {}
         }
       } else {
@@ -74,6 +82,7 @@ if (plan && plan.block_assignments) {
         setPlanLanguage(null);
         setPlanGoals(null);
         setPlanIntensity(null);
+        setPlanSpeedPlan(null);
       }
     } catch (error) {
       console.error('Error loading plan for date:', error);
@@ -82,6 +91,7 @@ if (plan && plan.block_assignments) {
       setPlanLanguage(null);
       setPlanGoals(null);
       setPlanIntensity(null);
+      setPlanSpeedPlan(null);
     } finally {
       setPlanLoaded(true);
     }
@@ -298,6 +308,7 @@ if (plan && plan.block_assignments) {
     planLanguage,
     planGoals,
     planIntensity,
+    planSpeedPlan,
     planLoaded,
   };
 }

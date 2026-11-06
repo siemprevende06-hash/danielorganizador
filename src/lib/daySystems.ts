@@ -104,6 +104,20 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
         streakMinutes: 30,
         speedOptions: BLOCK80,
       },
+      {
+        id: "proyectos",
+        name: "Proyectos",
+        cover: { type: "sub", id: "proyectos" },
+        streakMinutes: 30,
+        speedOptions: BLOCK80,
+      },
+      {
+        id: "tareas",
+        name: "Tareas generales",
+        cover: { type: "sub", id: "general" },
+        streakMinutes: 30,
+        speedOptions: BLOCK80,
+      },
     ],
   },
   {
@@ -191,6 +205,19 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
     systems: [],
   },
 ];
+
+/** Sistemas que participan en el plan de velocidad diario (Finanzas queda fuera). */
+export const SPEED_PLAN_SYSTEMS: DaySystem[] = DAY_SYSTEMS
+  .filter(area => area.kind === "central" && area.id !== "finanzas")
+  .flatMap(area => area.systems);
+
+export function findDaySystemMeta(id: string): { area: DaySystemArea; system: DaySystem } | null {
+  for (const area of DAY_SYSTEMS) {
+    const system = area.systems.find(s => s.id === id);
+    if (system) return { area, system };
+  }
+  return null;
+}
 
 // ---------- Sostén: áreas estructurales del día ----------
 export interface SostenHabit {

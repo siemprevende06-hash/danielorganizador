@@ -18,6 +18,7 @@ import { useWeeklyPlan } from '@/hooks/useWeeklyPlan';
 import { usePeriodPlanTasks } from '@/hooks/usePeriodPlanTasks';
 import { usePlanLibraryToggles, type SongPlanTypeLite } from '@/hooks/usePlanLibraryToggles';
 import { GROUP_CONFIG } from '@/lib/areaSystemsMap';
+import { doseLabel, summarizeSpeedPlan } from '@/lib/speedPlan';
 import {
   ALL_HIERARCHY_AREAS, AREA_LABELS,
   getDayGoalEffective, getDayGoalTotal, getMonthGoalsSummary, getWeekGoalEffective,
@@ -1132,7 +1133,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
 
 function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const {
-    blocks, tasks, tasksByBlock, planGoals, planIntensity,
+    blocks, tasks, tasksByBlock, planGoals, planIntensity, planSpeedPlan,
     planRoutineType, planLoaded, tasksLoading,
     toggleTaskDone, toggleBlockComplete, isBlockCompleted,
   } = useDailyPlanData(anchorDate);
@@ -1157,7 +1158,18 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const minutesOf = (id: string) => Math.max(0, Math.round(Number(dayGoals[id]) || 0));
   const unit = 'min día';
   const dayTotal = getDayGoalTotal(anchorDate, planGoals);
-  const intensity = intensityRows(planIntensity);
+  const speedRows: PlanObjectiveRow[] = planSpeedPlan
+    ? summarizeSpeedPlan(planSpeedPlan, blocks).doses
+        .filter(dose => dose.plannedMinutes > 0)
+        .map(dose => ({
+          id: dose.systemId,
+          title: dose.name,
+          tag: doseLabel(dose),
+          meta: `${dose.plannedMinutes} min`,
+          emoji: '⚡',
+        }))
+    : [];
+  const intensity = speedRows.length > 0 ? speedRows : intensityRows(planIntensity);
 
   const blockTitleByTaskId = useMemo(() => {
     const map = new Map<string, string>();

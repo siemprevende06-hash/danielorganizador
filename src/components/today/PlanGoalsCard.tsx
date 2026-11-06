@@ -1,8 +1,9 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Brain } from "lucide-react";
+import { Target, Brain, Gauge } from "lucide-react";
 import { AREA_LABELS, ALL_HIERARCHY_AREAS, getDayGoalEffective, getDayGoalTotal } from "@/lib/hierarchy";
 import { cn } from "@/lib/utils";
+import { doseLabel, summarizeSpeedPlan, type SpeedBlockLike, type SpeedPlan, type SpeedState } from "@/lib/speedPlan";
 
 const INTENSITY_LABEL: Record<string, string> = { minimo: "Mín", maximo: "Máx", extra: "Extra" };
 const INTENSITY_CLS: Record<string, string> = {
@@ -13,22 +14,36 @@ const INTENSITY_CLS: Record<string, string> = {
 const INTENSITY_BASE_MIN: Record<string, number> = { lectura: 30, ajedrez: 20, game: 20, idiomas: 30, gym: 60, musica: 30 };
 const SYSTEM_NAMES: Record<string, string> = { lectura: "Lectura", ajedrez: "Ajedrez", game: "Game", idiomas: "Idiomas", gym: "Gym", musica: "Música" };
 const ESTIMATED_MULTIPLIER: Record<string, number> = { minimo: 0.5, maximo: 1, extra: 1.5 };
+const SPEED_STATE_CLS: Record<SpeedState, string> = {
+  "sin-plan": "border-border/50 text-muted-foreground",
+  "sin-dosis": "border-red-400/50 text-red-500",
+  racha: "border-rose-400/50 text-rose-500",
+  minimo: "border-blue-400/50 text-blue-500",
+  maximo: "border-green-500/50 text-green-600",
+  extra: "border-amber-500/50 text-amber-600",
+};
 
 interface PlanGoalsCardProps {
   date: Date;
   planGoals?: Record<string, number> | null;
   planIntensity?: Record<string, string> | null;
   plannedTasks?: number;
+  speedPlan?: SpeedPlan | null;
+  blocks?: SpeedBlockLike[];
 }
 
-export function PlanGoalsCard({ date, planGoals, planIntensity, plannedTasks }: PlanGoalsCardProps) {
+export function PlanGoalsCard({ date, planGoals, planIntensity, plannedTasks, speedPlan, blocks }: PlanGoalsCardProps) {
   const goalFor = (a: string) => Math.max(0, planGoals?.[a] || getDayGoalEffective(date, a) || 0);
   const rows = ALL_HIERARCHY_AREAS
     .map(a => ({ area: a, label: AREA_LABELS[a] || a, min: goalFor(a) }))
     .filter(r => r.min > 0);
   const total = getDayGoalTotal(date, planGoals);
 
-  const intensityEntries = Object.entries(planIntensity || {})
+  const doses = speedPlan
+    ? summarizeSpeedPlan(speedPlan, blocks ?? []).doses.filter(dose => dose.plannedMinutes > 0)
+    : [];
+
+  const intensityEntries = (doses.length > 0 ? [] : Object.entries(planIntensity || {}))
     .map(([id, v]) => ({
       id,
       v,
@@ -37,7 +52,7 @@ export function PlanGoalsCard({ date, planGoals, planIntensity, plannedTasks }: 
     }))
     .filter(x => x.v === "minimo" || x.v === "maximo" || x.v === "extra");
 
-  if (rows.length === 0 && intensityEntries.length === 0 && !plannedTasks) return null;
+  if (rows.length === 0 && intensityEntries.length === 0 && doses.length === 0 && !plannedTasks) return null;
 
   return (
     <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
@@ -67,6 +82,28 @@ export function PlanGoalsCard({ date, planGoals, planIntensity, plannedTasks }: 
           </>
         ) : (
           <p className="text-[10px] text-muted-foreground">Sin metas de minutos planificadas para este día.</p>
+        )}
+        {doses.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 pt-1">
+              <Gauge className="h-4 w-4 text-amber-500" />
+              <h3 className="text-xs font-semibold">Velocidad por sistema</h3>
+              <span className="text-[9px] text-muted-foreground">minutos planificados</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {doses.map(dose => (
+                <div key={dose.systemId} className="rounded-xl bg-muted/30 p-2.5 flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-muted-foreground truncate">{dose.name}</span>
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <span className="text-[10px] font-bold tabular-nums">{dose.plannedMinutes} min</span>
+                    <Badge className={cn("text-[8px] border px-1 h-4", SPEED_STATE_CLS[dose.state])}>
+                      {doseLabel(dose)}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
         {intensityEntries.length > 0 && (
           <>

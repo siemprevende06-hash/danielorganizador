@@ -16,6 +16,7 @@ import { useSystemSpeed } from "@/hooks/useSystemSpeed";
 import { DAY_SYSTEMS, systemActualMinutes, type DaySystem } from "@/lib/daySystems";
 import { DEFAULT_GOALS } from "@/hooks/useDailyAreaStats";
 import { parseTime, type RoutineBlock } from "@/hooks/useRoutineBlocksDB";
+import { summarizeSpeedPlan, autoSystemForBlock, type SpeedPlan } from "@/lib/speedPlan";
 
 interface SystemCard {
   id: string;
@@ -61,21 +62,45 @@ const fmtTime = (time: string) => {
  * Gym no vive en BlockFocus, así que se resuelve por título.
  * Si el sistema no tiene bloques asignados devuelve undefined (la línea se oculta).
  */
-function scheduleFromBlocks(systemId: string, blocks: RoutineBlock[] | undefined): string | undefined {
+function scheduleFromBlocks(
+  systemId: string,
+  blocks: RoutineBlock[] | undefined,
+  speedPlan?: SpeedPlan | null,
+): string | undefined {
   if (!blocks || blocks.length === 0) return undefined;
-  const matches = blocks
-    .filter((b) => {
-      const focus = b.currentFocus || b.defaultFocus;
-      if (focus && focus !== "none") return focus === systemId;
-      const t = b.title.toLowerCase();
-      if (systemId === "gym") return t.includes("gym") || t.includes("entreno");
-      if (systemId === "lectura") return t.includes("lectura");
-      if (systemId === "ajedrez") return t.includes("ajedrez");
-      return false;
-    })
-    .sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
-  if (matches.length === 0) return undefined;
-  return `${fmtTime(matches[0].startTime)} - ${fmtTime(matches[matches.length - 1].endTime)}`;
+  const times: { start: string; end: string }[] = [];
+
+  for (const block of blocks) {
+    const entry = speedPlan?.blocks?.[block.id];
+    if (entry?.kind === "fragments") {
+      for (const fragment of entry.fragments) {
+        if (fragment.systemId === systemId) {
+          times.push({ start: fragment.start, end: fragment.end });
+        }
+      }
+      continue;
+    }
+    if (entry?.kind === "whole") {
+      if (entry.systemId === systemId) {
+        times.push({ start: block.startTime, end: block.endTime });
+      }
+      continue;
+    }
+    // Sin plan explícito: mismo fallback que la velocidad (natural o current_focus),
+    // más los bloques que históricamente se resolvían por título (gym, ajedrez en el almuerzo).
+    const title = block.title.toLowerCase();
+    const legacyMatch =
+      (systemId === "gym" && (title.includes("gym") || title.includes("entreno"))) ||
+      (systemId === "lectura" && title.includes("lectura")) ||
+      (systemId === "ajedrez" && title.includes("ajedrez"));
+    if (autoSystemForBlock(block) === systemId || legacyMatch) {
+      times.push({ start: block.startTime, end: block.endTime });
+    }
+  }
+
+  if (times.length === 0) return undefined;
+  const sorted = times.sort((a, b) => parseTime(a.start) - parseTime(b.start));
+  return `${fmtTime(sorted[0].start)} - ${fmtTime(sorted[sorted.length - 1].end)}`;
 }
 
 
@@ -160,11 +185,12 @@ function SystemCardView({ c, covers }: { c: SystemCard; covers: Record<string, s
 interface MySystemsSectionProps {
   date?: Date;
   blocks?: RoutineBlock[];
+  speedPlan?: SpeedPlan | null;
 }
 
 const PLAN_TO_SPEED_MAP: Record<string, any> = { minimo: "minimo", maximo: "maximo", extra: "extra" };
 
-export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
+export function MySystemsSection({ date, blocks, speedPlan }: MySystemsSectionProps) {
   const [cards, setCards] = useState<SystemCard[]>([]);
   const [idiomasCard, setIdiomasCard] = useState<SystemCard | null>(null);
   const [gymCard, setGymCard] = useState<SystemCard | null>(null);
@@ -180,8 +206,18 @@ export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
   const baseDate = useMemo(() => date ?? new Date(), [date]);
   const dateKey = useMemo(() => format(baseDate, "yyyy-MM-dd"), [baseDate]);
 
+  const plannedBySystem = useMemo(
+    () => (speedPlan ? summarizeSpeedPlan(speedPlan, blocks ?? []).bySystem : {}),
+    [speedPlan, blocks],
+  );
+
   // Umbrales reales: prioridad a velocidad unificada (PlanManana/DaySpeedSection)
   const thresholdsFor = useCallback((systemId: string) => {
+    const planned = plannedBySystem[systemId]?.plannedMinutes ?? 0;
+    if (planned > 0) {
+      const system = findDaySystem(systemId);
+      return { min: system?.streakMinutes ?? 0, max: Math.max(planned, system?.streakMinutes ?? 0) };
+    }
     // intentar leer planIntensity del día si existe
     try {
       const dstr = format(baseDate, "yyyy-MM-dd");
@@ -204,7 +240,7 @@ export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
       return { min: sys.streakMinutes, max: speedMinutes || sys.streakMinutes };
     }
     return { min: 0, max: DEFAULT_GOALS[systemId as keyof typeof DEFAULT_GOALS]?.time ?? 30 };
-  }, [getMinutes, baseDate, speedMap]);
+  }, [getMinutes, baseDate, speedMap, plannedBySystem]);
 
   const musicaThresholds = thresholdsFor("musica");
 
@@ -249,7 +285,7 @@ export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
       const t = thresholdsFor(id);
       return {
         id, label, icon, route, cover, spark,
-        schedule: scheduleFromBlocks(id, blocks),
+        schedule: scheduleFromBlocks(id, blocks, speedPlan),
         todayValue: last(spark), unit: "min",
         minThreshold: t.min, maxThreshold: t.max,
         weekTotal: sum(spark), streak: streaks[id] || 0,
@@ -268,7 +304,7 @@ export function MySystemsSection({ date, blocks }: MySystemsSectionProps) {
     const gCard = makeCard("gym", "Gym", Dumbbell, "/gym", { type: "area", id: "salud" }, gymSpark);
 
     return { cards, idiomasCard: iCard, gymCard: gCard };
-  }, [blocks, thresholdsFor]);
+  }, [blocks, thresholdsFor, speedPlan]);
 
   useEffect(() => {
     let cancelled = false;

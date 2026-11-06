@@ -20,6 +20,8 @@ import { lifeAreas } from "@/lib/data";
 import { flattenAreas } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
 import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
+import { DaySpeedSection } from "@/components/today/DaySpeedSection";
+import { useDaySpeedPlan } from "@/hooks/useDaySpeedPlan";
 import { MinutesGoalInput } from "@/components/hierarchy/MinutesGoalInput";
 import {
   setDayGoal,
@@ -31,9 +33,9 @@ import {
 import {
   Sun, Moon, Clock, Target, ListTodo, Briefcase, GraduationCap,
   Languages, FolderKanban, Save, Dumbbell, Coffee, BookOpen, ChevronDown,
-  ChevronRight, Brain, Sparkles, Utensils, Gamepad2, BarChart3, Zap,
-  PlusCircle, Loader2, GripVertical
+  ChevronRight, PlusCircle, Loader2, GripVertical
 } from "lucide-react";
+import { deriveSystemIntensity } from "@/lib/speedPlan";
 
 interface TaskItem {
   id: string; title: string; source: string; area_id: string | null;
@@ -55,19 +57,6 @@ interface EntreTask {
 interface UniTask {
   id: string; title: string; completed: boolean; subject_id: string;
 }
-
-const SYSTEM_HABITS = [
-  { id: "lectura", name: "Lectura", icon: BookOpen, baseMin: 30 },
-  { id: "ajedrez", name: "Ajedrez", icon: Gamepad2, baseMin: 20 },
-  { id: "game", name: "Game (Seducción)", icon: Gamepad2, baseMin: 20 },
-  { id: "idiomas", name: "Idiomas", icon: Languages, baseMin: 30 },
-  { id: "gym", name: "Gym", icon: Dumbbell, baseMin: 60 },
-  { id: "musica", name: "Música", icon: BookOpen, baseMin: 30 },
-];
-
-const INTENSITY_MULTIPLIER: Record<string, number> = {
-  minimo: 0.5, maximo: 1, extra: 1.5,
-};
 
 const AREAS = [
   { id: "general", label: "General", icon: ListTodo, color: "bg-blue-500/15 text-blue-500" },
@@ -156,6 +145,11 @@ export default function PlanManana() {
   const targetCapitalized = targetDisplay.charAt(0).toUpperCase() + targetDisplay.slice(1);
 
   const { blocks, routineType, setRoutineType, updateBlockFocus } = useRoutineBlocks();
+  const { plan: speedPlan, setPlan: setSpeedPlan } = useDaySpeedPlan(targetDate, {
+    autoSave: false,
+    routineType,
+    blocks,
+  });
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -167,7 +161,6 @@ export default function PlanManana() {
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [blockAssignments, setBlockAssignments] = useState<Record<string, string[]>>({});
 
-  const [systemIntensity, setSystemIntensity] = useState<Record<string, string>>({});
   const [areaCollapsed, setAreaCollapsed] = useState<Record<string, boolean>>({});
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -231,9 +224,6 @@ export default function PlanManana() {
     const resetDefaults = () => {
       setBlockAssignments({});
       setSelectedTasks(new Set());
-      const savedIntensity = localStorage.getItem(`planIntensity_${dateStr}`) || localStorage.getItem(`planManana_intensity`);
-      if (savedIntensity) { try { setSystemIntensity(JSON.parse(savedIntensity)); } catch {} }
-      else setSystemIntensity({});
       setLanguageChoice(localStorage.getItem(`planLanguage_${dateStr}`) || localStorage.getItem(`planManana_language`) || "ingles");
       setMusicInstrument(localStorage.getItem(`planInstrument_${dateStr}`) || localStorage.getItem(`planManana_instrument`) || "piano");
     };
@@ -253,7 +243,6 @@ export default function PlanManana() {
         if (plan.notes) {
           try {
             const parsed = JSON.parse(plan.notes as string);
-            if (parsed.systemIntensity) setSystemIntensity(parsed.systemIntensity);
             if (parsed.language === 'ingles' || parsed.language === 'italiano') setLanguageChoice(parsed.language);
             if (parsed.instrument === 'piano' || parsed.instrument === 'guitarra') setMusicInstrument(parsed.instrument);
           } catch {}
@@ -442,8 +431,16 @@ export default function PlanManana() {
       ALL_HIERARCHY_AREAS.forEach(area => {
         dayGoals[area] = getDayGoalEffective(targetDate, area);
       });
-      // Guardar intensidad de sistemas también en formato unificado
-      const notesJSON = JSON.stringify({ systemIntensity, planIntensity: systemIntensity, language: languageChoice, instrument: musicInstrument, dayGoals });
+      // Guardar el plan de velocidad y su espejo de intensidad
+      const systemIntensity = deriveSystemIntensity(speedPlan, blocks);
+      const notesJSON = JSON.stringify({
+        systemIntensity,
+        planIntensity: systemIntensity,
+        speedPlan,
+        language: languageChoice,
+        instrument: musicInstrument,
+        dayGoals,
+      });
 
       // Sincronizar con sistema de velocidad unificado
       try {
@@ -452,11 +449,9 @@ export default function PlanManana() {
         const nextSpeed = { ...currentSpeed };
         let speedChanged = false;
         for (const [k, v] of Object.entries(systemIntensity)) {
-          if (v === "minimo" || v === "maximo" || v === "extra") {
-            if (nextSpeed[k] !== v) {
-              nextSpeed[k] = v as any;
-              speedChanged = true;
-            }
+          if (nextSpeed[k] !== v) {
+            nextSpeed[k] = v;
+            speedChanged = true;
           }
         }
         if (speedChanged) saveSystemSpeed(nextSpeed);
@@ -718,6 +713,8 @@ export default function PlanManana() {
               musicInstrument={musicInstrument === "piano" ? "piano" : "guitar"}
               languageChoice={languageChoice as "ingles" | "italiano"}
               isFutureView={mode !== 'hoy'}
+              speedPlan={speedPlan}
+              onSpeedPlanChange={setSpeedPlan}
             />
 
             {/* Daily minute goals */}
@@ -860,52 +857,8 @@ export default function PlanManana() {
           </div>
         </div>
 
-        {/* Systems / Habit intensity */}
-        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-400" />
-          <CardContent className="p-4 space-y-3">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Brain className="h-4 w-4 text-amber-500" /> Sistemas Acumulativos
-              <span className="text-[9px] text-muted-foreground font-normal">— define la intensidad para {mode === 'hoy' ? 'hoy' : 'mañana'}</span>
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {SYSTEM_HABITS.map(sys => {
-                const Icon = sys.icon;
-                const level = systemIntensity[sys.id] || "normal";
-                const multiplier = INTENSITY_MULTIPLIER[level];
-                const estimatedMin = Math.round(sys.baseMin * multiplier);
-                return (
-                  <div key={sys.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border/40">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                        <Icon className="h-3.5 w-3.5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium">{sys.name}</p>
-                        <p className="text-[9px] text-muted-foreground">~{estimatedMin} min</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      {["minimo", "maximo", "extra"].map(opt => (
-                        <button key={opt} onClick={() => setSystemIntensity(p => ({ ...p, [sys.id]: opt }))}
-                          className={cn(
-                            "px-2 py-1 rounded-lg text-[9px] font-medium transition-all border",
-                            level === opt
-                              ? opt === "minimo" ? "bg-blue-500 text-white border-blue-500"
-                                : opt === "maximo" ? "bg-green-500 text-white border-green-500"
-                                : "bg-amber-500 text-white border-amber-500"
-                              : "bg-transparent border-border/50 text-muted-foreground hover:border-foreground/30"
-                          )}>
-                          {opt === "minimo" ? "Mín" : opt === "maximo" ? "Máx" : "Extra"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Velocidad calculada desde los bloques y fragmentos */}
+        <DaySpeedSection speedPlan={speedPlan} blocks={blocks} />
 
       </div>
 

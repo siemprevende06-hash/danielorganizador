@@ -16,6 +16,8 @@ import type { TaskItem } from '@/hooks/useDailyPlanData';
 import { useWorkoutTracking } from '@/hooks/useWorkoutTracking';
 import { useReadingLibrary } from '@/hooks/useReadingLibrary';
 import { useMusicRepertoire } from '@/hooks/useMusicRepertoire';
+import { BlockSpeedPlanControl } from '@/components/today/BlockSpeedPlanControl';
+import { blockEffectiveEnd, type SpeedPlan } from '@/lib/speedPlan';
 
 interface CalendarEvent {
   id: string;
@@ -38,12 +40,15 @@ interface Props {
   musicInstrument?: 'piano' | 'guitar';
   languageChoice?: 'ingles' | 'italiano';
   isFutureView?: boolean;
+  speedPlan?: SpeedPlan;
+  onSpeedPlanChange?: (next: SpeedPlan) => void;
 }
 
 const FOCUS_OPTIONS = [
   { value: 'universidad', label: '🎓 Universidad', color: 'text-blue-500' },
   { value: 'emprendimiento', label: '💼 Emprendimiento', color: 'text-purple-500' },
   { value: 'proyectos', label: '💻 Proyectos', color: 'text-emerald-500' },
+  { value: 'tareas', label: '📋 Tareas generales', color: 'text-amber-500' },
   { value: 'idiomas', label: '🗣️ Idiomas', color: 'text-teal-500' },
   { value: 'musica', label: '🎵 Música', color: 'text-pink-500' },
   { value: 'lectura', label: '📖 Lectura', color: 'text-indigo-500' },
@@ -58,6 +63,7 @@ const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; la
   universidad: { border: 'border-l-blue-500', bg: 'bg-blue-500/10', dot: 'bg-blue-500', label: 'Universidad' },
   emprendimiento: { border: 'border-l-purple-500', bg: 'bg-purple-500/10', dot: 'bg-purple-500', label: 'Emprendimiento' },
   proyectos: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/10', dot: 'bg-emerald-500', label: 'Proyectos' },
+  tareas: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500', label: 'Tareas generales' },
   idiomas: { border: 'border-l-teal-500', bg: 'bg-teal-500/10', dot: 'bg-teal-500', label: 'Idiomas' },
   musica: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Música' },
   lectura: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Lectura' },
@@ -180,6 +186,8 @@ export function DailyTimelinePlanner({
   musicInstrument,
   languageChoice,
   isFutureView = false,
+  speedPlan,
+  onSpeedPlanChange,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -367,9 +375,12 @@ export function DailyTimelinePlanner({
       <div ref={timelineRef} data-blocks-root className="relative space-y-1">
         {sortedBlocks.map((block, index) => {
           const blockId = block.id;
+          const nextBlock = sortedBlocks[index + 1];
+          const speedEntry = speedPlan?.blocks[blockId];
+          const displayEnd = blockEffectiveEnd(block, speedEntry, nextBlock);
         let startM = 0, endM = 0;
         try { startM = parseTime(block.startTime || '0:00'); } catch (e) { startM = 0; }
-        try { endM = parseTime(block.endTime || '0:00'); } catch (e) { endM = 0; }
+        try { endM = parseTime(displayEnd || block.endTime || '0:00'); } catch (e) { endM = 0; }
           const completed = isBlockCompleted(blockId);
           const focusKey = getBlockFocus(block);
           const colors = FOCUS_COLORS[focusKey] || FOCUS_COLORS.default;
@@ -435,11 +446,11 @@ export function DailyTimelinePlanner({
                           {block.title}
                         </span>
                         <span className="text-[9px] text-muted-foreground hidden sm:inline font-mono">
-                          {formatTime(block.startTime)} • {formatTime(block.endTime)}
+                          {formatTime(block.startTime)} • {formatTime(displayEnd)}
                         </span>
 
-                        {/* Deep Work / focus block selector */}
-                        {isFullRow && onUpdateFocus && (
+                        {/* Deep Work / focus block selector (legacy: se oculta cuando hay plan de velocidad) */}
+                        {isFullRow && onUpdateFocus && !onSpeedPlanChange && (
                           <Select
                             value={selectedFocus}
                             onValueChange={(v) =>
@@ -538,6 +549,16 @@ export function DailyTimelinePlanner({
                           </div>
                         ))}
                       </div>
+                    )}
+
+                    {speedPlan && onSpeedPlanChange && (
+                      <BlockSpeedPlanControl
+                        block={block}
+                        nextBlock={nextBlock}
+                        plan={speedPlan}
+                        onChange={onSpeedPlanChange}
+                        compact
+                      />
                     )}
                   </div>
 
