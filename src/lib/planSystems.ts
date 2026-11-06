@@ -80,6 +80,8 @@ export interface PlanSystemMetrics {
   targetMet: boolean | null;
   actualMinutes: number;
   plannedMinutes?: number;
+  /** Páginas leídas en el periodo (solo Lectura). */
+  pagesRead?: number;
   minimumDose: number;
   timed: boolean;
   streak: number;

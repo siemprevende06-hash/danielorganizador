@@ -49,6 +49,17 @@ interface TrackingRow {
   rest?: Record<string, boolean> | null;
 }
 
+interface ReadingSessionRow {
+  session_date: string;
+  pages_read?: number | null;
+}
+
+interface ReadingDayStatRow {
+  stat_date: string;
+  area_id?: string | null;
+  pages_done?: number | null;
+}
+
 interface RawAggregate {
   done: number;
   available: number;
@@ -146,6 +157,36 @@ function weekKeyOf(day: string): string {
   const [year, month, date] = day.split('-').map(Number);
   const value = new Date(year, month - 1, date, 12, 0, 0);
   return format(startOfWeek(value, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+}
+
+/**
+ * Páginas leídas en un rango. `reading_sessions` manda; `daily_area_stats` es
+ * un espejo que solo se usa en días sin sesiones para no contar dos veces.
+ */
+function readingPagesInRange(
+  sessions: ReadingSessionRow[],
+  stats: ReadingDayStatRow[],
+  startKey: string,
+  endKey: string,
+): number {
+  const byDay = new Map<string, number>();
+  const sessionDays = new Set<string>();
+
+  for (const session of sessions) {
+    const day = String(session.session_date).slice(0, 10);
+    if (day < startKey || day > endKey) continue;
+    sessionDays.add(day);
+    byDay.set(day, (byDay.get(day) ?? 0) + (Number(session.pages_read) || 0));
+  }
+
+  for (const stat of stats) {
+    if (stat.area_id && stat.area_id !== 'lectura') continue;
+    const day = String(stat.stat_date).slice(0, 10);
+    if (day < startKey || day > endKey || sessionDays.has(day)) continue;
+    byDay.set(day, (byDay.get(day) ?? 0) + (Number(stat.pages_done) || 0));
+  }
+
+  return Math.round([...byDay.values()].reduce((sum, pages) => sum + pages, 0));
 }
 
 function emptyRaw(): RawAggregate {
@@ -479,10 +520,11 @@ function readTargets(): Record<string, number> {
 /**
  * Métricas de TODOS los sistemas y áreas para el periodo visible.
  *
- * Una sola consulta a `daily_systems_tracking` cubre periodo actual, anterior
- * y mes. El cumplimiento se mide sobre días disponibles (sin descansos ni
- * futuro), la dosis mínima convierte minutos en día cumplido, y las semanas
- * verdes son las que alcanzan ≥80% de cumplimiento.
+ * Las consultas cubren periodo actual, anterior y mes: `daily_systems_tracking`
+ * para el rendimiento y `reading_sessions` / `daily_area_stats` para las
+ * páginas de Lectura. El cumplimiento se mide sobre días disponibles (sin
+ * descansos ni futuro), la dosis mínima convierte minutos en día cumplido, y
+ * las semanas verdes son las que alcanzan ≥80% de cumplimiento.
  */
 export function usePlanSystemMetrics(
   scope: PlanificationScope,
@@ -502,6 +544,8 @@ export function usePlanSystemMetrics(
   const { streaks, loading: streaksLoading } = useSystemStreaks(PLAN_SYSTEM_IDS);
 
   const [rows, setRows] = useState<TrackingRow[]>([]);
+  const [readingSessions, setReadingSessions] = useState<ReadingSessionRow[]>([]);
+  const [readingStats, setReadingStats] = useState<ReadingDayStatRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
   const [targets, setTargets] = useState<Record<string, number>>(readTargets);
@@ -526,15 +570,39 @@ export function usePlanSystemMetrics(
     setRowsLoading(true);
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('daily_systems_tracking')
-          .select('*')
-          .gte('tracking_date', ranges.fetchStartKey)
-          .lte('tracking_date', ranges.fetchEndKey);
-        if (error) throw error;
-        if (alive) setRows((data ?? []) as unknown as TrackingRow[]);
+        const [trackingRes, readingRes, readingStatsRes] = await Promise.all([
+          supabase
+            .from('daily_systems_tracking')
+            .select('*')
+            .gte('tracking_date', ranges.fetchStartKey)
+            .lte('tracking_date', ranges.fetchEndKey),
+          supabase
+            .from('reading_sessions')
+            .select('session_date, pages_read')
+            .gte('session_date', ranges.fetchStartKey)
+            .lte('session_date', ranges.fetchEndKey),
+          supabase
+            .from('daily_area_stats')
+            .select('stat_date, area_id, pages_done')
+            .eq('area_id', 'lectura')
+            .gte('stat_date', ranges.fetchStartKey)
+            .lte('stat_date', ranges.fetchEndKey),
+        ]);
+        if (trackingRes.error) throw trackingRes.error;
+        if (!alive) return;
+        setRows((trackingRes.data ?? []) as unknown as TrackingRow[]);
+        setReadingSessions(
+          readingRes.error ? [] : ((readingRes.data ?? []) as unknown as ReadingSessionRow[]),
+        );
+        setReadingStats(
+          readingStatsRes.error ? [] : ((readingStatsRes.data ?? []) as unknown as ReadingDayStatRow[]),
+        );
       } catch {
-        if (alive) setRows([]);
+        if (alive) {
+          setRows([]);
+          setReadingSessions([]);
+          setReadingStats([]);
+        }
       } finally {
         if (alive) setRowsLoading(false);
       }
@@ -569,13 +637,22 @@ export function usePlanSystemMetrics(
       systems[id] = buildSystemMetrics(id, current, previous, targets, streaks, scoreById);
     }
 
+    // Lectura mide, además de minutos y objetivos, las páginas del periodo.
+    const pagesRead = readingPagesInRange(
+      readingSessions,
+      readingStats,
+      ranges.current.startKey,
+      ranges.current.endKey,
+    );
+    if (systems.lectura) systems.lectura.pagesRead = pagesRead;
+
     const areas: Record<string, PlanAreaMetrics> = {};
     for (const area of PLAN_AREAS) {
       areas[area.id] = buildAreaMetrics(area, current, previous, month, systems, scoreById);
     }
 
     return { systems, areas };
-  }, [rows, ranges, targets, streaks, scoreById]);
+  }, [rows, ranges, targets, streaks, scoreById, readingSessions, readingStats]);
 
   return {
     systems: computed.systems,

@@ -536,6 +536,19 @@ function SystemMetrics({
         )}
       </div>
 
+      {system.pagesRead != null && (
+        <div
+          className="flex items-center justify-between gap-1 rounded-md bg-cyan-500/10 px-1.5 py-0.5"
+          title="Páginas leídas en el periodo visible"
+        >
+          <span className="text-[8px] font-semibold text-cyan-700 dark:text-cyan-400">📖 Páginas leídas</span>
+          <span className="text-[11px] font-extrabold leading-none tabular-nums text-cyan-700 dark:text-cyan-300">
+            {system.pagesRead}
+            <span className="ml-0.5 text-[7px] font-semibold">págs</span>
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-1 text-[8px] font-semibold tabular-nums">
         <span className={cn('truncate', pct != null && pct >= 100 ? 'text-emerald-500' : 'text-muted-foreground')}>
           {pct != null ? `${pct}% de la meta` : 'Sin meta de minutos'}
