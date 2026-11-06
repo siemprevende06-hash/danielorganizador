@@ -45,7 +45,12 @@ export interface QuarterPlanLike {
   distribution?: Record<string, { books: string[]; songs: string[] }>;
   timeGoals?: Record<string, Record<string, number>>;
   areaTimeGoals?: Record<string, Record<string, number>>;
-  personal_goals?: { title: string; target?: string }[];
+  personal_goals?: {
+    title: string;
+    target?: string;
+    createdAt?: string;
+    completedAt?: string | null;
+  }[];
   notes?: Record<string, string>;
   [key: string]: any;
 }
@@ -455,7 +460,24 @@ export function reconcileMonthlyToQuarter(month: Date) {
     };
     const bookTotal = QUARTER_MONTH_KEYS.reduce((s, mk) => s + ((nextDist[mk]?.books || []).length), 0);
     const songTotal = QUARTER_MONTH_KEYS.reduce((s, mk) => s + ((nextDist[mk]?.songs || []).length), 0);
-    const personal = qp.personal_goals || [];
+    // Conserva (y sube al trimestre) las fechas de creación/realización de las
+    // metas personales que se marcaron desde la pestaña Planificación.
+    const monthlyGoals = (monthly.personal_goals || []) as {
+      title: string;
+      createdAt?: string;
+      completedAt?: string | null;
+    }[];
+    const stamps = new Map(monthlyGoals.map(g => [g.title, g]));
+    const personal = (qp.personal_goals || []).map(g => {
+      const prev = stamps.get(g.title);
+      return prev
+        ? {
+            ...g,
+            createdAt: prev.createdAt ?? g.createdAt,
+            completedAt: prev.completedAt ?? g.completedAt,
+          }
+        : g;
+    });
     saveQuarterPlan(quarter, year, {
       ...qp,
       distribution: nextDist,
@@ -494,11 +516,20 @@ export function syncMonthlyFromQuarter(month: Date): QuarterPlanLike | null {
   if (!qp) return Object.keys(monthly).length > 0 ? (monthly as QuarterPlanLike) : null;
 
   const dist = qp.distribution?.[monthKey] || { books: [], songs: [] };
+  // Conserva las fechas de creación/realización que ya tenga el plan mensual
+  // para las metas que vienen heredadas del trimestre.
+  const stamps = new Map(
+    ((monthly.personal_goals || []) as { title: string; createdAt?: string; completedAt?: string | null }[])
+      .map(g => [g.title, g]),
+  );
   const next: QuarterPlanLike = {
     ...monthly,
     books: { ...(monthly.books || { goal: 0, selected: [] }), goal: dist.books.length, selected: dist.books },
     songs: { ...(monthly.songs || { goal: 0, selected: [] }), goal: dist.songs.length, selected: dist.songs },
-    personal_goals: qp.personal_goals || [],
+    personal_goals: (qp.personal_goals || []).map(g => {
+      const prev = stamps.get(g.title);
+      return prev ? { ...g, createdAt: prev.createdAt, completedAt: prev.completedAt } : g;
+    }),
   };
   return next;
 }

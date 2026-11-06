@@ -14,7 +14,12 @@ export interface TrimestralPlanData {
   subjects: { subject_id: string; topics: string[] }[];
   monthSubjects: Record<string, string[]>;
   events: string[];
-  personal_goals: { title: string; target?: string }[];
+  personal_goals: {
+    title: string;
+    target?: string;
+    createdAt?: string;
+    completedAt?: string | null;
+  }[];
   completedTasks: Record<string, string[]>;
   completedEvents: Record<string, string[]>;
   distribution: {

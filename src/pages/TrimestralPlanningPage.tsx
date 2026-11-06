@@ -447,7 +447,13 @@ export default function TrimestralPlanningPage() {
                     className="h-8 text-xs"
                     onKeyDown={e => {
                       if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                        updatePlanData(p => ({ ...p, personal_goals: [...p.personal_goals, { title: (e.target as HTMLInputElement).value.trim() }] }));
+                        updatePlanData(p => ({
+                          ...p,
+                          personal_goals: [
+                            ...p.personal_goals,
+                            { title: (e.target as HTMLInputElement).value.trim(), createdAt: new Date().toISOString() },
+                          ],
+                        }));
                         (e.target as HTMLInputElement).value = '';
                       }
                     }}

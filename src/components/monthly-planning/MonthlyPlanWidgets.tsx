@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProgressRing } from './ProgressRing';
 import { ItemSelector } from './ItemSelector';
-import { Book, Music, FolderKanban, GraduationCap, Calendar, Target, Plus, Trash2 } from 'lucide-react';
+import { Book, Music, FolderKanban, GraduationCap, Calendar, Target, Plus, Trash2, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { MonthlyPlanData, SongPlanType } from '@/hooks/useMonthlyPlan';
 
 interface SelectableItem {
@@ -280,8 +283,48 @@ export function EventPlannerWidget({ planData, updatePlanData, items }: WidgetPr
   );
 }
 
+/** Registro de una meta personal: cuándo se creó y cuándo se cumplió. */
+function goalDates(goal: { createdAt?: string; completedAt?: string | null }): string | null {
+  const stamp = (value?: string | null) => {
+    if (!value) return null;
+    const raw = String(value);
+    const date = new Date(raw.length === 10 ? `${raw}T12:00:00` : raw);
+    return isNaN(date.getTime()) ? null : format(date, 'd MMM', { locale: es });
+  };
+  const created = stamp(goal.createdAt);
+  const completed = stamp(goal.completedAt);
+  if (!created && !completed) return null;
+  return [
+    created ? `Creada ${created}` : null,
+    completed ? `Hecha ${completed}` : null,
+  ].filter(Boolean).join(' · ');
+}
+
 export function GoalPlannerWidget({ planData, updatePlanData }: WidgetProps) {
   const [newGoal, setNewGoal] = useState('');
+
+  const addGoal = () => {
+    const title = newGoal.trim();
+    if (!title) return;
+    updatePlanData(p => ({
+      ...p,
+      personal_goals: [
+        ...p.personal_goals,
+        { title, createdAt: new Date().toISOString(), completedAt: null },
+      ],
+    }));
+    setNewGoal('');
+  };
+
+  const toggleGoal = (index: number) => {
+    updatePlanData(p => ({
+      ...p,
+      personal_goals: p.personal_goals.map((goal, i) => {
+        if (i !== index) return goal;
+        return { ...goal, completedAt: goal.completedAt ? null : new Date().toISOString() };
+      }),
+    }));
+  };
 
   return (
     <WidgetCard icon={<Target className="w-4 h-4" />} title="Metas Personales" count={planData.personal_goals.length}>
@@ -292,21 +335,13 @@ export function GoalPlannerWidget({ planData, updatePlanData }: WidgetProps) {
             value={newGoal}
             onChange={e => setNewGoal(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && newGoal.trim()) {
-                updatePlanData(p => ({ ...p, personal_goals: [...p.personal_goals, { title: newGoal.trim() }] }));
-                setNewGoal('');
-              }
+              if (e.key === 'Enter') addGoal();
             }}
             className="h-8 text-xs"
           />
           <Button
             size="icon" variant="ghost"
-            onClick={() => {
-              if (newGoal.trim()) {
-                updatePlanData(p => ({ ...p, personal_goals: [...p.personal_goals, { title: newGoal.trim() }] }));
-                setNewGoal('');
-              }
-            }}
+            onClick={addGoal}
             className="h-8 w-8 shrink-0"
           >
             <Plus className="h-4 w-4" />
@@ -314,15 +349,36 @@ export function GoalPlannerWidget({ planData, updatePlanData }: WidgetProps) {
         </div>
         {planData.personal_goals.length > 0 && (
           <div className="space-y-1">
-            {planData.personal_goals.map((goal, i) => (
-              <div key={i} className="flex items-center gap-2 group">
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-                <p className="text-xs flex-1 truncate">{goal.title}</p>
-                <button onClick={() => updatePlanData(p => ({ ...p, personal_goals: p.personal_goals.filter((_, idx) => idx !== i) }))} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                </button>
-              </div>
-            ))}
+            {planData.personal_goals.map((goal, i) => {
+              const dates = goalDates(goal);
+              return (
+                <div key={i} className="flex items-center gap-2 group">
+                  <button
+                    onClick={() => toggleGoal(i)}
+                    className={cn(
+                      'w-3.5 h-3.5 shrink-0 rounded border flex items-center justify-center transition-colors',
+                      goal.completedAt
+                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                        : 'border-muted-foreground/30 hover:border-emerald-400'
+                    )}
+                    title={goal.completedAt ? 'Marcar pendiente' : 'Marcar cumplida'}
+                  >
+                    {goal.completedAt && <Check className="h-2.5 w-2.5" />}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('text-xs truncate', goal.completedAt && 'line-through text-muted-foreground')}>
+                      {goal.title}
+                    </p>
+                    {dates && (
+                      <p className="text-[9px] text-muted-foreground tabular-nums truncate">{dates}</p>
+                    )}
+                  </div>
+                  <button onClick={() => updatePlanData(p => ({ ...p, personal_goals: p.personal_goals.filter((_, idx) => idx !== i) }))} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

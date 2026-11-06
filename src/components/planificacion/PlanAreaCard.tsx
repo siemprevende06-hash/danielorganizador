@@ -1,6 +1,42 @@
 import { Check } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { getCoverGradient } from '@/components/areas/AreaCover';
+import {
+  AREA_STATE_COLOR,
+  DIAGNOSIS_TONE,
+  areaStateColor,
+  diagnoseArea,
+} from '@/lib/areaSystemsMap';
 import { cn } from '@/lib/utils';
+
+/** Estado de un día dentro del periodo (mismo lenguaje que la pestaña Sistemas). */
+export type PlanDayStatus = 'done' | 'partial' | 'skip' | 'none';
+
+/**
+ * Rendimiento real de un sistema de vida durante el periodo. Se alimenta de
+ * `daily_systems_tracking` (minutos, días cumplidos, racha y estados por día) y
+ * de los scores de esfuerzo/resultados del Punto B.
+ */
+export interface PlanSystemMetrics {
+  actualMinutes: number;
+  /** Minutos planificados para el periodo (meta de la jerarquía). */
+  plannedMinutes?: number;
+  daysDone: number;
+  daysTotal: number;
+  daysSkipped?: number;
+  /** % de esfuerzo del área a la que pertenece el sistema. */
+  effort?: number;
+  /** % de resultados del área a la que pertenece el sistema. */
+  results?: number;
+  streak?: number;
+  bestStreak?: number;
+  status?: PlanDayStatus[];
+  /** Minutos reales por día (para la mini tendencia). */
+  spark?: number[];
+  /** Fechas del periodo (yyyy-MM-dd) para distinguir días futuros. */
+  days?: string[];
+}
 
 export interface PlanObjectiveRow {
   id: string;
@@ -16,6 +52,14 @@ export interface PlanObjectiveRow {
   emoji?: string;
   done?: boolean;
   onToggle?: () => void;
+  /** ISO de creación/planificación del objetivo. */
+  createdAt?: string | null;
+  /** ISO de realización del objetivo. */
+  completedAt?: string | null;
+  /** Etiqueta de la fecha de creación (por defecto "Creado"). */
+  createdLabel?: string;
+  /** Etiqueta de la fecha de realización (por defecto "Hecho"). */
+  completedLabel?: string;
 }
 
 export interface PlanAreaCardData {
@@ -30,12 +74,53 @@ export interface PlanAreaCardData {
   /** Meta de minutos del área en el periodo. */
   minutes?: number;
   minutesUnit?: string;
+  /** Rendimiento real del sistema durante el periodo. */
+  system?: PlanSystemMetrics;
   items: PlanObjectiveRow[];
 }
 
+const STATUS_LABEL: Record<PlanDayStatus, string> = {
+  done: 'Cumplido',
+  partial: 'Parcial',
+  skip: 'Saltado',
+  none: 'Sin registro',
+};
+
+const STATUS_COLOR: Record<PlanDayStatus, string> = {
+  done: 'bg-emerald-500',
+  partial: 'bg-blue-500',
+  skip: 'bg-red-500',
+  none: 'bg-red-500/25',
+};
+
+const shortDate = (value?: string | null): string | null => {
+  if (!value) return null;
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  return isNaN(date.getTime()) ? null : format(date, 'd MMM', { locale: es });
+};
+
+const rowDateText = (item: PlanObjectiveRow): string | null => {
+  const created = shortDate(item.createdAt);
+  const completed = shortDate(item.completedAt);
+  if (!created && !completed) return null;
+  const parts: string[] = [];
+  if (created) parts.push(`${item.createdLabel ?? 'Creado'} ${created}`);
+  if (completed) parts.push(`${item.completedLabel ?? 'Hecho'} ${completed}`);
+  return parts.join(' · ');
+};
+
+const minutesShort = (min: number) => {
+  const value = Math.max(0, Math.round(Number(min) || 0));
+  if (value < 60) return `${value}m`;
+  const h = Math.floor(value / 60);
+  const m = value % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+};
+
 /**
  * Tarjeta de área con el mismo lenguaje visual que las tarjetas de Sistemas:
- * portada arriba, objetivos dentro y los minutos del periodo al pie.
+ * portada arriba, rendimiento real del sistema, objetivos dentro y los minutos
+ * del periodo al pie.
  */
 export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
   const toggleable = card.items.filter(i => i.onToggle);
@@ -79,17 +164,19 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
           )}
         </div>
 
+        {card.system && <SystemMetrics system={card.system} />}
+
         {card.items.length > 0 ? (
           <div className="space-y-1">
             {card.items.map(item => (
               <ObjectiveRow key={item.id} item={item} />
             ))}
           </div>
-        ) : (
+        ) : !card.system ? (
           <p className="text-[9px] leading-tight text-muted-foreground/80">Solo meta de minutos</p>
-        )}
+        ) : null}
 
-        {(card.minutes ?? 0) > 0 && (
+        {!card.system && (card.minutes ?? 0) > 0 && (
           <div className="mt-auto flex items-baseline gap-1 pt-0.5">
             <span className="text-xl font-extrabold leading-none tabular-nums">{card.minutes}</span>
             <span className="text-[9px] text-muted-foreground">{card.minutesUnit ?? 'min'}</span>
@@ -100,7 +187,127 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
   );
 }
 
+function Meter({ label, value, bar }: { label: string; value?: number | null; bar: string }) {
+  const pct = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  return (
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-0.5">
+        <span className="text-[7px] uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="text-[9px] font-bold leading-none tabular-nums">
+          {value == null ? '—' : `${pct}%`}
+        </span>
+      </div>
+      <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-muted">
+        <div className={cn('h-full rounded-full', bar)} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** Rendimiento del sistema: diagnóstico, esfuerzo/resultados, minutos, días y racha. */
+function SystemMetrics({ system }: { system: PlanSystemMetrics }) {
+  const diagnosis = diagnoseArea(system.effort ?? 0, system.results ?? 0);
+  const tone = DIAGNOSIS_TONE[diagnosis.tone];
+  const state = AREA_STATE_COLOR[areaStateColor(diagnosis)];
+  const planned = system.plannedMinutes ?? 0;
+  const actual = Math.max(0, Math.round(system.actualMinutes ?? 0));
+  const pct = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : null;
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const spark = system.spark ?? [];
+  const sparkMax = Math.max(1, ...spark);
+
+  return (
+    <div className="space-y-1 rounded-lg bg-foreground/[0.04] p-1.5">
+      <div className="flex items-center gap-1">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', state.dot)} />
+        <span className={cn('truncate text-[8px] font-semibold leading-tight', tone.text)}>
+          {diagnosis.short}
+        </span>
+        {(system.streak ?? 0) > 0 && (
+          <span
+            className="ml-auto shrink-0 text-[8px] font-bold text-orange-500"
+            title={`Racha actual${system.bestStreak ? ` · mejor ${system.bestStreak}` : ''}`}
+          >
+            🔥 {system.streak}
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <Meter label="Esf" value={system.effort} bar="bg-violet-500" />
+        <Meter label="Res" value={system.results} bar="bg-emerald-500" />
+      </div>
+
+      <div className="flex items-baseline justify-between gap-1">
+        <span className="truncate text-[8px] text-muted-foreground tabular-nums">
+          <b className="text-[10px] font-extrabold text-foreground">{minutesShort(actual)}</b>
+          {planned > 0 ? ` / ${minutesShort(planned)}` : ''}
+        </span>
+        <span
+          className="shrink-0 text-[8px] font-semibold tabular-nums"
+          title={`${system.daysDone ?? 0} de ${system.daysTotal ?? 0} días cumplidos${system.daysSkipped ? ` · ${system.daysSkipped} saltados` : ''}`}
+        >
+          {system.daysDone ?? 0}/{system.daysTotal ?? 0} días
+        </span>
+      </div>
+
+      {pct != null && (
+        <div className="h-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn(
+              'h-full rounded-full',
+              pct >= 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'
+            )}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+
+      {system.status && system.status.length > 1 && (
+        <div className="flex gap-px">
+          {system.status.map((status, index) => {
+            const future = !!system.days?.[index] && system.days[index] > todayKey;
+            return (
+              <span
+                key={index}
+                title={future ? 'Pendiente' : STATUS_LABEL[status]}
+                className={cn(
+                  'h-1.5 flex-1 rounded-[1px]',
+                  future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
+                )}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {spark.some(value => value > 0) && (
+        <div className="flex h-3.5 items-end gap-px">
+          {spark.map((value, index) => {
+            const status = system.status?.[index] ?? 'none';
+            const future = !!system.days?.[index] && system.days[index] > todayKey;
+            const missed = !future && status !== 'done' && status !== 'partial';
+            return (
+              <span
+                key={index}
+                title={`${value} min`}
+                className={cn(
+                  'flex-1 rounded-sm',
+                  future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
+                )}
+                style={{ height: `${Math.max(missed ? 16 : 8, (value / sparkMax) * 100)}%` }}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ObjectiveRow({ item }: { item: PlanObjectiveRow }) {
+  const dateText = rowDateText(item);
+
   const body = (
     <>
       {item.cover ? (
@@ -127,6 +334,11 @@ function ObjectiveRow({ item }: { item: PlanObjectiveRow }) {
         )}
         {item.meta && (
           <span className="block truncate text-[8px] leading-tight text-muted-foreground/80">{item.meta}</span>
+        )}
+        {dateText && (
+          <span className="block truncate text-[7px] leading-tight text-muted-foreground/80 tabular-nums">
+            {dateText}
+          </span>
         )}
       </span>
 

@@ -12,6 +12,10 @@ export interface WeeklyOutcome {
   successCriteria?: string;
   completed: boolean;
   priority?: Priority;
+  /** ISO de cuando se planificó el resultado (constancia). */
+  createdAt?: string;
+  /** ISO de cuando se alcanzó; null mientras siga pendiente. */
+  completedAt?: string | null;
 }
 
 export interface WeeklyAction {
@@ -26,6 +30,10 @@ export interface WeeklyAction {
   area?: string;
   minutes?: number;
   targetResult?: string;
+  /** ISO de cuando se planificó la acción (constancia). */
+  createdAt?: string;
+  /** ISO de cuando se completó; null mientras siga pendiente. */
+  completedAt?: string | null;
 }
 
 export interface WeeklyPlanData {
@@ -33,7 +41,14 @@ export interface WeeklyPlanData {
   focus_areas: string[];
   books: { goal: number; selected: string[] };
   songs: { goal: number; selected: string[] };
-  personal_goals: { title: string; target?: string }[];
+  personal_goals: {
+    title: string;
+    target?: string;
+    /** ISO de cuando se creó la meta. */
+    createdAt?: string;
+    /** ISO de cuando se cumplió; null mientras siga pendiente. */
+    completedAt?: string | null;
+  }[];
   actions: WeeklyAction[];
   weekNumber: number;
   outcomes?: WeeklyOutcome[];
@@ -43,6 +58,10 @@ export interface WeeklyPlanData {
   areaResults?: Record<string, string>;
   /** Libro de la semana (id de reading_library) */
   weekBookId?: string;
+  /** Canción de la semana que se está aprendiendo (campo legado). */
+  learningSongId?: string;
+  /** Canción de la semana que se quiere dominar (campo legado). */
+  masteringSongId?: string;
   /** Paginas que se espera leer esta semana */
   lecturaPagesGoal?: number;
   /** ELO que tenías al planificar la semana (punto de partida del tramo). */
@@ -106,6 +125,9 @@ function genId() {
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
+
+/** Marca de tiempo ISO para el registro de creación/realización. */
+const nowIso = () => new Date().toISOString();
 
 export function useWeeklyPlan(weekStart: Date) {
   const weekId = getWeekId(weekStart);
@@ -186,13 +208,29 @@ export function useWeeklyPlan(weekStart: Date) {
   }, [weekId]);
 
   const addAction = useCallback((action: Omit<WeeklyAction, 'id'>) => {
-    setPlanData(prev => ({ ...prev, actions: [...(prev.actions ?? []), { ...action, id: genId() }] }));
+    const now = nowIso();
+    setPlanData(prev => ({
+      ...prev,
+      actions: [
+        ...(prev.actions ?? []),
+        {
+          ...action,
+          id: genId(),
+          createdAt: action.createdAt ?? now,
+          completedAt: action.completedAt ?? (action.completed ? now : null),
+        },
+      ],
+    }));
   }, []);
 
   const toggleAction = useCallback((id: string) => {
     setPlanData(prev => ({
       ...prev,
-      actions: (prev.actions ?? []).map(a => a.id === id ? { ...a, completed: !a.completed } : a),
+      actions: (prev.actions ?? []).map(a => {
+        if (a.id !== id) return a;
+        const completed = !a.completed;
+        return { ...a, completed, completedAt: completed ? nowIso() : null };
+      }),
     }));
   }, []);
 
@@ -208,16 +246,29 @@ export function useWeeklyPlan(weekStart: Date) {
   }, []);
 
   const addOutcome = useCallback((outcome: Omit<WeeklyOutcome, 'id'>) => {
+    const now = nowIso();
     setPlanData(prev => ({
       ...prev,
-      outcomes: [...(prev.outcomes ?? []), { ...outcome, id: genId() }],
+      outcomes: [
+        ...(prev.outcomes ?? []),
+        {
+          ...outcome,
+          id: genId(),
+          createdAt: outcome.createdAt ?? now,
+          completedAt: outcome.completedAt ?? (outcome.completed ? now : null),
+        },
+      ],
     }));
   }, []);
 
   const toggleOutcome = useCallback((id: string) => {
     setPlanData(prev => ({
       ...prev,
-      outcomes: (prev.outcomes ?? []).map(o => (o.id === id ? { ...o, completed: !o.completed } : o)),
+      outcomes: (prev.outcomes ?? []).map(o => {
+        if (o.id !== id) return o;
+        const completed = !o.completed;
+        return { ...o, completed, completedAt: completed ? nowIso() : null };
+      }),
     }));
   }, []);
 

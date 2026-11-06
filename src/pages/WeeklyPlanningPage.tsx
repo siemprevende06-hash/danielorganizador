@@ -70,6 +70,23 @@ function loadTone(pct: number): { bar: string; text: string; label: string } {
   return { bar: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', label: 'Equilibrado' };
 }
 
+/** Registro de un objetivo: cuándo se creó y cuándo se realizó. */
+function objectiveDates(createdAt?: string | null, completedAt?: string | null): string | null {
+  const stamp = (value?: string | null) => {
+    if (!value) return null;
+    const raw = String(value);
+    const date = new Date(raw.length === 10 ? `${raw}T12:00:00` : raw);
+    return isNaN(date.getTime()) ? null : format(date, 'd MMM', { locale: es });
+  };
+  const created = stamp(createdAt);
+  const completed = stamp(completedAt);
+  if (!created && !completed) return null;
+  return [
+    created ? `Creado ${created}` : null,
+    completed ? `Hecho ${completed}` : null,
+  ].filter(Boolean).join(' · ');
+}
+
 export default function WeeklyPlanningPage() {
   const [searchParams] = useSearchParams();
   const [weekDate, setWeekDate] = useState(() => {
@@ -696,6 +713,7 @@ export default function WeeklyPlanningPage() {
                     <div className="space-y-1.5">
                       {outcomes.map(o => {
                         const prio = o.priority ? PRIORITY_META[o.priority] : null;
+                        const dates = objectiveDates(o.createdAt, o.completedAt);
                         return (
                           <div
                             key={o.id}
@@ -733,6 +751,9 @@ export default function WeeklyPlanningPage() {
                                   placeholder="Cómo sabrás que lo lograste (opcional)"
                                   className="w-full bg-transparent text-[10px] text-muted-foreground placeholder:text-muted-foreground/50 outline-none"
                                 />
+                                {dates && (
+                                  <p className="text-[9px] text-muted-foreground tabular-nums">{dates}</p>
+                                )}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <button
@@ -828,6 +849,7 @@ export default function WeeklyPlanningPage() {
                         const meta = CATEGORY_META[action.category] || CATEGORY_META.personal;
                         const prio = action.priority ? PRIORITY_META[action.priority] : null;
                         const dayIdx = action.assignedDay ? dayKeys.indexOf(action.assignedDay) : -1;
+                        const dates = objectiveDates(action.createdAt, action.completedAt);
                         return (
                           <div
                             key={action.id}
@@ -849,8 +871,13 @@ export default function WeeklyPlanningPage() {
                               {action.completed && <Check className="w-3 h-3" />}
                             </button>
 
-                            <span className={cn('text-xs flex-1 min-w-[120px]', action.completed && 'line-through text-muted-foreground')}>
-                              {action.title}
+                            <span className="min-w-[120px] flex-1">
+                              <span className={cn('block text-xs', action.completed && 'line-through text-muted-foreground')}>
+                                {action.title}
+                              </span>
+                              {dates && (
+                                <span className="block text-[9px] text-muted-foreground tabular-nums">{dates}</span>
+                              )}
                             </span>
 
                             <div className="flex items-center gap-1 shrink-0">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   format, startOfMonth, startOfWeek, endOfMonth, endOfWeek, isToday,
@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { coverKey, useAreaCovers } from '@/hooks/useAreaCovers';
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
+import { useAreaScores } from '@/hooks/useAreaScores';
+import { useSystemStreaks } from '@/hooks/useSystemStreaks';
+import { usePeriodSystemsData } from '@/hooks/usePeriodSystemsData';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { useWeeklyPlan } from '@/hooks/useWeeklyPlan';
 import { usePeriodPlanTasks } from '@/hooks/usePeriodPlanTasks';
@@ -20,7 +23,7 @@ import {
 import { LANGUAGE_IDS, LANGUAGE_LABELS, readLanguageMonthPlans, readLanguageWeekPlans } from '@/lib/languagePlan';
 import { readGameMonthPlan, readGameWeekPlan } from '@/lib/game';
 import { cn } from '@/lib/utils';
-import { PlanAreaCard, type PlanAreaCardData, type PlanObjectiveRow } from './PlanAreaCard';
+import { PlanAreaCard, type PlanAreaCardData, type PlanObjectiveRow, type PlanSystemMetrics } from './PlanAreaCard';
 
 export type PlanificationScope = 'day' | 'week' | 'month';
 
@@ -49,6 +52,78 @@ const dateLabel = (value?: string | null) => {
   if (isNaN(date.getTime())) return undefined;
   return format(date, 'EEE d MMM', { locale: es });
 };
+
+/* ------------------------------------------------------------------ */
+/* Rendimiento de los sistemas dentro de Planificación                 */
+/* ------------------------------------------------------------------ */
+
+/** Sistemas de vida que tienen tarjeta propia en Planificación. */
+const PLAN_SYSTEM_IDS: string[] = [
+  'lectura', 'musica', 'idiomas', 'ajedrez', 'game',
+  'gym', 'universidad', 'emprendimiento', 'proyectos',
+];
+
+/** Área del Punto B que aporta % de esfuerzo y % de resultados a cada sistema. */
+const PLAN_SYSTEM_AREA: Record<string, string> = {
+  lectura: 'desarrollo',
+  musica: 'desarrollo',
+  idiomas: 'desarrollo',
+  ajedrez: 'desarrollo',
+  game: 'desarrollo',
+  gym: 'salud',
+  universidad: 'profesional',
+  emprendimiento: 'profesional',
+  proyectos: 'profesional',
+};
+
+/**
+ * Agrega el rendimiento real de cada sistema para el periodo visible: minutos
+ * ejecutados vs planificados, días cumplidos, racha y estados por día. Es la
+ * misma información que muestra la pestaña Sistemas de Daily.
+ */
+function usePlanSystemMetrics(start: Date, end: Date) {
+  const startKey = format(start, 'yyyy-MM-dd');
+  const endKey = format(end, 'yyyy-MM-dd');
+  const { scores } = useAreaScores('sprint', 'ambos', { start: startKey, end: endKey });
+  const { streaks } = useSystemStreaks(PLAN_SYSTEM_IDS);
+  const { elapsedDays, days, daysDone, daysSkipped, weekMinutes, weekStatus, spark } =
+    usePeriodSystemsData(start, end, PLAN_SYSTEM_IDS);
+
+  const scoreById = useMemo(
+    () => Object.fromEntries(scores.map(score => [score.id, score])),
+    [scores],
+  );
+
+  return useCallback((id: string, plannedMinutes?: number): PlanSystemMetrics | undefined => {
+    if (!PLAN_SYSTEM_IDS.includes(id)) return undefined;
+    const score = scoreById[PLAN_SYSTEM_AREA[id] ?? 'desarrollo'];
+    return {
+      actualMinutes: Math.round(weekMinutes[id] || 0),
+      plannedMinutes,
+      daysDone: daysDone[id] || 0,
+      daysTotal: elapsedDays,
+      daysSkipped: daysSkipped[id] || 0,
+      effort: score?.esfuerzo,
+      results: score?.resultados,
+      streak: streaks[id]?.current ?? 0,
+      bestStreak: streaks[id]?.best ?? 0,
+      status: weekStatus[id],
+      spark: spark[id],
+      days,
+    };
+  }, [scoreById, elapsedDays, days, daysDone, daysSkipped, weekMinutes, weekStatus, spark, streaks]);
+}
+
+/** Adjunta las métricas del sistema a cada tarjeta de área. */
+function withSystemMetrics(
+  cards: PlanAreaCardData[],
+  metrics: (id: string, plannedMinutes?: number) => PlanSystemMetrics | undefined,
+): PlanAreaCardData[] {
+  return cards.map(card => {
+    const system = metrics(card.id, card.minutes);
+    return system ? { ...card, system } : card;
+  });
+}
 
 /** Suma las metas de minutos de varias áreas de la jerarquía. */
 function minutesFrom(goals: Record<string, number>, ids: string[]): number {
@@ -191,7 +266,10 @@ function plainCard(args: {
 }
 
 const isCardVisible = (card: PlanAreaCardData) =>
-  card.items.length > 0 || (card.minutes ?? 0) > 0;
+  card.items.length > 0
+  || (card.minutes ?? 0) > 0
+  || (card.system?.actualMinutes ?? 0) > 0
+  || (card.system?.daysDone ?? 0) > 0;
 
 function taskRows(
   tasks: { id: string; title: string; completed: boolean; due_date: string | null; area_id: string | null }[],
@@ -310,10 +388,13 @@ function PlanGroups({ groups }: { groups: PlanGroup[] }) {
 
 function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
   const month = startOfMonth(anchorDate);
-  const { planData, books, songs, projects, subjects, topics, events, loading } = useMonthlyPlan(month);
+  const {
+    planData, books, songs, projects, subjects, topics, events, loading, patchPlan,
+  } = useMonthlyPlan(month);
   const { tasks, toggleTask, loading: tasksLoading } = usePeriodPlanTasks(month, endOfMonth(month));
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
+  const systemMetrics = usePlanSystemMetrics(month, endOfMonth(month));
 
   const goals = useMemo(() => getMonthGoalsSummary(month), [month]);
   const minutesOf = (ids: string[]) => minutesFrom(goals, ids);
@@ -339,6 +420,10 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       tag: done ? 'Leído' : book.status === 'reading' ? 'Leyendo' : undefined,
       done,
       onToggle: () => toggleBook(id),
+      createdAt: book.start_date,
+      completedAt: book.finish_date,
+      createdLabel: 'Inicio',
+      completedLabel: 'Fin',
     }];
   });
 
@@ -355,6 +440,12 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       tag: songTag(plan),
       done: isSongDone(id, plan),
       onToggle: () => toggleSong(id, plan),
+      completedAt: plan === 'mastered'
+        ? song.mastered_at
+        : plan === 'recorded'
+          ? song.recorded_at
+          : song.learned_at,
+      completedLabel: plan === 'mastered' ? 'Dominada' : plan === 'recorded' ? 'Grabada' : 'Aprendida',
     }];
   });
 
@@ -412,6 +503,18 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
     title: goal.title,
     meta: goal.target || undefined,
     emoji: '🎯',
+    createdAt: goal.createdAt,
+    completedAt: goal.completedAt,
+    done: !!goal.completedAt,
+    onToggle: () => patchPlan(prev => {
+      const now = new Date().toISOString();
+      return {
+        ...prev,
+        personal_goals: (prev.personal_goals || []).map((g, i) =>
+          i === index ? { ...g, completedAt: g.completedAt ? null : now } : g
+        ),
+      };
+    }),
   }));
 
   const eventRows: PlanObjectiveRow[] = (planData.events || []).flatMap(id => {
@@ -477,8 +580,8 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
   ];
 
   const groups: PlanGroup[] = [
-    { ...GROUP_KEYS.desarrollo, cards: desarrollo },
-    { ...GROUP_KEYS.profesional, cards: profesional },
+    { ...GROUP_KEYS.desarrollo, cards: withSystemMetrics(desarrollo, systemMetrics) },
+    { ...GROUP_KEYS.profesional, cards: withSystemMetrics(profesional, systemMetrics) },
     periodGroup('Plan del periodo', 'Tareas · metas personales · eventos', periodo),
   ];
 
@@ -514,6 +617,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const { tasks, toggleTask, loading: tasksLoading } = usePeriodPlanTasks(weekStart, weekEnd);
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
+  const systemMetrics = usePlanSystemMetrics(weekStart, weekEnd);
   const entrepreneurshipIds = planData.areaFocus?.emprendimiento || [];
   const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
 
@@ -544,6 +648,18 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     title: goal.title,
     meta: goal.target || undefined,
     emoji: '🎯',
+    createdAt: goal.createdAt,
+    completedAt: goal.completedAt,
+    done: !!goal.completedAt,
+    onToggle: () => patchPlan(prev => {
+      const now = new Date().toISOString();
+      return {
+        ...prev,
+        personal_goals: (prev.personal_goals || []).map((g, i) =>
+          i === index ? { ...g, completedAt: g.completedAt ? null : now } : g
+        ),
+      };
+    }),
   }));
 
   const outcomeRows: PlanObjectiveRow[] = (planData.outcomes || []).map(outcome => ({
@@ -553,10 +669,19 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     tag: outcome.priority ? PRIORITY_TAG[outcome.priority] : undefined,
     emoji: '🏁',
     done: outcome.completed,
-    onToggle: () => patchPlan(prev => ({
-      ...prev,
-      outcomes: (prev.outcomes || []).map(o => (o.id === outcome.id ? { ...o, completed: !o.completed } : o)),
-    })),
+    createdAt: outcome.createdAt,
+    completedAt: outcome.completedAt,
+    onToggle: () => patchPlan(prev => {
+      const now = new Date().toISOString();
+      return {
+        ...prev,
+        outcomes: (prev.outcomes || []).map(o => {
+          if (o.id !== outcome.id) return o;
+          const completed = !o.completed;
+          return { ...o, completed, completedAt: completed ? now : null };
+        }),
+      };
+    }),
   }));
 
   const actionRows: PlanObjectiveRow[] = (planData.actions || []).map(action => ({
@@ -569,10 +694,19 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     meta: action.estimatedMinutes ? minutesLabel(action.estimatedMinutes) : undefined,
     emoji: '⚡',
     done: action.completed,
-    onToggle: () => patchPlan(prev => ({
-      ...prev,
-      actions: (prev.actions || []).map(a => (a.id === action.id ? { ...a, completed: !a.completed } : a)),
-    })),
+    createdAt: action.createdAt,
+    completedAt: action.completedAt,
+    onToggle: () => patchPlan(prev => {
+      const now = new Date().toISOString();
+      return {
+        ...prev,
+        actions: (prev.actions || []).map(a => {
+          if (a.id !== action.id) return a;
+          const completed = !a.completed;
+          return { ...a, completed, completedAt: completed ? now : null };
+        }),
+      };
+    }),
   }));
 
   /** Focos semanales + resultado al que apunta un área de construcción. */
@@ -655,6 +789,10 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       tag: done ? 'Leído' : book.status === 'reading' ? 'Leyendo' : undefined,
       done,
       onToggle: () => toggleBook(id),
+      createdAt: book.start_date,
+      completedAt: book.finish_date,
+      createdLabel: 'Inicio',
+      completedLabel: 'Fin',
     }];
   });
 
@@ -671,6 +809,12 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       tag: songTag(plan),
       done: isSongDone(id, plan),
       onToggle: () => toggleSong(id, plan),
+      completedAt: plan === 'mastered'
+        ? song.mastered_at
+        : plan === 'recorded'
+          ? song.recorded_at
+          : song.learned_at,
+      completedLabel: plan === 'mastered' ? 'Dominada' : plan === 'recorded' ? 'Grabada' : 'Aprendida',
     }];
   });
 
@@ -762,8 +906,8 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   ];
 
   const groups: PlanGroup[] = [
-    { ...GROUP_KEYS.desarrollo, cards: desarrollo },
-    { ...GROUP_KEYS.profesional, cards: profesional },
+    { ...GROUP_KEYS.desarrollo, cards: withSystemMetrics(desarrollo, systemMetrics) },
+    { ...GROUP_KEYS.profesional, cards: withSystemMetrics(profesional, systemMetrics) },
     periodGroup('Plan del periodo', 'Objetivos · resultados · acciones · metas · tareas', periodo),
   ];
 
@@ -802,6 +946,7 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const { planData: monthPlan, books, songs, projects, subjects, loading: monthLoading } = useMonthlyPlan(startOfMonth(weekStart));
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
+  const systemMetrics = usePlanSystemMetrics(anchorDate, anchorDate);
 
   const dayGoals = useMemo(() => {
     const out: Record<string, number> = {};
@@ -895,6 +1040,10 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
       tag: done ? 'Leído' : book.status === 'reading' ? 'Leyendo' : undefined,
       done,
       onToggle: () => toggleBook(id),
+      createdAt: book.start_date,
+      completedAt: book.finish_date,
+      createdLabel: 'Inicio',
+      completedLabel: 'Fin',
     }];
   });
 
@@ -911,6 +1060,12 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
       tag: songTag(plan),
       done: isSongDone(id, plan),
       onToggle: () => toggleSong(id, plan),
+      completedAt: plan === 'mastered'
+        ? song.mastered_at
+        : plan === 'recorded'
+          ? song.recorded_at
+          : song.learned_at,
+      completedLabel: plan === 'mastered' ? 'Dominada' : plan === 'recorded' ? 'Grabada' : 'Aprendida',
     }];
   });
 
@@ -1040,8 +1195,8 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   ];
 
   const groups: PlanGroup[] = [
-    { ...GROUP_KEYS.desarrollo, cards: desarrollo },
-    { ...GROUP_KEYS.profesional, cards: profesional },
+    { ...GROUP_KEYS.desarrollo, cards: withSystemMetrics(desarrollo, systemMetrics) },
+    { ...GROUP_KEYS.profesional, cards: withSystemMetrics(profesional, systemMetrics) },
     periodGroup('Plan del día', 'Bloques · tareas · intensidad', periodo),
   ];
 

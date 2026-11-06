@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { pushSyncKey, pullPlansIntoLocal } from '@/lib/planSync';
@@ -43,7 +43,14 @@ export interface MonthlyPlanData {
   projects: string[];
   subjects: { subject_id: string; topics: string[] }[];
   events: string[];
-  personal_goals: { title: string; target?: string }[];
+  personal_goals: {
+    title: string;
+    target?: string;
+    /** ISO de cuando se creó la meta. */
+    createdAt?: string;
+    /** ISO de cuando se cumplió; null mientras siga pendiente. */
+    completedAt?: string | null;
+  }[];
   /** Objetivos del área de ajedrez para el mes. */
   chess?: {
     /** ELO que se quiere alcanzar al cerrar el mes. */
@@ -264,10 +271,21 @@ export function useMonthlyPlan(month: Date) {
     setPlanData(prev => updater(prev));
   }, []);
 
+  /** Guarda un cambio puntual al instante (localStorage + sync). */
+  const planRef = useRef(planData);
+  useEffect(() => { planRef.current = planData; }, [planData]);
+
+  const patchPlan = useCallback((updater: (prev: MonthlyPlanData) => MonthlyPlanData) => {
+    const next = updater(planRef.current);
+    planRef.current = next;
+    setPlanData(next);
+    saveToLocal(monthStr, next);
+  }, [monthStr]);
+
   return {
     planData, loading, saving, monthStr,
     books, songs, projects, subjects, topics, events,
     trimestralData,
-    updatePlanData, savePlan, fetchPlan,
+    updatePlanData, patchPlan, savePlan, fetchPlan,
   };
 }
