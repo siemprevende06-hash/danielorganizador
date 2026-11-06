@@ -4,7 +4,7 @@ import {
   format, startOfMonth, startOfWeek, endOfMonth, endOfWeek, isToday,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Pencil, Sparkles, Timer } from 'lucide-react';
+import { ArrowDown, Building2, Layers, Pencil, Sparkles, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { coverKey, useAreaCovers } from '@/hooks/useAreaCovers';
@@ -259,6 +259,52 @@ const isCardVisible = (card: PlanAreaCardData) =>
   || card.items.length > 0
   || (card.minutes ?? 0) > 0;
 
+const QUICK_NAV_META: Record<'estructural' | 'central', {
+  label: string;
+  hint: string;
+  icon: typeof Layers;
+  tone: string;
+}> = {
+  estructural: {
+    label: 'Estructurales',
+    hint: 'Salud · Fuerza mental · Apariencia',
+    icon: Layers,
+    tone: 'hover:border-blue-500/50 hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400',
+  },
+  central: {
+    label: 'Centrales',
+    hint: 'Desarrollo · Profesional · Finanzas',
+    icon: Building2,
+    tone: 'hover:border-sky-500/50 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400',
+  },
+};
+
+/** Grupos que tienen algo que mostrar (evita saltar a secciones vacías). */
+const groupHasContent = (group: PlanGroup) =>
+  (group.areas?.some(area => area.sections.some(section => section.cards.length > 0)) ?? false)
+  || ((group.cards ?? []).some(isCardVisible));
+
+const groupAreaCount = (group: PlanGroup) =>
+  group.areas?.filter(area => area.sections.some(section => section.cards.length > 0)).length ?? 0;
+
+/** Cumplimiento agregado de los sistemas del grupo para el acceso rápido. */
+function groupProgress(group: PlanGroup): number | null {
+  const cards = [
+    ...(group.areas?.flatMap(area => area.sections.flatMap(section => section.cards)) ?? []),
+    ...(group.cards ?? []),
+  ].filter(card => card.system);
+  if (cards.length === 0) return null;
+  const done = cards.reduce((sum, card) => sum + (card.system?.daysDone ?? 0), 0);
+  const total = cards.reduce((sum, card) => sum + (card.system?.daysTotal ?? 0), 0);
+  return total > 0 ? Math.round((done / total) * 100) : null;
+}
+
+function scrollToGroup(key: string) {
+  document
+    .getElementById(`planification-group-${key}`)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function taskRows(
   tasks: { id: string; title: string; completed: boolean; due_date: string | null; area_id: string | null }[],
   onToggle: (id: string) => void,
@@ -429,13 +475,79 @@ function PlanAreaSection({ data, scope }: { data: PlanAreaSectionData; scope: Pl
   );
 }
 
+function PlanQuickNav({ groups }: { groups: PlanGroup[] }) {
+  const targets = groups.filter(
+    (group): group is PlanGroup & { key: 'estructural' | 'central' } =>
+      (group.key === 'estructural' || group.key === 'central') && groupHasContent(group),
+  );
+  if (targets.length === 0) return null;
+
+  return (
+    <nav
+      aria-label="Accesos rápidos de planificación"
+      className="sticky top-2 z-20 flex flex-wrap items-center gap-1.5 rounded-xl border border-border/60 bg-white/90 px-2 py-1.5 shadow-sm backdrop-blur-md dark:bg-zinc-950/90"
+    >
+      <span className="px-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+        Ir a
+      </span>
+      {targets.map(group => {
+        const meta = QUICK_NAV_META[group.key];
+        const Icon = meta.icon;
+        const areas = groupAreaCount(group);
+        const pct = groupProgress(group);
+
+        return (
+          <button
+            key={group.key}
+            type="button"
+            onClick={() => scrollToGroup(group.key)}
+            title={meta.hint}
+            className={cn(
+              'group inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-2 py-1 text-foreground/80 transition-colors',
+              meta.tone,
+            )}
+          >
+            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', group.dot)} />
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="text-[11px] font-bold leading-none">{meta.label}</span>
+            {areas > 0 && (
+              <span className="text-[9px] font-medium text-muted-foreground">{areas} áreas</span>
+            )}
+            {pct != null && (
+              <span
+                className={cn(
+                  'rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums',
+                  pct >= 80
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    : pct >= 50
+                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      : 'bg-red-500/15 text-red-500',
+                )}
+                title="Cumplimiento agregado de los sistemas del grupo"
+              >
+                {pct}%
+              </span>
+            )}
+            <ArrowDown className="h-3 w-3 shrink-0 opacity-50 transition-transform group-hover:translate-y-0.5" />
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 function PlanGroups({ groups, scope }: { groups: PlanGroup[]; scope: PlanificationScope }) {
   return (
     <div className="space-y-5">
+      <PlanQuickNav groups={groups} />
       {groups.map(group => {
         if (group.areas && group.areas.length > 0) {
           return (
-            <section key={group.key} className="space-y-3">
+            <section
+              key={group.key}
+              id={`planification-group-${group.key}`}
+              className="scroll-mt-24 space-y-3"
+            >
               <GroupHeading group={group} />
               <div className={group.key === 'estructural' ? 'space-y-2.5' : 'space-y-4'}>
                 {group.areas.map(area => (
@@ -450,7 +562,11 @@ function PlanGroups({ groups, scope }: { groups: PlanGroup[]; scope: Planificati
         if (cards.length === 0) return null;
 
         return (
-          <section key={group.key} className="space-y-2.5">
+          <section
+            key={group.key}
+            id={`planification-group-${group.key}`}
+            className="scroll-mt-24 space-y-2.5"
+          >
             <GroupHeading group={group} />
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
               {cards.map(card => (
