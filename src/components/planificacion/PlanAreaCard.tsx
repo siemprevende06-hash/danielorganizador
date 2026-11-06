@@ -222,8 +222,9 @@ function Meter({
 
 /**
  * Rendimiento del sistema: diagnóstico, esfuerzo/resultados, minutos, días y racha.
- * La barra "Res" se calcula con los objetivos marcados en el periodo; el Punto B
- * solo se usa como respaldo cuando el sistema no tiene objetivos marcables.
+ * La barra "Res" se calcula solo con los objetivos marcados en el periodo; si no
+ * hay objetivos marcables se muestra "—". El Punto B queda como respaldo únicamente
+ * para el diagnóstico del área.
  */
 function SystemMetrics({
   system,
@@ -235,10 +236,12 @@ function SystemMetrics({
   objectivesTotal?: number;
 }) {
   const hasObjectives = objectivesTotal > 0;
-  const results = hasObjectives
+  const objectivesPct = hasObjectives
     ? Math.round((objectivesDone / objectivesTotal) * 100)
-    : system.results;
-  const diagnosis = diagnoseArea(system.effort ?? 0, results ?? 0);
+    : undefined;
+  // El diagnóstico sí puede apoyarse en el Punto B cuando el periodo no tiene
+  // objetivos marcables; la barra "Res" nunca usa ese respaldo.
+  const diagnosis = diagnoseArea(system.effort ?? 0, objectivesPct ?? system.results ?? 0);
   const tone = DIAGNOSIS_TONE[diagnosis.tone];
   const state = AREA_STATE_COLOR[areaStateColor(diagnosis)];
   const planned = Math.max(0, Math.round(system.plannedMinutes ?? 0));
@@ -268,13 +271,13 @@ function SystemMetrics({
       <div className="grid grid-cols-2 gap-1.5">
         <Meter label="Esf" value={system.effort} bar="bg-violet-500" hint="Esfuerzo del área (Punto B)" />
         <Meter
-          label="Res"
-          value={results}
+          label={hasObjectives ? `Res ${objectivesDone}/${objectivesTotal}` : 'Res'}
+          value={objectivesPct}
           bar="bg-emerald-500"
           hint={
             hasObjectives
               ? `Objetivos del periodo: ${objectivesDone}/${objectivesTotal} marcados`
-              : 'Resultados del área (Punto B): sin objetivos marcables en el periodo'
+              : 'Sin objetivos marcables en el periodo'
           }
         />
       </div>
