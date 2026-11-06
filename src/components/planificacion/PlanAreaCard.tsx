@@ -8,38 +8,17 @@ import {
   areaStateColor,
   diagnoseArea,
 } from '@/lib/areaSystemsMap';
+import {
+  PLAN_TARGET_STEPS,
+  type PlanAreaMetrics,
+  type PlanAreaStatus,
+  type PlanDayStatus,
+  type PlanificationScope,
+  type PlanSystemMetrics,
+} from '@/lib/planSystems';
 import { cn } from '@/lib/utils';
 
-/** Estado de un día dentro del periodo (mismo lenguaje que la pestaña Sistemas). */
-export type PlanDayStatus = 'done' | 'partial' | 'skip' | 'none';
-
-/**
- * Rendimiento real de un sistema de vida durante el periodo. Se alimenta de
- * `daily_systems_tracking` (minutos, días cumplidos, racha y estados por día) y
- * de los scores de esfuerzo/resultados del Punto B.
- */
-export interface PlanSystemMetrics {
-  actualMinutes: number;
-  /** Minutos planificados para el periodo (meta de la jerarquía). */
-  plannedMinutes?: number;
-  daysDone: number;
-  daysTotal: number;
-  daysSkipped?: number;
-  /** % de esfuerzo del área a la que pertenece el sistema. */
-  effort?: number;
-  /**
-   * % de resultados del Punto B. Se usa solo cuando el sistema no tiene
-   * objetivos marcables en el periodo (la barra "Res" prioriza los objetivos).
-   */
-  results?: number;
-  streak?: number;
-  bestStreak?: number;
-  status?: PlanDayStatus[];
-  /** Minutos reales por día (para la mini tendencia). */
-  spark?: number[];
-  /** Fechas del periodo (yyyy-MM-dd) para distinguir días futuros. */
-  days?: string[];
-}
+export type { PlanAreaMetrics, PlanDayStatus, PlanSystemMetrics } from '@/lib/planSystems';
 
 export interface PlanObjectiveRow {
   id: string;
@@ -79,6 +58,8 @@ export interface PlanAreaCardData {
   minutesUnit?: string;
   /** Rendimiento real del sistema durante el periodo. */
   system?: PlanSystemMetrics;
+  /** Cambia la meta de cumplimiento del sistema (clic en la tarjeta). */
+  onTargetChange?: (pct: number) => void;
   items: PlanObjectiveRow[];
 }
 
@@ -86,6 +67,7 @@ const STATUS_LABEL: Record<PlanDayStatus, string> = {
   done: 'Cumplido',
   partial: 'Parcial',
   skip: 'Saltado',
+  rest: 'Descanso',
   none: 'Sin registro',
 };
 
@@ -93,6 +75,7 @@ const STATUS_COLOR: Record<PlanDayStatus, string> = {
   done: 'bg-emerald-500',
   partial: 'bg-blue-500',
   skip: 'bg-red-500',
+  rest: 'bg-sky-500/50',
   none: 'bg-red-500/25',
 };
 
@@ -115,6 +98,11 @@ const rowDateText = (item: PlanObjectiveRow): string | null => {
   return parts.join(' · ');
 };
 
+function nextTarget(current: number): number {
+  const step = PLAN_TARGET_STEPS.find(value => value > current + 0.5);
+  return step ?? PLAN_TARGET_STEPS[0];
+}
+
 /**
  * Tarjeta de área con el mismo lenguaje visual que las tarjetas de Sistemas:
  * portada arriba, rendimiento real del sistema, objetivos dentro y los minutos
@@ -126,17 +114,24 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
   // Objetivos con estado de cumplimiento: alimentan la barra "Res" del sistema.
   const measurable = card.items.filter(i => i.done !== undefined);
   const complete = toggleable.length > 0 && doneCount === toggleable.length;
-  const counter = toggleable.length > 0
-    ? `${doneCount}/${toggleable.length}`
-    : card.items.length > 0
-      ? `${card.items.length}`
-      : '';
+  const structural = card.system?.kind === 'estructural';
+  const systemComplete = structural && card.system?.targetMet === true;
+
+  const counter = structural
+    ? card.system?.compliance != null
+      ? `${card.system.compliance}%`
+      : ''
+    : toggleable.length > 0
+      ? `${doneCount}/${toggleable.length}`
+      : card.items.length > 0
+        ? `${card.items.length}`
+        : '';
 
   return (
     <div
       className={cn(
         'relative flex flex-col overflow-hidden rounded-2xl ring-2 transition-colors',
-        complete
+        complete || systemComplete
           ? 'ring-emerald-500/40 bg-emerald-500/5'
           : 'ring-border/40 bg-white/80 dark:bg-zinc-950/80'
       )}
@@ -165,11 +160,18 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
         </div>
 
         {card.system && (
-          <SystemMetrics
-            system={card.system}
-            objectivesDone={measurable.filter(item => item.done === true).length}
-            objectivesTotal={measurable.length}
-          />
+          card.system.kind === 'estructural' ? (
+            <StructuralMetrics
+              system={card.system}
+              onTargetChange={card.onTargetChange}
+            />
+          ) : (
+            <SystemMetrics
+              system={card.system}
+              objectivesDone={measurable.filter(item => item.done === true).length}
+              objectivesTotal={measurable.length}
+            />
+          )
         )}
 
         {card.items.length > 0 ? (
@@ -220,11 +222,239 @@ function Meter({
   );
 }
 
+function Stat({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: string;
+}) {
+  return (
+    <span className="flex items-baseline justify-between gap-1" title={hint}>
+      <span className="text-[7px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={cn('text-[8px] font-bold tabular-nums', tone ?? 'text-foreground/80')}>{value}</span>
+    </span>
+  );
+}
+
+function trendLabel(trend: number | null): string {
+  if (trend == null) return '—';
+  if (trend > 0) return `↑${trend}`;
+  if (trend < 0) return `↓${Math.abs(trend)}`;
+  return '=0';
+}
+
+function trendTone(trend: number | null): string {
+  if (trend == null) return 'text-muted-foreground';
+  if (trend > 0) return 'text-emerald-600 dark:text-emerald-400';
+  if (trend < 0) return 'text-red-500';
+  return 'text-muted-foreground';
+}
+
 /**
- * Rendimiento del sistema: diagnóstico, esfuerzo/resultados, minutos, días y racha.
- * La barra "Res" se calcula solo con los objetivos marcados en el periodo; si no
- * hay objetivos marcables se muestra "—". El Punto B queda como respaldo únicamente
- * para el diagnóstico del área.
+ * Sistema estructural: el dato grande son los días cumplidos sobre los días
+ * disponibles. Debajo se mide dosis mínima, racha, brecha, recuperación,
+ * tendencia y semanas verdes. Los minutos solo aparecen si el sistema es de
+ * tiempo (gym).
+ */
+function StructuralMetrics({
+  system,
+  onTargetChange,
+}: {
+  system: PlanSystemMetrics;
+  onTargetChange?: (pct: number) => void;
+}) {
+  const tone: 'green' | 'amber' | 'red' | 'grey' =
+    system.compliance == null
+      ? 'grey'
+      : system.targetMet === true || system.compliance >= 80
+        ? 'green'
+        : system.compliance >= 50
+          ? 'amber'
+          : 'red';
+  const palette = DIAGNOSIS_TONE[tone];
+  const dot = tone === 'green'
+    ? 'bg-emerald-500'
+    : tone === 'amber'
+      ? 'bg-amber-500'
+      : tone === 'red'
+        ? 'bg-red-500'
+        : 'bg-muted-foreground/60';
+  const barColor = tone === 'green'
+    ? 'bg-emerald-500'
+    : tone === 'amber'
+      ? 'bg-amber-500'
+      : tone === 'red'
+        ? 'bg-red-500'
+        : 'bg-muted-foreground/40';
+  const stateLabel = tone === 'green'
+    ? 'Cumpliendo'
+    : tone === 'amber'
+      ? 'Irregular'
+      : tone === 'red'
+        ? 'Roto'
+        : 'Sin datos';
+  const pct = Math.max(0, Math.min(100, system.compliance ?? 0));
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const spark = system.spark ?? [];
+  const sparkMax = Math.max(1, ...spark);
+  const targetLabel = system.daysTotal > 0
+    ? `${system.targetDays}d · ${system.targetPct}%`
+    : `${system.targetPct}%`;
+
+  return (
+    <div className="space-y-1 rounded-lg bg-foreground/[0.04] p-1.5">
+      <div className="flex items-center gap-1">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} />
+        <span className={cn('truncate text-[8px] font-semibold leading-tight', palette.text)}>
+          {stateLabel}
+        </span>
+        {(system.streak ?? 0) > 0 && (
+          <span
+            className="ml-auto shrink-0 text-[8px] font-bold text-orange-500"
+            title={`Racha actual${system.bestStreak ? ` · mejor ${system.bestStreak}` : ''}`}
+          >
+            🔥 {system.streak}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-end justify-between gap-1">
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl font-extrabold leading-none tabular-nums">{system.daysDone}</span>
+          <span className="text-sm font-bold leading-none text-muted-foreground">/{system.daysTotal}</span>
+          <span className="text-[9px] text-muted-foreground">días</span>
+        </div>
+        <span className={cn('text-[11px] font-extrabold leading-none tabular-nums', palette.text)}>
+          {system.compliance == null ? '—' : `${system.compliance}%`}
+        </span>
+      </div>
+
+      <div className="relative h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className={cn('h-full rounded-full', barColor)} style={{ width: `${pct}%` }} />
+        <span
+          className="absolute inset-y-0 w-px bg-foreground/60"
+          style={{ left: `${Math.max(0, Math.min(100, system.targetPct))}%` }}
+          title={`Meta: ${system.targetPct}%`}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onTargetChange?.(nextTarget(system.targetPct))}
+          disabled={!onTargetChange}
+          title={`Meta ${system.targetPct}% (${system.targetDays} de ${system.daysTotal} días). Clic para cambiarla.`}
+          className={cn(
+            'rounded border px-1 py-0.5 text-[8px] font-bold tabular-nums transition-colors',
+            system.targetMet
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              : 'border-border/50 bg-foreground/5 text-muted-foreground',
+            onTargetChange && 'hover:bg-foreground/10'
+          )}
+        >
+          Meta {targetLabel}
+        </button>
+        <span className="rounded border border-border/50 bg-foreground/5 px-1 py-0.5 text-[8px] font-semibold text-muted-foreground">
+          Dosis {system.timed ? `${system.minimumDose}m` : '✓'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+        <Stat
+          label="Brecha"
+          value={`${system.maxGap}d`}
+          hint="Mayor cantidad de días seguidos sin cumplir"
+        />
+        <Stat
+          label="Recup."
+          value={`${system.recoveries}`}
+          hint="Veces que retomaste el sistema después de una brecha"
+        />
+        <Stat
+          label="Tend."
+          value={trendLabel(system.trend)}
+          hint="Cumplimiento vs periodo anterior"
+          tone={trendTone(system.trend)}
+        />
+        <Stat
+          label="Verde"
+          value={`${system.greenWeeks}/${system.totalWeeks}`}
+          hint="Semanas con ≥80% de cumplimiento"
+        />
+      </div>
+
+      {system.status && system.status.length > 1 && (
+        <div className="flex gap-px">
+          {system.status.map((status, index) => {
+            const future = !!system.days?.[index] && system.days[index] > todayKey;
+            return (
+              <span
+                key={index}
+                title={future ? 'Pendiente' : STATUS_LABEL[status]}
+                className={cn(
+                  'h-1.5 flex-1 rounded-[1px]',
+                  future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
+                )}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {system.timed && spark.some(value => value > 0) && (
+        <div className="flex h-3.5 items-end gap-px">
+          {spark.map((value, index) => {
+            const status = system.status?.[index] ?? 'none';
+            const future = !!system.days?.[index] && system.days[index] > todayKey;
+            const missed = !future && status !== 'done' && status !== 'partial';
+            return (
+              <span
+                key={index}
+                title={`${value} min`}
+                className={cn(
+                  'flex-1 rounded-sm',
+                  future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
+                )}
+                style={{ height: `${Math.max(missed ? 16 : 8, (value / sparkMax) * 100)}%` }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-x-1.5 gap-y-0.5 text-[8px] text-muted-foreground">
+        {system.timed && (
+          <span className="tabular-nums">
+            ⏱ {system.actualMinutes} min
+            {(system.plannedMinutes ?? 0) > 0 ? ` / ${system.plannedMinutes}` : ''}
+          </span>
+        )}
+        <span className="tabular-nums">
+          Últ. {system.lastDone ? shortDate(system.lastDone) : '—'}
+        </span>
+        {(system.daysSkipped > 0 || system.restDays > 0) && (
+          <span className="tabular-nums">
+            {system.daysSkipped > 0 ? `${system.daysSkipped} salt.` : ''}
+            {system.daysSkipped > 0 && system.restDays > 0 ? ' · ' : ''}
+            {system.restDays > 0 ? `${system.restDays} desc.` : ''}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Sistema central: se conserva el detalle existente (Esf/Res, minutos
+ * acumulados con /meta, días, racha, estados y sparkline). La barra "Res" se
+ * calcula solo con los objetivos marcados en el periodo; si no hay objetivos
+ * marcables se muestra "—". El Punto B queda como respaldo únicamente para el
+ * diagnóstico del área.
  */
 function SystemMetrics({
   system,
@@ -313,7 +543,7 @@ function SystemMetrics({
         </span>
         <span
           className="shrink-0 text-muted-foreground"
-          title={`${system.daysDone ?? 0} de ${system.daysTotal ?? 0} días cumplidos${system.daysSkipped ? ` · ${system.daysSkipped} saltados` : ''}`}
+          title={`${system.daysDone ?? 0} de ${system.daysTotal ?? 0} días cumplidos${system.daysSkipped ? ` · ${system.daysSkipped} saltados` : ''}${system.restDays ? ` · ${system.restDays} descansos` : ''}`}
         >
           {system.daysDone ?? 0}/{system.daysTotal ?? 0} días
         </span>
@@ -364,6 +594,187 @@ function SystemMetrics({
                   future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
                 )}
                 style={{ height: `${Math.max(missed ? 16 : 8, (value / sparkMax) * 100)}%` }}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const AREA_STATUS_META: Record<PlanAreaStatus, {
+  label: string;
+  dot: string;
+  text: string;
+  border: string;
+}> = {
+  green: {
+    label: 'Dando resultados',
+    dot: 'bg-emerald-500',
+    text: 'text-emerald-600 dark:text-emerald-400',
+    border: 'border-emerald-500/30',
+  },
+  amber: {
+    label: 'En ajuste',
+    dot: 'bg-amber-500',
+    text: 'text-amber-600 dark:text-amber-400',
+    border: 'border-amber-500/30',
+  },
+  red: {
+    label: 'Roto o abandonado',
+    dot: 'bg-red-500',
+    text: 'text-red-500',
+    border: 'border-red-500/30',
+  },
+  grey: {
+    label: 'Sin datos',
+    dot: 'bg-muted-foreground/60',
+    text: 'text-muted-foreground',
+    border: 'border-border/60',
+  },
+};
+
+const pctText = (value?: number | null): string =>
+  value == null ? '—' : `${Math.round(value)}%`;
+
+function HeaderChip({
+  children,
+  hint,
+  tone,
+}: {
+  children: React.ReactNode;
+  hint?: string;
+  tone?: 'green' | 'red' | 'muted';
+}) {
+  return (
+    <span
+      title={hint}
+      className={cn(
+        'rounded-md border px-1.5 py-0.5 font-semibold',
+        tone === 'green'
+          ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+          : tone === 'red'
+            ? 'border-red-500/25 bg-red-500/10 text-red-500'
+            : 'border-border/50 bg-foreground/5 text-muted-foreground'
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Cabecera del área: cumplimiento, sistemas activos, ancla más débil,
+ * tendencia, semanas verdes, anclas vs mantenimiento y Esf/Res del Punto B.
+ */
+export function PlanAreaHeader({
+  area,
+  scope,
+}: {
+  area: PlanAreaMetrics;
+  scope: PlanificationScope;
+}) {
+  const status = AREA_STATUS_META[area.status];
+  const trendToneValue = area.trend == null
+    ? 'muted'
+    : area.trend > 0
+      ? 'green'
+      : area.trend < 0
+        ? 'red'
+        : 'muted';
+
+  return (
+    <div className={cn(
+      'overflow-hidden rounded-2xl border bg-white/80 shadow-sm dark:bg-zinc-950/80',
+      status.border,
+    )}>
+      <div className="flex items-center gap-2 px-2.5 pt-2.5">
+        <div className={cn(
+          'grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-lg',
+          getCoverGradient(area.id),
+        )}>
+          {area.icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', status.dot)} />
+            <h4 className="truncate text-[13px] font-bold leading-tight">{area.label}</h4>
+            <span className="shrink-0 rounded bg-foreground/5 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-muted-foreground">
+              {area.kind === 'estructural' ? 'Estructura' : 'Central'}
+            </span>
+          </div>
+          <p className="truncate text-[9px] text-muted-foreground">
+            {status.label} · {area.activeSystems}/{area.totalSystems} activos · {area.systemsOnTarget}/{area.totalSystems} en meta
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <span className={cn('text-2xl font-extrabold leading-none tabular-nums', status.text)}>
+            {area.compliance == null ? '—' : `${area.compliance}%`}
+          </span>
+          <span className="block text-[7px] uppercase tracking-wide text-muted-foreground">cumplimiento</span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1 px-2.5 pt-2 text-[8px]">
+        <HeaderChip hint="Cumplimiento de los sistemas ancla frente a los de mantenimiento">
+          Anclas {pctText(area.anchorCompliance)} · Mant. {pctText(area.maintenanceCompliance)}
+        </HeaderChip>
+        <HeaderChip hint="El ancla con menor cumplimiento del periodo">
+          {area.weakestAnchor
+            ? `Ancla débil: ${area.weakestAnchor.name} ${area.weakestAnchor.compliance}%`
+            : 'Sin anclas con datos'}
+        </HeaderChip>
+        <HeaderChip
+          tone={trendToneValue}
+          hint="Diferencia de cumplimiento contra el periodo anterior"
+        >
+          Tend. {trendLabel(area.trend)} pts
+        </HeaderChip>
+        <HeaderChip
+          tone={area.greenWeeks > 0 ? 'green' : 'muted'}
+          hint="Semanas con ≥80% de cumplimiento"
+        >
+          Verde {area.greenWeeks}/{area.totalWeeks} sem
+        </HeaderChip>
+        {scope !== 'month' && area.monthCompliance != null && (
+          <HeaderChip hint="Cumplimiento del mes que contiene este periodo">
+            Mes {area.monthCompliance}%
+          </HeaderChip>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 px-2.5 py-2">
+        <Meter
+          label="Esf"
+          value={area.effort}
+          bar="bg-violet-500"
+          hint="Esfuerzo del área (Punto B)"
+        />
+        <Meter
+          label="Res"
+          value={area.results}
+          bar="bg-emerald-500"
+          hint="Resultados del área (Punto B)"
+        />
+      </div>
+
+      {area.weeks.length > 0 && (
+        <div className="flex h-1.5 gap-0.5 px-2.5 pb-2.5">
+          {area.weeks.map(week => {
+            const value = week.compliance;
+            const color = value == null
+              ? 'bg-muted'
+              : value >= 80
+                ? 'bg-emerald-500'
+                : value >= 50
+                  ? 'bg-amber-500'
+                  : 'bg-red-500';
+            return (
+              <span
+                key={week.key}
+                title={`Semana del ${week.key}: ${value == null ? '—' : `${value}%`}`}
+                className={cn('flex-1 rounded-sm', color)}
               />
             );
           })}

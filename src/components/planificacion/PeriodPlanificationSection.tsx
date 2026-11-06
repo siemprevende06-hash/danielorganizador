@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   format, startOfMonth, startOfWeek, endOfMonth, endOfWeek, isToday,
@@ -9,23 +9,33 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { coverKey, useAreaCovers } from '@/hooks/useAreaCovers';
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
-import { useAreaScores } from '@/hooks/useAreaScores';
-import { useSystemStreaks } from '@/hooks/useSystemStreaks';
-import { usePeriodSystemsData } from '@/hooks/usePeriodSystemsData';
+import {
+  usePlanSystemMetrics,
+  type PlanSystemMetricsResult,
+} from '@/hooks/usePlanSystemMetrics';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { useWeeklyPlan } from '@/hooks/useWeeklyPlan';
 import { usePeriodPlanTasks } from '@/hooks/usePeriodPlanTasks';
 import { usePlanLibraryToggles, type SongPlanTypeLite } from '@/hooks/usePlanLibraryToggles';
+import { GROUP_CONFIG } from '@/lib/areaSystemsMap';
 import {
   ALL_HIERARCHY_AREAS, AREA_LABELS,
   getDayGoalEffective, getDayGoalTotal, getMonthGoalsSummary, getWeekGoalEffective,
 } from '@/lib/hierarchy';
 import { LANGUAGE_IDS, LANGUAGE_LABELS, readLanguageMonthPlans, readLanguageWeekPlans } from '@/lib/languagePlan';
 import { readGameMonthPlan, readGameWeekPlan } from '@/lib/game';
+import {
+  PLAN_CENTRAL_AREAS,
+  PLAN_STRUCTURAL_AREAS,
+  PLAN_SYSTEM_META,
+  type PlanAreaDef,
+  type PlanAreaMetrics,
+  type PlanificationScope,
+} from '@/lib/planSystems';
 import { cn } from '@/lib/utils';
-import { PlanAreaCard, type PlanAreaCardData, type PlanObjectiveRow, type PlanSystemMetrics } from './PlanAreaCard';
+import { PlanAreaCard, PlanAreaHeader, type PlanAreaCardData, type PlanObjectiveRow } from './PlanAreaCard';
 
-export type PlanificationScope = 'day' | 'week' | 'month';
+export type { PlanificationScope } from '@/lib/planSystems';
 
 interface PeriodPlanificationSectionProps {
   scope: PlanificationScope;
@@ -57,71 +67,61 @@ const dateLabel = (value?: string | null) => {
 /* Rendimiento de los sistemas dentro de Planificación                 */
 /* ------------------------------------------------------------------ */
 
-/** Sistemas de vida que tienen tarjeta propia en Planificación. */
-const PLAN_SYSTEM_IDS: string[] = [
-  'lectura', 'musica', 'idiomas', 'ajedrez', 'game',
-  'gym', 'universidad', 'emprendimiento', 'proyectos',
-];
-
-/** Área del Punto B que aporta % de esfuerzo y % de resultados a cada sistema. */
-const PLAN_SYSTEM_AREA: Record<string, string> = {
-  lectura: 'desarrollo',
-  musica: 'desarrollo',
-  idiomas: 'desarrollo',
-  ajedrez: 'desarrollo',
-  game: 'desarrollo',
-  gym: 'salud',
-  universidad: 'profesional',
-  emprendimiento: 'profesional',
-  proyectos: 'profesional',
-};
-
-/**
- * Agrega el rendimiento real de cada sistema para el periodo visible: minutos
- * ejecutados vs planificados, días cumplidos, racha y estados por día. Es la
- * misma información que muestra la pestaña Sistemas de Daily.
- */
-function usePlanSystemMetrics(start: Date, end: Date) {
-  const startKey = format(start, 'yyyy-MM-dd');
-  const endKey = format(end, 'yyyy-MM-dd');
-  const { scores } = useAreaScores('sprint', 'ambos', { start: startKey, end: endKey });
-  const { streaks } = useSystemStreaks(PLAN_SYSTEM_IDS);
-  const { elapsedDays, days, daysDone, daysSkipped, weekMinutes, weekStatus, spark } =
-    usePeriodSystemsData(start, end, PLAN_SYSTEM_IDS);
-
-  const scoreById = useMemo(
-    () => Object.fromEntries(scores.map(score => [score.id, score])),
-    [scores],
-  );
-
-  return useCallback((id: string, plannedMinutes?: number): PlanSystemMetrics | undefined => {
-    if (!PLAN_SYSTEM_IDS.includes(id)) return undefined;
-    const score = scoreById[PLAN_SYSTEM_AREA[id] ?? 'desarrollo'];
-    return {
-      actualMinutes: Math.round(weekMinutes[id] || 0),
-      plannedMinutes,
-      daysDone: daysDone[id] || 0,
-      daysTotal: elapsedDays,
-      daysSkipped: daysSkipped[id] || 0,
-      effort: score?.esfuerzo,
-      results: score?.resultados,
-      streak: streaks[id]?.current ?? 0,
-      bestStreak: streaks[id]?.best ?? 0,
-      status: weekStatus[id],
-      spark: spark[id],
-      days,
-    };
-  }, [scoreById, elapsedDays, days, daysDone, daysSkipped, weekMinutes, weekStatus, spark, streaks]);
+interface PlanAreaSectionData {
+  area: PlanAreaMetrics;
+  sections: Array<{
+    id: string;
+    title: string;
+    emoji?: string;
+    cards: PlanAreaCardData[];
+  }>;
 }
 
-/** Adjunta las métricas del sistema a cada tarjeta de área. */
-function withSystemMetrics(
-  cards: PlanAreaCardData[],
-  metrics: (id: string, plannedMinutes?: number) => PlanSystemMetrics | undefined,
-): PlanAreaCardData[] {
-  return cards.map(card => {
-    const system = metrics(card.id, card.minutes);
-    return system ? { ...card, system } : card;
+/**
+ * Construye las secciones de un grupo (estructural o central) con TODAS las
+ * tarjetas de sistema, aunque todavía no tengan datos. Cada sistema recibe sus
+ * métricas del periodo, sus objetivos y la meta de minutos que le corresponde.
+ */
+function buildPlanAreas(
+  defs: PlanAreaDef[],
+  metrics: PlanSystemMetricsResult,
+  covers: Record<string, string>,
+  itemsById: Record<string, PlanObjectiveRow[]>,
+  plannedById: Record<string, number | undefined>,
+  unit: string,
+): PlanAreaSectionData[] {
+  return defs.flatMap(areaDef => {
+    const area = metrics.areas[areaDef.id];
+    if (!area) return [];
+
+    const sections = areaDef.sections.flatMap(section => {
+      const cards = section.systems.flatMap(id => {
+        const meta = PLAN_SYSTEM_META[id];
+        const system = metrics.systems[id];
+        if (!meta || !system) return [];
+
+        const planned = plannedById[id];
+        const card: PlanAreaCardData = {
+          id,
+          title: meta.name,
+          emoji: meta.emoji,
+          note: meta.role === 'ancla' ? 'ancla' : undefined,
+          cover: covers[coverKey('sub', id)]
+            ?? covers[coverKey('area', id)]
+            ?? covers[coverKey('area', areaDef.id)]
+            ?? null,
+          minutes: planned,
+          minutesUnit: unit,
+          system: { ...system, plannedMinutes: planned },
+          onTargetChange: (pct: number) => metrics.setTarget(id, pct),
+          items: itemsById[id] ?? [],
+        };
+        return [card];
+      });
+      return cards.length > 0 ? [{ ...section, cards }] : [];
+    });
+
+    return sections.length > 0 ? [{ area, sections }] : [];
   });
 }
 
@@ -206,45 +206,28 @@ interface PlanGroup {
   title: string;
   note?: string;
   dot: string;
-  cards: PlanAreaCardData[];
+  /** Áreas con sus subsecciones y tarjetas de sistema (estructural/central). */
+  areas?: PlanAreaSectionData[];
+  /** Tarjetas sueltas del plan del periodo. */
+  cards?: PlanAreaCardData[];
 }
 
-const GROUP_KEYS = {
-  desarrollo: { key: 'desarrollo', title: 'Desarrollo Personal', note: 'Lectura · Música · Idiomas · Ajedrez · Game · Gym', dot: 'bg-emerald-500' },
-  profesional: { key: 'profesional', title: 'Profesional / Académico', note: 'Universidad · Emprendimiento · Proyectos', dot: 'bg-sky-500' },
+const STRUCTURAL_GROUP = {
+  key: 'estructural',
+  title: GROUP_CONFIG.cimientos.sectionTitle,
+  note: 'Salud · Fuerza mental · Apariencia',
+  dot: 'bg-blue-500',
+} as const;
+
+const CENTRAL_GROUP = {
+  key: 'central',
+  title: GROUP_CONFIG.construccion.sectionTitle,
+  note: 'Desarrollo · Profesional · Finanzas',
+  dot: 'bg-sky-500',
 } as const;
 
 function periodGroup(title: string, note: string, cards: PlanAreaCardData[]): PlanGroup {
   return { key: 'periodo', title, note, dot: 'bg-indigo-500', cards };
-}
-
-/** Tarjeta de un área de la jerarquía: portada propia con respaldo del área padre. */
-function areaCard(
-  covers: Record<string, string>,
-  args: {
-    id: string;
-    parentId: string;
-    title: string;
-    emoji: string;
-    minutes?: number;
-    minutesUnit: string;
-    note?: string;
-    items: PlanObjectiveRow[];
-  },
-): PlanAreaCardData {
-  return {
-    id: args.id,
-    title: args.title,
-    note: args.note,
-    emoji: args.emoji,
-    cover: covers[coverKey('sub', args.id)]
-      ?? covers[coverKey('area', args.id)]
-      ?? covers[coverKey('area', args.parentId)]
-      ?? null,
-    minutes: args.minutes,
-    minutesUnit: args.minutesUnit,
-    items: args.items,
-  };
 }
 
 /** Tarjeta para bloques del plan que no son un área de vida (tareas, eventos…). */
@@ -266,10 +249,9 @@ function plainCard(args: {
 }
 
 const isCardVisible = (card: PlanAreaCardData) =>
-  card.items.length > 0
-  || (card.minutes ?? 0) > 0
-  || (card.system?.actualMinutes ?? 0) > 0
-  || (card.system?.daysDone ?? 0) > 0;
+  !!card.system
+  || card.items.length > 0
+  || (card.minutes ?? 0) > 0;
 
 function taskRows(
   tasks: { id: string; title: string; completed: boolean; due_date: string | null; area_id: string | null }[],
@@ -354,22 +336,83 @@ function PlanShell({
   );
 }
 
-function PlanGroups({ groups }: { groups: PlanGroup[] }) {
+function GroupHeading({ group }: { group: PlanGroup }) {
+  return (
+    <div className="flex items-center gap-2 px-0.5">
+      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', group.dot)} />
+      <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground/70">{group.title}</h3>
+      {group.note && (
+        <span className="hidden text-[10px] text-muted-foreground sm:inline">{group.note}</span>
+      )}
+      <span className="h-px flex-1 bg-border/60" />
+    </div>
+  );
+}
+
+function PlanAreaSection({ data, scope }: { data: PlanAreaSectionData; scope: PlanificationScope }) {
+  return (
+    <section className="space-y-2.5">
+      <PlanAreaHeader area={data.area} scope={scope} />
+      {data.sections.map(section => {
+        const done = section.cards.reduce((sum, card) => sum + (card.system?.daysDone ?? 0), 0);
+        const total = section.cards.reduce((sum, card) => sum + (card.system?.daysTotal ?? 0), 0);
+        const pct = total > 0 ? Math.round((done / total) * 100) : null;
+
+        return (
+          <div key={section.id} className="space-y-1.5">
+            <div className="flex items-center gap-1.5 px-0.5">
+              {section.emoji && <span className="text-[11px] leading-none">{section.emoji}</span>}
+              <h5 className="text-[10px] font-bold uppercase tracking-wide text-foreground/70">
+                {section.title}
+              </h5>
+              <span className="text-[8px] font-semibold text-muted-foreground">
+                {section.cards.length} sistemas
+              </span>
+              {pct != null && (
+                <span className={cn(
+                  'text-[8px] font-bold tabular-nums',
+                  pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-600' : 'text-red-500'
+                )}>
+                  {pct}%
+                </span>
+              )}
+              <span className="h-px flex-1 bg-border/50" />
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
+              {section.cards.map(card => (
+                <PlanAreaCard key={card.id} card={card} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function PlanGroups({ groups, scope }: { groups: PlanGroup[]; scope: PlanificationScope }) {
   return (
     <div className="space-y-5">
       {groups.map(group => {
-        const cards = group.cards.filter(isCardVisible);
+        if (group.areas && group.areas.length > 0) {
+          return (
+            <section key={group.key} className="space-y-3">
+              <GroupHeading group={group} />
+              <div className="space-y-4">
+                {group.areas.map(area => (
+                  <PlanAreaSection key={area.area.id} data={area} scope={scope} />
+                ))}
+              </div>
+            </section>
+          );
+        }
+
+        const cards = (group.cards ?? []).filter(isCardVisible);
         if (cards.length === 0) return null;
+
         return (
           <section key={group.key} className="space-y-2.5">
-            <div className="flex items-center gap-2 px-0.5">
-              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', group.dot)} />
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground/70">{group.title}</h3>
-              {group.note && (
-                <span className="hidden text-[10px] text-muted-foreground sm:inline">{group.note}</span>
-              )}
-              <span className="h-px flex-1 bg-border/60" />
-            </div>
+            <GroupHeading group={group} />
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
               {cards.map(card => (
                 <PlanAreaCard key={card.id} card={card} />
@@ -394,7 +437,7 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
   const { tasks, toggleTask, loading: tasksLoading } = usePeriodPlanTasks(month, endOfMonth(month));
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
-  const systemMetrics = usePlanSystemMetrics(month, endOfMonth(month));
+  const metrics = usePlanSystemMetrics('month', month);
 
   const goals = useMemo(() => getMonthGoalsSummary(month), [month]);
   const minutesOf = (ids: string[]) => minutesFrom(goals, ids);
@@ -531,47 +574,35 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
 
   const taskList = taskRows(tasks, toggleTask, true);
 
-  const desarrollo: PlanAreaCardData[] = [
-    areaCard(covers, {
-      id: 'lectura', parentId: 'desarrollo', title: 'Lectura', emoji: '📖',
-      minutes: minutesOf(['lectura']), minutesUnit: unit, items: bookRows,
-    }),
-    areaCard(covers, {
-      id: 'musica', parentId: 'desarrollo', title: 'Música', emoji: '🎹',
-      minutes: minutesOf(['musica']), minutesUnit: unit, items: songRows,
-    }),
-    areaCard(covers, {
-      id: 'idiomas', parentId: 'desarrollo', title: 'Idiomas', emoji: '🌍', note: 'inglés + italiano',
-      minutes: minutesOf(['ingles', 'italiano']), minutesUnit: unit, items: languageRows,
-    }),
-    areaCard(covers, {
-      id: 'ajedrez', parentId: 'desarrollo', title: 'Ajedrez', emoji: '♟️',
-      minutes: minutesOf(['ajedrez']), minutesUnit: unit, items: chessRows,
-    }),
-    areaCard(covers, {
-      id: 'game', parentId: 'desarrollo', title: 'Game', emoji: '🎮',
-      minutes: minutesOf(['game']), minutesUnit: unit, items: gameRows,
-    }),
-    areaCard(covers, {
-      id: 'gym', parentId: 'salud', title: 'Gym', emoji: '🏋️',
-      minutes: minutesOf(['gym']), minutesUnit: unit, items: [],
-    }),
-  ];
+  const itemsById: Record<string, PlanObjectiveRow[]> = {
+    lectura: bookRows,
+    musica: songRows,
+    idiomas: languageRows,
+    ajedrez: chessRows,
+    game: gameRows,
+    universidad: subjectRows,
+    emprendimiento: [],
+    proyectos: projectRows,
+  };
 
-  const profesional: PlanAreaCardData[] = [
-    areaCard(covers, {
-      id: 'universidad', parentId: 'profesional', title: 'Universidad', emoji: '🎓',
-      minutes: minutesOf(['universidad']), minutesUnit: unit, items: subjectRows,
-    }),
-    areaCard(covers, {
-      id: 'emprendimiento', parentId: 'profesional', title: 'Emprendimiento', emoji: '🚀',
-      minutes: minutesOf(['emprendimiento']), minutesUnit: unit, items: [],
-    }),
-    areaCard(covers, {
-      id: 'proyectos', parentId: 'profesional', title: 'Proyectos', emoji: '📦',
-      minutes: minutesOf(['proyectos']), minutesUnit: unit, items: projectRows,
-    }),
-  ];
+  const plannedById: Record<string, number | undefined> = {
+    lectura: minutesOf(['lectura']),
+    musica: minutesOf(['musica']),
+    idiomas: minutesOf(['ingles', 'italiano']),
+    ajedrez: minutesOf(['ajedrez']),
+    game: minutesOf(['game']),
+    gym: minutesOf(['gym']),
+    universidad: minutesOf(['universidad']),
+    emprendimiento: minutesOf(['emprendimiento']),
+    proyectos: minutesOf(['proyectos']),
+  };
+
+  const structuralAreas = buildPlanAreas(
+    PLAN_STRUCTURAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+  );
+  const centralAreas = buildPlanAreas(
+    PLAN_CENTRAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+  );
 
   const periodo: PlanAreaCardData[] = [
     plainCard({ id: 'tareas', title: 'Tareas del mes', emoji: '✅', items: taskList }),
@@ -580,12 +611,15 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
   ];
 
   const groups: PlanGroup[] = [
-    { ...GROUP_KEYS.desarrollo, cards: withSystemMetrics(desarrollo, systemMetrics) },
-    { ...GROUP_KEYS.profesional, cards: withSystemMetrics(profesional, systemMetrics) },
+    { ...STRUCTURAL_GROUP, areas: structuralAreas },
+    { ...CENTRAL_GROUP, areas: centralAreas },
     periodGroup('Plan del periodo', 'Tareas · metas personales · eventos', periodo),
   ];
 
-  const empty = !groups.some(group => group.cards.some(isCardVisible));
+  const empty = !groups.some(group =>
+    (group.areas?.some(area => area.sections.some(section => section.cards.length > 0)) ?? false)
+    || (group.cards?.some(isCardVisible) ?? false)
+  );
   const monthTotal = ALL_HIERARCHY_AREAS.reduce((sum, area) => sum + (goals[area] || 0), 0);
 
   return (
@@ -594,10 +628,10 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       subtitle={`Mes de ${format(month, 'MMMM yyyy', { locale: es })}`}
       editUrl={`/monthly-planning?month=${format(month, 'yyyy-MM')}`}
       empty={empty}
-      loading={loading || tasksLoading}
+      loading={loading || tasksLoading || metrics.loading}
       totalMinutes={monthTotal}
     >
-      <PlanGroups groups={groups} />
+      <PlanGroups groups={groups} scope="month" />
     </PlanShell>
   );
 }
@@ -617,7 +651,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const { tasks, toggleTask, loading: tasksLoading } = usePeriodPlanTasks(weekStart, weekEnd);
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
-  const systemMetrics = usePlanSystemMetrics(weekStart, weekEnd);
+  const metrics = usePlanSystemMetrics('week', weekStart);
   const entrepreneurshipIds = planData.areaFocus?.emprendimiento || [];
   const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
 
@@ -873,47 +907,35 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
 
   const taskList = taskRows(tasks, toggleTask, true);
 
-  const desarrollo: PlanAreaCardData[] = [
-    areaCard(covers, {
-      id: 'lectura', parentId: 'desarrollo', title: 'Lectura', emoji: '📖',
-      minutes: minutesOf(['lectura']), minutesUnit: unit, items: bookRows,
-    }),
-    areaCard(covers, {
-      id: 'musica', parentId: 'desarrollo', title: 'Música', emoji: '🎹',
-      minutes: minutesOf(['musica']), minutesUnit: unit, items: songRows,
-    }),
-    areaCard(covers, {
-      id: 'idiomas', parentId: 'desarrollo', title: 'Idiomas', emoji: '🌍', note: 'inglés + italiano',
-      minutes: minutesOf(['ingles', 'italiano']), minutesUnit: unit, items: languageRows,
-    }),
-    areaCard(covers, {
-      id: 'ajedrez', parentId: 'desarrollo', title: 'Ajedrez', emoji: '♟️',
-      minutes: minutesOf(['ajedrez']), minutesUnit: unit, items: chessRows,
-    }),
-    areaCard(covers, {
-      id: 'game', parentId: 'desarrollo', title: 'Game', emoji: '🎮',
-      minutes: minutesOf(['game']), minutesUnit: unit, items: gameRows,
-    }),
-    areaCard(covers, {
-      id: 'gym', parentId: 'salud', title: 'Gym', emoji: '🏋️',
-      minutes: minutesOf(['gym']), minutesUnit: unit, items: [],
-    }),
-  ];
+  const itemsById: Record<string, PlanObjectiveRow[]> = {
+    lectura: bookRows,
+    musica: songRows,
+    idiomas: languageRows,
+    ajedrez: chessRows,
+    game: gameRows,
+    universidad: universityRows,
+    emprendimiento: entrepreneurshipNamesRows,
+    proyectos: projectRows,
+  };
 
-  const profesional: PlanAreaCardData[] = [
-    areaCard(covers, {
-      id: 'universidad', parentId: 'profesional', title: 'Universidad', emoji: '🎓',
-      minutes: minutesOf(['universidad']), minutesUnit: unit, items: universityRows,
-    }),
-    areaCard(covers, {
-      id: 'emprendimiento', parentId: 'profesional', title: 'Emprendimiento', emoji: '🚀',
-      minutes: minutesOf(['emprendimiento']), minutesUnit: unit, items: entrepreneurshipNamesRows,
-    }),
-    areaCard(covers, {
-      id: 'proyectos', parentId: 'profesional', title: 'Proyectos', emoji: '📦',
-      minutes: minutesOf(['proyectos']), minutesUnit: unit, items: projectRows,
-    }),
-  ];
+  const plannedById: Record<string, number | undefined> = {
+    lectura: minutesOf(['lectura']),
+    musica: minutesOf(['musica']),
+    idiomas: minutesOf(['ingles', 'italiano']),
+    ajedrez: minutesOf(['ajedrez']),
+    game: minutesOf(['game']),
+    gym: minutesOf(['gym']),
+    universidad: minutesOf(['universidad']),
+    emprendimiento: minutesOf(['emprendimiento']),
+    proyectos: minutesOf(['proyectos']),
+  };
+
+  const structuralAreas = buildPlanAreas(
+    PLAN_STRUCTURAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+  );
+  const centralAreas = buildPlanAreas(
+    PLAN_CENTRAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+  );
 
   const periodo: PlanAreaCardData[] = [
     plainCard({ id: 'objetivos', title: 'Objetivos', emoji: '🎯', items: objectiveRows }),
@@ -924,12 +946,15 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   ];
 
   const groups: PlanGroup[] = [
-    { ...GROUP_KEYS.desarrollo, cards: withSystemMetrics(desarrollo, systemMetrics) },
-    { ...GROUP_KEYS.profesional, cards: withSystemMetrics(profesional, systemMetrics) },
+    { ...STRUCTURAL_GROUP, areas: structuralAreas },
+    { ...CENTRAL_GROUP, areas: centralAreas },
     periodGroup('Plan del periodo', 'Objetivos · resultados · acciones · metas · tareas', periodo),
   ];
 
-  const empty = !groups.some(group => group.cards.some(isCardVisible));
+  const empty = !groups.some(group =>
+    (group.areas?.some(area => area.sections.some(section => section.cards.length > 0)) ?? false)
+    || (group.cards?.some(isCardVisible) ?? false)
+  );
   const weekTotal = ALL_HIERARCHY_AREAS.reduce((sum, area) => sum + (weekGoals[area] || 0), 0);
 
   return (
@@ -938,10 +963,10 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       subtitle={`Semana del ${format(weekStart, 'd MMM', { locale: es })} al ${format(weekEnd, 'd MMM', { locale: es })}`}
       editUrl={`/weekly-planning?week=${weekKey}`}
       empty={empty}
-      loading={loading || tasksLoading}
+      loading={loading || tasksLoading || metrics.loading}
       totalMinutes={weekTotal}
     >
-      <PlanGroups groups={groups} />
+      <PlanGroups groups={groups} scope="week" />
     </PlanShell>
   );
 }
@@ -964,7 +989,7 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const { planData: monthPlan, books, songs, projects, subjects, loading: monthLoading } = useMonthlyPlan(startOfMonth(weekStart));
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
-  const systemMetrics = usePlanSystemMetrics(anchorDate, anchorDate);
+  const metrics = usePlanSystemMetrics('day', anchorDate);
 
   const dayGoals = useMemo(() => {
     const out: Record<string, number> = {};
@@ -1182,47 +1207,35 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
       }]
     : [];
 
-  const desarrollo: PlanAreaCardData[] = [
-    areaCard(covers, {
-      id: 'lectura', parentId: 'desarrollo', title: 'Lectura', emoji: '📖',
-      minutes: minutesOf('lectura'), minutesUnit: unit, items: readingRows,
-    }),
-    areaCard(covers, {
-      id: 'musica', parentId: 'desarrollo', title: 'Música', emoji: '🎹',
-      minutes: minutesOf('musica'), minutesUnit: unit, items: musicRows,
-    }),
-    areaCard(covers, {
-      id: 'idiomas', parentId: 'desarrollo', title: 'Idiomas', emoji: '🌍', note: 'inglés + italiano',
-      minutes: minutesOf('ingles') + minutesOf('italiano'), minutesUnit: unit, items: languageRows,
-    }),
-    areaCard(covers, {
-      id: 'ajedrez', parentId: 'desarrollo', title: 'Ajedrez', emoji: '♟️',
-      minutes: minutesOf('ajedrez'), minutesUnit: unit, items: chessRows,
-    }),
-    areaCard(covers, {
-      id: 'game', parentId: 'desarrollo', title: 'Game', emoji: '🎮',
-      minutes: minutesOf('game'), minutesUnit: unit, items: gameRows,
-    }),
-    areaCard(covers, {
-      id: 'gym', parentId: 'salud', title: 'Gym', emoji: '🏋️',
-      minutes: minutesOf('gym'), minutesUnit: unit, items: [],
-    }),
-  ];
+  const itemsById: Record<string, PlanObjectiveRow[]> = {
+    lectura: readingRows,
+    musica: musicRows,
+    idiomas: languageRows,
+    ajedrez: chessRows,
+    game: gameRows,
+    universidad: subjectRows,
+    emprendimiento: entrepreneurshipRows,
+    proyectos: projectRows,
+  };
 
-  const profesional: PlanAreaCardData[] = [
-    areaCard(covers, {
-      id: 'universidad', parentId: 'profesional', title: 'Universidad', emoji: '🎓',
-      minutes: minutesOf('universidad'), minutesUnit: unit, items: subjectRows,
-    }),
-    areaCard(covers, {
-      id: 'emprendimiento', parentId: 'profesional', title: 'Emprendimiento', emoji: '🚀',
-      minutes: minutesOf('emprendimiento'), minutesUnit: unit, items: entrepreneurshipRows,
-    }),
-    areaCard(covers, {
-      id: 'proyectos', parentId: 'profesional', title: 'Proyectos', emoji: '📦',
-      minutes: minutesOf('proyectos'), minutesUnit: unit, items: projectRows,
-    }),
-  ];
+  const plannedById: Record<string, number | undefined> = {
+    lectura: minutesOf('lectura'),
+    musica: minutesOf('musica'),
+    idiomas: minutesOf('ingles') + minutesOf('italiano'),
+    ajedrez: minutesOf('ajedrez'),
+    game: minutesOf('game'),
+    gym: minutesOf('gym'),
+    universidad: minutesOf('universidad'),
+    emprendimiento: minutesOf('emprendimiento'),
+    proyectos: minutesOf('proyectos'),
+  };
+
+  const structuralAreas = buildPlanAreas(
+    PLAN_STRUCTURAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+  );
+  const centralAreas = buildPlanAreas(
+    PLAN_CENTRAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+  );
 
   const periodo: PlanAreaCardData[] = [
     plainCard({ id: 'bloques', title: 'Bloques del día', emoji: '🕒', items: blockRows }),
@@ -1231,12 +1244,15 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   ];
 
   const groups: PlanGroup[] = [
-    { ...GROUP_KEYS.desarrollo, cards: withSystemMetrics(desarrollo, systemMetrics) },
-    { ...GROUP_KEYS.profesional, cards: withSystemMetrics(profesional, systemMetrics) },
+    { ...STRUCTURAL_GROUP, areas: structuralAreas },
+    { ...CENTRAL_GROUP, areas: centralAreas },
     periodGroup('Plan del día', 'Bloques · tareas · intensidad', periodo),
   ];
 
-  const empty = !groups.some(group => group.cards.some(isCardVisible));
+  const empty = !groups.some(group =>
+    (group.areas?.some(area => area.sections.some(section => section.cards.length > 0)) ?? false)
+    || (group.cards?.some(isCardVisible) ?? false)
+  );
 
   const routineLabel = planRoutineType ? ` · Rutina: ${planRoutineType}` : '';
   const editUrl = isToday(anchorDate) ? '/plan-manana?mode=hoy' : '/plan-manana';
@@ -1247,10 +1263,10 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
       subtitle={`${format(anchorDate, "EEEE d 'de' MMMM", { locale: es })}${routineLabel}`}
       editUrl={editUrl}
       empty={empty}
-      loading={tasksLoading || weekLoading || monthLoading || !planLoaded}
+      loading={tasksLoading || weekLoading || monthLoading || !planLoaded || metrics.loading}
       totalMinutes={dayTotal}
     >
-      <PlanGroups groups={groups} />
+      <PlanGroups groups={groups} scope="day" />
     </PlanShell>
   );
 }
