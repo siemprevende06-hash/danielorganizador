@@ -88,7 +88,7 @@ const DISCIPLINA_BLOCKS: RoutineBlock[] = [
 DISCIPLINA_BLOCKS.find(b => b.id === 'd-bloque-extra')!.extraMode = 'focus';
 
 const shiftTime = (timeStr: string, deltaMinutes: number): string => {
-  let [h, m] = timeStr.split(':').map(Number);
+  const [h, m] = timeStr.split(':').map(Number);
   let total = h * 60 + m - deltaMinutes;
   if (total < 0) total += 24 * 60;
   const nh = Math.floor(total / 60) % 24;
@@ -135,21 +135,33 @@ export const resolveDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] => 
       .map((b, index) => ({ ...b, order: index }));
   }
 
-  // mode === 'sueno': el Bloque Extra se usa para adelantar el sueño.
-  // Ocio/Música/Desactivación se corren 1h antes y se reemplaza el bloque Sueño.
+  // mode === 'sueno': el Bloque Extra se elimina y todo lo que venía después
+  // sube para ocupar su hueco; el sueño arranca al terminar la desactivación
+  // para poder acostarse antes.
+  const originalSleep = raw.find(b => b.id === 'd-sueno');
+  const extraStart = parseTime(extra.startTime);
+  let extraEnd = parseTime(extra.endTime);
+  if (extraEnd <= extraStart) extraEnd += 24 * 60;
+  const extraDuration = extraEnd - extraStart;
+
   const shifted = raw
     .filter(b => b.id !== 'd-bloque-extra' && b.id !== 'd-sueno')
     .map(b =>
-      ['d-ocio', 'd-musica', 'd-desactivacion'].includes(b.id)
-        ? { ...b, startTime: shiftTime(b.startTime, 60), endTime: shiftTime(b.endTime, 60) }
+      b.order > extra.order
+        ? {
+            ...b,
+            startTime: shiftTime(b.startTime, extraDuration),
+            endTime: shiftTime(b.endTime, extraDuration),
+          }
         : b
     );
 
   const desactivacion = shifted.find(b => b.id === 'd-desactivacion');
-  const sleepStart = desactivacion ? desactivacion.endTime : extra.endTime;
+  const sleepStart = desactivacion ? desactivacion.endTime : extra.startTime;
+  const sleepEnd = originalSleep?.endTime ?? '05:00';
   const sleepBlock: RoutineBlock = {
-    ...makeBlock('d-sueno', 'Sueño (adelantado) 😴', sleepStart, '05:00', 0, false, [
-      'Dormir 1h antes',
+    ...makeBlock('d-sueno', 'Sueño 😴', sleepStart, sleepEnd, shifted.length, false, [
+      'Dormir más',
       'Pantallas apagadas',
       'Habitación oscura y fresca',
     ]),
@@ -219,7 +231,9 @@ const ensureBlocksVersion = (): void => {
     localStorage.removeItem(`${ROUTINE_BLOCKS_PREFIX}disciplina`);
     localStorage.removeItem(`${ROUTINE_BLOCKS_PREFIX}normal`);
     localStorage.setItem(ROUTINE_BLOCKS_VERSION_KEY, ROUTINE_BLOCKS_VERSION);
-  } catch {}
+  } catch {
+    // localStorage no disponible: se usan los bloques por defecto.
+  }
 };
 
 export const parseTime = (timeStr: string): number => {
@@ -259,7 +273,9 @@ export const useRoutineBlocks = () => {
         return parsed
           .map(({ coverImage, ...rest }) => rest as RoutineBlock)
           .sort((a: RoutineBlock, b: RoutineBlock) => a.order - b.order);
-      } catch {}
+      } catch {
+        // Datos corruptos: se recargan los bloques por defecto.
+      }
     }
     return ROUTINE_MAP[type];
   };
@@ -332,7 +348,7 @@ export const useRoutineBlocks = () => {
 
     for (const block of blocks) {
       const startMinutes = parseTime(block.startTime);
-      let endMinutes = parseTime(block.endTime);
+      const endMinutes = parseTime(block.endTime);
 
       if (endMinutes <= startMinutes) {
         if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
@@ -440,7 +456,9 @@ export const loadRoutineBlocksFromStorage = (type?: RoutineType): RoutineBlock[]
           .sort((a: RoutineBlock, b: RoutineBlock) => a.order - b.order);
       }
     }
-  } catch {}
+  } catch {
+    // localStorage no disponible: se usan los bloques por defecto.
+  }
   return ROUTINE_MAP[routineType];
 };
 
@@ -464,7 +482,7 @@ export const getCurrentRoutineBlockInfo = (now = new Date()): CurrentRoutineBloc
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     const startMinutes = parseTime(block.startTime);
-    let endMinutes = parseTime(block.endTime);
+    const endMinutes = parseTime(block.endTime);
     if (endMinutes <= startMinutes) {
       if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
         activeIndex = i;

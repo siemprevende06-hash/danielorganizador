@@ -383,6 +383,7 @@ export function DailyTimelinePlanner({
           const isBloqueExtra = block.title.toLowerCase().includes('bloque extra') || (block.id && block.id.includes('bloque-extra'));
           const isFullRow = Boolean(isDW || block.isFocusBlock || isBloqueExtra);
           const blockType = identifyBlockType(block.title);
+          const selectedFocus = block.currentFocus || block.defaultFocus || 'none';
 
           const todayMuscleGroups = todayWorkout?.isWorkoutDay
             ? exercises.filter(e => e.day_of_week === todayWorkout.dayName.toLowerCase()).map(e => e.muscle_group || e.name).filter(Boolean)
@@ -395,25 +396,23 @@ export function DailyTimelinePlanner({
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, blockId)}
             >
-              <div className={cn("flex items-start gap-2", isFullRow && "w-full")}>
-                {!isFullRow && (
-                  <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground font-mono pt-2 text-right leading-tight">
-                    {formatTime(block.startTime)}
-                  </div>
-                )}
+              <div className="flex items-start gap-2">
+                <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground font-mono pt-2 text-right leading-tight">
+                  {formatTime(block.startTime)}
+                </div>
 
                 <div
                   data-block-landmark
                   data-block-id={blockId}
                   className={cn(
-                    "border-l-[3px] rounded-lg border transition-all relative",
-                    isFullRow ? "flex-1 w-full" : "flex-1",
+                    "border-l-[3px] rounded-lg border transition-all relative flex-1",
                     colors.border,
-                  completed && "opacity-70",
-                  isCurrent && "ring-2 ring-primary shadow-md",
-                  isDragOver && "ring-2 ring-primary/60 bg-primary/10 scale-[1.01]",
-                  !completed && !isCurrent && isPast && "opacity-40",
-                )}>
+                    completed && "opacity-70",
+                    isCurrent && "ring-2 ring-primary shadow-md",
+                    isDragOver && "ring-2 ring-primary/60 bg-primary/10 scale-[1.01]",
+                    !completed && !isCurrent && isPast && "opacity-40",
+                  )}
+                >
                   <div className={cn(
                     "p-2.5",
                     isFullRow ? "rounded-lg" : "rounded-r-lg",
@@ -442,13 +441,18 @@ export function DailyTimelinePlanner({
                         {/* Deep Work / focus block selector */}
                         {isFullRow && onUpdateFocus && (
                           <Select
-                            value={block.currentFocus || block.defaultFocus || ''}
-                            onValueChange={(v) => onUpdateFocus(blockId, v)}
+                            value={selectedFocus}
+                            onValueChange={(v) =>
+                              onUpdateFocus(blockId, v === selectedFocus ? 'none' : v)
+                            }
                           >
                             <SelectTrigger className="h-5 w-[90px] text-[9px] border-0 bg-muted/50 hover:bg-muted">
                               <SelectValue placeholder="Objetivo" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="none" className="text-xs">
+                                Sin objetivo
+                              </SelectItem>
                               {FOCUS_OPTIONS.map(opt => (
                                 <SelectItem key={opt.value} value={opt.value} className="text-xs">
                                   {opt.label}

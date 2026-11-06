@@ -4,11 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { parseTime } from '@/hooks/useRoutineBlocks';
 import type { RoutineBlock } from '@/hooks/useRoutineBlocks';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { isExtraRoutineBlock, routineBlockCoverId } from '@/lib/routineCovers';
 import {
   Clock, BookOpen, Briefcase, FolderKanban, Dumbbell, Sun, Moon, Coffee,
   Languages, Target, Music, Book, ImagePlus, X, Camera, Loader2, CheckCircle2,
@@ -22,6 +24,7 @@ interface Props {
   onRemoveTask: (taskId: string) => void;
   onToggleTask: (taskId: string) => void;
   onUpdateCover: (blockId: string, url: string) => void;
+  onUpdateFocus?: (blockId: string, focus: string) => void;
   covers?: Record<string, string>;
   isFutureView?: boolean;
 }
@@ -42,6 +45,23 @@ const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; la
   hobbys: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Hobbys' },
   default: { border: 'border-l-muted-foreground/30', bg: 'bg-muted/30', dot: 'bg-muted-foreground', label: 'Otros' },
 };
+
+const FOCUS_OPTIONS = [
+  { value: 'universidad', label: '🎓 Universidad' },
+  { value: 'emprendimiento', label: '💼 Emprendimiento' },
+  { value: 'proyectos', label: '💻 Proyectos' },
+  { value: 'idiomas', label: '🗣️ Idiomas' },
+  { value: 'musica', label: '🎵 Música' },
+  { value: 'lectura', label: '📖 Lectura' },
+  { value: 'ajedrez', label: '♟️ Ajedrez' },
+  { value: 'game', label: '🎲 Game' },
+  { value: 'descanso', label: '🛌 Descanso' },
+  { value: 'ocio', label: '☕ Ocio' },
+  { value: 'entretenimiento', label: '🎮 Entretenimiento' },
+];
+
+const isExtraBlock = isExtraRoutineBlock;
+const getCoverId = routineBlockCoverId;
 
 function formatTime(time: string) {
   const [h, m] = time.split(':').map(Number);
@@ -93,11 +113,12 @@ interface CardProps {
   onRemoveTask: (taskId: string) => void;
   onToggleTask: (taskId: string) => void;
   onUpdateCover: (blockId: string, url: string) => void;
+  onUpdateFocus?: (blockId: string, focus: string) => void;
 }
 
 function RoutineCard({
   block, tasks, completed, isActive, isPast, progress, cover,
-  onToggleBlock, onRemoveTask, onToggleTask, onUpdateCover,
+  onToggleBlock, onRemoveTask, onToggleTask, onUpdateCover, onUpdateFocus,
 }: CardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, uploading } = useImageUpload();
@@ -105,12 +126,15 @@ function RoutineCard({
   const colors = FOCUS_COLORS[focusKey] || FOCUS_COLORS.default;
   const pendingTasks = tasks.filter(t => !t.completed);
   const image = cover;
+  const extra = isExtraBlock(block);
+  const selectedFocus = block.currentFocus || block.defaultFocus || 'none';
+  const coverId = getCoverId(block);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = await uploadImage(file, 'routine-blocks');
-    if (url) onUpdateCover(block.id, url);
+    if (url) onUpdateCover(coverId, url);
     e.target.value = '';
   };
 
@@ -150,7 +174,7 @@ function RoutineCard({
               variant="destructive"
               size="icon"
               className="h-6 w-6"
-              onClick={() => onUpdateCover(block.id, '')}
+              onClick={() => onUpdateCover(coverId, '')}
             >
               <X className="h-3.5 w-3.5" />
             </Button>
@@ -207,6 +231,30 @@ function RoutineCard({
             )}
           </div>
         </div>
+
+        {(block.isFocusBlock || extra) && onUpdateFocus && (
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+              {extra ? 'Tipo' : 'Objetivo'}
+            </span>
+            <Select
+              value={selectedFocus}
+              onValueChange={(v) => onUpdateFocus(block.id, v === selectedFocus ? 'none' : v)}
+            >
+              <SelectTrigger className="h-7 flex-1 text-[10px]">
+                <SelectValue placeholder="Elige el tipo de bloque" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none" className="text-xs">Sin objetivo</SelectItem>
+                {FOCUS_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {isActive && (
           <div className="space-y-1">
@@ -289,6 +337,7 @@ export function RoutineCardsView({
   onRemoveTask,
   onToggleTask,
   onUpdateCover,
+  onUpdateFocus,
   covers = {},
   isFutureView = false,
 }: Props) {
@@ -347,11 +396,12 @@ export function RoutineCardsView({
             isActive={isActive}
             isPast={isPast}
             progress={progress}
-            cover={covers[block.id]}
+            cover={covers[getCoverId(block)] ?? covers[block.id]}
             onToggleBlock={onToggleBlock}
             onRemoveTask={onRemoveTask}
             onToggleTask={onToggleTask}
             onUpdateCover={onUpdateCover}
+            onUpdateFocus={onUpdateFocus}
           />
         );
       })}

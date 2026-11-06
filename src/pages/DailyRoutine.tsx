@@ -13,6 +13,7 @@ import { useRoutineConfig } from "@/hooks/useRoutineConfig";
 import { useDailyPlanData, type TaskItem as PlanTask } from "@/hooks/useDailyPlanData";
 import type { TaskItem as AssignerTask } from "@/components/routine/BlockTaskAssigner";
 import { useSystemCardCovers } from "@/hooks/useSystemCardCovers";
+import { routineBlockCoverId } from "@/lib/routineCovers";
 
 const ROUTINE_STREAK_KEY = "routineStreakData";
 const DEFAULT_WEEK = [false, false, false, false, false, false, false];
@@ -293,10 +294,11 @@ const DailyRoutine = () => {
             dailyTasks={dailyTasks}
             onAssignTasks={handleAssignTasks}
             onToggleTaskComplete={(taskId) => toggleTaskDone(taskId)}
-            coverImage={covers[block.id] || ""}
-            onCoverChange={(blockId, url) => {
-              if (url) saveCover(blockId, url);
-              else removeCover(blockId);
+            coverImage={covers[routineBlockCoverId(block)] || ""}
+            onCoverChange={(_blockId, url) => {
+              const coverId = routineBlockCoverId(block);
+              if (url) saveCover(coverId, url);
+              else removeCover(coverId);
             }}
           />
         ))}

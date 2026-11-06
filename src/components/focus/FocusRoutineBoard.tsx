@@ -193,6 +193,7 @@ export function FocusRoutineBoard({
           onRemoveTask={onRemoveTask}
           onToggleTask={onToggleTask}
           onUpdateCover={onUpdateCover}
+          onUpdateFocus={onUpdateFocus}
           covers={covers}
           isFutureView={isFutureView}
         />

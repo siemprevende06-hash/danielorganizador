@@ -205,7 +205,7 @@ export default function DailyView() {
   const currentBlock = getCurrentBlock();
   const currentProgress = currentBlock ? getBlockProgress(currentBlock) : 0;
 
-  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus: updateRoutineBlockFocus, updateBlockCover, addBlock: addRoutineBlock, removeBlock: removeRoutineBlock, routineInfo } = useRoutineBlocks();
+  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType, setRoutineType, extraMode, setExtraMode, updateBlockFocus: updateRoutineBlockFocus, updateBlockCover, addBlock: addRoutineBlock, removeBlock: removeRoutineBlock, routineInfo } = useRoutineBlocks();
   const { covers, saveCover, removeCover } = useSystemCardCovers();
 
   const dayFocus = usePeriodFocus('day', selectedDate);
@@ -387,7 +387,7 @@ export default function DailyView() {
 
             <TimePeriodSections blocks={planBlocks} tasksByBlock={tasksByBlock || {}} />
 
-            <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
+            <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} routineType={routineType} extraMode={extraMode} onExtraModeChange={setExtraMode} />
 
             <WorkBlocksSection selectedDate={selectedDate} tasks={tasks} />
 
@@ -433,6 +433,7 @@ export default function DailyView() {
                   onToggleTask={toggleTaskDone}
                   onUpdateCover={handleBlockCover}
                   covers={covers}
+                  onUpdateFocus={updateRoutineBlockFocus}
                   isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')}
                 />
               ) : (
@@ -609,7 +610,7 @@ export default function DailyView() {
               })}
             </div>
 
-            <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} />
+            <RoutineConfigBar wakeTime={wakeTime} onWakeChange={setWakeTime} focusBlock={focusBlock} onFocusChange={setFocusBlock} sleepTime={sleepTime} onSleepChange={setSleepTime} lateWake={lateWake} onLateWakeChange={setLateWake} musicInstrument={musicInstrument} onMusicInstrumentChange={setMusicInstrument} presetName={presetName} routineType={routineType} extraMode={extraMode} onExtraModeChange={setExtraMode} />
 
             <CurrentBlockCard currentBlock={currentBlock} blockProgress={currentProgress} tasksByBlock={tasksByBlock || {}} />
 
