@@ -8,6 +8,7 @@ import {
   Sparkles,
   Target,
   Trash2,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,6 +49,7 @@ import {
   type PlanObjectiveRow,
 } from '@/components/planificacion/PlanAreaCard';
 import { PhotoSectionsPanel } from '@/components/vision/PhotoSectionsPanel';
+import { PronosticoSistemasPanel } from '@/components/metas/PronosticoSistemasPanel';
 import {
   PLAN_SYSTEM_META,
   type PlanificationScope,
@@ -87,6 +89,7 @@ const SCOPES: Array<{ id: MetasScope; label: string }> = [
   { id: 'month', label: 'Mes' },
   { id: 'quarter', label: 'Trimestre' },
   { id: 'year', label: 'Año' },
+  { id: 'forecast', label: 'Pronóstico' },
   { id: 'someday', label: 'Algún día' },
   { id: 'vision', label: 'Visión' },
 ];
@@ -165,7 +168,7 @@ export default function MetasSistemas() {
     toggleItem: toggleDream,
   } = useSomedayGoals();
 
-  const range = scope === 'someday' || scope === 'vision'
+  const range = scope === 'someday' || scope === 'vision' || scope === 'forecast'
     ? null
     : goalPeriodRange(scope, anchor);
   const periodGoals = range ? goalsInDateRange(goals, range.startKey, range.endKey) : [];
@@ -173,6 +176,7 @@ export default function MetasSistemas() {
   const completedDreams = dreams.filter(item => item.completed).length;
 
   const openCreate = (systemId: string | null) => {
+    if (scope === 'forecast') return;
     if (scope === 'someday' || scope === 'vision') {
       setDialog({ kind: 'dream', mode: 'create', systemId });
       return;
@@ -225,6 +229,12 @@ export default function MetasSistemas() {
                   <SummaryChip label="Secciones para fotos" tone="primary" />
                   <SummaryChip label="Compartido con Daily → Dirección" tone="green" />
                 </>
+              ) : scope === 'forecast' ? (
+                <>
+                  <SummaryChip label={`${METAS_SYSTEMS.length} sistemas`} tone="primary" />
+                  <SummaryChip label="Pronóstico de resultados" tone="green" />
+                  <SummaryChip label="Se recalcula solo" tone="amber" />
+                </>
               ) : scope === 'someday' ? (
                 <>
                   <SummaryChip label={`${dreams.length} sueños`} tone="primary" />
@@ -249,9 +259,11 @@ export default function MetasSistemas() {
             <p className="text-[11px] text-muted-foreground">
               {scope === 'vision'
                 ? 'El mismo bloque de fotos que Daily → Dirección.'
-                : scope === 'someday'
-                  ? 'Sueños sin fecha, compartidos con la página Algún Día.'
-                  : 'Cada meta aparece solo en su fecha exacta.'}
+                : scope === 'forecast'
+                  ? 'Fecha estimada, rango y estado frente a la meta de cada sistema.'
+                  : scope === 'someday'
+                    ? 'Sueños sin fecha, compartidos con la página Algún Día.'
+                    : 'Cada meta aparece solo en su fecha exacta.'}
             </p>
           </div>
         </header>
@@ -278,6 +290,8 @@ export default function MetasSistemas() {
           />
         ) : scope === 'vision' ? (
           <PhotoSectionsPanel />
+        ) : scope === 'forecast' ? (
+          <PronosticoSistemasPanel goals={goals} />
         ) : (
           <DatedMetasView
             scope={scope}
@@ -460,6 +474,23 @@ function PeriodToolbar({
         </div>
         <span className="text-[10px] text-muted-foreground">
           Mismo contenido que Daily → Dirección
+        </span>
+      </div>
+    );
+  }
+
+  if (scope === 'forecast') {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/50 bg-white/70 px-3 py-2 shadow-sm dark:bg-zinc-950/60">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp className="h-4 w-4 text-primary" />
+          <span className="text-xs font-bold">Pronóstico</span>
+          <span className="text-[10px] text-muted-foreground">
+            Trimestre actual por defecto · cambia a año dentro del panel
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          Basado en resultados reales, no solo en minutos
         </span>
       </div>
     );
