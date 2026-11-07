@@ -18,6 +18,7 @@ export type TodayStripItem =
       kind: "cancion";
       id: string;
       title: string;
+      cover?: string | null;
       instrument: string;
       practiceMinutes?: number | null;
       status: string;
@@ -26,6 +27,7 @@ export type TodayStripItem =
       kind: "materia";
       subjectId: string;
       name: string;
+      cover?: string | null;
       doneTasks: number;
       totalTasks: number;
       blockCount: number;
@@ -34,11 +36,19 @@ export type TodayStripItem =
       kind: "emprendimiento";
       id: string;
       name: string;
+      cover?: string | null;
       doneTasks: number;
       totalTasks: number;
       blockCount: number;
     }
-  | { kind: "proyecto"; id: string; name: string; doneTasks: number; totalTasks: number };
+  | {
+      kind: "proyecto";
+      id: string;
+      name: string;
+      cover?: string | null;
+      doneTasks: number;
+      totalTasks: number;
+    };
 
 export interface TodayTaskItem {
   id: string;
@@ -100,7 +110,7 @@ export function useTodayFocusItems(): TodayFocusData {
     const rng = isTodayRange(todayISO);
 
     try {
-      const [booksRes, songsRes, uniTasksRes, subjectsRes, empTasksRes, empsRes, generalRes, projectsRes] =
+      const [booksRes, songsRes, uniTasksRes, subjectsRes, empTasksRes, empsRes, generalRes, projectsRes, subjectCoversRes] =
         await Promise.all([
           slot?.books?.length
             ? supabase
@@ -116,11 +126,11 @@ export function useTodayFocusItems(): TodayFocusData {
           slot?.songs?.length
             ? supabase
                 .from("music_repertoire")
-                .select("id, title, instrument, practice_minutes, status")
+                .select("id, title, instrument, practice_minutes, status, cover_image_url")
                 .in("id", slot.songs)
             : supabase
                 .from("music_repertoire")
-                .select("id, title, instrument, practice_minutes, status")
+                .select("id, title, instrument, practice_minutes, status, cover_image_url")
                 .eq("status", "learning")
                 .limit(1),
           supabase
@@ -136,13 +146,14 @@ export function useTodayFocusItems(): TodayFocusData {
             .select("id, title, completed, entrepreneurship_id, due_date")
             .gte("due_date", rng.gte)
             .lte("due_date", rng.lte),
-          supabase.from("entrepreneurships").select("id, name"),
+          supabase.from("entrepreneurships").select("id, name, cover_image"),
           supabase
             .from("tasks")
             .select("id, title, completed, source, area_id, due_date")
             .gte("due_date", rng.gte)
             .lte("due_date", rng.lte),
-          supabase.from("projects").select("id, title, tasks"),
+          supabase.from("projects").select("id, title, tasks, cover_image"),
+          (supabase as any).from("area_covers").select("id, url").eq("type", "sub"),
         ]);
 
       const next: Record<string, TodayStripItem> = {};
@@ -169,6 +180,7 @@ export function useTodayFocusItems(): TodayFocusData {
           kind: "cancion",
           id: cancion.id,
           title: cancion.title,
+          cover: cancion.cover_image_url,
           instrument: cancion.instrument || "",
           practiceMinutes: cancion.practice_minutes ?? null,
           status: cancion.status || "learning",
@@ -188,6 +200,9 @@ export function useTodayFocusItems(): TodayFocusData {
       const subjName = new Map<string, string>(
         ((subjectsRes?.data as any[]) || []).map(s => [s.id, s.name])
       );
+      const subjCover = new Map<string, string>(
+        ((subjectCoversRes?.data as any[]) || []).map(c => [c.id, c.url])
+      );
       const firstSubject = [...bySubject.entries()].sort((a, b) => b[1].total - a[1].total)[0];
       if (firstSubject) {
         const [sid, st] = firstSubject;
@@ -195,6 +210,7 @@ export function useTodayFocusItems(): TodayFocusData {
           kind: "materia",
           subjectId: sid,
           name: subjName.get(sid) ?? "Asignatura",
+          cover: subjCover.get(sid) ?? null,
           doneTasks: st.done,
           totalTasks: st.total,
           blockCount: blockCount("universidad"),
@@ -205,6 +221,9 @@ export function useTodayFocusItems(): TodayFocusData {
       const empRows = (empTasksRes?.data as any[]) || [];
       const empName = new Map<string, string>(
         ((empsRes?.data as any[]) || []).map(e => [e.id, e.name])
+      );
+      const empCover = new Map<string, string | null>(
+        ((empsRes?.data as any[]) || []).map(e => [e.id, e.cover_image ?? null])
       );
       const empById = new Map<string, { done: number; total: number }>();
       for (const t of empRows) {
@@ -221,6 +240,7 @@ export function useTodayFocusItems(): TodayFocusData {
           kind: "emprendimiento",
           id: eid,
           name: empName.get(eid) ?? "Emprendimiento",
+          cover: empCover.get(eid) ?? null,
           doneTasks: et.done,
           totalTasks: et.total,
           blockCount: blockCount("emprendimiento"),
@@ -243,6 +263,7 @@ export function useTodayFocusItems(): TodayFocusData {
           return {
             id: p.id,
             name: p.title,
+            cover: p.cover_image ?? null,
             doneTasks: weekTasks.filter(t => t.completed).length,
             totalTasks: weekTasks.length,
           };

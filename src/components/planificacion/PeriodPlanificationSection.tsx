@@ -239,28 +239,28 @@ function songTag(plan?: SongPlanTypeLite) {
   return 'Aprender';
 }
 
-/** Nombres de emprendimientos para el foco semanal por área. */
-function useEntrepreneurshipNames(ids: string[]) {
-  const [names, setNames] = useState<Record<string, string>>({});
+/** Nombres y portadas de emprendimientos para el foco semanal por área. */
+function useEntrepreneurshipMeta(ids: string[]) {
+  const [meta, setMeta] = useState<Record<string, { name: string; cover: string | null }>>({});
   const key = ids.join(',');
 
   useEffect(() => {
     let alive = true;
     if (ids.length === 0) {
-      setNames({});
+      setMeta({});
       return () => { alive = false; };
     }
     (async () => {
-      const { data } = await supabase.from('entrepreneurships').select('id, name').in('id', ids);
+      const { data } = await supabase.from('entrepreneurships').select('id, name, cover_image').in('id', ids);
       if (!alive) return;
-      const rows = (data || []) as { id: string; name: string }[];
-      setNames(Object.fromEntries(rows.map(row => [row.id, row.name])));
+      const rows = (data || []) as { id: string; name: string; cover_image?: string | null }[];
+      setMeta(Object.fromEntries(rows.map(row => [row.id, { name: row.name, cover: row.cover_image ?? null }])));
     })();
 
     return () => { alive = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return names;
+  return meta;
 }
 
 /* ------------------------------------------------------------------ */
@@ -733,13 +733,14 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       title: subject.name,
       subtitle: topicNames.slice(0, 3).join(' · ') || undefined,
       meta: topicNames.length > 0 ? `${topicNames.length} temas` : undefined,
+      cover: subject.cover,
       emoji: '🎓',
     }];
   });
 
   const projectRows: PlanObjectiveRow[] = (planData.projects || []).flatMap(id => {
     const project = projectsById.get(id);
-    return project ? [{ id, title: project.name, emoji: '📦' }] : [];
+    return project ? [{ id, title: project.name, cover: project.cover_image, emoji: '📦' }] : [];
   });
 
   const eloGoal = Number(planData.chess?.elo_goal) || 0;
@@ -892,7 +893,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const metrics = usePlanSystemMetrics('week', weekStart);
   const { goals: systemGoals, toggleGoal } = useSystemGoals();
   const entrepreneurshipIds = planData.areaFocus?.emprendimiento || [];
-  const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
+  const entrepreneurshipMeta = useEntrepreneurshipMeta(entrepreneurshipIds);
 
   const weekDist = monthPlan.week_distribution?.[weekKey];
 
@@ -986,12 +987,12 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const focusRows = (
     areaId: string,
     ids: string[],
-    resolve: (id: string) => string | undefined,
+    resolve: (id: string) => { title: string; cover?: string | null } | undefined,
     emoji: string,
   ): PlanObjectiveRow[] => {
     const rows: PlanObjectiveRow[] = ids.flatMap(id => {
-      const title = resolve(id);
-      return title ? [{ id: `${areaId}-focus-${id}`, title, emoji }] : [];
+      const info = resolve(id);
+      return info ? [{ id: `${areaId}-focus-${id}`, title: info.title, cover: info.cover, emoji }] : [];
     });
     const rawResult = planData.areaResults?.[areaId];
     if (rawResult) {
@@ -1023,25 +1024,34 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     return rows;
   };
 
-  const subjectsById = useMemo(() => new Map(subjects.map(s => [s.id, s.name])), [subjects]);
-  const projectsById = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
+  const subjectsById = useMemo(() => new Map(subjects.map(s => [s.id, s])), [subjects]);
+  const projectsById = useMemo(() => new Map(projects.map(p => [p.id, p])), [projects]);
 
   const universityRows = focusRows(
     'universidad',
     planData.areaFocus?.universidad || [],
-    id => subjectsById.get(id),
+    id => {
+      const subject = subjectsById.get(id);
+      return subject ? { title: subject.name, cover: subject.cover } : undefined;
+    },
     '🎓',
   );
   const entrepreneurshipNamesRows = focusRows(
     'emprendimiento',
     entrepreneurshipIds,
-    id => entrepreneurshipNames[id],
+    id => {
+      const item = entrepreneurshipMeta[id];
+      return item ? { title: item.name, cover: item.cover } : undefined;
+    },
     '🚀',
   );
   const projectRows = focusRows(
     'proyectos',
     planData.areaFocus?.proyectos || [],
-    id => projectsById.get(id),
+    id => {
+      const project = projectsById.get(id);
+      return project ? { title: project.name, cover: project.cover_image } : undefined;
+    },
     '📦',
   );
 
@@ -1301,15 +1311,15 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
 
   const booksById = useMemo(() => new Map(books.map(b => [b.id, b])), [books]);
   const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
-  const subjectsById = useMemo(() => new Map(subjects.map(s => [s.id, s.name])), [subjects]);
-  const projectsById = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
+  const subjectsById = useMemo(() => new Map(subjects.map(s => [s.id, s])), [subjects]);
+  const projectsById = useMemo(() => new Map(projects.map(p => [p.id, p])), [projects]);
   const outcomesById = useMemo(
     () => new Map((weekPlan.outcomes || []).map(o => [o.id, o])),
     [weekPlan.outcomes],
   );
 
   const entrepreneurshipIds = weekPlan.areaFocus?.emprendimiento || [];
-  const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
+  const entrepreneurshipMeta = useEntrepreneurshipMeta(entrepreneurshipIds);
 
   const weekBookIds = useMemo(
     () => effectiveWeekBookIds(weekDist?.books, weekPlan.weekBookId, monthPlan.books?.selected || [], booksById),
@@ -1375,12 +1385,12 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const focusRows = (
     areaId: string,
     ids: string[],
-    resolve: (id: string) => string | undefined,
+    resolve: (id: string) => { title: string; cover?: string | null } | undefined,
     emoji: string,
   ): PlanObjectiveRow[] => {
     const rows: PlanObjectiveRow[] = ids.flatMap(id => {
-      const title = resolve(id);
-      return title ? [{ id: `${areaId}-focus-${id}`, title, emoji }] : [];
+      const info = resolve(id);
+      return info ? [{ id: `${areaId}-focus-${id}`, title: info.title, cover: info.cover, emoji }] : [];
     });
     const rawResult = weekPlan.areaResults?.[areaId];
     if (rawResult) {
@@ -1415,19 +1425,28 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const subjectRows = focusRows(
     'universidad',
     weekPlan.areaFocus?.universidad || [],
-    id => subjectsById.get(id),
+    id => {
+      const subject = subjectsById.get(id);
+      return subject ? { title: subject.name, cover: subject.cover } : undefined;
+    },
     '🎓',
   );
   const entrepreneurshipRows = focusRows(
     'emprendimiento',
     entrepreneurshipIds,
-    id => entrepreneurshipNames[id],
+    id => {
+      const item = entrepreneurshipMeta[id];
+      return item ? { title: item.name, cover: item.cover } : undefined;
+    },
     '🚀',
   );
   const projectRows = focusRows(
     'proyectos',
     weekPlan.areaFocus?.proyectos || [],
-    id => projectsById.get(id),
+    id => {
+      const project = projectsById.get(id);
+      return project ? { title: project.name, cover: project.cover_image } : undefined;
+    },
     '📦',
   );
 

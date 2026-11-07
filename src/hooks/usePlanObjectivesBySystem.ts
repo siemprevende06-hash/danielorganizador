@@ -85,28 +85,28 @@ function sumGoals(
   }, 0);
 }
 
-/** Nombres de emprendimientos para el foco semanal por área. */
-function useEntrepreneurshipNames(ids: string[]) {
-  const [names, setNames] = useState<Record<string, string>>({});
+/** Nombres y portadas de emprendimientos para el foco semanal por área. */
+function useEntrepreneurshipMeta(ids: string[]) {
+  const [meta, setMeta] = useState<Record<string, { name: string; cover: string | null }>>({});
   const key = ids.join(',');
 
   useEffect(() => {
     let alive = true;
     if (ids.length === 0) {
-      setNames({});
+      setMeta({});
       return () => { alive = false; };
     }
     (async () => {
-      const { data } = await supabase.from('entrepreneurships').select('id, name').in('id', ids);
+      const { data } = await supabase.from('entrepreneurships').select('id, name, cover_image').in('id', ids);
       if (!alive) return;
-      const rows = (data || []) as { id: string; name: string }[];
-      setNames(Object.fromEntries(rows.map(row => [row.id, row.name])));
+      const rows = (data || []) as { id: string; name: string; cover_image?: string | null }[];
+      setMeta(Object.fromEntries(rows.map(row => [row.id, { name: row.name, cover: row.cover_image ?? null }])));
     })();
 
     return () => { alive = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return names;
+  return meta;
 }
 
 /* ------------------------------------------------------------------ */
@@ -134,13 +134,13 @@ export function useDayWeekSystemObjectives(
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
 
   const entrepreneurshipIds = planData.areaFocus?.emprendimiento || [];
-  const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
+  const entrepreneurshipMeta = useEntrepreneurshipMeta(entrepreneurshipIds);
   const weekDist = monthPlan.week_distribution?.[weekKey];
 
   const booksById = useMemo(() => new Map(books.map(book => [book.id, book])), [books]);
   const songsById = useMemo(() => new Map(songs.map(song => [song.id, song])), [songs]);
-  const subjectsById = useMemo(() => new Map(subjects.map(subject => [subject.id, subject.name])), [subjects]);
-  const projectsById = useMemo(() => new Map(projects.map(project => [project.id, project.name])), [projects]);
+  const subjectsById = useMemo(() => new Map(subjects.map(subject => [subject.id, subject])), [subjects]);
+  const projectsById = useMemo(() => new Map(projects.map(project => [project.id, project])), [projects]);
   const outcomesById = useMemo(
     () => new Map((planData.outcomes || []).map(outcome => [outcome.id, outcome])),
     [planData.outcomes],
@@ -214,12 +214,12 @@ export function useDayWeekSystemObjectives(
   const focusRows = (
     areaId: string,
     ids: string[],
-    resolve: (id: string) => string | undefined,
+    resolve: (id: string) => { title: string; cover?: string | null } | undefined,
     emoji: string,
   ): PlanObjectiveRow[] => {
     const rows: PlanObjectiveRow[] = ids.flatMap(id => {
-      const title = resolve(id);
-      return title ? [{ id: `${areaId}-focus-${id}`, title, emoji }] : [];
+      const info = resolve(id);
+      return info ? [{ id: `${areaId}-focus-${id}`, title: info.title, cover: info.cover, emoji }] : [];
     });
     const rawResult = planData.areaResults?.[areaId];
     if (rawResult) {
@@ -253,19 +253,28 @@ export function useDayWeekSystemObjectives(
   const universityRows = focusRows(
     'universidad',
     planData.areaFocus?.universidad || [],
-    id => subjectsById.get(id),
+    id => {
+      const subject = subjectsById.get(id);
+      return subject ? { title: subject.name, cover: subject.cover } : undefined;
+    },
     '🎓',
   );
   const entrepreneurshipRows = focusRows(
     'emprendimiento',
     entrepreneurshipIds,
-    id => entrepreneurshipNames[id],
+    id => {
+      const item = entrepreneurshipMeta[id];
+      return item ? { title: item.name, cover: item.cover } : undefined;
+    },
     '🚀',
   );
   const projectRows = focusRows(
     'proyectos',
     planData.areaFocus?.proyectos || [],
-    id => projectsById.get(id),
+    id => {
+      const project = projectsById.get(id);
+      return project ? { title: project.name, cover: project.cover_image } : undefined;
+    },
     '📦',
   );
 
@@ -420,13 +429,14 @@ export function useMonthSystemObjectives(anchorDate: Date): ExistingSystemObject
       title: subject.name,
       subtitle: topicNames.slice(0, 3).join(' · ') || undefined,
       meta: topicNames.length > 0 ? `${topicNames.length} temas` : undefined,
+      cover: subject.cover,
       emoji: '🎓',
     }];
   });
 
   const projectRows: PlanObjectiveRow[] = (planData.projects || []).flatMap(id => {
     const project = projectsById.get(id);
-    return project ? [{ id, title: project.name, emoji: '📦' }] : [];
+    return project ? [{ id, title: project.name, cover: project.cover_image, emoji: '📦' }] : [];
   });
 
   const eloGoal = Number(planData.chess?.elo_goal) || 0;
@@ -493,10 +503,10 @@ export function useMonthSystemObjectives(anchorDate: Date): ExistingSystemObject
 function buildQuarterRows(
   planData: TrimestralPlanData,
   books: { id: string; title: string; author: string | null; cover_image_url: string | null }[],
-  songs: { id: string; title: string; artist: string | null; instrument: string }[],
-  projects: { id: string; name: string }[],
-  subjects: { id: string; name: string }[],
-  entrepreneurships: { id: string; name: string }[],
+  songs: { id: string; title: string; artist: string | null; instrument: string; cover_image_url?: string | null }[],
+  projects: { id: string; name: string; cover_image?: string | null }[],
+  subjects: { id: string; name: string; cover?: string | null }[],
+  entrepreneurships: { id: string; name: string; cover_image?: string | null }[],
   tags?: { books?: string; songs?: string; subjects?: string; projects?: string; entrepreneurships?: string; languages?: string; game?: string; chess?: string },
 ): Record<string, PlanObjectiveRow[]> {
   const booksById = new Map(books.map(book => [book.id, book]));
@@ -537,6 +547,7 @@ function buildQuarterRows(
       id,
       title: song.title,
       subtitle: [song.artist, song.instrument].filter(Boolean).join(' · ') || undefined,
+      cover: song.cover_image_url,
       emoji: '🎹',
       tag: tags?.songs,
     }] : [];
@@ -550,6 +561,7 @@ function buildQuarterRows(
       title: subject.name,
       subtitle: (entry.topics || []).slice(0, 3).join(' · ') || undefined,
       meta: entry.topics?.length ? `${entry.topics.length} temas` : undefined,
+      cover: subject.cover,
       emoji: '🎓',
       tag: tags?.subjects,
     }];
@@ -557,12 +569,24 @@ function buildQuarterRows(
 
   const projectRows: PlanObjectiveRow[] = projectIds.flatMap(id => {
     const project = projectsById.get(id);
-    return project ? [{ id, title: project.name, emoji: '📦', tag: tags?.projects }] : [];
+    return project ? [{
+      id,
+      title: project.name,
+      cover: project.cover_image,
+      emoji: '📦',
+      tag: tags?.projects,
+    }] : [];
   });
 
   const entrepreneurshipRows: PlanObjectiveRow[] = entrepreneurshipIds.flatMap(id => {
     const item = entrepreneurshipById.get(id);
-    return item ? [{ id, title: item.name, emoji: '🚀', tag: tags?.entrepreneurships }] : [];
+    return item ? [{
+      id,
+      title: item.name,
+      cover: item.cover_image,
+      emoji: '🚀',
+      tag: tags?.entrepreneurships,
+    }] : [];
   });
 
   const languageQuarter = readLanguageQuarterPlans(planData.languages);
@@ -700,10 +724,14 @@ export function useYearSystemObjectives(anchorDate: Date): ExistingSystemObjecti
   }, [year]);
 
   const entrepreneurshipIds = unique(plans.flatMap(plan => Object.values(plan.monthEntrepreneurships || {}).flat()));
-  const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
+  const entrepreneurshipMeta = useEntrepreneurshipMeta(entrepreneurshipIds);
   const entrepreneurships = useMemo(
-    () => Object.entries(entrepreneurshipNames).map(([id, name]) => ({ id, name })),
-    [entrepreneurshipNames],
+    () => Object.entries(entrepreneurshipMeta).map(([id, meta]) => ({
+      id,
+      name: meta.name,
+      cover_image: meta.cover,
+    })),
+    [entrepreneurshipMeta],
   );
 
   const itemsById = useMemo(() => {

@@ -421,10 +421,10 @@ export default function HabitSystemCard({
         {/* ─── Hoy me toca: ítem planificado del día ─── */}
         {today && (
           <div className="flex items-center gap-2 rounded-lg bg-foreground/5 px-2 py-1.5">
-            {today.kind === "libro" && today.cover ? (
+            {today.cover ? (
               <img
                 src={today.cover}
-                alt={today.title}
+                alt={todayTitle}
                 className="h-8 w-6 rounded object-cover shrink-0 border border-border/40"
               />
             ) : (

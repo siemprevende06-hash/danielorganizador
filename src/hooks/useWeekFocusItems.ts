@@ -18,11 +18,13 @@ interface SongRow {
   instrument: string | null;
   practice_minutes: number | null;
   status: string | null;
+  cover_image_url?: string | null;
 }
 
 interface NamedRow {
   id: string;
   name: string;
+  cover_image?: string | null;
 }
 
 interface TaskRow {
@@ -40,6 +42,7 @@ interface ProjectRow {
   id: string;
   title: string;
   tasks: unknown;
+  cover_image?: string | null;
 }
 
 export interface WeekFocusData {
@@ -73,14 +76,14 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
   const load = useCallback(async () => {
     const rng = { gte: `${startKey}T00:00:00`, lte: `${endKey}T23:59:59` };
     try {
-      const [booksRes, songsRes, uniTasksRes, subjectsRes, empTasksRes, empsRes, projectsRes] =
+      const [booksRes, songsRes, uniTasksRes, subjectsRes, empTasksRes, empsRes, projectsRes, subjectCoversRes] =
         await Promise.all([
           supabase
             .from("reading_library")
             .select("id, title, cover_image_url, pages_read, pages_total, status"),
           supabase
             .from("music_repertoire")
-            .select("id, title, instrument, practice_minutes, status"),
+            .select("id, title, instrument, practice_minutes, status, cover_image_url"),
           supabase
             .from("tasks")
             .select("id, completed, task_type, source_id, due_date")
@@ -94,8 +97,9 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
             .select("id, completed, entrepreneurship_id, due_date")
             .gte("due_date", rng.gte)
             .lte("due_date", rng.lte),
-          supabase.from("entrepreneurships").select("id, name"),
-          supabase.from("projects").select("id, title, tasks"),
+          supabase.from("entrepreneurships").select("id, name, cover_image"),
+          supabase.from("projects").select("id, title, tasks, cover_image"),
+          (supabase as any).from("area_covers").select("id, url").eq("type", "sub"),
         ]);
 
       const next: Record<string, TodayStripItem> = {};
@@ -122,6 +126,7 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
           kind: "cancion",
           id: cancion.id,
           title: cancion.title,
+          cover: cancion.cover_image_url,
           instrument: cancion.instrument ?? "",
           practiceMinutes: cancion.practice_minutes ?? 0,
           status: cancion.status ?? "learning",
@@ -141,6 +146,9 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
       const subjName = new Map<string, string>(
         ((subjectsRes?.data ?? []) as unknown as NamedRow[]).map(s => [s.id, s.name])
       );
+      const subjCover = new Map<string, string>(
+        ((subjectCoversRes?.data ?? []) as unknown as { id: string; url: string }[]).map(c => [c.id, c.url])
+      );
       const firstSubject = [...uniById.entries()].sort((a, b) => b[1].total - a[1].total)[0];
       if (firstSubject) {
         const [sid, st] = firstSubject;
@@ -148,6 +156,7 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
           kind: "materia",
           subjectId: sid,
           name: subjName.get(sid) ?? "Asignatura",
+          cover: subjCover.get(sid) ?? null,
           doneTasks: st.done,
           totalTasks: st.total,
           blockCount: blockCount("universidad"),
@@ -158,6 +167,9 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
       const empRows = (empTasksRes?.data ?? []) as unknown as TaskRow[];
       const empName = new Map<string, string>(
         ((empsRes?.data ?? []) as unknown as NamedRow[]).map(e => [e.id, e.name])
+      );
+      const empCover = new Map<string, string | null>(
+        ((empsRes?.data ?? []) as unknown as NamedRow[]).map(e => [e.id, e.cover_image ?? null])
       );
       const empById = new Map<string, { done: number; total: number }>();
       for (const t of empRows) {
@@ -174,6 +186,7 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
           kind: "emprendimiento",
           id: eid,
           name: empName.get(eid) ?? "Emprendimiento",
+          cover: empCover.get(eid) ?? null,
           doneTasks: et.done,
           totalTasks: et.total,
           blockCount: blockCount("emprendimiento"),
@@ -182,7 +195,7 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
 
       // ── Proyectos: tareas con vencimiento dentro de la semana ──
       const projects = (projectsRes?.data ?? []) as unknown as ProjectRow[];
-      let bestProject: { id: string; name: string; doneTasks: number; totalTasks: number } | null = null;
+      let bestProject: { id: string; name: string; cover: string | null; doneTasks: number; totalTasks: number } | null = null;
       for (const p of projects) {
         const tasks = Array.isArray(p.tasks) ? (p.tasks as ProjectTask[]) : [];
         let done = 0;
@@ -194,7 +207,13 @@ export function useWeekFocusItems(startKey: string, endKey: string): WeekFocusDa
           if (t?.completed) done++;
         }
         if (total > 0 && (!bestProject || total > bestProject.totalTasks)) {
-          bestProject = { id: p.id, name: p.title, doneTasks: done, totalTasks: total };
+          bestProject = {
+            id: p.id,
+            name: p.title,
+            cover: p.cover_image ?? null,
+            doneTasks: done,
+            totalTasks: total,
+          };
         }
       }
       if (bestProject) {

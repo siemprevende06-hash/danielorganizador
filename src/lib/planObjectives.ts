@@ -9,7 +9,7 @@ export interface PlanObjective {
   subtitle?: string;
   tag?: string;
   status?: string;
-  /** Portada pequeña (libros y canciones cuando tienen). */
+  /** Portada pequeña del objetivo (libros, canciones, materias, proyectos…). */
   cover?: string | null;
   /** Libro que se está leyendo actualmente: se enmarca con borde azul. */
   isCurrent?: boolean;
@@ -22,8 +22,8 @@ export interface PlanObjective {
 export interface ResolvedPlanItems {
   books: { id: string; title: string; author?: string | null; status?: string; cover_image_url?: string | null; start_date?: string | null; finish_date?: string | null }[];
   songs: { id: string; title: string; artist?: string | null; instrument?: string; cover_image_url?: string | null }[];
-  projects: { id: string; name: string }[];
-  subjects: { id: string; name: string }[];
+  projects: { id: string; name: string; cover_image?: string | null }[];
+  subjects: { id: string; name: string; cover?: string | null }[];
 }
 
 const SONG_PLAN_LABEL: Record<SongPlanType, string> = {
@@ -109,14 +109,24 @@ export function buildHabitPlanObjectives(
   for (const s of planData.subjects) {
     const info = subjectMap.get(s.subject_id);
     if (!info) continue;
-    out.universidad.push({ kind: "materia", id: s.subject_id, title: info.name });
+    out.universidad.push({
+      kind: "materia",
+      id: s.subject_id,
+      title: info.name,
+      cover: info.cover ?? null,
+    });
   }
 
   const projectMap = new Map(resolved.projects.map(p => [p.id, p]));
   for (const id of planData.projects) {
     const p = projectMap.get(id);
     if (!p) continue;
-    out.proyectos.push({ kind: "proyecto", id, title: p.name });
+    out.proyectos.push({
+      kind: "proyecto",
+      id,
+      title: p.name,
+      cover: p.cover_image ?? null,
+    });
   }
 
   // --- Ajedrez: meta del mes o tramo de la semana ---

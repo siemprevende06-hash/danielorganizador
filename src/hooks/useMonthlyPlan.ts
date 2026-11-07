@@ -92,8 +92,8 @@ const STORAGE_PREFIX = 'monthly_plan_';
 
 interface Book { id: string; title: string; author: string | null; status: string; cover_image_url: string | null; start_date: string | null; finish_date: string | null; }
 interface Song { id: string; title: string; artist: string | null; instrument: string; status: string; learned_at: string | null; mastered_at: string | null; recorded_at: string | null; duration_seconds: number | null; cover_image_url: string | null; }
-interface Project { id: string; name: string; tasks: any[]; }
-interface Subject { id: string; name: string; color: string | null; }
+interface Project { id: string; name: string; tasks: any[]; cover_image?: string | null; }
+interface Subject { id: string; name: string; color: string | null; cover?: string | null; }
 interface Topic { id: string; title: string; subject_id: string | null; }
 interface CalendarEvent { id: string; title: string; event_date: string; category: string; }
 
@@ -175,7 +175,7 @@ export function useMonthlyPlan(month: Date) {
     try {
       const mStart = format(startOfMonth(month), 'yyyy-MM-dd');
       const mEnd = format(endOfMonth(month), 'yyyy-MM-dd');
-      const [booksRes, songsRes, eventsRes, sessionsRes] = await Promise.all([
+      const [booksRes, songsRes, eventsRes, sessionsRes, subjectCoversRes] = await Promise.all([
         supabase.from('reading_library').select('id, title, author, status, cover_image_url, start_date, finish_date, created_at').order('title'),
         supabase.from('music_repertoire').select('id, title, artist, instrument, status, learned_at, mastered_at, recorded_at, duration_seconds, cover_image_url').order('title'),
         supabase.from('calendar_events').select('*')
@@ -183,6 +183,7 @@ export function useMonthlyPlan(month: Date) {
           .lte('event_date', mEnd)
           .order('event_date'),
         supabase.from('reading_sessions').select('book_id, session_date').order('session_date', { ascending: true }),
+        (supabase as any).from('area_covers').select('id, url').eq('type', 'sub'),
       ]);
       if (booksRes.error) throw booksRes.error;
       if (songsRes.error) throw songsRes.error;
@@ -211,10 +212,15 @@ export function useMonthlyPlan(month: Date) {
       try {
         const { data: projRows } = await supabase
           .from('projects')
-          .select('id, title')
+          .select('id, title, cover_image')
           .order('created_at', { ascending: true });
         if (projRows && projRows.length > 0) {
-          setProjects(projRows.map((p: { id: string; title: string }) => ({ id: p.id, name: p.title, tasks: [] })));
+          setProjects(projRows.map((p: { id: string; title: string; cover_image?: string | null }) => ({
+            id: p.id,
+            name: p.title,
+            tasks: [],
+            cover_image: p.cover_image ?? null,
+          })));
         }
       } catch (e) { console.error('Error loading projects:', e); }
 
@@ -224,7 +230,15 @@ export function useMonthlyPlan(month: Date) {
           .select('id, name')
           .order('name');
         if (subjRows && subjRows.length > 0) {
-          setSubjects(subjRows.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name, color: null })));
+          const subjectCovers = new Map<string, string>(
+            ((subjectCoversRes?.data || []) as { id: string; url: string }[]).map(c => [c.id, c.url])
+          );
+          setSubjects(subjRows.map((s: { id: string; name: string }) => ({
+            id: s.id,
+            name: s.name,
+            color: null,
+            cover: subjectCovers.get(s.id) ?? null,
+          })));
         }
       } catch (e) { console.error('Error loading subjects:', e); }
 

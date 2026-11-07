@@ -75,9 +75,9 @@ const defaultTrimestralData: TrimestralPlanData = {
 };
 
 interface Book { id: string; title: string; author: string | null; cover_image_url: string | null; }
-interface Song { id: string; title: string; artist: string | null; instrument: string; }
-interface Project { id: string; name: string; }
-interface Subject { id: string; name: string; }
+interface Song { id: string; title: string; artist: string | null; instrument: string; cover_image_url?: string | null; }
+interface Project { id: string; name: string; cover_image?: string | null; }
+interface Subject { id: string; name: string; cover?: string | null; }
 interface CalendarEvent { id: string; title: string; event_date: string; category: string; }
 interface TaskItem { id: string; title: string; source: string; due_date: string; completed: boolean; priority?: string; }
 interface MonthlyTimeData { totalMinutes: number; byArea: Record<string, number>; }
@@ -202,9 +202,9 @@ export function useTrimestralPlan(quarter: number, year: number) {
       const quarterStart = new Date(year, qStartMonth, 1);
       const quarterEnd = new Date(year, qStartMonth + 3, 0);
 
-      const [booksRes, songsRes, tasksRes, eventsRes] = await Promise.all([
+      const [booksRes, songsRes, tasksRes, eventsRes, subjectCoversRes] = await Promise.all([
         supabase.from('reading_library').select('id, title, author, cover_image_url').order('title'),
-        supabase.from('music_repertoire').select('id, title, artist, instrument').order('title'),
+        supabase.from('music_repertoire').select('id, title, artist, instrument, cover_image_url').order('title'),
         supabase.from('tasks').select('id, title, source, due_date, completed, priority')
           .gte('due_date', format(quarterStart, 'yyyy-MM-dd'))
           .lte('due_date', format(quarterEnd, 'yyyy-MM-dd')),
@@ -212,9 +212,10 @@ export function useTrimestralPlan(quarter: number, year: number) {
           .gte('event_date', format(quarterStart, 'yyyy-MM-dd'))
           .lte('event_date', format(quarterEnd, 'yyyy-MM-dd'))
           .order('event_date'),
+        (supabase as any).from('area_covers').select('id, url').eq('type', 'sub'),
       ]);
       if (booksRes.data) setBooks(booksRes.data);
-      if (songsRes.data) setSongs(songsRes.data);
+      if (songsRes.data) setSongs(songsRes.data as unknown as Song[]);
       if (tasksRes.data) setQuarterTasks(tasksRes.data);
       if (eventsRes.data) setEvents(eventsRes.data);
 
@@ -247,10 +248,14 @@ export function useTrimestralPlan(quarter: number, year: number) {
       try {
         const { data: projRows } = await supabase
           .from('projects')
-          .select('id, title')
+          .select('id, title, cover_image')
           .order('created_at', { ascending: true });
         if (projRows && projRows.length > 0) {
-          setProjects(projRows.map((p: any) => ({ id: p.id, name: p.title })));
+          setProjects(projRows.map((p: any) => ({
+            id: p.id,
+            name: p.title,
+            cover_image: p.cover_image ?? null,
+          })));
         }
       } catch (e) { console.error('Error loading projects:', e); }
 
@@ -261,7 +266,14 @@ export function useTrimestralPlan(quarter: number, year: number) {
           .select('id, name')
           .order('name');
         if (subjRows && subjRows.length > 0) {
-          setSubjects(subjRows.map((s: any) => ({ id: s.id, name: s.name })));
+          const subjectCovers = new Map<string, string>(
+            ((subjectCoversRes?.data || []) as { id: string; url: string }[]).map(c => [c.id, c.url])
+          );
+          setSubjects(subjRows.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            cover: subjectCovers.get(s.id) ?? null,
+          })));
         }
       } catch (e) { console.error('Error loading subjects:', e); }
 
@@ -269,10 +281,14 @@ export function useTrimestralPlan(quarter: number, year: number) {
       try {
         const { data: entrepRows } = await supabase
           .from('entrepreneurships')
-          .select('id, name')
+          .select('id, name, cover_image')
           .order('created_at', { ascending: true });
         if (entrepRows && entrepRows.length > 0) {
-          setEntrepreneurships(entrepRows.map((e: any) => ({ id: e.id, name: e.name })));
+          setEntrepreneurships(entrepRows.map((e: any) => ({
+            id: e.id,
+            name: e.name,
+            cover_image: e.cover_image ?? null,
+          })));
         }
       } catch (e) { console.error('Error loading entrepreneurships:', e); }
     } catch (e) { console.error('Error loading trimestral data:', e); }

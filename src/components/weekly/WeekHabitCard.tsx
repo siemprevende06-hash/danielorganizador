@@ -360,7 +360,7 @@ export default function WeekHabitCard({
         ) : (
           fi && focus && (
             <div className="flex items-center gap-2 rounded-lg bg-foreground/5 px-2 py-1.5">
-              {focus.kind === "libro" && focus.cover ? (
+              {focus.cover ? (
                 <img
                   src={focus.cover}
                   alt={fi.title}
