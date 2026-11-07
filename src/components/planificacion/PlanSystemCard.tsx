@@ -151,7 +151,7 @@ export function PlanSystemCard({
                 <button
                   type="button"
                   onClick={() => onRemoveTask(task.id)}
-                  title="Quitar del plan"
+                  title="Quitar del bloque"
                   className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded text-muted-foreground/60 opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
                 >
                   <X className="h-2.5 w-2.5" />

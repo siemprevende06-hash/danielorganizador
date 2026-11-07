@@ -3,14 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
@@ -31,11 +28,30 @@ import {
   AREA_LABELS,
 } from "@/lib/hierarchy";
 import {
-  Sun, Moon, Clock, Target, ListTodo, Briefcase, GraduationCap,
-  Languages, FolderKanban, Save, Dumbbell, Coffee, BookOpen, ChevronDown,
-  ChevronRight, PlusCircle, Loader2, GripVertical
+  Sun, Moon, Clock, Target, Languages, Save, PlusCircle, Loader2, Layers,
 } from "lucide-react";
-import { deriveSystemIntensity } from "@/lib/speedPlan";
+import { DAY_SYSTEMS, SPEED_PLAN_SYSTEMS, systemSpeedOptions, type SystemSpeed } from "@/lib/daySystems";
+import {
+  autoSystemForBlock,
+  blockDurationMinutes,
+  deriveSystemIntensity,
+  isDeepWorkBlock,
+  isExtraBlock,
+  setWholeBlock,
+  summarizeSpeedPlan,
+  type SpeedPlan,
+} from "@/lib/speedPlan";
+import {
+  planSystemEmoji,
+  planSystemName,
+  systemIdForTask,
+  type PlannerTask,
+} from "@/lib/planMananaTasks";
+import { useSystemSpeed } from "@/hooks/useSystemSpeed";
+import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
+import { PlanSystemCard } from "@/components/planificacion/PlanSystemCard";
+import { TaskInboxCard } from "@/components/planificacion/TaskInboxCard";
+import { FocusLockCard } from "@/components/planificacion/FocusLockCard";
 
 interface TaskItem {
   id: string; title: string; source: string; area_id: string | null;
@@ -58,40 +74,29 @@ interface UniTask {
   id: string; title: string; completed: boolean; subject_id: string;
 }
 
-const AREAS = [
-  { id: "general", label: "General", icon: ListTodo, color: "bg-blue-500/15 text-blue-500" },
-  { id: "proyectos", label: "Proyectos", icon: FolderKanban, color: "bg-orange-500/15 text-orange-500" },
-  { id: "emprendimiento", label: "Emprendimiento", icon: Briefcase, color: "bg-purple-500/15 text-purple-500" },
-  { id: "universidad", label: "Universidad", icon: GraduationCap, color: "bg-emerald-500/15 text-emerald-500" },
-  { id: "idiomas", label: "Idiomas", icon: Languages, color: "bg-cyan-500/15 text-cyan-500" },
-];
-
-const POOL_SOURCE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  general: { label: 'General', icon: <ListTodo className="h-3 w-3" />, color: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
-  university: { label: 'Universidad', icon: <GraduationCap className="h-3 w-3" />, color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
-  entrepreneurship: { label: 'Emprendimiento', icon: <Briefcase className="h-3 w-3" />, color: 'bg-purple-500/15 text-purple-400 border-purple-500/30' },
-  project: { label: 'Proyecto', icon: <FolderKanban className="h-3 w-3" />, color: 'bg-orange-500/15 text-orange-400 border-orange-500/30' },
-  idiomas: { label: 'Idiomas', icon: <Languages className="h-3 w-3" />, color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30' },
+const SYSTEM_GROUP_DOT: Record<string, string> = {
+  'prof-acad': 'bg-sky-500',
+  desarrollo: 'bg-violet-500',
 };
 
-const POOL_SOURCE_ORDER = ['university', 'entrepreneurship', 'project', 'idiomas', 'general'];
+const SYSTEM_GROUPS = DAY_SYSTEMS
+  .filter(area => area.kind === 'central' && area.id !== 'finanzas')
+  .map(area => ({
+    id: area.id,
+    name: area.name,
+    dot: SYSTEM_GROUP_DOT[area.id] ?? 'bg-slate-500',
+    systems: area.systems,
+  }));
 
-const getBlockIcon = (title: string) => {
-  const l = title.toLowerCase();
-  if (l.includes("gym") || l.includes("ejercicio")) return <Dumbbell className="h-3.5 w-3.5" />;
-  if (l.includes("activación") || l.includes("despertar")) return <Sun className="h-3.5 w-3.5" />;
-  if (l.includes("desactivación") || l.includes("dormir")) return <Moon className="h-3.5 w-3.5" />;
-  if (l.includes("desayuno") || l.includes("almuerzo") || l.includes("comida")) return <Coffee className="h-3.5 w-3.5" />;
-  if (l.includes("lectura") || l.includes("idiomas")) return <BookOpen className="h-3.5 w-3.5" />;
-  if (l.includes("deep") || l.includes("focus") || l.includes("trabajo")) return <Target className="h-3.5 w-3.5" />;
-  return <Clock className="h-3.5 w-3.5" />;
-};
-
-const formatTime = (t: string) => {
-  const [h, m] = t.split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${ampm}`;
-};
+const CREATE_AREA_OPTIONS = (() => {
+  const base = flattenAreas(lifeAreas).map(area => ({ id: area.id, name: area.name }));
+  const extra = [
+    { id: 'musica', name: 'Música' },
+    { id: 'game', name: 'Game' },
+    { id: 'tareas', name: 'Tareas generales' },
+  ].filter(candidate => !base.some(area => area.id === candidate.id));
+  return [...base, ...extra];
+})();
 
 type TabMode = 'hoy' | 'manana';
 
@@ -102,32 +107,32 @@ function DateSwitchTabs({ mode, onModeChange }: { mode: TabMode; onModeChange: (
   const tomorrowLabel = format(tomorrow, "d MMM", { locale: es });
   return (
     <div className="flex items-center justify-center">
-      <div className="inline-flex bg-muted/80 rounded-xl p-0.5 shadow-sm border border-border/40">
+      <div className="inline-flex rounded-xl border border-border/40 bg-muted/80 p-0.5 shadow-sm">
         <button
           onClick={() => onModeChange('hoy')}
           className={cn(
-            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+            "flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all",
             mode === 'hoy'
-              ? "bg-white dark:bg-zinc-950 text-foreground shadow-sm border border-border/60"
+              ? "border border-border/60 bg-white text-foreground shadow-sm dark:bg-zinc-950"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
           <Sun className="h-3.5 w-3.5" />
           Hoy
-          <span className="text-[10px] text-muted-foreground/70 font-normal">{todayLabel}</span>
+          <span className="text-[10px] font-normal text-muted-foreground/70">{todayLabel}</span>
         </button>
         <button
           onClick={() => onModeChange('manana')}
           className={cn(
-            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+            "flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all",
             mode === 'manana'
-              ? "bg-white dark:bg-zinc-950 text-foreground shadow-sm border border-border/60"
+              ? "border border-border/60 bg-white text-foreground shadow-sm dark:bg-zinc-950"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
           <Moon className="h-3.5 w-3.5" />
           Mañana
-          <span className="text-[10px] text-muted-foreground/70 font-normal">{tomorrowLabel}</span>
+          <span className="text-[10px] font-normal text-muted-foreground/70">{tomorrowLabel}</span>
         </button>
       </div>
     </div>
@@ -138,18 +143,20 @@ export default function PlanManana() {
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<TabMode>(() => (searchParams.get('mode') === 'hoy' ? 'hoy' : 'manana'));
 
-  // --- ALL HOOKS MUST BE UNCONDITIONAL (before any return) ---
+  // --- TODOS LOS HOOKS SON INCONDICIONALES (antes de cualquier return) ---
   const targetDate = mode === 'hoy' ? new Date() : addDays(new Date(), 1);
   const targetStr = format(targetDate, "yyyy-MM-dd");
   const targetDisplay = format(targetDate, "EEEE d 'de' MMMM", { locale: es });
   const targetCapitalized = targetDisplay.charAt(0).toUpperCase() + targetDisplay.slice(1);
 
-  const { blocks, routineType, setRoutineType, updateBlockFocus } = useRoutineBlocks();
-  const { plan: speedPlan, setPlan: setSpeedPlan } = useDaySpeedPlan(targetDate, {
+  const { blocks, isLoaded: routineLoaded, routineType, setRoutineType, updateBlockFocus } = useRoutineBlocks();
+  const { plan: speedPlan, setPlan: setSpeedPlan, isLoaded: speedPlanLoaded } = useDaySpeedPlan(targetDate, {
     autoSave: false,
     routineType,
     blocks,
   });
+  const { covers } = useAreaCovers();
+  const { map: speedMap, getSpeed, setSpeed, loadedFromPlan: systemSpeedLoaded } = useSystemSpeed(targetDate);
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -157,11 +164,9 @@ export default function PlanManana() {
   const [uniTasks, setUniTasks] = useState<UniTask[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  // `selectedTasks` = tareas elegidas que todavía no están en un bloque.
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [blockAssignments, setBlockAssignments] = useState<Record<string, string[]>>({});
-
-  const [areaCollapsed, setAreaCollapsed] = useState<Record<string, boolean>>({});
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -169,38 +174,173 @@ export default function PlanManana() {
   const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [newDueDate, setNewDueDate] = useState('');
   const [newAreaId, setNewAreaId] = useState<string>('');
+  const [newTaskSystemId, setNewTaskSystemId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-
-  const allAreas = useMemo(() => flattenAreas(lifeAreas), []);
 
   const [saving, setSaving] = useState(false);
   const [prevPlanSnapshot, setPrevPlanSnapshot] = useState<{ selectedTasks: string[]; blockAssignments: Record<string, string[]> } | null>(null);
   const [languageChoice, setLanguageChoice] = useState<string>("ingles");
   const [musicInstrument, setMusicInstrument] = useState<string>("piano");
 
-  const [goalsVersion, setGoalsVersion] = useState(0);
+  const [, forceGoalsUpdate] = useState(0);
 
   const applyDayGoal = (area: string, value: string) => {
     const mins = Math.max(0, parseInt(value) || 0);
     setDayGoal(targetDate, area, mins);
-    setGoalsVersion(v => v + 1);
+    forceGoalsUpdate(v => v + 1);
   };
 
   const dayGoalSum = getDayGoalSum(targetDate);
 
-  const tasksByBlockForPlanner = useMemo(() => {
-    const result: Record<string, { id: string; title: string; source: string; completed: boolean }[]> = {};
-    const allTaskItems = [
-      ...tasks.map(t => ({ id: t.id, title: t.title, source: t.source, completed: t.completed })),
-      ...entreTasks.map(t => ({ id: t.id, title: t.title, source: "entrepreneurship", completed: t.completed })),
-      ...uniTasks.map(t => ({ id: t.id, title: t.title, source: "university", completed: t.completed })),
-      ...projects.flatMap(p => p.tasks.map(t => ({ id: t.id, title: t.title, source: "project", completed: t.completed }))),
-    ];
-    for (const [blockId, taskIds] of Object.entries(blockAssignments)) {
-      result[blockId] = taskIds.map(id => allTaskItems.find(t => t.id === id)).filter(Boolean) as any;
+  /* ------------------------------------------------------------------ */
+  /* Tareas normalizadas                                                 */
+  /* ------------------------------------------------------------------ */
+
+  const plannerTasks = useMemo(() => {
+    const byId = new Map<string, PlannerTask>();
+    const add = (task: PlannerTask) => {
+      if (!byId.has(task.id)) byId.set(task.id, task);
+    };
+
+    tasks.forEach(task => {
+      add({
+        id: task.id,
+        title: task.title,
+        source: task.source || 'general',
+        systemId: systemIdForTask({ source: task.source, areaId: task.area_id }),
+        areaId: task.area_id,
+        completed: task.completed,
+        routineBlockId: task.routine_block_id,
+      });
+    });
+    entreTasks.forEach(task => {
+      add({
+        id: task.id,
+        title: task.title,
+        source: 'entrepreneurship',
+        systemId: 'emprendimiento',
+        completed: task.completed,
+      });
+    });
+    uniTasks.forEach(task => {
+      add({
+        id: task.id,
+        title: task.title,
+        source: 'university',
+        systemId: 'universidad',
+        completed: task.completed,
+      });
+    });
+    projects.forEach(project => {
+      project.tasks.forEach(task => {
+        add({
+          id: task.id,
+          title: task.title,
+          source: 'project',
+          systemId: 'proyectos',
+          completed: task.completed,
+        });
+      });
+    });
+
+    return [...byId.values()];
+  }, [tasks, entreTasks, uniTasks, projects]);
+
+  const taskById = useMemo(() => new Map(plannerTasks.map(task => [task.id, task])), [plannerTasks]);
+
+  const assignedIds = useMemo(
+    () => new Set(Object.values(blockAssignments).flat()),
+    [blockAssignments],
+  );
+
+  const speedSummary = useMemo(
+    () => summarizeSpeedPlan(speedPlan, blocks),
+    [speedPlan, blocks],
+  );
+
+  /** Sistemas que tocan un bloque (entero o por fragmentos). */
+  const blockSystems = useCallback((blockId: string, plan: SpeedPlan): string[] => {
+    const entry = plan.blocks[blockId];
+    if (entry?.kind === 'whole' && entry.systemId && entry.systemId !== 'none') {
+      return [entry.systemId];
+    }
+    if (entry?.kind === 'fragments') {
+      const ids = new Set<string>();
+      entry.fragments.forEach(fragment => {
+        if (fragment.systemId && fragment.systemId !== 'none') ids.add(fragment.systemId);
+      });
+      if (ids.size > 0) return [...ids];
+    }
+    const block = blocks.find(candidate => candidate.id === blockId);
+    const auto = block ? autoSystemForBlock(block) : null;
+    return auto ? [auto] : [];
+  }, [blocks]);
+
+  /** Sistema principal de un bloque (el primero que lo ocupa). */
+  const blockSystem = useCallback(
+    (blockId: string, plan: SpeedPlan = speedPlan): string | null =>
+      blockSystems(blockId, plan)[0] ?? null,
+    [blockSystems, speedPlan],
+  );
+
+  /** Sistema visible de un bloque: planificado o, en su defecto, el de sus tareas. */
+  const displaySystemForBlock = useCallback((blockId: string): string | null => {
+    const planned = blockSystem(blockId);
+    if (planned) return planned;
+    const ids = blockAssignments[blockId] ?? [];
+    for (const id of ids) {
+      const task = taskById.get(id);
+      if (task) return task.systemId;
+    }
+    return null;
+  }, [blockSystem, blockAssignments, taskById]);
+
+  const systemTasks = useMemo(() => {
+    const result: Record<string, PlannerTask[]> = {};
+    for (const system of SPEED_PLAN_SYSTEMS) result[system.id] = [];
+
+    for (const [blockId, ids] of Object.entries(blockAssignments)) {
+      const systemId = displaySystemForBlock(blockId);
+      if (!systemId || !result[systemId]) continue;
+      for (const id of ids) {
+        const task = taskById.get(id);
+        if (task && !result[systemId].some(existing => existing.id === task.id)) {
+          result[systemId].push(task);
+        }
+      }
     }
     return result;
-  }, [tasks, entreTasks, uniTasks, projects, blockAssignments]);
+  }, [blockAssignments, displaySystemForBlock, taskById]);
+
+  const systemBlocks = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    for (const system of SPEED_PLAN_SYSTEMS) result[system.id] = [];
+
+    for (const [blockId, ids] of Object.entries(blockAssignments)) {
+      if (ids.length === 0) continue;
+      const block = blocks.find(candidate => candidate.id === blockId);
+      if (!block) continue;
+      const systemId = displaySystemForBlock(blockId);
+      if (!systemId || !result[systemId]) continue;
+      if (!result[systemId].includes(block.title)) result[systemId].push(block.title);
+    }
+    return result;
+  }, [blockAssignments, displaySystemForBlock, blocks]);
+
+  const availableTasksForSystem = useCallback(
+    (systemId: string) =>
+      plannerTasks.filter(task => task.systemId === systemId && !assignedIds.has(task.id)),
+    [plannerTasks, assignedIds],
+  );
+
+  const plannedTotal = useMemo(
+    () => speedSummary.doses.reduce((sum, dose) => sum + dose.plannedMinutes, 0),
+    [speedSummary],
+  );
+
+  /* ------------------------------------------------------------------ */
+  /* Asignación de tareas a Deep Work                                    */
+  /* ------------------------------------------------------------------ */
 
   const handleRemoveTask = useCallback((taskId: string) => {
     setBlockAssignments(prev => {
@@ -213,11 +353,156 @@ export default function PlanManana() {
     setSelectedTasks(prev => { const n = new Set(prev); n.add(taskId); return n; });
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [mode]);
+  const handleRemoveFromPlan = useCallback((taskId: string) => {
+    setBlockAssignments(prev => {
+      const next: Record<string, string[]> = {};
+      for (const [blockId, taskIds] of Object.entries(prev)) {
+        next[blockId] = taskIds.filter(id => id !== taskId);
+      }
+      return next;
+    });
+    setSelectedTasks(prev => { const n = new Set(prev); n.delete(taskId); return n; });
+  }, []);
 
-  // --- Hoy mode (render condicional al final, tras todos los hooks) ---
+  const toggleTask = (taskId: string) => {
+    setSelectedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+      return next;
+    });
+  };
+
+  const assignTasks = useCallback((incoming: PlannerTask[], forcedSystemId?: string) => {
+    if (incoming.length === 0) return;
+
+    let nextPlan = speedPlan;
+    const nextAssignments: Record<string, string[]> = { ...blockAssignments };
+    const candidates = blocks.filter(block => isDeepWorkBlock(block) || isExtraBlock(block));
+    const assignedNow: string[] = [];
+    const failed: string[] = [];
+
+    const resolveSystem = (blockId: string) => {
+      const entry = nextPlan.blocks[blockId];
+      if (entry?.kind === 'whole' && entry.systemId && entry.systemId !== 'none') return entry.systemId;
+      if (entry?.kind === 'fragments') {
+        const first = entry.fragments.find(fragment => fragment.systemId && fragment.systemId !== 'none');
+        if (first) return first.systemId;
+      }
+      const block = blocks.find(candidate => candidate.id === blockId);
+      return block ? autoSystemForBlock(block) : null;
+    };
+
+    for (const task of incoming) {
+      const systemId = forcedSystemId ?? task.systemId;
+      const system = SPEED_PLAN_SYSTEMS.find(candidate => candidate.id === systemId);
+      const selectedSpeed = (speedMap[systemId] ?? 'maximo') as SystemSpeed;
+      const speedMinutes = system
+        ? systemSpeedOptions(system).find(option => option.id === selectedSpeed)?.minutes ?? 0
+        : 0;
+
+      // 0) Un bloque natural del sistema (Lectura, Idiomas, Música...).
+      let target = blocks.find(block =>
+        !isDeepWorkBlock(block) &&
+        !isExtraBlock(block) &&
+        autoSystemForBlock(block) === systemId &&
+        (!nextPlan.blocks[block.id] || resolveSystem(block.id) === systemId)
+      );
+
+      // 1) Un Deep Work que ya esté dedicado a este sistema.
+      if (!target) {
+        target = candidates.find(block => resolveSystem(block.id) === systemId);
+      }
+
+      // 2) Un Deep Work libre (sin tareas ni otro sistema); se prefiere uno
+      //    que quepa en la velocidad elegida.
+      if (!target) {
+        const free = candidates.filter(
+          block => !(nextAssignments[block.id]?.length) && resolveSystem(block.id) == null,
+        );
+        target = free.find(block => blockDurationMinutes(block) >= speedMinutes) ?? free[0];
+      }
+
+      if (!target) {
+        failed.push(task.title);
+        continue;
+      }
+
+      if (resolveSystem(target.id) !== systemId) {
+        nextPlan = setWholeBlock(nextPlan, target.id, systemId);
+      }
+      nextAssignments[target.id] = [...(nextAssignments[target.id] || []), task.id];
+      assignedNow.push(task.id);
+    }
+
+    if (assignedNow.length > 0) {
+      setBlockAssignments(nextAssignments);
+      setSpeedPlan(nextPlan);
+      setSelectedTasks(prev => {
+        const next = new Set(prev);
+        assignedNow.forEach(id => next.delete(id));
+        return next;
+      });
+      toast.success(
+        assignedNow.length === 1
+          ? 'Tarea colocada en un bloque'
+          : `${assignedNow.length} tareas colocadas en bloques`,
+      );
+    }
+
+    if (failed.length > 0) {
+      const preview = failed.slice(0, 2).join(', ');
+      toast.error(
+        `No hay Deep Work libre para: ${preview}${failed.length > 2 ? ` +${failed.length - 2}` : ''}`,
+      );
+    }
+  }, [speedPlan, blockAssignments, blocks, speedMap, setSpeedPlan]);
+
+  const assignSelectedTasks = useCallback(() => {
+    const pending = plannerTasks.filter(
+      task => selectedTasks.has(task.id) && !assignedIds.has(task.id),
+    );
+    assignTasks(pending);
+  }, [plannerTasks, selectedTasks, assignedIds, assignTasks]);
+
+  /** Suelta una tarea en un bloque concreto de la línea de tiempo. */
+  const handleDropTask = useCallback((taskId: string, blockId: string) => {
+    const task = taskById.get(taskId);
+    if (!task) return;
+    const block = blocks.find(candidate => candidate.id === blockId);
+    if (!block) return;
+    const targetSystem = blockSystem(blockId) ?? task.systemId;
+
+    // Solo los bloques de trabajo (Deep Work, extra o con sistema natural)
+    // reciben un plan de velocidad; así no se inflan minutos de Gym u ocio.
+    const planable = isDeepWorkBlock(block) || isExtraBlock(block) || autoSystemForBlock(block) != null;
+    if (planable) {
+      setSpeedPlan(prev => {
+        if (prev.blocks[blockId]) return prev;
+        const auto = autoSystemForBlock(block);
+        if (auto === targetSystem) return prev;
+        return setWholeBlock(prev, blockId, targetSystem);
+      });
+    }
+
+    setBlockAssignments(prev => {
+      const next: Record<string, string[]> = {};
+      for (const [id, ids] of Object.entries(prev)) {
+        next[id] = ids.filter(value => value !== taskId);
+      }
+      next[blockId] = [...(next[blockId] || []), taskId];
+      return next;
+    });
+    setSelectedTasks(prev => { const n = new Set(prev); n.delete(taskId); return n; });
+  }, [taskById, blocks, blockSystem, setSpeedPlan]);
+
+  const handlePoolDragStart = (event: React.DragEvent, taskId: string) => {
+    event.dataTransfer.setData('text/plain', taskId);
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Carga y guardado                                                    */
+  /* ------------------------------------------------------------------ */
 
   const loadSavedPlan = async (dateStr: string) => {
     const validTypes: RoutineType[] = ['disciplina', 'normal', 'descanso'];
@@ -233,9 +518,11 @@ export default function PlanManana() {
         const assignments = plan.block_assignments as Record<string, string[]>;
         const rest = { ...assignments };
         delete rest["_unassigned"];
-        setBlockAssignments(rest);
         const allTaskIds = Object.values(assignments).flat();
-        setSelectedTasks(new Set(allTaskIds));
+        const assigned = new Set(Object.values(rest).flat());
+        setBlockAssignments(rest);
+        // La bandeja solo conserva las tareas que aún no tienen bloque.
+        setSelectedTasks(new Set(allTaskIds.filter(id => !assigned.has(id))));
         setPrevPlanSnapshot({ selectedTasks: allTaskIds, blockAssignments: rest });
         if (plan.routine_type && validTypes.includes(plan.routine_type as RoutineType)) {
           setRoutineType(plan.routine_type as RoutineType);
@@ -283,48 +570,31 @@ export default function PlanManana() {
     setLoading(false);
   };
 
-  const getAreaTasks = (areaId: string): TaskItem[] => {
-    switch (areaId) {
-      case "general": return tasks.filter(t => t.source === "general" || (!t.source && !t.area_id));
-      case "proyectos": return [];
-      case "emprendimiento": return tasks.filter(t => t.source === "entrepreneurship");
-      case "universidad": return tasks.filter(t => t.source === "university");
-      case "idiomas": return tasks.filter(t => t.area_id === "idiomas" || t.source === "idiomas");
-      default: return [];
-    }
+  useEffect(() => {
+    loadData();
+  }, [mode]);
+
+  const resetCreateForm = () => {
+    setNewTitle('');
+    setNewDescription('');
+    setNewPriority('medium');
+    setNewDueDate('');
+    setNewAreaId('');
+    setNewTaskSystemId(null);
   };
 
-  const toggleTask = (taskId: string) => {
-    setSelectedTasks(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
-      return next;
-    });
-  };
-
-  const assignTaskToBlock = (taskId: string, blockId: string) => {
-    setBlockAssignments(prev => {
-      const next = { ...prev };
-      Object.keys(next).forEach(bid => { next[bid] = next[bid].filter(id => id !== taskId); });
-      next[blockId] = [...(next[blockId] || []), taskId];
-      return next;
-    });
-    setSelectedTasks(prev => { const n = new Set(prev); n.delete(taskId); return n; });
-  };
-
-  const removeFromBlock = (taskId: string, blockId: string) => {
-    setBlockAssignments(prev => ({
-      ...prev,
-      [blockId]: (prev[blockId] || []).filter(id => id !== taskId),
-    }));
-    setSelectedTasks(prev => { const n = new Set(prev); n.add(taskId); return n; });
+  const openCreateForSystem = (systemId: string) => {
+    resetCreateForm();
+    setNewTaskSystemId(systemId);
+    setNewAreaId(systemId);
+    setIsCreateOpen(true);
   };
 
   const handleCreateTask = async () => {
     if (!newTitle.trim()) return;
     setCreating(true);
     try {
-      const { error } = await supabase.from('tasks').insert({
+      const { data: created, error } = await supabase.from('tasks').insert({
         title: newTitle.trim(),
         description: newDescription.trim() || null,
         priority: newPriority,
@@ -333,65 +603,36 @@ export default function PlanManana() {
         completed: false,
         source: 'general',
         status: 'pendiente',
-      });
+      }).select('id, title, source, area_id, completed, routine_block_id').single();
       if (error) throw error;
+
+      if (created) {
+        const task = created as TaskItem;
+        setTasks(prev => prev.some(existing => existing.id === task.id) ? prev : [...prev, task]);
+        const plannerTask: PlannerTask = {
+          id: task.id,
+          title: task.title,
+          source: task.source || 'general',
+          systemId: systemIdForTask({ source: task.source, areaId: task.area_id }),
+          areaId: task.area_id,
+          completed: false,
+          routineBlockId: task.routine_block_id,
+        };
+        if (newTaskSystemId) {
+          assignTasks([plannerTask], newTaskSystemId);
+        } else {
+          setSelectedTasks(prev => new Set(prev).add(task.id));
+        }
+      }
+
       toast.success('Tarea creada');
       setIsCreateOpen(false);
-      setNewTitle(''); setNewDescription(''); setNewPriority('medium'); setNewDueDate(''); setNewAreaId('');
-      loadData();
+      resetCreateForm();
     } catch (error: any) {
       toast.error(error.message || 'Error al crear tarea');
     } finally {
       setCreating(false);
     }
-  };
-
-  const resetCreateForm = () => {
-    setNewTitle(''); setNewDescription(''); setNewPriority('medium'); setNewDueDate(''); setNewAreaId('');
-  };
-
-  const handlePoolDragStart = (e: React.DragEvent, taskId: string) => {
-    e.dataTransfer.setData('text/plain', taskId);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const getTaskLabel = (taskId: string): string => {
-    const all = [...tasks, ...entreTasks, ...uniTasks, ...projects.flatMap(p => p.tasks)];
-    const t = all.find(t => t.id === taskId) || tasks.find(t => t.id === taskId);
-    return t?.title || taskId;
-  };
-
-  const selectedPoolTasks = useMemo(() => {
-    const assignedIds = new Set(Object.values(blockAssignments).flat());
-    const pool: { id: string; title: string; source: string }[] = [];
-    tasks.forEach(t => {
-      if (selectedTasks.has(t.id) && !assignedIds.has(t.id))
-        pool.push({ id: t.id, title: t.title, source: t.area_id === 'idiomas' || t.source === 'idiomas' ? 'idiomas' : t.source || 'general' });
-    });
-    entreTasks.forEach(t => {
-      if (selectedTasks.has(t.id) && !assignedIds.has(t.id))
-        pool.push({ id: t.id, title: t.title, source: 'entrepreneurship' });
-    });
-    uniTasks.forEach(t => {
-      if (selectedTasks.has(t.id) && !assignedIds.has(t.id))
-        pool.push({ id: t.id, title: t.title, source: 'university' });
-    });
-    projects.forEach(p => {
-      p.tasks.forEach(t => {
-        if (selectedTasks.has(t.id) && !assignedIds.has(t.id))
-          pool.push({ id: t.id, title: t.title, source: 'project' });
-      });
-    });
-    return pool;
-  }, [selectedTasks, blockAssignments, tasks, entreTasks, uniTasks, projects]);
-
-  const getTaskSource = (taskId: string): string => {
-    const t = tasks.find(t => t.id === taskId);
-    if (t) return t.area_id === 'idiomas' || t.source === 'idiomas' ? 'idiomas' : t.source || 'general';
-    if (entreTasks.some(t => t.id === taskId)) return 'entrepreneurship';
-    if (uniTasks.some(t => t.id === taskId)) return 'university';
-    if (projects.some(p => p.tasks.some(t => t.id === taskId))) return 'project';
-    return 'general';
   };
 
   const syncTaskDueDates = async (taskIds: string[], dateStr: string | null) => {
@@ -413,17 +654,18 @@ export default function PlanManana() {
     setSaving(true);
     try {
       const assignments = { ...blockAssignments };
-      const assignedIds = new Set(Object.values(assignments).flat());
-      const unassignedInPlan = [...selectedTasks].filter(id => !assignedIds.has(id));
+      const assignedIdsInPlan = new Set(Object.values(assignments).flat());
+      const unassignedInPlan = [...selectedTasks].filter(id => !assignedIdsInPlan.has(id));
       if (unassignedInPlan.length > 0) {
         assignments["_unassigned"] = unassignedInPlan;
       }
 
-      const planTaskIds = [...selectedTasks];
+      // Unión: tareas seleccionadas + tareas ya colocadas en bloques.
+      const planTaskIds = new Set<string>([...selectedTasks, ...assignedIdsInPlan]);
       const prevIds = prevPlanSnapshot?.selectedTasks || [];
       const previouslyPlannedIds = new Set(prevIds);
-      const toAdd = planTaskIds.filter(id => !previouslyPlannedIds.has(id));
-      const toRemove = prevIds.filter(id => !selectedTasks.has(id));
+      const toAdd = [...planTaskIds].filter(id => !previouslyPlannedIds.has(id));
+      const toRemove = prevIds.filter(id => !planTaskIds.has(id));
       await syncTaskDueDates(toAdd, targetStr);
       await syncTaskDueDates(toRemove, null);
 
@@ -431,47 +673,35 @@ export default function PlanManana() {
       ALL_HIERARCHY_AREAS.forEach(area => {
         dayGoals[area] = getDayGoalEffective(targetDate, area);
       });
-      // Guardar el plan de velocidad y su espejo de intensidad
+      // Guardar el plan de velocidad, la velocidad por sistema y su espejo de intensidad.
       const systemIntensity = deriveSystemIntensity(speedPlan, blocks);
       const notesJSON = JSON.stringify({
         systemIntensity,
         planIntensity: systemIntensity,
+        systemSpeed: speedMap,
         speedPlan,
         language: languageChoice,
         instrument: musicInstrument,
         dayGoals,
       });
 
-      // Sincronizar con sistema de velocidad unificado
-      try {
-        const { loadSystemSpeed, saveSystemSpeed } = await import("@/hooks/useSystemSpeed");
-        const currentSpeed = loadSystemSpeed();
-        const nextSpeed = { ...currentSpeed };
-        let speedChanged = false;
-        for (const [k, v] of Object.entries(systemIntensity)) {
-          if (nextSpeed[k] !== v) {
-            nextSpeed[k] = v;
-            speedChanged = true;
-          }
-        }
-        if (speedChanged) saveSystemSpeed(nextSpeed);
-      } catch {}
-
       const existing = await supabase.from("daily_plans").select("id").eq("plan_date", targetStr).maybeSingle();
       if (existing.data) {
-        await supabase.from("daily_plans").update({
+        const { error } = await supabase.from("daily_plans").update({
           routine_type: routineType,
           block_assignments: JSON.parse(JSON.stringify(assignments)),
           notes: notesJSON,
         }).eq("id", existing.data.id);
+        if (error) throw error;
       } else {
-        await supabase.from("daily_plans").insert({
+        const { error } = await supabase.from("daily_plans").insert({
           plan_date: targetStr,
           mode: routineType,
           routine_type: routineType,
           block_assignments: JSON.parse(JSON.stringify(assignments)),
           notes: notesJSON,
         });
+        if (error) throw error;
       }
 
       const goalRows = ALL_HIERARCHY_AREAS
@@ -482,11 +712,12 @@ export default function PlanManana() {
           time_goal_minutes: dayGoals[area] || 0,
         }));
       if (goalRows.length > 0) {
-        await supabase.from("daily_area_stats").upsert(goalRows as any, { onConflict: "area_id,stat_date" });
+        const { error } = await supabase.from("daily_area_stats").upsert(goalRows as any, { onConflict: "area_id,stat_date" });
+        if (error) throw error;
       }
 
       localStorage.setItem(`planTasks_${targetStr}`, JSON.stringify({
-        selectedTasks: [...selectedTasks],
+        selectedTasks: [...planTaskIds],
         blockAssignments: assignments,
         routineType,
       }));
@@ -494,54 +725,78 @@ export default function PlanManana() {
       localStorage.setItem(`planLanguage_${targetStr}`, languageChoice);
       localStorage.setItem(`planInstrument_${targetStr}`, musicInstrument);
 
-      setPrevPlanSnapshot({ selectedTasks: [...selectedTasks], blockAssignments: { ...assignments } });
+      setPrevPlanSnapshot({ selectedTasks: [...planTaskIds], blockAssignments: { ...assignments } });
 
       toast.success(mode === 'hoy' ? "Plan para hoy guardado" : "Plan para mañana guardado");
     } catch { toast.error("Error al guardar"); }
     setSaving(false);
   };
 
-  if (loading) {
+  /* ------------------------------------------------------------------ */
+  /* Datos derivados para la línea de tiempo                             */
+  /* ------------------------------------------------------------------ */
+
+  const tasksByBlockForPlanner = useMemo(() => {
+    const result: Record<string, { id: string; title: string; source: string; completed: boolean }[]> = {};
+    for (const [blockId, taskIds] of Object.entries(blockAssignments)) {
+      result[blockId] = taskIds.flatMap(id => {
+        const task = taskById.get(id);
+        return task ? [{ id: task.id, title: task.title, source: task.source, completed: task.completed }] : [];
+      });
+    }
+    return result;
+  }, [blockAssignments, taskById]);
+
+  const systemCover = useCallback((systemId: string) => {
+    const meta = SPEED_PLAN_SYSTEMS.find(system => system.id === systemId);
+    if (!meta) return null;
+    return covers[coverKey('sub', meta.cover.id)]
+      ?? covers[coverKey('area', meta.cover.id)]
+      ?? covers[coverKey('sub', systemId)]
+      ?? null;
+  }, [covers]);
+
+  if (loading || !routineLoaded || !speedPlanLoaded || !systemSpeedLoaded) {
     return (
-      <div className="min-h-screen bg-background p-4 pt-20 pb-24 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background p-4 pb-24 pt-20">
         <div className="animate-pulse space-y-3">
-          <div className="h-8 w-48 bg-muted rounded" />
-          <div className="h-64 w-full bg-muted rounded" />
+          <div className="h-8 w-48 rounded bg-muted" />
+          <div className="h-64 w-full rounded bg-muted" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 pt-20 pb-24">
-      <div className="max-w-4xl mx-auto space-y-5">
+    <div className="min-h-screen bg-background p-4 pb-24 pt-20">
+      <div className="mx-auto max-w-6xl space-y-5">
 
-        {/* Date Switch Tabs */}
+        {/* Selector Hoy / Mañana */}
         <DateSwitchTabs mode={mode} onModeChange={setMode} />
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
+        {/* Cabecera */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-xl font-bold tracking-tight">{mode === 'hoy' ? 'Planificar Hoy' : 'Planificar Mañana'}</h1>
-            <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="h-3.5 w-3.5" /> {targetCapitalized}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-8 rounded-full gap-1.5" onClick={() => { resetCreateForm(); setIsCreateOpen(true); }}>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-full" onClick={() => { resetCreateForm(); setIsCreateOpen(true); }}>
               <PlusCircle className="h-3.5 w-3.5" /> Nueva
             </Button>
-            <Button onClick={savePlan} disabled={saving} size="sm" className="h-8 rounded-full gap-1.5">
+            <Button onClick={savePlan} disabled={saving} size="sm" className="h-8 gap-1.5 rounded-full">
               <Save className="h-3.5 w-3.5" /> {saving ? "Guardando..." : "Guardar Plan"}
             </Button>
           </div>
         </div>
 
-        {/* Routine Type */}
-        <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
+        {/* Rutina */}
+        <Card className="overflow-hidden rounded-2xl border-0 bg-white/80 shadow-sm dark:bg-zinc-950/80">
           <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
           <CardContent className="p-3.5">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="mb-2 flex items-center gap-2">
               <Clock className="h-3.5 w-3.5 text-indigo-500" />
               <span className="text-xs font-medium text-muted-foreground">Rutina</span>
             </div>
@@ -549,10 +804,10 @@ export default function PlanManana() {
               {ROUTINES.map(r => (
                 <button key={r.type} onClick={() => setRoutineType(r.type)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all border whitespace-nowrap shrink-0",
+                    "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-medium transition-all",
                     routineType === r.type
-                      ? "bg-indigo-500 text-white border-indigo-500 shadow-sm"
-                      : "bg-white/50 dark:bg-zinc-950/50 border-border/60 hover:border-indigo-300 text-muted-foreground hover:text-foreground"
+                      ? "border-indigo-500 bg-indigo-500 text-white shadow-sm"
+                      : "border-border/60 bg-white/50 text-muted-foreground hover:border-indigo-300 hover:text-foreground dark:bg-zinc-950/50"
                   )}>
                   <span className="text-sm">{r.icon}</span>
                   <span>{r.label}</span>
@@ -563,151 +818,83 @@ export default function PlanManana() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Bloqueo de enfoque */}
+        <FocusLockCard
+          onComplete={systemId =>
+            toast.success(
+              systemId
+                ? `Enfoque completado: ${planSystemName(systemId)}`
+                : 'Bloqueo de enfoque completado',
+            )
+          }
+        />
 
-          {/* LEFT: Task Selection */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <ListTodo className="h-4 w-4 text-primary" /> Tareas del día
+        {/* Sistemas del día */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Layers className="h-4 w-4 text-sky-500" /> Sistemas del día
             </h2>
+            <Badge variant="secondary" className="text-[9px] tabular-nums">
+              {plannedTotal} min planificados
+            </Badge>
+          </div>
+          <p className="-mt-1 text-[10px] text-muted-foreground">
+            Elige la velocidad de cada sistema y añade sus tareas: cada tarjeta las coloca en un Deep Work.
+          </p>
 
-            {AREAS.map(area => {
-              const Icon = area.icon;
-              if (area.id === "proyectos") {
-                return (
-                  <Card key={area.id} className="border border-border/50 shadow-sm rounded-xl overflow-hidden">
-                    <div className="p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center", area.color)}>
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold">{area.label}</span>
-                      </div>
-                      <Select value={selectedProject} onValueChange={setSelectedProject}>
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Seleccionar proyecto..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {projects.map(p => (
-                            <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedProject && (
-                        <div className="space-y-1 mt-1 max-h-40 overflow-y-auto">
-                          {(() => {
-                            const proj = projects.find(p => p.id === selectedProject);
-                            return proj?.tasks.length ? proj.tasks.map((pt: ProjectTask) => (
-                              <label key={pt.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted/50 cursor-pointer text-xs">
-                                <Checkbox checked={selectedTasks.has(pt.id)} onCheckedChange={() => toggleTask(pt.id)} />
-                                <span className={cn("flex-1", pt.completed && "line-through text-muted-foreground")}>{pt.title}</span>
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0">Proyecto</Badge>
-                              </label>
-                            )) : <p className="text-xs text-muted-foreground py-2 text-center">Sin tareas pendientes</p>;
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                );
-              }
+          {SYSTEM_GROUPS.map(group => (
+            <div key={group.id} className="space-y-1.5">
+              <div className="flex items-center gap-2 px-0.5">
+                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', group.dot)} />
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">{group.name}</h3>
+                <span className="h-px flex-1 bg-border/60" />
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+                {group.systems.map(system => (
+                  <PlanSystemCard
+                    key={system.id}
+                    system={system}
+                    cover={systemCover(system.id)}
+                    emoji={planSystemEmoji(system.id)}
+                    speed={getSpeed(system.id)}
+                    onSpeedChange={speed => setSpeed(system.id, speed)}
+                    plannedMinutes={speedSummary.bySystem[system.id]?.plannedMinutes ?? 0}
+                    tasks={systemTasks[system.id] ?? []}
+                    blocks={systemBlocks[system.id] ?? []}
+                    availableTasks={availableTasksForSystem(system.id)}
+                    onAddTask={task => assignTasks([task], system.id)}
+                    onCreateTask={() => openCreateForSystem(system.id)}
+                    onRemoveTask={handleRemoveTask}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
 
-              const areaTasks = getAreaTasks(area.id);
-              if (areaTasks.length === 0 && area.id !== "emprendimiento") return null;
-
-              return (
-                <Collapsible key={area.id} open={!areaCollapsed[area.id]} onOpenChange={o => setAreaCollapsed(p => ({ ...p, [area.id]: !o }))}>
-                  <Card className="border border-border/50 shadow-sm rounded-xl overflow-hidden">
-                    <CollapsibleTrigger className="w-full p-3 flex items-center justify-between hover:bg-muted/20 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center", area.color)}>
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold">{area.label}</span>
-                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{areaTasks.length}</Badge>
-                      </div>
-                      {areaCollapsed[area.id] ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="px-3 pb-3 space-y-1 max-h-48 overflow-y-auto">
-                        {areaTasks.map(t => (
-                          <label key={t.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted/50 cursor-pointer text-xs">
-                            <Checkbox checked={selectedTasks.has(t.id)} onCheckedChange={() => toggleTask(t.id)} />
-                            <span className="flex-1">{t.title}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-              );
-            })}
-
-            {/* Entrepreneurship tasks */}
-            {entreTasks.length > 0 && (
-              <Collapsible>
-                <Card className="border border-border/50 shadow-sm rounded-xl overflow-hidden">
-                  <CollapsibleTrigger className="w-full p-3 flex items-center justify-between hover:bg-muted/20 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-purple-500/15 text-purple-500">
-                        <Briefcase className="h-3.5 w-3.5" />
-                      </div>
-                      <span className="text-xs font-semibold">Emprendimiento</span>
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{entreTasks.length}</Badge>
-                    </div>
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="px-3 pb-3 space-y-1 max-h-48 overflow-y-auto">
-                      {entreTasks.map(t => (
-                        <label key={t.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted/50 cursor-pointer text-xs">
-                          <Checkbox checked={selectedTasks.has(t.id)} onCheckedChange={() => toggleTask(t.id)} />
-                          <span className="flex-1">{t.title}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            )}
-
-            {/* University tasks */}
-            {uniTasks.length > 0 && (
-              <Collapsible>
-                <Card className="border border-border/50 shadow-sm rounded-xl overflow-hidden">
-                  <CollapsibleTrigger className="w-full p-3 flex items-center justify-between hover:bg-muted/20 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-emerald-500/15 text-emerald-500">
-                        <GraduationCap className="h-3.5 w-3.5" />
-                      </div>
-                      <span className="text-xs font-semibold">Universidad</span>
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{uniTasks.length}</Badge>
-                    </div>
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="px-3 pb-3 space-y-1 max-h-48 overflow-y-auto">
-                      {uniTasks.map(t => (
-                        <label key={t.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted/50 cursor-pointer text-xs">
-                          <Checkbox checked={selectedTasks.has(t.id)} onCheckedChange={() => toggleTask(t.id)} />
-                          <span className="flex-1">{t.title}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            )}
+        {/* Bandeja + línea de tiempo */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="space-y-3">
+            <TaskInboxCard
+              tasks={plannerTasks}
+              assignedIds={assignedIds}
+              selectedIds={selectedTasks}
+              onToggleSelect={toggleTask}
+              onAssign={task => assignTasks([task])}
+              onAssignSelected={assignSelectedTasks}
+              onRemove={handleRemoveFromPlan}
+              onDragStart={handlePoolDragStart}
+            />
           </div>
 
-          {/* RIGHT: Timeline Planner */}
           <div className="space-y-3">
             <DailyTimelinePlanner
               blocks={blocks as any}
               tasksByBlock={tasksByBlockForPlanner}
               onToggleBlock={() => {}}
               isBlockCompleted={() => false}
-              onDropTask={(taskId, blockId) => assignTaskToBlock(taskId, blockId)}
+              onDropTask={handleDropTask}
               onRemoveTask={handleRemoveTask}
               onUpdateFocus={(blockId, focus) => updateBlockFocus(blockId, focus)}
               musicInstrument={musicInstrument === "piano" ? "piano" : "guitar"}
@@ -717,14 +904,14 @@ export default function PlanManana() {
               onSpeedPlanChange={setSpeedPlan}
             />
 
-            {/* Daily minute goals */}
-            <Card className="border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-sm rounded-2xl overflow-hidden">
+            {/* Metas de minutos del día */}
+            <Card className="overflow-hidden rounded-2xl border border-indigo-200/60 bg-indigo-50/40 shadow-sm dark:border-indigo-800/40 dark:bg-indigo-950/20">
               <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
               <CardContent className="p-3">
-                <h3 className="text-xs font-semibold flex items-center gap-2 mb-1">
+                <h3 className="mb-1 flex items-center gap-2 text-xs font-semibold">
                   <Target className="h-3.5 w-3.5 text-indigo-500" /> Metas de minutos del día
                 </h3>
-                <p className="text-[10px] text-muted-foreground mb-2">
+                <p className="mb-2 text-[10px] text-muted-foreground">
                   Precargadas del mes/semana. Editarlas propaga hacia arriba.
                 </p>
                 <div className="space-y-1.5">
@@ -739,22 +926,22 @@ export default function PlanManana() {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400 mt-2">
+                <p className="mt-2 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
                   Total día: {dayGoalSum} min
                 </p>
               </CardContent>
             </Card>
 
-            {/* Language & Music preferences */}
-            <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
+            {/* Idioma e instrumento */}
+            <Card className="overflow-hidden rounded-2xl border-0 bg-white/80 shadow-sm dark:bg-zinc-950/80">
               <div className="h-1 bg-gradient-to-r from-pink-500 to-rose-400" />
-              <CardContent className="p-4 space-y-3">
-                <h3 className="text-xs font-semibold flex items-center gap-2">
+              <CardContent className="space-y-3 p-4">
+                <h3 className="flex items-center gap-2 text-xs font-semibold">
                   <Languages className="h-4 w-4 text-pink-500" /> Preferencias
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-[10px] text-muted-foreground mb-1.5">Idioma a repasar:</p>
+                    <p className="mb-1.5 text-[10px] text-muted-foreground">Idioma a repasar:</p>
                     <div className="flex gap-1.5">
                       {[
                         { value: "italiano", label: "Italiano", flag: "🇮🇹" },
@@ -762,10 +949,10 @@ export default function PlanManana() {
                       ].map(lang => (
                         <button key={lang.value} onClick={() => setLanguageChoice(lang.value)}
                           className={cn(
-                            "px-2.5 py-1.5 rounded-xl text-[10px] font-medium transition-all border",
+                            "rounded-xl border px-2.5 py-1.5 text-[10px] font-medium transition-all",
                             languageChoice === lang.value
-                              ? "bg-pink-500 text-white border-pink-500"
-                              : "bg-muted/50 border-border/60 text-muted-foreground hover:border-pink-300"
+                              ? "border-pink-500 bg-pink-500 text-white"
+                              : "border-border/60 bg-muted/50 text-muted-foreground hover:border-pink-300"
                           )}>
                           {lang.flag} {lang.label}
                         </button>
@@ -773,7 +960,7 @@ export default function PlanManana() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground mb-1.5">Instrumento musical:</p>
+                    <p className="mb-1.5 text-[10px] text-muted-foreground">Instrumento musical:</p>
                     <div className="flex gap-1.5">
                       {[
                         { value: "piano", label: "Piano", icon: "🎹" },
@@ -781,10 +968,10 @@ export default function PlanManana() {
                       ].map(inst => (
                         <button key={inst.value} onClick={() => setMusicInstrument(inst.value)}
                           className={cn(
-                            "px-2.5 py-1.5 rounded-xl text-[10px] font-medium transition-all border",
+                            "rounded-xl border px-2.5 py-1.5 text-[10px] font-medium transition-all",
                             musicInstrument === inst.value
-                              ? "bg-pink-500 text-white border-pink-500"
-                              : "bg-muted/50 border-border/60 text-muted-foreground hover:border-pink-300"
+                              ? "border-pink-500 bg-pink-500 text-white"
+                              : "border-border/60 bg-muted/50 text-muted-foreground hover:border-pink-300"
                           )}>
                           {inst.icon} {inst.label}
                         </button>
@@ -794,80 +981,24 @@ export default function PlanManana() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Selected Tasks Pool — grouped by source, draggable to timeline */}
-            {selectedPoolTasks.length > 0 && (
-              <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 shadow-sm rounded-2xl overflow-hidden">
-                <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-400" />
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                      <Target className="h-3.5 w-3.5 text-indigo-500" />
-                      Tareas seleccionadas
-                    </h3>
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-                      {selectedPoolTasks.length}
-                    </Badge>
-                  </div>
-                  <p className="text-[9px] text-muted-foreground">
-                    Arrástralas a los bloques de la rutina para asignarlas
-                  </p>
-                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                    {POOL_SOURCE_ORDER.map(source => {
-                      const sectionTasks = selectedPoolTasks.filter(t => t.source === source);
-                      if (sectionTasks.length === 0) return null;
-                      const cfg = POOL_SOURCE_CONFIG[source] || POOL_SOURCE_CONFIG.general;
-                      return (
-                        <div key={source}>
-                          <div className="flex items-center gap-1 px-1 py-0.5">
-                            <span className={cfg.color.split(' ')[0] + ' ' + cfg.color.split(' ')[1] + ' p-0.5 rounded'}>{cfg.icon}</span>
-                            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              {cfg.label}
-                            </span>
-                            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 ml-auto">
-                              {sectionTasks.length}
-                            </Badge>
-                          </div>
-                          <div className="space-y-0.5">
-                            {sectionTasks.map(task => (
-                              <div
-                                key={task.id}
-                                draggable
-                                onDragStart={(e) => handlePoolDragStart(e, task.id)}
-                                className="flex items-center gap-1.5 p-1.5 rounded-md border cursor-grab active:cursor-grabbing transition-all hover:bg-muted/50 group bg-background/40"
-                              >
-                                <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-                                <span className="text-[11px] flex-1 truncate">{task.title}</span>
-                                <button
-                                  onClick={() => { setSelectedTasks(prev => { const n = new Set(prev); n.delete(task.id); return n; }); }}
-                                  className="h-4 w-4 p-0 flex items-center justify-center shrink-0 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all"
-                                >
-                                  <span className="text-[9px] text-muted-foreground hover:text-destructive">✕</span>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
 
-        {/* Velocidad calculada desde los bloques y fragmentos */}
+        {/* Velocidad calculada desde bloques y fragmentos */}
         <DaySpeedSection speedPlan={speedPlan} blocks={blocks} />
 
       </div>
 
-      {/* Create Task Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={o => { if (!o) { resetCreateForm(); } setIsCreateOpen(o); }}>
+      {/* Crear tarea */}
+      <Dialog open={isCreateOpen} onOpenChange={o => { setIsCreateOpen(o); if (!o) resetCreateForm(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Nueva Tarea</DialogTitle>
-            <DialogDescription>{mode === 'hoy' ? 'Crea una tarea para planificar hoy.' : 'Crea una tarea para planificar mañana.'}</DialogDescription>
+            <DialogDescription>
+              {newTaskSystemId
+                ? `Se añadirá a ${planSystemName(newTaskSystemId)} y se colocará en un Deep Work.`
+                : mode === 'hoy' ? 'Crea una tarea para planificar hoy.' : 'Crea una tarea para planificar mañana.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -896,11 +1027,11 @@ export default function PlanManana() {
               </div>
             </div>
             <div>
-              <Label className="text-sm font-medium">Área</Label>
+              <Label className="text-sm font-medium">Área / Sistema</Label>
               <Select value={newAreaId} onValueChange={setNewAreaId}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                 <SelectContent>
-                  {allAreas.map(area => (
+                  {CREATE_AREA_OPTIONS.map(area => (
                     <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -908,7 +1039,7 @@ export default function PlanManana() {
             </div>
             <DialogFooter>
               <Button onClick={handleCreateTask} disabled={creating || !newTitle.trim()} className="w-full">
-                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                {creating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
                 Crear Tarea
               </Button>
             </DialogFooter>

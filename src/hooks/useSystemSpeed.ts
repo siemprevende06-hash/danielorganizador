@@ -76,6 +76,7 @@ export function useSystemSpeed(date?: Date) {
 
   useEffect(() => {
     let cancelled = false;
+    setLoadedFromPlan(false);
     (async () => {
       try {
         const { data: plan } = await supabase
@@ -94,9 +95,11 @@ export function useSystemSpeed(date?: Date) {
             // La selección explícita por sistema tiene prioridad sobre el espejo
             // de intensidad calculado desde los bloques.
             const explicit = parsed?.systemSpeed;
+            const explicitKeys = new Set<string>();
             if (explicit && typeof explicit === "object") {
               for (const [k, v] of Object.entries(explicit)) {
                 if (v === "minimo" || v === "maximo" || v === "extra" || v === "racha") {
+                  explicitKeys.add(k);
                   if (next[k] !== v) {
                     next[k] = v as SystemSpeed;
                     changed = true;
@@ -108,6 +111,7 @@ export function useSystemSpeed(date?: Date) {
             const si = parsed?.systemIntensity || parsed?.planIntensity;
             if (si && typeof si === "object") {
               for (const [k, v] of Object.entries(si)) {
+                if (explicitKeys.has(k)) continue;
                 if (v === "minimo" || v === "maximo" || v === "extra") {
                   if (next[k] !== v) {
                     next[k] = v as SystemSpeed;
