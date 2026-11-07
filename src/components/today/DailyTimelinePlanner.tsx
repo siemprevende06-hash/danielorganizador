@@ -42,6 +42,8 @@ interface Props {
   isFutureView?: boolean;
   speedPlan?: SpeedPlan;
   onSpeedPlanChange?: (next: SpeedPlan) => void;
+  /** Solo visualización: oculta toggles, edición de foco, arrastre y borrado. */
+  readOnly?: boolean;
 }
 
 const FOCUS_OPTIONS = [
@@ -188,6 +190,7 @@ export function DailyTimelinePlanner({
   isFutureView = false,
   speedPlan,
   onSpeedPlanChange,
+  readOnly = false,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -403,9 +406,9 @@ export function DailyTimelinePlanner({
           return (
             <div
               key={blockId}
-              onDragOver={(e) => handleDragOver(e, blockId)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, blockId)}
+              onDragOver={readOnly ? undefined : (e) => handleDragOver(e, blockId)}
+              onDragLeave={readOnly ? undefined : handleDragLeave}
+              onDrop={readOnly ? undefined : (e) => handleDrop(e, blockId)}
             >
               <div className="flex items-start gap-2">
                 <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground font-mono pt-2 text-right leading-tight">
@@ -434,7 +437,8 @@ export function DailyTimelinePlanner({
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <Checkbox
                           checked={completed}
-                          onCheckedChange={() => onToggleBlock(blockId)}
+                          disabled={readOnly}
+                          onCheckedChange={readOnly ? undefined : () => onToggleBlock(blockId)}
                           className="h-4 w-4 shrink-0"
                         />
                         {getBlockIcon(block)}
@@ -450,7 +454,7 @@ export function DailyTimelinePlanner({
                         </span>
 
                         {/* Deep Work / focus block selector (legacy: se oculta cuando hay plan de velocidad) */}
-                        {isFullRow && onUpdateFocus && !onSpeedPlanChange && (
+                        {!readOnly && isFullRow && onUpdateFocus && !onSpeedPlanChange && (
                           <Select
                             value={selectedFocus}
                             onValueChange={(v) =>
@@ -540,18 +544,20 @@ export function DailyTimelinePlanner({
                                 </Badge>
                               )}
                             </div>
-                            <button
-                              onClick={() => onRemoveTask(task.id)}
-                              className="h-5 w-5 p-0 flex items-center justify-center shrink-0 rounded hover:bg-destructive/10 transition-colors"
-                            >
-                              <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                            </button>
+                            {!readOnly && (
+                              <button
+                                onClick={() => onRemoveTask(task.id)}
+                                className="h-5 w-5 p-0 flex items-center justify-center shrink-0 rounded hover:bg-destructive/10 transition-colors"
+                              >
+                                <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {speedPlan && onSpeedPlanChange && (
+                    {!readOnly && speedPlan && onSpeedPlanChange && (
                       <BlockSpeedPlanControl
                         block={block}
                         nextBlock={nextBlock}

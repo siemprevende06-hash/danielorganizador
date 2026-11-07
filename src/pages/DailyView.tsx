@@ -764,6 +764,20 @@ export default function DailyView() {
           <AutocriticaSection start={selectedDate} end={selectedDate} scope="day" planGoals={planGoals} />
         ) : viewMode === 'sistemas' ? (
           <>
+            <DailyTimelinePlanner
+              blocks={planBlocks}
+              tasksByBlock={tasksByBlock || {}}
+              onToggleBlock={() => {}}
+              isBlockCompleted={isBlockCompleted}
+              onDropTask={() => {}}
+              onRemoveTask={() => {}}
+              events={todayEvents || []}
+              musicInstrument={musicInstrument}
+              languageChoice={planLanguage || undefined}
+              isFutureView={format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')}
+              speedPlan={speedPlan}
+              readOnly
+            />
             <PlanSistemaSection />
             <DaySystemsSection
               blocks={planBlocks}
