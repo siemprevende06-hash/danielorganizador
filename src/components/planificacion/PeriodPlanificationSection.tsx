@@ -17,6 +17,8 @@ import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { useWeeklyPlan } from '@/hooks/useWeeklyPlan';
 import { usePeriodPlanTasks } from '@/hooks/usePeriodPlanTasks';
 import { usePlanLibraryToggles, type SongPlanTypeLite } from '@/hooks/usePlanLibraryToggles';
+import { useSystemGoals } from '@/hooks/useSystemGoals';
+import { goalsInDateRange, type SystemGoal } from '@/lib/systemGoals';
 import { GROUP_CONFIG } from '@/lib/areaSystemsMap';
 import { doseLabel, summarizeSpeedPlan } from '@/lib/speedPlan';
 import {
@@ -37,6 +39,7 @@ import { cn } from '@/lib/utils';
 import {
   PlanAreaCard,
   PlanAreaHeader,
+  ObjectiveRow,
   StructuralSystemRow,
   type PlanAreaCardData,
   type PlanObjectiveRow,
@@ -70,12 +73,65 @@ const dateLabel = (value?: string | null) => {
   return format(date, 'EEE d MMM', { locale: es });
 };
 
+/** Fila visual de una meta creada desde Metas Sistemas. */
+function systemGoalRow(goal: SystemGoal, onToggle: () => void): PlanObjectiveRow {
+  return {
+    id: `system-goal-${goal.id}`,
+    title: goal.title,
+    subtitle: goal.objective || undefined,
+    meta: dateLabel(goal.date),
+    emoji: '🎯',
+    tag: goal.completed ? 'Hecha' : undefined,
+    done: !!goal.completed,
+    onToggle,
+  };
+}
+
+/**
+ * Reparte las metas con fecha de un periodo entre sistemas y áreas
+ * estructurales. Así una meta de diciembre solo aparece en diciembre.
+ */
+function splitSystemGoals(
+  goals: SystemGoal[],
+  startKey: string,
+  endKey: string,
+  onToggle: (id: string) => void,
+): {
+  systems: Record<string, PlanObjectiveRow[]>;
+  areas: Record<string, PlanObjectiveRow[]>;
+} {
+  const areaIds = new Set(PLAN_STRUCTURAL_AREAS.map(area => area.id));
+  const systems: Record<string, PlanObjectiveRow[]> = {};
+  const areas: Record<string, PlanObjectiveRow[]> = {};
+
+  for (const goal of goalsInDateRange(goals, startKey, endKey)) {
+    const target = areaIds.has(goal.systemId) ? areas : systems;
+    (target[goal.systemId] ??= []).push(systemGoalRow(goal, () => onToggle(goal.id)));
+  }
+
+  return { systems, areas };
+}
+
+function mergeRows(
+  base: Record<string, PlanObjectiveRow[]>,
+  extra: Record<string, PlanObjectiveRow[]>,
+): Record<string, PlanObjectiveRow[]> {
+  if (Object.keys(extra).length === 0) return base;
+  const out = { ...base };
+  Object.entries(extra).forEach(([id, rows]) => {
+    out[id] = [...(out[id] ?? []), ...rows];
+  });
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* Rendimiento de los sistemas dentro de Planificación                 */
 /* ------------------------------------------------------------------ */
 
 interface PlanAreaSectionData {
   area: PlanAreaMetrics;
+  /** Metas con fecha que pertenecen al área (Salud, Fuerza Mental, Apariencia). */
+  items?: PlanObjectiveRow[];
   sections: Array<{
     id: string;
     title: string;
@@ -96,6 +152,7 @@ function buildPlanAreas(
   itemsById: Record<string, PlanObjectiveRow[]>,
   plannedById: Record<string, number | undefined>,
   unit: string,
+  areaItemsById: Record<string, PlanObjectiveRow[]> = {},
 ): PlanAreaSectionData[] {
   return defs.flatMap(areaDef => {
     const area = metrics.areas[areaDef.id];
@@ -128,7 +185,9 @@ function buildPlanAreas(
       return cards.length > 0 ? [{ ...section, cards }] : [];
     });
 
-    return sections.length > 0 ? [{ area, sections }] : [];
+    return sections.length > 0
+      ? [{ area, items: areaItemsById[areaDef.id] ?? [], sections }]
+      : [];
   });
 }
 
@@ -445,6 +504,13 @@ function PlanAreaSection({ data, scope }: { data: PlanAreaSectionData; scope: Pl
     return (
       <div className="overflow-hidden rounded-2xl border border-border/50 bg-white/80 dark:bg-zinc-950/80">
         <PlanAreaHeader area={data.area} scope={scope} embedded />
+        {(data.items?.length ?? 0) > 0 && (
+          <div className="space-y-1 border-b border-border/50 px-2.5 py-1.5">
+            {data.items!.map(item => (
+              <ObjectiveRow key={item.id} item={item} />
+            ))}
+          </div>
+        )}
         {data.sections.map((section, index) => (
           <div key={section.id} className={cn(index > 0 && 'border-t border-border/50')}>
             <SectionHeading section={section} boxed />
@@ -462,6 +528,13 @@ function PlanAreaSection({ data, scope }: { data: PlanAreaSectionData; scope: Pl
   return (
     <section className="space-y-2.5">
       <PlanAreaHeader area={data.area} scope={scope} />
+      {(data.items?.length ?? 0) > 0 && (
+        <div className="space-y-1">
+          {data.items!.map(item => (
+            <ObjectiveRow key={item.id} item={item} />
+          ))}
+        </div>
+      )}
       {data.sections.map(section => (
         <div key={section.id} className="space-y-1.5">
           <SectionHeading section={section} />
@@ -594,6 +667,7 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
   const metrics = usePlanSystemMetrics('month', month);
+  const { goals: systemGoals, toggleGoal } = useSystemGoals();
 
   const goals = useMemo(() => getMonthGoalsSummary(month), [month]);
   const minutesOf = (ids: string[]) => minutesFrom(goals, ids);
@@ -753,11 +827,19 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
     proyectos: minutesOf(['proyectos']),
   };
 
+  const goalSplit = splitSystemGoals(
+    systemGoals,
+    format(month, 'yyyy-MM-dd'),
+    format(endOfMonth(month), 'yyyy-MM-dd'),
+    toggleGoal,
+  );
+  const mergedItemsById = mergeRows(itemsById, goalSplit.systems);
+
   const structuralAreas = buildPlanAreas(
-    PLAN_STRUCTURAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+    PLAN_STRUCTURAL_AREAS, metrics, covers, mergedItemsById, plannedById, unit, goalSplit.areas,
   );
   const centralAreas = buildPlanAreas(
-    PLAN_CENTRAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+    PLAN_CENTRAL_AREAS, metrics, covers, mergedItemsById, plannedById, unit, goalSplit.areas,
   );
 
   const periodo: PlanAreaCardData[] = [
@@ -808,6 +890,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
   const metrics = usePlanSystemMetrics('week', weekStart);
+  const { goals: systemGoals, toggleGoal } = useSystemGoals();
   const entrepreneurshipIds = planData.areaFocus?.emprendimiento || [];
   const entrepreneurshipNames = useEntrepreneurshipNames(entrepreneurshipIds);
 
@@ -1086,11 +1169,19 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     proyectos: minutesOf(['proyectos']),
   };
 
+  const goalSplit = splitSystemGoals(
+    systemGoals,
+    format(weekStart, 'yyyy-MM-dd'),
+    format(weekEnd, 'yyyy-MM-dd'),
+    toggleGoal,
+  );
+  const mergedItemsById = mergeRows(itemsById, goalSplit.systems);
+
   const structuralAreas = buildPlanAreas(
-    PLAN_STRUCTURAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+    PLAN_STRUCTURAL_AREAS, metrics, covers, mergedItemsById, plannedById, unit, goalSplit.areas,
   );
   const centralAreas = buildPlanAreas(
-    PLAN_CENTRAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+    PLAN_CENTRAL_AREAS, metrics, covers, mergedItemsById, plannedById, unit, goalSplit.areas,
   );
 
   const periodo: PlanAreaCardData[] = [
@@ -1146,6 +1237,7 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
   const { isBookDone, isSongDone, toggleBook, toggleSong } = usePlanLibraryToggles(books, songs);
   const { covers } = useAreaCovers();
   const metrics = usePlanSystemMetrics('day', anchorDate);
+  const { goals: systemGoals, toggleGoal } = useSystemGoals();
 
   const dayGoals = useMemo(() => {
     const out: Record<string, number> = {};
@@ -1397,11 +1489,19 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
     proyectos: minutesOf('proyectos'),
   };
 
+  const goalSplit = splitSystemGoals(
+    systemGoals,
+    format(anchorDate, 'yyyy-MM-dd'),
+    format(anchorDate, 'yyyy-MM-dd'),
+    toggleGoal,
+  );
+  const mergedItemsById = mergeRows(itemsById, goalSplit.systems);
+
   const structuralAreas = buildPlanAreas(
-    PLAN_STRUCTURAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+    PLAN_STRUCTURAL_AREAS, metrics, covers, mergedItemsById, plannedById, unit, goalSplit.areas,
   );
   const centralAreas = buildPlanAreas(
-    PLAN_CENTRAL_AREAS, metrics, covers, itemsById, plannedById, unit,
+    PLAN_CENTRAL_AREAS, metrics, covers, mergedItemsById, plannedById, unit, goalSplit.areas,
   );
 
   const periodo: PlanAreaCardData[] = [

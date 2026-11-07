@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,16 +36,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-interface DreamItem {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  completed: boolean;
-  priority: 'low' | 'medium' | 'high';
-  dateAdded: string;
-}
+import { useSomedayGoals } from '@/hooks/useSomedayGoals';
+import type { DreamPriority } from '@/lib/somedayGoals';
 
 const CATEGORIES = [
   { id: 'viajes', label: 'Viajar a...', icon: Plane, color: 'text-sky-500', bg: 'bg-sky-500/10', border: 'border-sky-500/30' },
@@ -65,55 +57,38 @@ const PRIORITY_META = {
   high: { label: 'Imprescindible', color: 'bg-rose-500/15 text-rose-600 border-rose-500/30' },
 };
 
-const STORAGE_KEY = 'algundia_dreams';
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
 export default function AlgunDia() {
-  const [items, setItems] = useState<DreamItem[]>([]);
+  const { items, addItem: addDream, toggleItem, removeItem } = useSomedayGoals();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(CATEGORIES.map(c => c.id)));
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newItem, setNewItem] = useState({ title: '', description: '', category: 'viajes', priority: 'medium' as DreamItem['priority'] });
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try { setItems(JSON.parse(saved)); } catch {}
-    }
-  }, []);
-
-  const saveItems = (next: DreamItem[]) => {
-    setItems(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  };
+  const [newItem, setNewItem] = useState<{ title: string; description: string; category: string; priority: DreamPriority }>({
+    title: '',
+    description: '',
+    category: 'viajes',
+    priority: 'medium',
+  });
 
   const addItem = () => {
     if (!newItem.title.trim()) return;
-    const item: DreamItem = {
-      id: generateId(),
-      title: newItem.title.trim(),
-      description: newItem.description.trim(),
+    addDream({
+      title: newItem.title,
+      description: newItem.description,
       category: newItem.category,
-      completed: false,
       priority: newItem.priority,
-      dateAdded: new Date().toISOString(),
-    };
-    saveItems([...items, item]);
+    });
     setNewItem({ title: '', description: '', category: 'viajes', priority: 'medium' });
     setDialogOpen(false);
     toast.success('Sueño agregado a tu lista');
   };
 
   const toggleCompleted = (id: string) => {
-    saveItems(items.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
     const item = items.find(i => i.id === id);
+    toggleItem(id);
     if (item && !item.completed) toast.success('¡Sueño cumplido! 🎉');
   };
 
   const deleteItem = (id: string) => {
-    saveItems(items.filter(i => i.id !== id));
+    removeItem(id);
     toast.success('Sueño eliminado');
   };
 
@@ -205,7 +180,7 @@ export default function AlgunDia() {
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Prioridad</label>
                   <div className="flex gap-2 mt-1">
-                    {(Object.keys(PRIORITY_META) as Array<DreamItem['priority']>).map(p => (
+                    {(Object.keys(PRIORITY_META) as DreamPriority[]).map(p => (
                       <button
                         key={p}
                         onClick={() => setNewItem(pr => ({ ...pr, priority: p }))}

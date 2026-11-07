@@ -2,13 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   eachDayOfInterval,
   endOfMonth,
+  endOfQuarter,
   endOfWeek,
+  endOfYear,
   format,
   startOfDay,
   startOfMonth,
+  startOfQuarter,
   startOfWeek,
+  startOfYear,
   subDays,
   subMonths,
+  subQuarters,
+  subYears,
 } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAreaScores } from '@/hooks/useAreaScores';
@@ -96,23 +102,46 @@ function makeRange(start: Date, end: Date): PeriodRange {
 }
 
 function rangesFor(scope: PlanificationScope, anchorDate: Date) {
-  const current = scope === 'day'
-    ? makeRange(startOfDay(anchorDate), startOfDay(anchorDate))
-    : scope === 'week'
-      ? makeRange(
+  const current = (() => {
+    switch (scope) {
+      case 'day':
+        return makeRange(startOfDay(anchorDate), startOfDay(anchorDate));
+      case 'week':
+        return makeRange(
           startOfWeek(anchorDate, { weekStartsOn: 1 }),
           endOfWeek(anchorDate, { weekStartsOn: 1 }),
-        )
-      : makeRange(startOfMonth(anchorDate), endOfMonth(anchorDate));
+        );
+      case 'quarter':
+        return makeRange(startOfQuarter(anchorDate), endOfQuarter(anchorDate));
+      case 'year':
+        return makeRange(startOfYear(anchorDate), endOfYear(anchorDate));
+      case 'month':
+      default:
+        return makeRange(startOfMonth(anchorDate), endOfMonth(anchorDate));
+    }
+  })();
 
-  const previous = scope === 'day'
-    ? makeRange(subDays(current.start, 1), subDays(current.start, 1))
-    : scope === 'week'
-      ? makeRange(subDays(current.start, 7), subDays(current.end, 7))
-      : (() => {
-          const prevMonth = subMonths(current.start, 1);
-          return makeRange(startOfMonth(prevMonth), endOfMonth(prevMonth));
-        })();
+  const previous = (() => {
+    switch (scope) {
+      case 'day':
+        return makeRange(subDays(current.start, 1), subDays(current.start, 1));
+      case 'week':
+        return makeRange(subDays(current.start, 7), subDays(current.end, 7));
+      case 'quarter': {
+        const prev = subQuarters(current.start, 1);
+        return makeRange(startOfQuarter(prev), endOfQuarter(prev));
+      }
+      case 'year': {
+        const prev = subYears(current.start, 1);
+        return makeRange(startOfYear(prev), endOfYear(prev));
+      }
+      case 'month':
+      default: {
+        const prevMonth = subMonths(current.start, 1);
+        return makeRange(startOfMonth(prevMonth), endOfMonth(prevMonth));
+      }
+    }
+  })();
 
   const month = makeRange(startOfMonth(anchorDate), endOfMonth(anchorDate));
   const all = [current, previous, month];

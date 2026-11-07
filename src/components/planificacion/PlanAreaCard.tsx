@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getCoverGradient } from '@/components/areas/AreaCover';
@@ -42,6 +42,9 @@ export interface PlanObjectiveRow {
   createdLabel?: string;
   /** Etiqueta de la fecha de realización (por defecto "Hecho"). */
   completedLabel?: string;
+  /** Acciones opcionales para metas creadas desde Metas Sistemas. */
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 export interface PlanAreaCardData {
@@ -58,8 +61,14 @@ export interface PlanAreaCardData {
   minutesUnit?: string;
   /** Rendimiento real del sistema durante el periodo. */
   system?: PlanSystemMetrics;
+  /** Métricas del área (para las tarjetas Salud, Fuerza Mental y Apariencia). */
+  area?: PlanAreaMetrics;
   /** Cambia la meta de cumplimiento del sistema (clic en la tarjeta). */
   onTargetChange?: (pct: number) => void;
+  /** Abre el formulario de nueva meta para esta tarjeta. */
+  onAdd?: () => void;
+  /** Texto cuando no hay objetivos (sustituye a "Solo meta de minutos"). */
+  emptyHint?: string;
   items: PlanObjectiveRow[];
 }
 
@@ -116,22 +125,27 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
   const complete = toggleable.length > 0 && doneCount === toggleable.length;
   const structural = card.system?.kind === 'estructural';
   const systemComplete = structural && card.system?.targetMet === true;
+  const areaComplete = card.area?.compliance != null && card.area.compliance >= 80;
 
-  const counter = structural
-    ? card.system?.compliance != null
-      ? `${card.system.compliance}%`
+  const counter = card.area
+    ? card.area.compliance != null
+      ? `${card.area.compliance}%`
       : ''
-    : toggleable.length > 0
-      ? `${doneCount}/${toggleable.length}`
-      : card.items.length > 0
-        ? `${card.items.length}`
-        : '';
+    : structural
+      ? card.system?.compliance != null
+        ? `${card.system.compliance}%`
+        : ''
+      : toggleable.length > 0
+        ? `${doneCount}/${toggleable.length}`
+        : card.items.length > 0
+          ? `${card.items.length}`
+          : '';
 
   return (
     <div
       className={cn(
         'relative flex flex-col overflow-hidden rounded-2xl ring-2 transition-colors',
-        complete || systemComplete
+        complete || systemComplete || areaComplete
           ? 'ring-emerald-500/40 bg-emerald-500/5'
           : 'ring-border/40 bg-white/80 dark:bg-zinc-950/80'
       )}
@@ -157,7 +171,23 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
           {card.note && (
             <span className="ml-auto shrink-0 text-[8px] font-medium text-muted-foreground">{card.note}</span>
           )}
+          {card.onAdd && (
+            <button
+              type="button"
+              onClick={card.onAdd}
+              title={`Nueva meta para ${card.title}`}
+              aria-label={`Nueva meta para ${card.title}`}
+              className={cn(
+                'grid h-4 w-4 shrink-0 place-items-center rounded-full border border-border/60 bg-foreground/5 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary',
+                !card.note && 'ml-auto',
+              )}
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          )}
         </div>
+
+        {card.area && !card.system && <AreaMetricsBlock area={card.area} />}
 
         {card.system && (
           card.system.kind === 'estructural' ? (
@@ -180,11 +210,13 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
               <ObjectiveRow key={item.id} item={item} />
             ))}
           </div>
-        ) : !card.system ? (
+        ) : card.emptyHint ? (
+          <p className="text-[9px] leading-tight text-muted-foreground/80">{card.emptyHint}</p>
+        ) : !card.system && !card.area ? (
           <p className="text-[9px] leading-tight text-muted-foreground/80">Solo meta de minutos</p>
         ) : null}
 
-        {!card.system && (card.minutes ?? 0) > 0 && (
+        {!card.system && !card.area && (card.minutes ?? 0) > 0 && (
           <div className="mt-auto flex items-baseline gap-1 pt-0.5">
             <span className="text-xl font-extrabold leading-none tabular-nums">{card.minutes}</span>
             <span className="text-[9px] text-muted-foreground">{card.minutesUnit ?? 'min'}</span>
@@ -255,6 +287,193 @@ function trendTone(trend: number | null): string {
   return 'text-muted-foreground';
 }
 
+/* ------------------------------------------------------------------ */
+/* Series largas (trimestre / año)                                     */
+/* ------------------------------------------------------------------ */
+
+const MAX_SERIES_BARS = 40;
+
+interface SeriesBucket {
+  key: string;
+  dayKeys: string[];
+  statuses: PlanDayStatus[];
+  minutes: number;
+  future: boolean;
+  single: boolean;
+}
+
+/**
+ * En día/semana/mes se conserva una barra por día. En trimestre/año se agrupan
+ * los días en bloques de como máximo 40 barras para que la tarjeta no se rompa
+ * y siga siendo legible.
+ */
+function seriesBuckets(system: PlanSystemMetrics, todayKey: string): SeriesBucket[] {
+  const statuses = system.status ?? [];
+  const days = system.days ?? [];
+  const spark = system.spark ?? [];
+  const length = Math.max(statuses.length, days.length, spark.length);
+  if (length === 0) return [];
+
+  const size = Math.max(1, Math.ceil(length / MAX_SERIES_BARS));
+  const out: SeriesBucket[] = [];
+
+  for (let index = 0; index < length; index += size) {
+    const dayKeys = days.slice(index, index + size);
+    const chunkStatuses = statuses.slice(index, index + size);
+    const minutes = spark
+      .slice(index, index + size)
+      .reduce((sum, value) => sum + (Number(value) || 0), 0);
+    const future = dayKeys.length > 0 && dayKeys.every(day => day > todayKey);
+    out.push({
+      key: `${index}-${dayKeys[0] ?? ''}`,
+      dayKeys,
+      statuses: chunkStatuses,
+      minutes,
+      future,
+      single: size === 1,
+    });
+  }
+
+  return out;
+}
+
+function bucketRangeLabel(bucket: SeriesBucket): string {
+  const first = bucket.dayKeys[0];
+  const last = bucket.dayKeys[bucket.dayKeys.length - 1];
+  const firstLabel = first ? shortDate(first) ?? first : '';
+  const lastLabel = last ? shortDate(last) ?? last : '';
+  if (!firstLabel && !lastLabel) return '';
+  if (firstLabel === lastLabel || !lastLabel) return firstLabel;
+  return `${firstLabel} → ${lastLabel}`;
+}
+
+function bucketCompliance(bucket: SeriesBucket, todayKey: string): number | null {
+  if (bucket.future) return null;
+  const evaluated = bucket.statuses.filter((status, index) => {
+    const day = bucket.dayKeys[index];
+    if (day && day > todayKey) return false;
+    return status !== 'rest';
+  });
+  if (evaluated.length === 0) return null;
+  const done = evaluated.filter(status => status === 'done').length;
+  return Math.round((done / evaluated.length) * 100);
+}
+
+function bucketStatusColor(bucket: SeriesBucket, todayKey: string): string {
+  if (bucket.future) return 'bg-muted-foreground/20';
+  if (bucket.single) {
+    return STATUS_COLOR[bucket.statuses[0] ?? 'none'];
+  }
+  if (bucket.statuses.length > 0 && bucket.statuses.every(status => status === 'rest')) {
+    return STATUS_COLOR.rest;
+  }
+  const pct = bucketCompliance(bucket, todayKey);
+  if (pct == null) return 'bg-muted-foreground/20';
+  if (pct >= 80) return 'bg-emerald-500';
+  if (pct >= 50) return 'bg-amber-500';
+  return 'bg-red-500';
+}
+
+function bucketStatusTitle(bucket: SeriesBucket, todayKey: string): string {
+  const range = bucketRangeLabel(bucket);
+  if (bucket.future) return `${range || 'Pendiente'} · Pendiente`;
+  if (bucket.single) {
+    const status = bucket.statuses[0] ?? 'none';
+    return `${STATUS_LABEL[status]}${range ? ` · ${range}` : ''}`;
+  }
+  const pct = bucketCompliance(bucket, todayKey);
+  return `${range}${pct == null ? '' : ` · ${pct}% cumplido`}`;
+}
+
+function bucketSparkColor(bucket: SeriesBucket, todayKey: string): string {
+  if (bucket.future) return 'bg-muted-foreground/20';
+  if (bucket.single) return STATUS_COLOR[bucket.statuses[0] ?? 'none'];
+  if (bucket.statuses.some(status => status === 'done')) return 'bg-emerald-500';
+  if (bucket.statuses.some(status => status === 'partial')) return 'bg-blue-500';
+  if (bucket.statuses.some(status => status === 'skip')) return 'bg-red-500';
+  return 'bg-muted-foreground/40';
+}
+
+function bucketSparkHeight(bucket: SeriesBucket, max: number): number {
+  const hasProgress = bucket.statuses.some(status => status === 'done' || status === 'partial');
+  const floor = !bucket.future && !hasProgress ? 16 : 8;
+  return Math.max(floor, (bucket.minutes / Math.max(1, max)) * 100);
+}
+
+function bucketSparkTitle(bucket: SeriesBucket): string {
+  const range = bucketRangeLabel(bucket);
+  return `${bucket.minutes} min${range ? ` · ${range}` : ''}`;
+}
+
+/**
+ * Métricas compactas de un área estructural (Salud, Fuerza Mental,
+ * Apariencia). Usa el mismo lenguaje visual que las tarjetas de sistema.
+ */
+function AreaMetricsBlock({ area }: { area: PlanAreaMetrics }) {
+  const status = AREA_STATUS_META[area.status];
+  const compliance = area.compliance;
+
+  return (
+    <div className="space-y-1 rounded-lg bg-foreground/[0.04] p-1.5">
+      <div className="flex items-center gap-1">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', status.dot)} />
+        <span className={cn('truncate text-[8px] font-semibold leading-tight', status.text)}>
+          {status.label}
+        </span>
+        <span
+          className={cn('ml-auto shrink-0 text-[8px] font-bold tabular-nums', trendTone(area.trend))}
+          title="Cumplimiento vs periodo anterior"
+        >
+          {trendLabel(area.trend)}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between gap-1">
+        <div className="flex items-baseline gap-1">
+          <span className={cn('text-2xl font-extrabold leading-none tabular-nums', status.text)}>
+            {compliance == null ? '—' : compliance}
+          </span>
+          {compliance != null && (
+            <span className="text-sm font-bold leading-none text-muted-foreground">%</span>
+          )}
+        </div>
+        <span className="text-[8px] text-muted-foreground">
+          {area.activeSystems}/{area.totalSystems} activos
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <Meter
+          label="Anclas"
+          value={area.anchorCompliance}
+          bar="bg-sky-500"
+          hint="Cumplimiento de los sistemas ancla del área"
+        />
+        <Meter
+          label="Mant."
+          value={area.maintenanceCompliance}
+          bar="bg-violet-500"
+          hint="Cumplimiento de los sistemas de mantenimiento"
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-x-1.5 gap-y-0.5 text-[8px] text-muted-foreground">
+        <span className="truncate">
+          {area.weakestAnchor
+            ? `Ancla débil: ${area.weakestAnchor.name} ${area.weakestAnchor.compliance}%`
+            : 'Sin anclas con datos'}
+        </span>
+        <span className="shrink-0 tabular-nums">Verde {area.greenWeeks}/{area.totalWeeks}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <Meter label="Esf" value={area.effort} bar="bg-violet-500" hint="Esfuerzo del área (Punto B)" />
+        <Meter label="Res" value={area.results} bar="bg-emerald-500" hint="Resultados del área (Punto B)" />
+      </div>
+    </div>
+  );
+}
+
 /** Estado visual compartido por la tarjeta y la fila compacta estructural. */
 function structuralTone(system: PlanSystemMetrics) {
   const tone: 'green' | 'amber' | 'red' | 'grey' =
@@ -309,8 +528,8 @@ function StructuralMetrics({
 }) {
   const { palette, dot, barColor, stateLabel, pct } = structuralTone(system);
   const todayKey = format(new Date(), 'yyyy-MM-dd');
-  const spark = system.spark ?? [];
-  const sparkMax = Math.max(1, ...spark);
+  const buckets = seriesBuckets(system, todayKey);
+  const sparkMax = Math.max(1, ...buckets.map(bucket => bucket.minutes));
   const targetLabel = system.daysTotal > 0
     ? `${system.targetDays}d · ${system.targetPct}%`
     : `${system.targetPct}%`;
@@ -399,40 +618,29 @@ function StructuralMetrics({
 
       {system.status && system.status.length > 1 && (
         <div className="flex gap-px">
-          {system.status.map((status, index) => {
-            const future = !!system.days?.[index] && system.days[index] > todayKey;
-            return (
-              <span
-                key={index}
-                title={future ? 'Pendiente' : STATUS_LABEL[status]}
-                className={cn(
-                  'h-1.5 flex-1 rounded-[1px]',
-                  future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
-                )}
-              />
-            );
-          })}
+          {buckets.map(bucket => (
+            <span
+              key={bucket.key}
+              title={bucketStatusTitle(bucket, todayKey)}
+              className={cn(
+                'h-1.5 flex-1 rounded-[1px]',
+                bucketStatusColor(bucket, todayKey),
+              )}
+            />
+          ))}
         </div>
       )}
 
-      {system.timed && spark.some(value => value > 0) && (
+      {system.timed && buckets.some(bucket => bucket.minutes > 0) && (
         <div className="flex h-3.5 items-end gap-px">
-          {spark.map((value, index) => {
-            const status = system.status?.[index] ?? 'none';
-            const future = !!system.days?.[index] && system.days[index] > todayKey;
-            const missed = !future && status !== 'done' && status !== 'partial';
-            return (
-              <span
-                key={index}
-                title={`${value} min`}
-                className={cn(
-                  'flex-1 rounded-sm',
-                  future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
-                )}
-                style={{ height: `${Math.max(missed ? 16 : 8, (value / sparkMax) * 100)}%` }}
-              />
-            );
-          })}
+          {buckets.map(bucket => (
+            <span
+              key={bucket.key}
+              title={bucketSparkTitle(bucket)}
+              className={cn('flex-1 rounded-sm', bucketSparkColor(bucket, todayKey))}
+              style={{ height: `${bucketSparkHeight(bucket, sparkMax)}%` }}
+            />
+          ))}
         </div>
       )}
 
@@ -492,8 +700,8 @@ export function StructuralSystemRow({ card }: { card: PlanAreaCardData }) {
 
   const { palette, dot, barColor, stateLabel, pct } = structuralTone(system);
   const todayKey = format(new Date(), 'yyyy-MM-dd');
-  const spark = system.spark ?? [];
-  const sparkMax = Math.max(1, ...spark);
+  const buckets = seriesBuckets(system, todayKey);
+  const sparkMax = Math.max(1, ...buckets.map(bucket => bucket.minutes));
   const targetLabel = system.daysTotal > 0
     ? `${system.targetDays}d · ${system.targetPct}%`
     : `${system.targetPct}%`;
@@ -597,40 +805,29 @@ export function StructuralSystemRow({ card }: { card: PlanAreaCardData }) {
 
         {system.status && system.status.length > 1 && (
           <div className="flex w-20 shrink-0 gap-px">
-            {system.status.map((status, index) => {
-              const future = !!system.days?.[index] && system.days[index] > todayKey;
-              return (
-                <span
-                  key={index}
-                  title={future ? 'Pendiente' : STATUS_LABEL[status]}
-                  className={cn(
-                    'h-1.5 flex-1 rounded-[1px]',
-                    future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
-                  )}
-                />
-              );
-            })}
+            {buckets.map(bucket => (
+              <span
+                key={bucket.key}
+                title={bucketStatusTitle(bucket, todayKey)}
+                className={cn(
+                  'h-1.5 flex-1 rounded-[1px]',
+                  bucketStatusColor(bucket, todayKey),
+                )}
+              />
+            ))}
           </div>
         )}
 
-        {system.timed && spark.some(value => value > 0) && (
+        {system.timed && buckets.some(bucket => bucket.minutes > 0) && (
           <div className="flex h-3 w-16 shrink-0 items-end gap-px">
-            {spark.map((value, index) => {
-              const status = system.status?.[index] ?? 'none';
-              const future = !!system.days?.[index] && system.days[index] > todayKey;
-              const missed = !future && status !== 'done' && status !== 'partial';
-              return (
-                <span
-                  key={index}
-                  title={`${value} min`}
-                  className={cn(
-                    'flex-1 rounded-sm',
-                    future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
-                  )}
-                  style={{ height: `${Math.max(missed ? 16 : 8, (value / sparkMax) * 100)}%` }}
-                />
-              );
-            })}
+            {buckets.map(bucket => (
+              <span
+                key={bucket.key}
+                title={bucketSparkTitle(bucket)}
+                className={cn('flex-1 rounded-sm', bucketSparkColor(bucket, todayKey))}
+                style={{ height: `${bucketSparkHeight(bucket, sparkMax)}%` }}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -675,8 +872,8 @@ function SystemMetrics({
   const actual = Math.max(0, Math.round(system.actualMinutes ?? 0));
   const pct = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : null;
   const todayKey = format(new Date(), 'yyyy-MM-dd');
-  const spark = system.spark ?? [];
-  const sparkMax = Math.max(1, ...spark);
+  const buckets = seriesBuckets(system, todayKey);
+  const sparkMax = Math.max(1, ...buckets.map(bucket => bucket.minutes));
 
   return (
     <div className="space-y-1 rounded-lg bg-foreground/[0.04] p-1.5">
@@ -765,40 +962,29 @@ function SystemMetrics({
 
       {system.status && system.status.length > 1 && (
         <div className="flex gap-px">
-          {system.status.map((status, index) => {
-            const future = !!system.days?.[index] && system.days[index] > todayKey;
-            return (
-              <span
-                key={index}
-                title={future ? 'Pendiente' : STATUS_LABEL[status]}
-                className={cn(
-                  'h-1.5 flex-1 rounded-[1px]',
-                  future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
-                )}
-              />
-            );
-          })}
+          {buckets.map(bucket => (
+            <span
+              key={bucket.key}
+              title={bucketStatusTitle(bucket, todayKey)}
+              className={cn(
+                'h-1.5 flex-1 rounded-[1px]',
+                bucketStatusColor(bucket, todayKey),
+              )}
+            />
+          ))}
         </div>
       )}
 
-      {spark.some(value => value > 0) && (
+      {buckets.some(bucket => bucket.minutes > 0) && (
         <div className="flex h-3.5 items-end gap-px">
-          {spark.map((value, index) => {
-            const status = system.status?.[index] ?? 'none';
-            const future = !!system.days?.[index] && system.days[index] > todayKey;
-            const missed = !future && status !== 'done' && status !== 'partial';
-            return (
-              <span
-                key={index}
-                title={`${value} min`}
-                className={cn(
-                  'flex-1 rounded-sm',
-                  future ? 'bg-muted-foreground/20' : STATUS_COLOR[status]
-                )}
-                style={{ height: `${Math.max(missed ? 16 : 8, (value / sparkMax) * 100)}%` }}
-              />
-            );
-          })}
+          {buckets.map(bucket => (
+            <span
+              key={bucket.key}
+              title={bucketSparkTitle(bucket)}
+              className={cn('flex-1 rounded-sm', bucketSparkColor(bucket, todayKey))}
+              style={{ height: `${bucketSparkHeight(bucket, sparkMax)}%` }}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -991,7 +1177,7 @@ export function PlanAreaHeader({
   );
 }
 
-function ObjectiveRow({ item }: { item: PlanObjectiveRow }) {
+export function ObjectiveRow({ item }: { item: PlanObjectiveRow }) {
   const dateText = rowDateText(item);
 
   const body = (
@@ -1049,22 +1235,59 @@ function ObjectiveRow({ item }: { item: PlanObjectiveRow }) {
     </>
   );
 
-  if (!item.onToggle) {
+  const hasActions = !!(item.onEdit || item.onDelete);
+
+  if (!item.onToggle && !hasActions) {
     return (
       <div className="flex items-center gap-1.5 rounded-lg bg-foreground/5 px-1.5 py-1">{body}</div>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={item.onToggle}
-      className={cn(
-        'group/objective flex w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors transition-shadow',
-        item.done ? 'bg-emerald-500/10 hover:bg-emerald-500/15' : 'bg-foreground/5 hover:bg-emerald-500/10'
+    <div className="flex min-w-0 items-center gap-0.5">
+      {item.onToggle ? (
+        <button
+          type="button"
+          onClick={item.onToggle}
+          className={cn(
+            'group/objective flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors transition-shadow',
+            item.done ? 'bg-emerald-500/10 hover:bg-emerald-500/15' : 'bg-foreground/5 hover:bg-emerald-500/10'
+          )}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-foreground/5 px-1.5 py-1">
+          {body}
+        </div>
       )}
-    >
-      {body}
-    </button>
+
+      {hasActions && (
+        <span className="flex shrink-0 flex-col gap-0.5">
+          {item.onEdit && (
+            <button
+              type="button"
+              onClick={item.onEdit}
+              title="Editar meta"
+              aria-label={`Editar ${item.title}`}
+              className="grid h-3.5 w-3.5 place-items-center rounded text-muted-foreground/70 transition-colors hover:bg-foreground/10 hover:text-foreground"
+            >
+              <Pencil className="h-2.5 w-2.5" />
+            </button>
+          )}
+          {item.onDelete && (
+            <button
+              type="button"
+              onClick={item.onDelete}
+              title="Eliminar meta"
+              aria-label={`Eliminar ${item.title}`}
+              className="grid h-3.5 w-3.5 place-items-center rounded text-muted-foreground/70 transition-colors hover:bg-red-500/10 hover:text-red-500"
+            >
+              <Trash2 className="h-2.5 w-2.5" />
+            </button>
+          )}
+        </span>
+      )}
+    </div>
   );
 }

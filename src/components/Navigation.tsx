@@ -79,6 +79,7 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
       { path: '/anual', label: 'Año', icon: CalendarDays },
       { path: '/cinco-anos', label: '5 Años', icon: CalendarRange },
       { path: '/algun-dia', label: 'Algún Día', icon: Star },
+      { path: '/metas-sistemas', label: 'Metas Sistemas', icon: Target },
     ]
   },
   {

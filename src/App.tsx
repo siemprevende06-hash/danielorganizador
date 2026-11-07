@@ -97,6 +97,7 @@ import MiListaPersonal from "./pages/MiListaPersonal";
 import Organizacion from "./pages/Organizacion";
 import CincoAnos from "./pages/CincoAnos";
 import AlgunDia from "./pages/AlgunDia";
+import MetasSistemas from "./pages/MetasSistemas";
 import AhoraMismo from "./pages/AhoraMismo";
 import LineaDeTiempo from "./pages/LineaDeTiempo";
 import ObjetivoPrioritario from "./pages/ObjetivoPrioritario";
@@ -203,6 +204,7 @@ function AppContent() {
         <Route path="/destino-a-llegar" element={<DestinoALlegar />} />
         <Route path="/cinco-anos" element={<CincoAnos />} />
         <Route path="/algun-dia" element={<AlgunDia />} />
+        <Route path="/metas-sistemas" element={<MetasSistemas />} />
         <Route path="/ahora-mismo" element={<AhoraMismo />} />
         <Route path="/linea-de-tiempo" element={<LineaDeTiempo />} />
         <Route path="/objetivo-prioritario" element={<ObjetivoPrioritario />} />

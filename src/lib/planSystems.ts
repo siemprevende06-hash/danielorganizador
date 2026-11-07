@@ -14,7 +14,7 @@ import { SOSTEN_AREAS, systemSpeedOptions } from '@/lib/daySystems';
 // tiene tracking diario y queda fuera de las tarjetas.
 // ---------------------------------------------------------------------------
 
-export type PlanificationScope = 'day' | 'week' | 'month';
+export type PlanificationScope = 'day' | 'week' | 'month' | 'quarter' | 'year';
 export type PlanSystemKind = 'estructural' | 'central';
 export type PlanSystemRole = 'ancla' | 'mantenimiento';
 export type PlanDayStatus = 'done' | 'partial' | 'skip' | 'rest' | 'none';

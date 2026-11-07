@@ -4,7 +4,12 @@ const SYNC_TABLE = 'sync_state';
 const META_KEY = 'plan_sync_meta';
 
 const PLAN_PREFIXES = ['trimestral_plan_', 'monthly_plan_', 'weekly_plan_', 'trimestral_progress_'];
-const PLAN_EXACT_KEYS = ['hierarchy_week_overrides', 'hierarchy_day_overrides'];
+const PLAN_EXACT_KEYS = [
+  'hierarchy_week_overrides',
+  'hierarchy_day_overrides',
+  'system_goals_v1',
+  'algundia_dreams',
+];
 
 function loadMeta(): Record<string, string> {
   try {
