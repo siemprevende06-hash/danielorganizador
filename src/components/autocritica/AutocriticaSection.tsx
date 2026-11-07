@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { Activity, Gauge, Save, Scale, Target, Layers, TrendingUp, CalendarCheck, CheckCircle2, Timer, BookOpen, Trophy } from 'lucide-react';
+import { Activity, Gauge, Save, Scale, Target, Layers, TrendingUp, CalendarCheck, CheckCircle2, Timer, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER, type AreaKey } from '@/hooks/useResultadosPeriodo';
@@ -16,6 +16,9 @@ import { OverallRating } from '@/components/self-review/OverallRating';
 import { EnergySleepCheckin } from '@/components/today/EnergySleepCheckin';
 import { StreaksTendencias } from '@/components/autocritica/StreaksTendencias';
 import { ComparativaTrimestres } from '@/components/control/ComparativaTrimestres';
+import { AutocriticaAreaCards, type AutocriticaAreaRow } from '@/components/autocritica/AutocriticaAreaCards';
+import { AutocriticaCoachCard } from '@/components/autocritica/AutocriticaCoachCard';
+import { useAreaCovers } from '@/hooks/useAreaCovers';
 import { cn } from '@/lib/utils';
 
 const AREA_LABELS: Record<string, string> = {
@@ -31,13 +34,6 @@ const AREA_LABELS: Record<string, string> = {
   general: 'General',
 };
 const SCOPE_LABELS: Record<string, string> = { day: 'Hoy', week: 'Semana', month: 'Mes', quarter: 'Trimestre', year: 'Año' };
-
-const verdictFor = (pct: number) =>
-  pct >= 100
-    ? { label: 'Cumplido', cls: 'text-emerald-600 bg-emerald-500/10' }
-    : pct >= 60
-      ? { label: 'Parcial', cls: 'text-amber-600 bg-amber-500/10' }
-      : { label: 'No cumplido', cls: 'text-destructive bg-destructive/10' };
 
 const verdictGlobal = (pct: number) =>
   pct >= 90
@@ -123,6 +119,7 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
     scope === 'month' ? 'monthly' :
     scope === 'quarter' ? 'quarterly' : 'weekly';
   const periodic = usePeriodicReview(periodicType, start);
+  const { covers } = useAreaCovers();
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [ratingDraft, setRatingDraft] = useState<number | null>(null);
   const p = periodic.review;
@@ -157,16 +154,36 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
     return g > 0 ? g : (r.byArea[k].goalMinutes || 0);
   };
 
-  const rows = AREA_ORDER
-    .map((k) => ({
-      key: k,
-      label: AREA_LABELS[k] || k,
-      plan: dayGoalForArea(k),
-      real: r.byArea[k].minutes || 0,
-      done: r.byArea[k].done || 0,
-      total: r.byArea[k].total || 0,
-    }))
-    .filter((x) => x.plan > 0 || x.real > 0 || x.total > 0);
+  const rows: AutocriticaAreaRow[] = AREA_ORDER
+    .map((k) => {
+      const area = r.byArea[k];
+      let resultDone = area?.done || 0;
+      let resultTotal = area?.total || 0;
+      let resultUnit = 'tareas';
+      if (k === 'lectura' && r.lectura.pagesGoal > 0) {
+        resultDone = r.lectura.pages;
+        resultTotal = r.lectura.pagesGoal;
+        resultUnit = 'páginas';
+      } else if (resultTotal === 0 && k === 'idiomas' && r.idiomas.skillCoverage.length > 0) {
+        resultDone = r.idiomas.skillCoverage.length;
+        resultTotal = 6;
+        resultUnit = 'habilidades';
+      } else if (resultTotal === 0 && k === 'musica' && r.songs.length > 0) {
+        resultDone = r.musica.songs;
+        resultTotal = r.songs.length;
+        resultUnit = 'canciones';
+      }
+      return {
+        key: k,
+        label: AREA_LABELS[k] || k,
+        plan: dayGoalForArea(k),
+        real: area?.minutes || 0,
+        resultDone,
+        resultTotal,
+        resultUnit,
+      };
+    })
+    .filter((x) => x.plan > 0 || x.real > 0 || x.resultTotal > 0);
 
   // Para el día, el plan total es el mismo total del recuadro "Metas de minutos
   // del día"; en scopes mayores se suma el plan de cada área del período.
@@ -197,6 +214,51 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
   const scoredDays = r.perDay.filter((d) => d.score > 0);
   const bestDay = scoredDays.length ? Math.max(...scoredDays.map((d) => d.score)) : null;
   const worstDay = scoredDays.length ? Math.min(...scoredDays.map((d) => d.score)) : null;
+
+  const areaSummary = rows
+    .map((row) => {
+      const effort = row.plan > 0
+        ? `${row.real}/${row.plan} min (${Math.round((row.real / row.plan) * 100)}%)`
+        : `${row.real} min`;
+      const result = row.resultTotal > 0
+        ? `${row.resultDone}/${row.resultTotal} ${row.resultUnit} (${Math.round((row.resultDone / row.resultTotal) * 100)}%)`
+        : 'sin objetivo marcable';
+      return `- ${row.label}: esfuerzo ${effort}; resultado ${result}`;
+    })
+    .join('\n');
+
+  const reflectionSummary = (isDay
+    ? [
+        dayReview.review?.whatWentWell && `Qué salió bien: ${dayReview.review.whatWentWell}`,
+        dayReview.review?.whatCouldBeBetter && `Qué puedo mejorar: ${dayReview.review.whatCouldBeBetter}`,
+        dayReview.review?.tomorrowPlan && `Plan de mañana: ${dayReview.review.tomorrowPlan}`,
+        dayReview.review?.overallRating ? `Valoración del día: ${dayReview.review.overallRating}/10` : null,
+        dayReview.review?.energyRating ? `Energía: ${dayReview.review.energyRating}/10` : null,
+        dayReview.review?.sleepRating ? `Sueño: ${dayReview.review.sleepRating}/10` : null,
+      ]
+    : [
+        field('wins') && `Triunfos: ${field('wins')}`,
+        field('struggles') && `Dificultades: ${field('struggles')}`,
+        field('lessons_learned') && `Aprendizajes: ${field('lessons_learned')}`,
+        field('next_period_focus') && `Foco del próximo período: ${field('next_period_focus')}`,
+        rating > 0 ? `Valoración: ${rating}/10` : null,
+      ])
+    .filter(Boolean)
+    .join('\n');
+
+  const coachContext = [
+    `Contexto de autocrítica (${scopeLabel.toLowerCase()}):`,
+    `- Score: ${scorePct}/100 (${verdict.label})`,
+    `- Esfuerzo: ${esfuerzoPct != null ? `${esfuerzoPct}%` : 'sin plan'} · ${realTotal}/${planTotal} min`,
+    `- Resultados: ${resultadosPct != null ? `${resultadosPct}%` : 'sin datos'} · Tareas ${r.globalDone}/${r.globalTotal} · Sistemas ${r.systems.done}/${r.systems.total}`,
+    pagePct != null ? `- Lectura: ${r.lectura.pages}/${r.lectura.pagesGoal} páginas` : null,
+    booksTotal > 0 ? `- Libros: ${booksDone}/${booksTotal} completados` : null,
+    bestDay != null && worstDay != null ? `- Mejor día: ${bestDay} · Peor día: ${worstDay}` : null,
+    areaSummary ? `Áreas:\n${areaSummary}` : null,
+    reflectionSummary ? `Reflexión:\n${reflectionSummary}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const kpi = (label: string, value: React.ReactNode, icon: React.ReactNode, tone: string, sub?: React.ReactNode) => (
     <div className="rounded-2xl border border-border/50 bg-white/70 dark:bg-zinc-950/60 backdrop-blur-sm p-3.5 flex items-start gap-3 transition-all hover:shadow-md">
@@ -302,8 +364,8 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
                 <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} width={30} />
                 <Tooltip
                   contentStyle={{ fontSize: 11, borderRadius: 12, border: '1px solid hsl(var(--border))' }}
-                  formatter={(v: any) => [`${v}`, 'Score']}
-                  labelFormatter={(l: any) => `Día ${l}`}
+                  formatter={(v) => [`${v}`, 'Score']}
+                  labelFormatter={(l) => `Día ${l}`}
                   cursor={{ stroke: 'rgba(0,0,0,0.15)' }}
                 />
                 <ReferenceLine y={r.score} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" strokeOpacity={0.5} />
@@ -375,59 +437,6 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
     </div>
   );
 
-  const rowElems = rows.map((row) => {
-    const effortPct = row.plan > 0 ? Math.round((row.real / row.plan) * 100) : null;
-    const resultsPct = row.total > 0 ? Math.round((row.done / row.total) * 100) : null;
-    const combined = [effortPct, resultsPct].filter((x): x is number => x != null);
-    const combinedPct = combined.length ? Math.round(combined.reduce((a, b) => a + b, 0) / combined.length) : null;
-    const v = verdictFor(combinedPct ?? 0);
-    return (
-      <div key={row.key} className="rounded-2xl border border-border/50 bg-white/60 dark:bg-zinc-950/50 p-3 space-y-2.5">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold flex-1 truncate">{row.label}</span>
-          {row.total > 0 && (
-            <Badge variant="outline" className="text-[10px]">
-              {row.done}/{row.total} tareas
-            </Badge>
-          )}
-          {row.plan > 0 && (
-            <>
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:inline">Plan {row.plan} min</span>
-              <span className={cn('text-[10px] whitespace-nowrap', (effortPct ?? 0) < 100 ? 'text-destructive' : 'text-emerald-600')}>
-                {row.real} min
-              </span>
-            </>
-          )}
-          {combinedPct != null && (
-            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', v.cls)}>
-              {v.label} {combinedPct}%
-            </span>
-          )}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div className="rounded-xl bg-muted/30 p-2.5 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <Activity className="h-3 w-3 text-indigo-500" /> Esfuerzo
-              </span>
-              <span className="text-xs font-bold tabular-nums">{effortPct != null ? `${effortPct}%` : '—'}</span>
-            </div>
-            <Progress value={Math.min(effortPct ?? 0, 100)} className="h-1.5" indicatorClassName={cn((effortPct ?? 0) >= 100 ? 'bg-emerald-500' : (effortPct ?? 0) >= 60 ? 'bg-primary' : 'bg-destructive')} />
-          </div>
-          <div className="rounded-xl bg-muted/30 p-2.5 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <Target className="h-3 w-3 text-fuchsia-500" /> Resultados
-              </span>
-              <span className="text-xs font-bold tabular-nums">{resultsPct != null ? `${resultsPct}%` : '—'}</span>
-            </div>
-            <Progress value={Math.min(resultsPct ?? 0, 100)} className="h-1.5" indicatorClassName={cn((resultsPct ?? 0) >= 100 ? 'bg-emerald-500' : (resultsPct ?? 0) >= 60 ? 'bg-primary' : 'bg-destructive')} />
-          </div>
-        </div>
-      </div>
-    );
-  });
-
   const rowsContent = rows.length === 0
     ? (
         <p className="text-xs text-muted-foreground text-center py-6 rounded-2xl border border-dashed border-border/60">
@@ -435,7 +444,7 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
         </p>
       )
     : (
-        <div className="space-y-3">{rowElems}</div>
+        <AutocriticaAreaCards rows={rows} covers={covers} />
       );
 
   const rowsCard = (
@@ -444,8 +453,10 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-amber-500" />
-          <h2 className="text-sm font-semibold">Áreas — Esfuerzo + Resultados vs Plan</h2>
-          <Trophy className="h-4 w-4 text-emerald-500 ml-auto" />
+          <h2 className="text-sm font-semibold">Áreas — Esfuerzo + objetivos</h2>
+          <Badge variant="secondary" className="text-[10px] ml-auto">
+            {rows.length} {rows.length === 1 ? 'área' : 'áreas'}
+          </Badge>
         </div>
         {rowsContent}
       </CardContent>
@@ -503,6 +514,28 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
     </Card>
   );
 
+  const coachSuggestions = isDay
+    ? [
+        'Analiza mi día y dime qué mejorar.',
+        '¿Qué debería priorizar mañana?',
+        'Dame un plan concreto para recuperar lo pendiente.',
+        '¿Cómo convierto mi esfuerzo en resultados?',
+      ]
+    : [
+        `Analiza mi ${scopeLabel.toLowerCase()} y dime qué ajustar.`,
+        '¿Qué debería priorizar el próximo período?',
+        'Dame un plan concreto para recuperar lo pendiente.',
+        '¿Cómo convierto mi esfuerzo en resultados?',
+      ];
+
+  const coachCard = (
+    <AutocriticaCoachCard
+      context={coachContext}
+      scopeLabel={scopeLabel}
+      suggestions={coachSuggestions}
+    />
+  );
+
   return (
     <div className="space-y-5">
       {heroCard}
@@ -513,6 +546,7 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
       {scope === 'quarter' && <ComparativaTrimestres quarter={quarterRef.quarter} year={quarterRef.year} />}
       {rowsCard}
       {reflectionCard}
+      {coachCard}
     </div>
   );
 }

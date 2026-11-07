@@ -39,8 +39,8 @@ const sidebarGroups: { label: string | null; items: SidebarItem[] }[] = [
   {
     label: null,
     items: [
-      { path: '/', label: 'Inicio', icon: Home },
-      { path: '/inicio-2', label: 'Inicio 2.0', icon: LayoutDashboard },
+      { path: '/', label: 'Inicio 2.0', icon: LayoutDashboard },
+      { path: '/inicio-clasico', label: 'Inicio clásico', icon: Home },
       { path: '/control-room', label: 'Control Room', icon: Gauge },
       { path: '/focus', label: 'Focus', icon: Focus },
       { path: '/routine-day', label: 'Rutina del Día', icon: LayoutList },

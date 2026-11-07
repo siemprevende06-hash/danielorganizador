@@ -15,9 +15,19 @@ interface CoachChatProps {
   pendingPrompt?: PendingPrompt | null;
   placeholder?: string;
   emptyText?: string;
+  /** Preguntas rápidas que se muestran cuando aún no hay mensajes. */
+  quickPrompts?: string[];
+  /** Contexto que se añade a las preguntas rápidas (no a los mensajes escritos). */
+  context?: string;
 }
 
-export function CoachChat({ pendingPrompt, placeholder = "Escribe aquí...", emptyText }: CoachChatProps) {
+export function CoachChat({
+  pendingPrompt,
+  placeholder = "Escribe aquí...",
+  emptyText,
+  quickPrompts = [],
+  context,
+}: CoachChatProps) {
   const { messages, loading, error, sendMessage } = useCoachChat();
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -46,16 +56,40 @@ export function CoachChat({ pendingPrompt, placeholder = "Escribe aquí...", emp
     setInput("");
   };
 
+  const handleQuickPrompt = (text: string) => {
+    if (loading) return;
+    sendMessage(context ? `${text}\n\n${context}` : text);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <ScrollArea className="flex-1 pr-1">
         <div className="space-y-4">
           {messages.length === 0 && (
-            <p className="text-sm text-muted-foreground pt-1">
-              {pendingPrompt
-                ? "Enviando tu reflexión al Coach IA..."
-                : emptyText || "El Coach IA te da su opinión sobre tu reflexión y conversa contigo."}
-            </p>
+            <div className="space-y-3 pt-1">
+              <p className="text-sm text-muted-foreground">
+                {pendingPrompt
+                  ? "Enviando tu reflexión al Coach IA..."
+                  : emptyText || "El Coach IA te da su opinión sobre tu reflexión y conversa contigo."}
+              </p>
+              {quickPrompts.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {quickPrompts.map((prompt) => (
+                    <Button
+                      key={prompt}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 rounded-full px-2.5 text-[10px]"
+                      onClick={() => handleQuickPrompt(prompt)}
+                      disabled={loading}
+                    >
+                      {prompt}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {messages.map((m) => (

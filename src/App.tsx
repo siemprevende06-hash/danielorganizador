@@ -123,8 +123,9 @@ function AppContent() {
             <Navigation />
             <PageCoverBanner />
           <Routes>
-        <Route path="/" element={<Index />} />
+        <Route path="/" element={<Inicio2 />} />
         <Route path="/inicio-2" element={<Inicio2 />} />
+        <Route path="/inicio-clasico" element={<Index />} />
         <Route path="/control-room" element={<ControlRoom />} />
         <Route path="/habits" element={<Habits />} />
         <Route path="/routine" element={<DailyRoutine />} />

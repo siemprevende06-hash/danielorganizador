@@ -50,12 +50,18 @@ export type { PlanificationScope } from '@/lib/planSystems';
 interface PeriodPlanificationSectionProps {
   scope: PlanificationScope;
   anchorDate: Date;
+  /**
+   * Muestra solo las tarjetas de sistemas (estructurales y centrales), sin la
+   * cabecera de Planificación ni el plan del periodo. Se usa para replicar las
+   * tarjetas dentro de Autocrítica.
+   */
+  onlySystems?: boolean;
 }
 
-export function PeriodPlanificationSection({ scope, anchorDate }: PeriodPlanificationSectionProps) {
-  if (scope === 'day') return <DayPlanification anchorDate={anchorDate} />;
-  if (scope === 'week') return <WeekPlanification anchorDate={anchorDate} />;
-  return <MonthPlanification anchorDate={anchorDate} />;
+export function PeriodPlanificationSection({ scope, anchorDate, onlySystems = false }: PeriodPlanificationSectionProps) {
+  if (scope === 'day') return <DayPlanification anchorDate={anchorDate} onlySystems={onlySystems} />;
+  if (scope === 'week') return <WeekPlanification anchorDate={anchorDate} onlySystems={onlySystems} />;
+  return <MonthPlanification anchorDate={anchorDate} onlySystems={onlySystems} />;
 }
 
 /* ------------------------------------------------------------------ */
@@ -610,10 +616,18 @@ function PlanQuickNav({ groups }: { groups: PlanGroup[] }) {
   );
 }
 
-function PlanGroups({ groups, scope }: { groups: PlanGroup[]; scope: PlanificationScope }) {
+function PlanGroups({
+  groups,
+  scope,
+  showQuickNav = true,
+}: {
+  groups: PlanGroup[];
+  scope: PlanificationScope;
+  showQuickNav?: boolean;
+}) {
   return (
     <div className="space-y-5">
-      <PlanQuickNav groups={groups} />
+      {showQuickNav && <PlanQuickNav groups={groups} />}
       {groups.map(group => {
         if (group.areas && group.areas.length > 0) {
           return (
@@ -654,11 +668,53 @@ function PlanGroups({ groups, scope }: { groups: PlanGroup[]; scope: Planificati
   );
 }
 
+/**
+ * Vista de solo sistemas para Autocrítica: reutiliza EXACTAMENTE las tarjetas
+ * de la pestaña Planificación (mismas portadas, métricas y objetivos), pero sin
+ * la cabecera de planificación ni los bloques de tareas del periodo.
+ */
+function PlanSystemCardsOnly({
+  groups,
+  scope,
+  loading,
+}: {
+  groups: PlanGroup[];
+  scope: PlanificationScope;
+  loading: boolean;
+}) {
+  const systemGroups = groups.filter(
+    group => group.key === 'estructural' || group.key === 'central',
+  );
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="h-36 animate-pulse rounded-2xl bg-muted/40" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!systemGroups.some(groupHasContent)) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border/60 py-8 text-center">
+        <Sparkles className="mx-auto mb-2 h-5 w-5 text-muted-foreground/60" />
+        <p className="text-sm text-muted-foreground">
+          Sin sistemas con datos para este periodo.
+        </p>
+      </div>
+    );
+  }
+
+  return <PlanGroups groups={systemGroups} scope={scope} showQuickNav={false} />;
+}
+
 /* ------------------------------------------------------------------ */
 /* MES                                                                 */
 /* ------------------------------------------------------------------ */
 
-function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
+function MonthPlanification({ anchorDate, onlySystems = false }: { anchorDate: Date; onlySystems?: boolean }) {
   const month = startOfMonth(anchorDate);
   const {
     planData, books, songs, projects, subjects, topics, events, loading, patchPlan,
@@ -860,6 +916,11 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
     || (group.cards?.some(isCardVisible) ?? false)
   );
   const monthTotal = ALL_HIERARCHY_AREAS.reduce((sum, area) => sum + (goals[area] || 0), 0);
+  const loadingAll = loading || tasksLoading || metrics.loading;
+
+  if (onlySystems) {
+    return <PlanSystemCardsOnly groups={groups} scope="month" loading={loadingAll} />;
+  }
 
   return (
     <PlanShell
@@ -867,7 +928,7 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
       subtitle={`Mes de ${format(month, 'MMMM yyyy', { locale: es })}`}
       editUrl={`/monthly-planning?month=${format(month, 'yyyy-MM')}`}
       empty={empty}
-      loading={loading || tasksLoading || metrics.loading}
+      loading={loadingAll}
       totalMinutes={monthTotal}
     >
       <PlanGroups groups={groups} scope="month" />
@@ -879,7 +940,7 @@ function MonthPlanification({ anchorDate }: { anchorDate: Date }) {
 /* SEMANA                                                              */
 /* ------------------------------------------------------------------ */
 
-function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
+function WeekPlanification({ anchorDate, onlySystems = false }: { anchorDate: Date; onlySystems?: boolean }) {
   const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(anchorDate, { weekStartsOn: 1 });
   const weekKey = format(weekStart, 'yyyy-MM-dd');
@@ -1213,6 +1274,11 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
     || (group.cards?.some(isCardVisible) ?? false)
   );
   const weekTotal = ALL_HIERARCHY_AREAS.reduce((sum, area) => sum + (weekGoals[area] || 0), 0);
+  const loadingAll = loading || tasksLoading || metrics.loading;
+
+  if (onlySystems) {
+    return <PlanSystemCardsOnly groups={groups} scope="week" loading={loadingAll} />;
+  }
 
   return (
     <PlanShell
@@ -1220,7 +1286,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
       subtitle={`Semana del ${format(weekStart, 'd MMM', { locale: es })} al ${format(weekEnd, 'd MMM', { locale: es })}`}
       editUrl={`/weekly-planning?week=${weekKey}`}
       empty={empty}
-      loading={loading || tasksLoading || metrics.loading}
+      loading={loadingAll}
       totalMinutes={weekTotal}
     >
       <PlanGroups groups={groups} scope="week" />
@@ -1232,7 +1298,7 @@ function WeekPlanification({ anchorDate }: { anchorDate: Date }) {
 /* DÍA                                                                 */
 /* ------------------------------------------------------------------ */
 
-function DayPlanification({ anchorDate }: { anchorDate: Date }) {
+function DayPlanification({ anchorDate, onlySystems = false }: { anchorDate: Date; onlySystems?: boolean }) {
   const {
     blocks, tasks, tasksByBlock, planGoals, planIntensity, planSpeedPlan,
     planRoutineType, planLoaded, tasksLoading,
@@ -1542,6 +1608,11 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
 
   const routineLabel = planRoutineType ? ` · Rutina: ${planRoutineType}` : '';
   const editUrl = isToday(anchorDate) ? '/plan-manana?mode=hoy' : '/plan-manana';
+  const loadingAll = tasksLoading || weekLoading || monthLoading || !planLoaded || metrics.loading;
+
+  if (onlySystems) {
+    return <PlanSystemCardsOnly groups={groups} scope="day" loading={loadingAll} />;
+  }
 
   return (
     <PlanShell
@@ -1549,7 +1620,7 @@ function DayPlanification({ anchorDate }: { anchorDate: Date }) {
       subtitle={`${format(anchorDate, "EEEE d 'de' MMMM", { locale: es })}${routineLabel}`}
       editUrl={editUrl}
       empty={empty}
-      loading={tasksLoading || weekLoading || monthLoading || !planLoaded || metrics.loading}
+      loading={loadingAll}
       totalMinutes={dayTotal}
     >
       <PlanGroups groups={groups} scope="day" />

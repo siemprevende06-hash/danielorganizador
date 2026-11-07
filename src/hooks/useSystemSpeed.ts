@@ -87,11 +87,26 @@ export function useSystemSpeed(date?: Date) {
         if (plan?.notes) {
           try {
             const parsed = typeof plan.notes === "string" ? JSON.parse(plan.notes) : plan.notes;
+            const current = loadSystemSpeed();
+            const next: SpeedMap = { ...current };
+            let changed = false;
+
+            // La selección explícita por sistema tiene prioridad sobre el espejo
+            // de intensidad calculado desde los bloques.
+            const explicit = parsed?.systemSpeed;
+            if (explicit && typeof explicit === "object") {
+              for (const [k, v] of Object.entries(explicit)) {
+                if (v === "minimo" || v === "maximo" || v === "extra" || v === "racha") {
+                  if (next[k] !== v) {
+                    next[k] = v as SystemSpeed;
+                    changed = true;
+                  }
+                }
+              }
+            }
+
             const si = parsed?.systemIntensity || parsed?.planIntensity;
             if (si && typeof si === "object") {
-              const current = loadSystemSpeed();
-              const next: SpeedMap = { ...current };
-              let changed = false;
               for (const [k, v] of Object.entries(si)) {
                 if (v === "minimo" || v === "maximo" || v === "extra") {
                   if (next[k] !== v) {
@@ -100,10 +115,11 @@ export function useSystemSpeed(date?: Date) {
                   }
                 }
               }
-              if (changed) {
-                saveSystemSpeed(next);
-                setMap(next);
-              }
+            }
+
+            if (changed) {
+              saveSystemSpeed(next);
+              setMap(next);
             }
           } catch {}
         }
