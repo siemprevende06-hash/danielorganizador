@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Gift,
   ImagePlus,
+  Rocket,
   Sparkles,
   Target,
   Trash2,
@@ -51,6 +52,7 @@ import {
 } from '@/components/planificacion/PlanAreaCard';
 import { PhotoSectionsPanel } from '@/components/vision/PhotoSectionsPanel';
 import { PronosticoSistemasPanel } from '@/components/metas/PronosticoSistemasPanel';
+import { FuturePersonalListsPanel } from '@/components/metas/FuturePersonalListsPanel';
 import MotivosBoard from '@/components/motivos/MotivosBoard';
 import {
   PLAN_SYSTEM_META,
@@ -95,6 +97,7 @@ const SCOPES: Array<{ id: MetasScope; label: string }> = [
   { id: 'someday', label: 'Algún día' },
   { id: 'vision', label: 'Visión' },
   { id: 'rewards', label: 'Recompensas' },
+  { id: 'future', label: 'Futuro' },
 ];
 
 const DREAM_CATEGORIES = [
@@ -171,7 +174,7 @@ export default function MetasSistemas() {
     toggleItem: toggleDream,
   } = useSomedayGoals();
 
-  const range = scope === 'someday' || scope === 'vision' || scope === 'forecast' || scope === 'rewards'
+  const range = scope === 'someday' || scope === 'vision' || scope === 'forecast' || scope === 'rewards' || scope === 'future'
     ? null
     : goalPeriodRange(scope, anchor);
   const periodGoals = range ? goalsInDateRange(goals, range.startKey, range.endKey) : [];
@@ -179,7 +182,7 @@ export default function MetasSistemas() {
   const completedDreams = dreams.filter(item => item.completed).length;
 
   const openCreate = (systemId: string | null) => {
-    if (scope === 'forecast' || scope === 'rewards') return;
+    if (scope === 'forecast' || scope === 'rewards' || scope === 'future') return;
     if (scope === 'someday' || scope === 'vision') {
       setDialog({ kind: 'dream', mode: 'create', systemId });
       return;
@@ -244,6 +247,12 @@ export default function MetasSistemas() {
                   <SummaryChip label="Compartida con Motivos" tone="green" />
                   <SummaryChip label="Mismas imágenes" tone="amber" />
                 </>
+              ) : scope === 'future' ? (
+                <>
+                  <SummaryChip label="Metas futuras" tone="primary" />
+                  <SummaryChip label="Mi Lista Personal · Todas" tone="green" />
+                  <SummaryChip label="Solo tarjetas" tone="amber" />
+                </>
               ) : scope === 'someday' ? (
                 <>
                   <SummaryChip label={`${dreams.length} sueños`} tone="primary" />
@@ -272,9 +281,11 @@ export default function MetasSistemas() {
                   ? 'Fecha estimada, rango y estado frente a la meta de cada sistema.'
                   : scope === 'rewards'
                     ? 'La misma galería de imágenes de la página Motivos.'
-                    : scope === 'someday'
-                      ? 'Sueños sin fecha, compartidos con la página Algún Día.'
-                      : 'Cada meta aparece solo en su fecha exacta.'}
+                    : scope === 'future'
+                      ? 'Las metas de Mi Lista Personal (sección Todas), solo como tarjetas.'
+                      : scope === 'someday'
+                        ? 'Sueños sin fecha, compartidos con la página Algún Día.'
+                        : 'Cada meta aparece solo en su fecha exacta.'}
             </p>
           </div>
         </header>
@@ -310,6 +321,8 @@ export default function MetasSistemas() {
             title="Recompensas"
             description="La misma galería de imágenes que la página Motivos"
           />
+        ) : scope === 'future' ? (
+          <FuturePersonalListsPanel />
         ) : (
           <DatedMetasView
             scope={scope}
@@ -526,6 +539,23 @@ function PeriodToolbar({
         </div>
         <span className="text-[10px] text-muted-foreground">
           Mismo contenido que la página Motivos
+        </span>
+      </div>
+    );
+  }
+
+  if (scope === 'future') {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/50 bg-white/70 px-3 py-2 shadow-sm dark:bg-zinc-950/60">
+        <div className="flex items-center gap-1.5">
+          <Rocket className="h-4 w-4 text-primary" />
+          <span className="text-xs font-bold">Futuro</span>
+          <span className="text-[10px] text-muted-foreground">
+            Metas de Mi Lista Personal · Todas
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          Solo tarjetas, sin conexiones
         </span>
       </div>
     );

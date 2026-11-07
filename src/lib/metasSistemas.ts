@@ -23,7 +23,7 @@ import type { PlanificationScope } from '@/lib/planSystems';
 // agrupados exactamente como se pidió. Cada nombre es un sistema/área suelto.
 // ---------------------------------------------------------------------------
 
-export type MetasScope = PlanificationScope | 'someday' | 'vision' | 'forecast' | 'rewards';
+export type MetasScope = PlanificationScope | 'someday' | 'vision' | 'forecast' | 'rewards' | 'future';
 
 export interface MetaSystemDef {
   id: string;
@@ -176,7 +176,7 @@ export function goalPeriodLabel(scope: PlanificationScope, anchorDate: Date): st
 
 /** Fecha por defecto al crear una meta en la vista actual. */
 export function defaultGoalDate(scope: MetasScope, anchorDate: Date): string {
-  if (scope === 'someday' || scope === 'vision' || scope === 'forecast' || scope === 'rewards') return '';
+  if (scope === 'someday' || scope === 'vision' || scope === 'forecast' || scope === 'rewards' || scope === 'future') return '';
   const range = goalPeriodRange(scope, anchorDate);
   const today = startOfDay(new Date());
   if (today >= range.start && today <= range.end) {
@@ -191,7 +191,7 @@ export function shiftGoalPeriod(
   anchorDate: Date,
   direction: -1 | 1,
 ): Date {
-  if (scope === 'someday' || scope === 'vision' || scope === 'forecast' || scope === 'rewards') return anchorDate;
+  if (scope === 'someday' || scope === 'vision' || scope === 'forecast' || scope === 'rewards' || scope === 'future') return anchorDate;
   switch (scope) {
     case 'day':
       return addDays(anchorDate, direction);
