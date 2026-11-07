@@ -53,6 +53,7 @@ import {
 import { PhotoSectionsPanel } from '@/components/vision/PhotoSectionsPanel';
 import { PronosticoSistemasPanel } from '@/components/metas/PronosticoSistemasPanel';
 import { FuturePersonalListsPanel } from '@/components/metas/FuturePersonalListsPanel';
+import { AlignmentPanel } from '@/components/metas/alignment/AlignmentPanel';
 import MotivosBoard from '@/components/motivos/MotivosBoard';
 import {
   PLAN_SYSTEM_META,
@@ -93,6 +94,7 @@ const SCOPES: Array<{ id: MetasScope; label: string }> = [
   { id: 'month', label: 'Mes' },
   { id: 'quarter', label: 'Trimestre' },
   { id: 'year', label: 'Año' },
+  { id: 'alignment', label: 'Alineación' },
   { id: 'forecast', label: 'Pronóstico' },
   { id: 'someday', label: 'Algún día' },
   { id: 'vision', label: 'Visión' },
@@ -174,7 +176,7 @@ export default function MetasSistemas() {
     toggleItem: toggleDream,
   } = useSomedayGoals();
 
-  const range = scope === 'someday' || scope === 'vision' || scope === 'forecast' || scope === 'rewards' || scope === 'future'
+  const range = scope === 'someday' || scope === 'vision' || scope === 'forecast' || scope === 'rewards' || scope === 'future' || scope === 'alignment'
     ? null
     : goalPeriodRange(scope, anchor);
   const periodGoals = range ? goalsInDateRange(goals, range.startKey, range.endKey) : [];
@@ -182,7 +184,7 @@ export default function MetasSistemas() {
   const completedDreams = dreams.filter(item => item.completed).length;
 
   const openCreate = (systemId: string | null) => {
-    if (scope === 'forecast' || scope === 'rewards' || scope === 'future') return;
+    if (scope === 'forecast' || scope === 'rewards' || scope === 'future' || scope === 'alignment') return;
     if (scope === 'someday' || scope === 'vision') {
       setDialog({ kind: 'dream', mode: 'create', systemId });
       return;
@@ -235,6 +237,12 @@ export default function MetasSistemas() {
                   <SummaryChip label="Secciones para fotos" tone="primary" />
                   <SummaryChip label="Compartido con Daily → Dirección" tone="green" />
                 </>
+              ) : scope === 'alignment' ? (
+                <>
+                  <SummaryChip label="Una sola línea" tone="primary" />
+                  <SummaryChip label="Hoy → Futuro" tone="green" />
+                  <SummaryChip label="Solo lectura" tone="amber" />
+                </>
               ) : scope === 'forecast' ? (
                 <>
                   <SummaryChip label={`${METAS_SYSTEMS.length} sistemas`} tone="primary" />
@@ -277,7 +285,9 @@ export default function MetasSistemas() {
             <p className="text-[11px] text-muted-foreground">
               {scope === 'vision'
                 ? 'El mismo bloque de fotos que Daily → Dirección.'
-                : scope === 'forecast'
+                : scope === 'alignment'
+                  ? 'De lo que haces hoy a la persona que serás a los 25.'
+                  : scope === 'forecast'
                   ? 'Fecha estimada, rango y estado frente a la meta de cada sistema.'
                   : scope === 'rewards'
                     ? 'La misma galería de imágenes de la página Motivos.'
@@ -312,6 +322,8 @@ export default function MetasSistemas() {
           />
         ) : scope === 'vision' ? (
           <PhotoSectionsPanel />
+        ) : scope === 'alignment' ? (
+          <AlignmentPanel goals={goals} onOpenForecast={() => setScope('forecast')} />
         ) : scope === 'forecast' ? (
           <PronosticoSistemasPanel goals={goals} />
         ) : scope === 'rewards' ? (
@@ -505,6 +517,23 @@ function PeriodToolbar({
         </div>
         <span className="text-[10px] text-muted-foreground">
           Mismo contenido que Daily → Dirección
+        </span>
+      </div>
+    );
+  }
+
+  if (scope === 'alignment') {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/50 bg-white/70 px-3 py-2 shadow-sm dark:bg-zinc-950/60">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-xs font-bold">Alineación</span>
+          <span className="text-[10px] text-muted-foreground">
+            Hoy → Semana → Mes → Trimestre → Año → Futuro
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          Solo lectura · conecta sistemas, metas y necesidades
         </span>
       </div>
     );

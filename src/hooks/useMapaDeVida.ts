@@ -379,7 +379,10 @@ export function useMapaDeVida(timeframe: Timeframe) {
     hub: nodes.find((n) => n.id === "esfuerzo-hub") ?? null,
     loading: loading || needsLoading,
     averageEsfuerzo,
+    /** Las 9 áreas visibles del mapa (sin Propósito). */
     areas: visibleAreas,
+    /** Las 10 áreas completas, incluido Propósito, para diagnósticos externos. */
+    allAreas: scores,
     necesidades,
   }
 }

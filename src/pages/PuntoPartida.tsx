@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Save, CheckCircle2, ArrowRight, Crosshair, Target, TrendingUp, Eye } from "lucide-react"
 import { usePuntoPartida, PuntoPartidaEntry } from "@/hooks/usePuntoPartida"
 import { POINT_B_AREAS, VISION_3_YEARS } from "@/data/pointB2027"
+import { LIFE_STAGE } from "@/data/lifeStage"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -55,7 +56,7 @@ export default function PuntoPartida() {
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold uppercase tracking-tight">PUNTO DE PARTIDA</h1>
           <p className="text-muted-foreground">
-            Tu línea base — 18 de Junio 2026 — Daniel, 22 años — La Habana, Cuba
+            Tu línea base — {LIFE_STAGE.baselineLabel} — {LIFE_STAGE.name}, {LIFE_STAGE.age} años — {LIFE_STAGE.city}
           </p>
           <p className="text-sm text-muted-foreground/70 max-w-xl mx-auto">
             Cada score tiene dos dimensiones: <strong>Esfuerzo</strong> (consistencia diaria) y <strong>Resultados</strong> (% hacia Point B 2027).
