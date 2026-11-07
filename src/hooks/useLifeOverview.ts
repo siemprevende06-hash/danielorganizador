@@ -213,7 +213,7 @@ export function useLifeOverview(timeframe: Timeframe) {
 
         setRows((trackingRes.data || []) as TrackingRow[]);
         const streakMap: Record<string, number> = {};
-        (streaksRes.data || []).forEach((row: any) => {
+        (streaksRes.data || []).forEach((row) => {
           streakMap[row.habit_id] = numberValue(row.current_streak);
         });
         setStreaks(streakMap);
