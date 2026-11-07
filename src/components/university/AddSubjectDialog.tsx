@@ -60,8 +60,9 @@ export function AddSubjectDialog({ open, onOpenChange, year, semester, onSubmit 
         schedule: schedule.trim() || undefined
       });
 
+      if (typeof validated.name !== 'string') return;
       setIsSubmitting(true);
-      const success = await onSubmit(validated);
+      const success = await onSubmit({ ...validated, name: validated.name });
       if (success) {
         setName('');
         setCode('');

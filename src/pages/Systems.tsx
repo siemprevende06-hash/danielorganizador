@@ -131,7 +131,7 @@ export default function Systems() {
   const [showDetailed, setShowDetailed] = useState(false);
   const {
     data, loading,
-    toggleCompletion, setTimeValue, setCountValue, toggleWater,
+    toggleCompletion, toggleSkip, setTimeValue, setCountValue, toggleWater,
     setWorkAssignment, toggleBlock, setMealPhoto, update,
   } = useSystemsTracking();
   const { streak: overallStreak } = useOverallSystemStreak();
