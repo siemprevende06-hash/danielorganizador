@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useVocabulary } from '@/hooks/useVocabulary';
 import { Book, effectiveStartDate, effectiveFinishDate } from '@/hooks/useReadingLibrary';
+import { useSpeechReader, splitIntoSpeechChunks, SPEECH_LANG_LABEL } from '@/hooks/useSpeechReader';
+import type { SpeechLang, SpeechSegment } from '@/hooks/useSpeechReader';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { X, Plus, Minus, Languages, BookOpenCheck, Loader2, ChevronLeft, ChevronRight, BookMarked, ScrollText, AlignLeft, AlignJustify, AlignCenter, Calendar } from 'lucide-react';
+import { X, Plus, Minus, Languages, BookOpenCheck, Loader2, ChevronLeft, ChevronRight, BookMarked, ScrollText, AlignLeft, AlignJustify, AlignCenter, Calendar, Volume2, Pause, Play } from 'lucide-react';
 
 export interface LinePair {
   en: string;
@@ -38,6 +40,7 @@ const fmtBookDate = (value?: string | null) => {
 const STORAGE_POS_PREFIX = 'bil-reader-pos-';
 const STORAGE_MODE_PREFIX = 'bil-reader-mode-';
 const STORAGE_ALIGN_PREFIX = 'bil-reader-align-';
+const STORAGE_SPEECH_LANG = 'bil-reader-speech-lang';
 const PAIRS_PER_PAGE = 25;
 
 const ALIGN_OPTIONS: { value: TextAlign; label: string; Icon: typeof AlignLeft }[] = [
@@ -189,6 +192,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   const { toast } = useToast();
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bookScrollRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef(false);
   const lastDbSaveRef = useRef(0);
   const [mode, setMode] = useState<ReaderMode>('book');
@@ -197,6 +201,14 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   const [fontSize, setFontSize] = useState(17);
   const [align, setAlign] = useState<TextAlign>('justify');
   const [translationMode, setTranslationMode] = useState<TranslationMode>('both');
+  const [speechLang, setSpeechLang] = useState<SpeechLang>(() => {
+    try {
+      return localStorage.getItem(STORAGE_SPEECH_LANG) === 'es' ? 'es' : 'en';
+    } catch {
+      return 'en';
+    }
+  });
+  const [speechFromPair, setSpeechFromPair] = useState(0);
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [translation, setTranslation] = useState('');
   const [translating, setTranslating] = useState(false);
@@ -211,6 +223,28 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
     }
     return ranges.length - 1;
   }, [ranges]);
+
+  const getSpeechSegments = useCallback((lang: SpeechLang, fromPair: number): SpeechSegment[] => {
+    const segments: SpeechSegment[] = [];
+    for (let i = Math.max(0, fromPair); i < allPairs.length; i++) {
+      const text = (lang === 'en' ? allPairs[i].en : allPairs[i].es)?.trim();
+      if (!text) continue;
+      for (const chunk of splitIntoSpeechChunks(text)) {
+        segments.push({ pairIndex: i, text: chunk });
+      }
+    }
+    return segments;
+  }, [allPairs]);
+
+  const {
+    supported: speechSupported,
+    status: speechStatus,
+    activePairIndex: activeSpeechPair,
+    start: startSpeech,
+    pause: pauseSpeech,
+    resume: resumeSpeech,
+    stop: stopSpeech,
+  } = useSpeechReader({ getSegments: getSpeechSegments });
 
   const savePosition = useCallback((pairIndex: number) => {
     try {
@@ -234,13 +268,15 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   const goToPage = useCallback((target: number) => {
     const r = ranges[target];
     if (!r) return;
+    if (speechStatus !== 'idle') stopSpeech();
     setPopover(null);
     setPageIndex(target);
     setCurrentPair(Math.min(r.start, totalPairs - 1));
     persistProgress(Math.min(r.start, totalPairs - 1));
-  }, [ranges, totalPairs, persistProgress]);
+  }, [ranges, totalPairs, persistProgress, speechStatus, stopSpeech]);
 
   const changeMode = useCallback((m: ReaderMode) => {
+    if (speechStatus !== 'idle') stopSpeech();
     setMode(m);
     setPopover(null);
     try {
@@ -251,7 +287,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
     if (m === 'scroll') {
       restoreRef.current = true;
     }
-  }, [book.id]);
+  }, [book.id, speechStatus, stopSpeech]);
 
   const cycleAlign = useCallback(() => {
     setAlign(prev => {
@@ -333,6 +369,32 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
     return () => window.removeEventListener('keydown', onKey);
   }, [open, mode, pageIndex, goToPage]);
 
+  // La lectura en voz alta avanza de página automáticamente y guarda el progreso.
+  useEffect(() => {
+    if (activeSpeechPair == null) return;
+    const target = pageIndexForPair(activeSpeechPair);
+    setPageIndex(prev => (prev === target ? prev : target));
+  }, [activeSpeechPair, pageIndexForPair]);
+
+  useEffect(() => {
+    if (activeSpeechPair == null) return;
+    persistProgress(activeSpeechPair);
+  }, [activeSpeechPair, persistProgress]);
+
+  // Mantener a la vista el fragmento que se está leyendo.
+  useEffect(() => {
+    if (activeSpeechPair == null) return;
+    const container = mode === 'scroll' ? scrollRef.current : bookScrollRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(`[data-pair-index="${activeSpeechPair}"]`);
+    if (!el) return;
+    const cRect = container.getBoundingClientRect();
+    const eRect = el.getBoundingClientRect();
+    if (eRect.top < cRect.top + 16 || eRect.bottom > cRect.bottom - 16) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [activeSpeechPair, pageIndex, mode]);
+
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el || !totalPairs) return;
@@ -348,6 +410,59 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
     setPageIndex(pageIndexForPair(visible));
     persistProgress(visible);
   }, [totalPairs, pageIndexForPair, persistProgress]);
+
+  const speechStartPair = () =>
+    mode === 'book'
+      ? Math.min(ranges[pageIndex]?.start ?? 0, Math.max(0, totalPairs - 1))
+      : currentPair;
+
+  const handleSpeechLanguage = (next: SpeechLang) => {
+    if (next === speechLang) return;
+    setSpeechLang(next);
+    try {
+      localStorage.setItem(STORAGE_SPEECH_LANG, next);
+    } catch {
+      /* ignore */
+    }
+    if (next === 'en' && translationMode === 'es') setTranslationMode('both');
+    if (next === 'es' && translationMode === 'en') setTranslationMode('both');
+    if (speechStatus !== 'idle') {
+      const from = activeSpeechPair ?? speechStartPair();
+      stopSpeech();
+      setSpeechFromPair(from);
+      if (!startSpeech(from, next)) {
+        toast({ title: 'Sin texto para leer', description: `No hay texto en ${SPEECH_LANG_LABEL[next]} desde este punto.` });
+      }
+    }
+  };
+
+  const handleToggleSpeech = () => {
+    if (!speechSupported) {
+      toast({
+        title: 'Lectura en voz alta no disponible',
+        description: 'Este navegador no permite la síntesis de voz.',
+      });
+      return;
+    }
+    if (speechStatus === 'playing') {
+      pauseSpeech();
+      return;
+    }
+    if (speechStatus === 'paused') {
+      resumeSpeech();
+      return;
+    }
+    if (speechLang === 'en' && translationMode === 'es') setTranslationMode('both');
+    if (speechLang === 'es' && translationMode === 'en') setTranslationMode('both');
+    const from = speechStartPair();
+    setSpeechFromPair(from);
+    if (!startSpeech(from, speechLang)) {
+      toast({
+        title: 'Sin texto para leer',
+        description: `No hay texto en ${SPEECH_LANG_LABEL[speechLang]} desde este punto.`,
+      });
+    }
+  };
 
   const openPopover = (word: string, en: string, es: string, x: number, y: number) => {
     setPopover({ word, en, es, x, y });
@@ -408,8 +523,11 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   };
 
   const handleClose = () => {
+    const speechPos = activeSpeechPair;
+    stopSpeech();
     let pos = currentPair;
-    if (mode === 'book' && ranges[pageIndex]) pos = Math.min(ranges[pageIndex].start, totalPairs ? totalPairs - 1 : 0);
+    if (speechPos != null) pos = Math.min(speechPos, totalPairs ? totalPairs - 1 : 0);
+    else if (mode === 'book' && ranges[pageIndex]) pos = Math.min(ranges[pageIndex].start, totalPairs ? totalPairs - 1 : 0);
     savePosition(pos);
     persistProgress(pos, true);
     try {
@@ -427,6 +545,101 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
   const displayPage = currentPageNumber ?? pageIndex + 1;
   const currentPairsEmpty = (pages[pageIndex]?.pairs.length ?? 0) === 0;
   const esFont = Math.round(fontSize * 0.8);
+  const speechProgress = activeSpeechPair == null
+    ? 0
+    : Math.min(100, Math.max(0, ((activeSpeechPair - speechFromPair) / Math.max(1, totalPairs - 1 - speechFromPair)) * 100));
+
+  const renderPair = (pair: LinePair, pairIndex: number) => {
+    const isActive = activeSpeechPair === pairIndex;
+    return (
+      <div
+        key={pairIndex}
+        data-pair-index={pairIndex}
+        aria-current={isActive ? 'true' : undefined}
+        className={cn(
+          'relative rounded-md -mx-2 px-2 py-0.5 leading-relaxed transition-colors duration-300',
+          isActive && 'bg-primary/[0.06]'
+        )}
+      >
+        {isActive && (
+          <span
+            aria-hidden="true"
+            className={cn(
+              'absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-primary',
+              speechStatus === 'playing' && 'animate-pulse'
+            )}
+          />
+        )}
+        {translationMode !== 'es' && (
+          <p
+            onClick={(e) => handleEnLineClick(e, pair)}
+            className="text-foreground font-medium cursor-text select-text"
+            style={{ fontSize, textAlign: align, hyphens: 'auto' }}
+          >
+            {pair.en}
+          </p>
+        )}
+        {translationMode !== 'en' && pair.es && (
+          <p
+            className={translationMode === 'es'
+              ? 'text-foreground font-medium select-text'
+              : 'text-muted-foreground/80 italic mt-0.5 select-none'}
+            style={{ fontSize: translationMode === 'es' ? fontSize : esFont, textAlign: align, hyphens: 'auto' }}
+          >
+            {pair.es}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const renderSpeechControls = () => {
+    const label = speechStatus === 'playing'
+      ? 'Pausar lectura en voz alta'
+      : speechStatus === 'paused'
+        ? 'Continuar lectura en voz alta'
+        : `Escuchar en ${SPEECH_LANG_LABEL[speechLang]}`;
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="flex items-center rounded-lg bg-muted p-0.5" role="group" aria-label="Idioma de lectura en voz alta">
+          {(['en', 'es'] as SpeechLang[]).map(l => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => handleSpeechLanguage(l)}
+              aria-pressed={speechLang === l}
+              title={`Leer en voz alta en ${SPEECH_LANG_LABEL[l]}`}
+              className={cn(
+                'h-7 px-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide transition-colors',
+                speechLang === l
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        <Button
+          size="sm"
+          variant={speechStatus === 'playing' ? 'default' : 'outline'}
+          onClick={handleToggleSpeech}
+          className="h-7 px-2"
+          title={label}
+          aria-label={label}
+        >
+          {speechStatus === 'playing'
+            ? <Pause className="w-3.5 h-3.5" />
+            : speechStatus === 'paused'
+              ? <Play className="w-3.5 h-3.5" />
+              : <Volume2 className="w-3.5 h-3.5" />}
+          <span className="hidden lg:inline text-xs ml-1">
+            {speechStatus === 'playing' ? 'Pausar' : speechStatus === 'paused' ? 'Seguir' : 'Escuchar'}
+          </span>
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
@@ -444,7 +657,18 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
             <p className="text-xs text-muted-foreground truncate">
               {book.author ? `${book.author} · ` : ''}
               Página {displayPage} de {totalPages} · {progressPercent}%
+              {speechStatus === 'playing' && (
+                <span className="text-primary"> · Leyendo en {SPEECH_LANG_LABEL[speechLang]}</span>
+              )}
+              {speechStatus === 'paused' && <span className="text-primary"> · En pausa</span>}
             </p>
+            <span className="sr-only" role="status" aria-live="polite">
+              {speechStatus === 'playing'
+                ? `Leyendo en voz alta en ${SPEECH_LANG_LABEL[speechLang]}, página ${displayPage}`
+                : speechStatus === 'paused'
+                  ? 'Lectura en voz alta en pausa'
+                  : ''}
+            </span>
             {(effectiveStartDate(book) || effectiveFinishDate(book)) && (
               <p className="text-[11px] text-muted-foreground truncate flex items-center gap-2">
                 <Calendar className="w-3 h-3 shrink-0" />
@@ -456,6 +680,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <div className="hidden sm:block">{renderSpeechControls()}</div>
             <div className="hidden sm:flex items-center rounded-lg bg-muted p-0.5">
               <Button size="sm" variant={mode === 'book' ? 'default' : 'ghost'} className="h-7 px-2 text-xs" onClick={() => changeMode('book')}>
                 <BookMarked className="w-3.5 h-3.5 mr-1" /> Libro
@@ -502,44 +727,40 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
           </div>
         </header>
 
-        {/* Selector de modo en móvil (no cabe en header) */}
-        <div className="sm:hidden shrink-0 border-b border-border bg-background px-4 py-1.5 flex items-center justify-center gap-1">
-          <Button size="sm" variant={mode === 'book' ? 'default' : 'outline'} className="h-7 px-3 text-xs" onClick={() => changeMode('book')}>
-            <BookMarked className="w-3.5 h-3.5 mr-1" /> Libro
-          </Button>
-          <Button size="sm" variant={mode === 'scroll' ? 'default' : 'outline'} className="h-7 px-3 text-xs" onClick={() => changeMode('scroll')}>
-            <ScrollText className="w-3.5 h-3.5 mr-1" /> Scroll
-          </Button>
+        {/* Indicador minimalista del avance de la lectura en voz alta */}
+        {speechStatus !== 'idle' && (
+          <div className="shrink-0 h-0.5 w-full bg-primary/10" aria-hidden="true">
+            <div
+              className={cn(
+                'h-full bg-primary transition-[width] duration-500 ease-linear',
+                speechStatus === 'paused' && 'opacity-40'
+              )}
+              style={{ width: `${speechProgress}%` }}
+            />
+          </div>
+        )}
+
+        {/* Selector de modo y lectura en voz alta en móvil (no caben en header) */}
+        <div className="sm:hidden shrink-0 border-b border-border bg-background px-4 py-1.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant={mode === 'book' ? 'default' : 'outline'} className="h-7 px-3 text-xs" onClick={() => changeMode('book')}>
+              <BookMarked className="w-3.5 h-3.5 mr-1" /> Libro
+            </Button>
+            <Button size="sm" variant={mode === 'scroll' ? 'default' : 'outline'} className="h-7 px-3 text-xs" onClick={() => changeMode('scroll')}>
+              <ScrollText className="w-3.5 h-3.5 mr-1" /> Scroll
+            </Button>
+          </div>
+          {renderSpeechControls()}
         </div>
 
         {/* Reading body */}
         {mode === 'book' ? (
-          <div className="flex-1 min-h-0 overflow-y-auto" onPointerDown={handleBackgroundPointerDown}>
+          <div ref={bookScrollRef} className="flex-1 min-h-0 overflow-y-auto" onPointerDown={handleBackgroundPointerDown}>
             <div className="max-w-3xl mx-auto px-5 md:px-8 py-6 pb-10">
               <div className="space-y-5">
-                {(pages[pageIndex]?.pairs ?? []).map((pair, i) => (
-                  <div key={i} data-pair-index={(ranges[pageIndex]?.start ?? 0) + i} className="leading-relaxed">
-                    {translationMode !== 'es' && (
-                      <p
-                        onClick={(e) => handleEnLineClick(e, pair)}
-                        className="text-foreground font-medium cursor-text select-text"
-                        style={{ fontSize, textAlign: align, hyphens: 'auto' }}
-                      >
-                        {pair.en}
-                      </p>
-                    )}
-                    {translationMode !== 'en' && pair.es && (
-                      <p
-                        className={translationMode === 'es'
-                          ? 'text-foreground font-medium select-text'
-                          : 'text-muted-foreground/80 italic mt-0.5 select-none'}
-                        style={{ fontSize: translationMode === 'es' ? fontSize : esFont, textAlign: align, hyphens: 'auto' }}
-                      >
-                        {pair.es}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                {(pages[pageIndex]?.pairs ?? []).map((pair, i) =>
+                  renderPair(pair, (ranges[pageIndex]?.start ?? 0) + i)
+                )}
                 {currentPairsEmpty && (
                   <p className="text-sm text-muted-foreground text-center py-16">El libro no tiene contenido bilingüe todavía.</p>
                 )}
@@ -550,29 +771,7 @@ export default function BilingualReader({ book, open, onOpenChange, onSaveProgre
           <div ref={scrollRef} onScroll={handleScroll} onPointerDown={handleBackgroundPointerDown} className="flex-1 min-h-0 overflow-y-auto">
             <div className="max-w-3xl mx-auto px-5 md:px-8 py-6 pb-10">
               <div className="space-y-5">
-                {allPairs.map((pair, i) => (
-                  <div key={i} data-pair-index={i} className="leading-relaxed">
-                    {translationMode !== 'es' && (
-                      <p
-                        onClick={(e) => handleEnLineClick(e, pair)}
-                        className="text-foreground font-medium cursor-text select-text"
-                        style={{ fontSize, textAlign: align, hyphens: 'auto' }}
-                      >
-                        {pair.en}
-                      </p>
-                    )}
-                    {translationMode !== 'en' && pair.es && (
-                      <p
-                        className={translationMode === 'es'
-                          ? 'text-foreground font-medium select-text'
-                          : 'text-muted-foreground/80 italic mt-0.5 select-none'}
-                        style={{ fontSize: translationMode === 'es' ? fontSize : esFont, textAlign: align, hyphens: 'auto' }}
-                      >
-                        {pair.es}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                {allPairs.map((pair, i) => renderPair(pair, i))}
                 {allPairs.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-16">El libro no tiene contenido bilingüe todavía.</p>
                 )}
