@@ -185,7 +185,7 @@ export function AutocriticaAreaCards({
   covers: Record<string, string>;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
       {rows.map(row => (
         <AutocriticaAreaCard key={row.key} row={row} cover={areaCoverFor(row.key, covers)} />
       ))}

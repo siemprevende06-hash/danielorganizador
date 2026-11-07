@@ -58,7 +58,7 @@ export function CoachChat({
 
   const handleQuickPrompt = (text: string) => {
     if (loading) return;
-    sendMessage(context ? `${text}\n\n${context}` : text);
+    sendMessage(text, context);
   };
 
   return (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
+import type { Json } from "@/integrations/supabase/types";
 import type { CoachVisual } from "@/components/coach/VisualCanvas";
 
 export interface CoachAccion {
@@ -32,6 +33,13 @@ export interface CoachMemory {
 }
 
 const FN_URL = edgeFunctionUrl("life-coach");
+
+type StoredCoachRow = {
+  id: string;
+  role: string;
+  content: string | null;
+  visual: { visuals?: unknown; acciones?: unknown } | null;
+};
 
 export function useCoachChat() {
   const [conversations, setConversations] = useState<CoachConversation[]>([]);
@@ -67,13 +75,17 @@ export function useCoachChat() {
       .eq("conversation_id", id)
       .order("created_at", { ascending: true });
     setMessages(
-      ((data as any[]) || []).map((m) => ({
-        id: m.id,
-        role: m.role === "user" ? "user" : "assistant",
-        content: m.content || "",
-        visuals: Array.isArray(m.visual?.visuals) ? m.visual.visuals : [],
-        acciones: Array.isArray(m.visual?.acciones) ? m.visual.acciones : [],
-      })),
+      ((data as unknown as StoredCoachRow[] | null) || []).map((m) => {
+        const visual =
+          m.visual && typeof m.visual === "object" && !Array.isArray(m.visual) ? m.visual : null;
+        return {
+          id: m.id,
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.content || "",
+          visuals: Array.isArray(visual?.visuals) ? (visual.visuals as CoachVisual[]) : [],
+          acciones: Array.isArray(visual?.acciones) ? (visual.acciones as CoachAccion[]) : [],
+        };
+      }),
     );
   }, []);
 
@@ -94,12 +106,15 @@ export function useCoachChat() {
   }, []);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, context?: string) => {
       const trimmed = text.trim();
       if (!trimmed || loading) return;
       setError(null);
       setLoading(true);
 
+      // El contexto (por ejemplo la autocrítica del día) se envía al modelo,
+      // pero no se muestra como si el usuario lo hubiera escrito.
+      const prompt = context ? `${trimmed}\n\n${context}` : trimmed;
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
       setMessages((prev) => [
         ...prev,
@@ -132,7 +147,7 @@ export function useCoachChat() {
             Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
             apikey: SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ message: trimmed, history }),
+          body: JSON.stringify({ message: prompt, history }),
         });
 
         const data = await res.json().catch(() => null);
@@ -153,7 +168,7 @@ export function useCoachChat() {
           conversation_id: convId,
           role: "assistant",
           content: assistant.content,
-          visual: { visuals: assistant.visuals, acciones: assistant.acciones, fuentes: data.fuentes || [] } as any,
+          visual: { visuals: assistant.visuals, acciones: assistant.acciones, fuentes: data.fuentes || [] } as unknown as Json,
         });
         await supabase
           .from("ai_conversations")

@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { Activity, Gauge, Save, Scale, Target, Layers, TrendingUp, CalendarCheck, CheckCircle2, Timer, BookOpen } from 'lucide-react';
+import { Activity, Gauge, Save, Scale, Target, Layers, LayoutGrid, TrendingUp, CalendarCheck, CheckCircle2, Timer, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useResultadosPeriodo, EMPTY_RESULTADO, AREA_ORDER, type AreaKey } from '@/hooks/useResultadosPeriodo';
@@ -18,6 +18,7 @@ import { StreaksTendencias } from '@/components/autocritica/StreaksTendencias';
 import { ComparativaTrimestres } from '@/components/control/ComparativaTrimestres';
 import { AutocriticaAreaCards, type AutocriticaAreaRow } from '@/components/autocritica/AutocriticaAreaCards';
 import { AutocriticaCoachCard } from '@/components/autocritica/AutocriticaCoachCard';
+import { PeriodPlanificationSection } from '@/components/planificacion/PeriodPlanificationSection';
 import { useAreaCovers } from '@/hooks/useAreaCovers';
 import { cn } from '@/lib/utils';
 
@@ -463,6 +464,26 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
     </Card>
   );
 
+  // Reutiliza las mismas tarjetas de la pestaña Planificación (portadas,
+  // métricas de sistemas, metas y objetivos) dentro de Autocrítica.
+  const systemScope =
+    scope === 'day' ? 'day' as const :
+    scope === 'week' ? 'week' as const :
+    scope === 'month' ? 'month' as const : null;
+
+  const systemsCard = systemScope && (
+    <Card className="border-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl shadow-sm rounded-2xl overflow-hidden">
+      <div className="h-1 bg-gradient-to-r from-sky-500 to-indigo-500" />
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <LayoutGrid className="h-4 w-4 text-sky-500" />
+          <h2 className="text-sm font-semibold">Sistemas del período</h2>
+        </div>
+        <PeriodPlanificationSection scope={systemScope} anchorDate={start} onlySystems />
+      </CardContent>
+    </Card>
+  );
+
   const dayReflection = (
     <>
       <EnergySleepCheckin
@@ -545,6 +566,7 @@ export function AutocriticaSection({ start: startProp, end: endProp, scope = 'we
       {scope === 'week' && <StreaksTendencias weekStart={start} />}
       {scope === 'quarter' && <ComparativaTrimestres quarter={quarterRef.quarter} year={quarterRef.year} />}
       {rowsCard}
+      {systemsCard}
       {reflectionCard}
       {coachCard}
     </div>
