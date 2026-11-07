@@ -8,8 +8,7 @@ import { cn } from '@/lib/utils';
 import { DireccionAreaChip } from '@/components/direccion/DireccionAreaChip';
 import { DireccionSubAreaCard } from '@/components/direccion/DireccionSubAreaCard';
 import { DireccionTrendChart } from '@/components/direccion/DireccionTrendChart';
-import { BoardSectionEditor, type BoardSection } from '@/components/vision/BoardSectionEditor';
-import { useTextSection } from '@/hooks/useTextSection';
+import { PhotoSectionsPanel } from '@/components/vision/PhotoSectionsPanel';
 import { scoreBg, scoreColor } from '@/components/direccion/DireccionCardParts';
 import { isDireccionExpandedArea, LIFE_AREA_SECTIONS } from '@/data/lifeAreaSections';
 import { coverKey, useAreaCovers } from '@/hooks/useAreaCovers';
@@ -20,7 +19,6 @@ export function DireccionSection() {
   const data = useDireccionData('month');
   const { covers, saveCover } = useAreaCovers();
   const { uploadImage } = useImageUpload();
-  const { data: direccionSections, setData: setDireccionSections, loading: dirLoading } = useTextSection<BoardSection[]>('direccion-daily-sections', []);
   const [busy, setBusy] = useState<string | null>(null);
 
   const handleUploadSubCover = async (id: string, file: File) => {
@@ -191,19 +189,7 @@ export function DireccionSection() {
           </section>
 
           <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <ImagePlus className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold tracking-tight">Secciones para fotos</h3>
-              <p className="text-[10px] text-muted-foreground">Crea secciones, añade título y configura cada tarjeta</p>
-            </div>
-            <BoardSectionEditor
-              sections={direccionSections}
-              setSections={setDireccionSections}
-              uploadFolder="direccion-daily"
-              emptyTitle="Sin secciones. Crea una sección para añadir fotos con nombre, sistema y color."
-              emptyAction="Crear sección"
-              accent="vision"
-            />
+            <PhotoSectionsPanel />
           </section>
         </>
       )}

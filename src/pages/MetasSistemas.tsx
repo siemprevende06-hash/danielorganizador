@@ -4,6 +4,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ImagePlus,
   Sparkles,
   Target,
   Trash2,
@@ -46,6 +47,7 @@ import {
   type PlanAreaCardData,
   type PlanObjectiveRow,
 } from '@/components/planificacion/PlanAreaCard';
+import { PhotoSectionsPanel } from '@/components/vision/PhotoSectionsPanel';
 import {
   PLAN_SYSTEM_META,
   type PlanificationScope,
@@ -86,6 +88,7 @@ const SCOPES: Array<{ id: MetasScope; label: string }> = [
   { id: 'quarter', label: 'Trimestre' },
   { id: 'year', label: 'Año' },
   { id: 'someday', label: 'Algún día' },
+  { id: 'vision', label: 'Visión' },
 ];
 
 const DREAM_CATEGORIES = [
@@ -162,13 +165,15 @@ export default function MetasSistemas() {
     toggleItem: toggleDream,
   } = useSomedayGoals();
 
-  const range = scope === 'someday' ? null : goalPeriodRange(scope, anchor);
+  const range = scope === 'someday' || scope === 'vision'
+    ? null
+    : goalPeriodRange(scope, anchor);
   const periodGoals = range ? goalsInDateRange(goals, range.startKey, range.endKey) : [];
   const completedGoals = periodGoals.filter(goal => goal.completed).length;
   const completedDreams = dreams.filter(item => item.completed).length;
 
   const openCreate = (systemId: string | null) => {
-    if (scope === 'someday') {
+    if (scope === 'someday' || scope === 'vision') {
       setDialog({ kind: 'dream', mode: 'create', systemId });
       return;
     }
@@ -215,7 +220,12 @@ export default function MetasSistemas() {
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {scope === 'someday' ? (
+              {scope === 'vision' ? (
+                <>
+                  <SummaryChip label="Secciones para fotos" tone="primary" />
+                  <SummaryChip label="Compartido con Daily → Dirección" tone="green" />
+                </>
+              ) : scope === 'someday' ? (
                 <>
                   <SummaryChip label={`${dreams.length} sueños`} tone="primary" />
                   <SummaryChip label={`${completedDreams} cumplidos`} tone="green" />
@@ -237,9 +247,11 @@ export default function MetasSistemas() {
           <div className="flex flex-col items-start gap-2 lg:items-end">
             <ScopeSwitch value={scope} onChange={setScope} />
             <p className="text-[11px] text-muted-foreground">
-              {scope === 'someday'
-                ? 'Sueños sin fecha, compartidos con la página Algún Día.'
-                : 'Cada meta aparece solo en su fecha exacta.'}
+              {scope === 'vision'
+                ? 'El mismo bloque de fotos que Daily → Dirección.'
+                : scope === 'someday'
+                  ? 'Sueños sin fecha, compartidos con la página Algún Día.'
+                  : 'Cada meta aparece solo en su fecha exacta.'}
             </p>
           </div>
         </header>
@@ -264,6 +276,8 @@ export default function MetasSistemas() {
             onEdit={editDream}
             onDelete={deleteDream}
           />
+        ) : scope === 'vision' ? (
+          <PhotoSectionsPanel />
         ) : (
           <DatedMetasView
             scope={scope}
@@ -431,6 +445,21 @@ function PeriodToolbar({
         </div>
         <span className="text-[10px] text-muted-foreground">
           Los mismos registros de la página Algún Día
+        </span>
+      </div>
+    );
+  }
+
+  if (scope === 'vision') {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/50 bg-white/70 px-3 py-2 shadow-sm dark:bg-zinc-950/60">
+        <div className="flex items-center gap-1.5">
+          <ImagePlus className="h-4 w-4 text-primary" />
+          <span className="text-xs font-bold">Visión</span>
+          <span className="text-[10px] text-muted-foreground">Secciones para fotos</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          Mismo contenido que Daily → Dirección
         </span>
       </div>
     );
