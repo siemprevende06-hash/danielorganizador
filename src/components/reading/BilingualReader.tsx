@@ -10,6 +10,7 @@ import { Book, effectiveStartDate, effectiveFinishDate } from '@/hooks/useReadin
 import { useSpeechReader, splitIntoSpeechChunks, SPEECH_LANG_LABEL } from '@/hooks/useSpeechReader';
 import type { SpeechLang, SpeechSegment } from '@/hooks/useSpeechReader';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { es } from 'date-fns/locale';
 import { X, Plus, Minus, Languages, BookOpenCheck, Loader2, ChevronLeft, ChevronRight, BookMarked, ScrollText, AlignLeft, AlignJustify, AlignCenter, Calendar, Volume2, Pause, Play } from 'lucide-react';
 
