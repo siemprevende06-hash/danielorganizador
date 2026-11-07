@@ -106,7 +106,7 @@ function splitSystemGoals(
   systems: Record<string, PlanObjectiveRow[]>;
   areas: Record<string, PlanObjectiveRow[]>;
 } {
-  const areaIds = new Set(PLAN_STRUCTURAL_AREAS.map(area => area.id));
+  const areaIds = new Set<string>(PLAN_STRUCTURAL_AREAS.map(area => area.id));
   const systems: Record<string, PlanObjectiveRow[]> = {};
   const areas: Record<string, PlanObjectiveRow[]> = {};
 
