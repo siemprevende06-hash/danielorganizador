@@ -40,6 +40,7 @@ const PERIOD_DAYS: Record<string, number> = {
   week: 7,
   month: 30,
   quarter: 90,
+  year: 365,
 };
 
 // Se consulta el máximo periodo para poder calcular la racha real aunque el
@@ -187,6 +188,8 @@ export function useLifeOverview(timeframe: Timeframe) {
   const [streaks, setStreaks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const days = PERIOD_DAYS[timeframe] ?? 7;
+  // Para el año hace falta un histórico mayor; en el resto basta con 90 días.
+  const historyDays = Math.max(HISTORY_DAYS, days);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,7 +197,7 @@ export function useLifeOverview(timeframe: Timeframe) {
     const load = async () => {
       setLoading(true);
       const end = new Date();
-      const start = subDays(end, HISTORY_DAYS - 1);
+      const start = subDays(end, historyDays - 1);
 
       try {
         const [trackingRes, streaksRes] = await Promise.all([
@@ -230,7 +233,7 @@ export function useLifeOverview(timeframe: Timeframe) {
 
     load();
     return () => { cancelled = true; };
-  }, [timeframe, days]);
+  }, [timeframe, days, historyDays]);
 
   return useMemo(() => {
     const end = new Date();
@@ -255,7 +258,7 @@ export function useLifeOverview(timeframe: Timeframe) {
     const todayKey = format(end, "yyyy-MM-dd");
     const streakStartOffset = byDate.has(todayKey) ? 0 : 1;
     let currentStreak = 0;
-    for (let offset = streakStartOffset; offset < HISTORY_DAYS; offset++) {
+    for (let offset = streakStartOffset; offset < historyDays; offset++) {
       const key = format(subDays(end, offset), "yyyy-MM-dd");
       const metrics = parseRowMetrics(byDate.get(key));
       if (metrics.hasRow && metrics.consistency >= 50) currentStreak++;
@@ -312,5 +315,5 @@ export function useLifeOverview(timeframe: Timeframe) {
       systems,
       hasData: periodRows.length > 0,
     };
-  }, [rows, streaks, timeframe, days, loading]);
+  }, [rows, streaks, timeframe, days, historyDays, loading]);
 }

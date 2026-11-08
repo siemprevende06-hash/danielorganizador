@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 const OPTIONS: { value: Timeframe; label: string; icon: typeof Sun }[] = [
   { value: "today", label: "Día", icon: Sun },
   { value: "week", label: "Semana", icon: CalendarDays },
-  { value: "month", label: "Mes", icon: CalendarRange },
-  { value: "quarter", label: "Trimestre", icon: CalendarClock },
+  { value: "quarter", label: "Trimestre", icon: CalendarRange },
+  { value: "year", label: "Año", icon: CalendarClock },
 ];
 
 export function PeriodSwitch({

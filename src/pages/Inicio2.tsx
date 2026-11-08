@@ -1,19 +1,39 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarDays, Flame, Gauge, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  Flame,
+  Gauge,
+  Layers,
+  LayoutDashboard,
+  Sparkles,
+  Sun,
+  Wallet,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Timeframe } from "@/contexts/TimeframeContext";
 import { useAreaScores } from "@/hooks/useAreaScores";
 import { useLifeOverview } from "@/hooks/useLifeOverview";
 import { useDailyPlanData } from "@/hooks/useDailyPlanData";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { PeriodSwitch, PERIOD_LABEL } from "@/components/inicio2/PeriodSwitch";
 import { LifeSummarySection } from "@/components/inicio2/LifeSummarySection";
 import { TodayRoutineCard } from "@/components/inicio2/TodayRoutineCard";
 import { DailyGoalsCard } from "@/components/inicio2/DailyGoalsCard";
 import { SystemsSummaryCard } from "@/components/inicio2/SystemsSummaryCard";
+import { SystemDataCards } from "@/components/inicio2/SystemDataCards";
 import { FinanceSummaryCard } from "@/components/inicio2/FinanceSummaryCard";
+
+const SCREENS = [
+  { id: "resumen", label: "Resumen", icon: LayoutDashboard },
+  { id: "hoy", label: "Hoy", icon: Sun },
+  { id: "sistemas", label: "Sistemas", icon: Layers },
+  { id: "finanzas", label: "Finanzas", icon: Wallet },
+] as const;
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -25,6 +45,8 @@ function getGreeting(): string {
 
 export default function Inicio2() {
   const [timeframe, setTimeframe] = useState<Timeframe>("week");
+  const [screenIndex, setScreenIndex] = useState(0);
+  const pagerRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<{ name: string; email: string; initials: string }>({
     name: "",
     email: "",
@@ -62,6 +84,61 @@ export default function Inicio2() {
     });
   }, []);
 
+  const goToScreen = useCallback((index: number) => {
+    const pager = pagerRef.current;
+    if (!pager) return;
+    const next = Math.max(0, Math.min(SCREENS.length - 1, index));
+    pager.scrollTo({ left: next * pager.clientWidth, behavior: "smooth" });
+    setScreenIndex(next);
+
+    // Si el usuario viene de leer una pantalla larga, vuelve a la zona del pager.
+    const top = pager.getBoundingClientRect().top;
+    if (top < 0) {
+      window.scrollTo({
+        top: window.scrollY + top - 64,
+        behavior: "smooth",
+      });
+    }
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const pager = pagerRef.current;
+    if (!pager) return;
+    const index = Math.round(pager.scrollLeft / Math.max(1, pager.clientWidth));
+    setScreenIndex(Math.max(0, Math.min(SCREENS.length - 1, index)));
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable) return;
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goToScreen(screenIndex + 1);
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goToScreen(screenIndex - 1);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [goToScreen, screenIndex]);
+
+  useEffect(() => {
+    const onResize = () => {
+      const pager = pagerRef.current;
+      if (!pager) return;
+      pager.scrollTo({ left: screenIndex * pager.clientWidth, behavior: "auto" });
+    };
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [screenIndex]);
+
   const lifeScore = Math.round((averages.esfuerzo + averages.resultados) / 2);
   const firstName = profile.name.split(" ")[0] || "Organizador";
   const todayLabel = format(new Date(), "EEEE, d 'de' MMMM", { locale: es });
@@ -70,7 +147,7 @@ export default function Inicio2() {
 
   return (
     <div className="min-h-screen bg-background p-4 pt-16 md:p-6 lg:pt-6">
-      <div className="mx-auto max-w-[1400px] space-y-8">
+      <div className="mx-auto max-w-[1400px]">
         <header className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/[0.08] via-background to-background p-5 md:p-6">
           <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
           <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -116,38 +193,129 @@ export default function Inicio2() {
           </div>
         </header>
 
-        <LifeSummarySection
-          timeframe={timeframe}
-          areas={areas}
-          averages={averages}
-          loading={areasLoading}
-          overview={overview}
-        />
+        <nav className="sticky top-12 z-30 mt-4 lg:top-0" aria-label="Pantallas de Inicio">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-background/90 p-1.5 shadow-sm backdrop-blur-md">
+            <div
+              role="tablist"
+              aria-label="Navegación entre pantallas"
+              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {SCREENS.map((screen, index) => {
+                const Icon = screen.icon;
+                const active = index === screenIndex;
+                return (
+                  <button
+                    key={screen.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    aria-controls={`inicio-screen-${screen.id}`}
+                    onClick={() => goToScreen(index)}
+                    className={cn(
+                      "flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-all",
+                      active
+                        ? "bg-primary/10 text-primary ring-1 ring-primary/20"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {screen.label}
+                  </button>
+                );
+              })}
+            </div>
 
-        <div className="grid gap-8 xl:grid-cols-2">
-          <TodayRoutineCard
-            blocks={blocks}
-            tasksByBlock={tasksByBlock}
-            isBlockCompleted={isBlockCompleted}
-            toggleBlockComplete={toggleBlockComplete}
-            loading={routineLoading}
-          />
-          <DailyGoalsCard
-            tasks={tasks}
-            completedTasks={completedTasks}
-            blocks={blocks}
-            completedBlocks={completedBlocks}
-            dayScore={dayScore}
-            toggleTaskDone={toggleTaskDone}
-            loading={tasksLoading || routineLoading}
-          />
+            <div className="flex shrink-0 items-center gap-1.5">
+              <span className="hidden text-[9px] font-semibold uppercase tracking-wide text-muted-foreground sm:inline">
+                Desliza
+              </span>
+              <span className="min-w-[30px] text-center text-[10px] font-semibold tabular-nums text-muted-foreground">
+                {screenIndex + 1}/{SCREENS.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => goToScreen(screenIndex - 1)}
+                disabled={screenIndex === 0}
+                aria-label="Pantalla anterior"
+                className="grid h-7 w-7 place-items-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => goToScreen(screenIndex + 1)}
+                disabled={screenIndex === SCREENS.length - 1}
+                aria-label="Pantalla siguiente"
+                className="grid h-7 w-7 place-items-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <div
+          ref={pagerRef}
+          onScroll={handleScroll}
+          className="mt-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {SCREENS.map((screen, index) => (
+            <section
+              key={screen.id}
+              id={`inicio-screen-${screen.id}`}
+              aria-label={screen.label}
+              className="w-full shrink-0 snap-start"
+            >
+              <div className={cn(index < SCREENS.length - 1 && "pr-2 md:pr-4")}>
+                {screen.id === "resumen" ? (
+                  <LifeSummarySection
+                    timeframe={timeframe}
+                    areas={areas}
+                    averages={averages}
+                    loading={areasLoading}
+                    overview={overview}
+                  />
+                ) : null}
+
+                {screen.id === "hoy" ? (
+                  <div className="grid gap-8 xl:grid-cols-2">
+                    <TodayRoutineCard
+                      blocks={blocks}
+                      tasksByBlock={tasksByBlock}
+                      isBlockCompleted={isBlockCompleted}
+                      toggleBlockComplete={toggleBlockComplete}
+                      loading={routineLoading}
+                    />
+                    <DailyGoalsCard
+                      tasks={tasks}
+                      completedTasks={completedTasks}
+                      blocks={blocks}
+                      completedBlocks={completedBlocks}
+                      dayScore={dayScore}
+                      toggleTaskDone={toggleTaskDone}
+                      loading={tasksLoading || routineLoading}
+                    />
+                  </div>
+                ) : null}
+
+                {screen.id === "sistemas" ? (
+                  <div className="space-y-8">
+                    <SystemsSummaryCard
+                      systems={overview.systems}
+                      loading={overview.loading}
+                      timeframe={timeframe}
+                    />
+                    <SystemDataCards timeframe={timeframe} />
+                  </div>
+                ) : null}
+
+                {screen.id === "finanzas" ? <FinanceSummaryCard /> : null}
+              </div>
+            </section>
+          ))}
         </div>
 
-        <SystemsSummaryCard systems={overview.systems} loading={overview.loading} timeframe={timeframe} />
-
-        <FinanceSummaryCard />
-
-        <footer className="flex items-center gap-1.5 pb-2 text-[10px] text-muted-foreground">
+        <footer className="mt-6 flex items-center gap-1.5 pb-2 text-[10px] text-muted-foreground">
           <Sparkles className="h-3 w-3" />
           Inicio 2.0 · datos en tiempo real de tu Segundo Cerebro
         </footer>
