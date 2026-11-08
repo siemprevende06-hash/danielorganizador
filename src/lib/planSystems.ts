@@ -103,6 +103,32 @@ export interface PlanSystemMetrics {
   days: string[];
 }
 
+/** Métricas de la tarjeta sintética "Tareas generales" de Inicio 2.0. */
+export interface PlanTaskMetrics {
+  /** Tareas del periodo (con vencimiento dentro del periodo). */
+  total: number;
+  done: number;
+  pending: number;
+  /** % de tareas completadas del periodo. */
+  completion: number | null;
+  /** Días con al menos una tarea y días en los que se completaron todas. */
+  daysWithTasks: number;
+  daysDone: number;
+  partialDays: number;
+  streak: number;
+  bestStreak: number;
+  maxGap: number;
+  recoveries: number;
+  greenWeeks: number;
+  totalWeeks: number;
+  trend: number | null;
+  /** Solo los días con tareas, para la franja de estados de la tarjeta. */
+  status: PlanDayStatus[];
+  days: string[];
+  /** Estado del día de hoy si tiene tareas. */
+  todayStatus?: PlanDayStatus;
+}
+
 export interface PlanAreaWeek {
   key: string;
   compliance: number | null;

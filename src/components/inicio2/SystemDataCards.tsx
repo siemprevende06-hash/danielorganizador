@@ -1,11 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { format } from "date-fns";
 import { Layers } from "lucide-react";
 import { coverKey, useAreaCovers } from "@/hooks/useAreaCovers";
 import {
   usePlanSystemMetrics,
   type PlanSystemMetricsResult,
 } from "@/hooks/usePlanSystemMetrics";
+import { useGeneralTaskMetrics } from "@/hooks/useGeneralTaskMetrics";
 import {
   useDayWeekSystemObjectives,
   useMonthSystemObjectives,
@@ -24,13 +26,14 @@ import {
 import {
   PLAN_AREA_BY_ID,
   PLAN_SYSTEM_META,
+  type PlanDayStatus,
   type PlanificationScope,
 } from "@/lib/planSystems";
 import type { Timeframe } from "@/contexts/TimeframeContext";
 import { cn } from "@/lib/utils";
 import { PERIOD_LABEL } from "./PeriodSwitch";
 import { SectionHeader } from "./shared";
-import { SystemStabilityCards } from "./SystemStabilityCards";
+import { SystemStabilitySummary } from "./SystemStabilitySummary";
 import {
   PLANNED_UNIT_BY_SCOPE,
   SCOPE_BY_TIMEFRAME,
@@ -107,6 +110,16 @@ function YearSystemCards(props: SharedCardsProps) {
   return <SystemCardsContent {...props} objectives={objectives} />;
 }
 
+function dayStatusFor(
+  days: string[] | undefined,
+  statuses: PlanDayStatus[] | undefined,
+  todayKey: string,
+): PlanDayStatus | undefined {
+  if (!days || !statuses) return undefined;
+  const index = days.indexOf(todayKey);
+  return index >= 0 ? statuses[index] : undefined;
+}
+
 function SystemCardsContent({
   timeframe,
   scope,
@@ -120,6 +133,10 @@ function SystemCardsContent({
   const periodLabel = PERIOD_LABEL[timeframe] || "este periodo";
 
   const range = useMemo(() => goalPeriodRange(scope, anchor), [scope, anchor]);
+  const todayKey = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  const generalTasks = useGeneralTaskMetrics(range.start, range.end);
+  const taskMetrics = generalTasks.metrics;
+  const taskItems = generalTasks.items;
 
   const periodGoals = useMemo(
     () => goalsInDateRange(goals, range.startKey, range.endKey),
@@ -150,6 +167,24 @@ function SystemCardsContent({
         if (!area) return [];
 
         const cards = group.systemIds.flatMap((id): PlanAreaCardData[] => {
+          if (id === "tareas") {
+            return [{
+              id,
+              title: "Tareas generales",
+              emoji: "✅",
+              note: "general",
+              cover:
+                covers[coverKey("sub", "tareas")]
+                ?? covers[coverKey("sub", "general")]
+                ?? covers[coverKey("area", group.areaId)]
+                ?? null,
+              tasks: taskMetrics,
+              dayStatus: scope === "day" ? taskMetrics.todayStatus : undefined,
+              items: taskItems,
+              emptyHint: "Sin tareas generales del periodo",
+            }];
+          }
+
           const meta = PLAN_SYSTEM_META[id];
           const system = metrics.systems[id];
           if (!meta || !system) return [];
@@ -169,6 +204,10 @@ function SystemCardsContent({
             minutes: planned,
             minutesUnit: PLANNED_UNIT_BY_SCOPE[scope],
             system: { ...system, plannedMinutes: planned },
+            showStability: true,
+            dayStatus: scope === "day"
+              ? dayStatusFor(system.days, system.status, todayKey)
+              : undefined,
             onTargetChange: (pct: number) => metrics.setTarget(id, pct),
             items: [
               ...(goalRowsById[id] ?? []),
@@ -180,71 +219,67 @@ function SystemCardsContent({
 
         return cards.length > 0 ? [{ ...group, area, cards }] : [];
       }),
-    [covers, metrics, objectives, goalRowsById, scope],
+    [covers, metrics, objectives, goalRowsById, scope, taskMetrics, taskItems, todayKey],
   );
 
-  const loading = metrics.loading || objectives.loading;
+  const loading = metrics.loading || objectives.loading || generalTasks.loading;
 
   return (
-    <div className="space-y-8">
-      <SystemStabilityCards
-        timeframe={timeframe}
-        metrics={metrics}
-        covers={covers}
+    <section className="space-y-4">
+      <SectionHeader
+        icon={<Layers className="h-4 w-4" />}
+        title="Sistemas en detalle"
+        subtitle={`Objetivos, racha y tendencia de cada sistema · ${periodLabel}`}
+        action={
+          <Link
+            to="/daily"
+            className="text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Ver Daily →
+          </Link>
+        }
       />
 
-      <section className="space-y-4">
-        <SectionHeader
-          icon={<Layers className="h-4 w-4" />}
-          title="Sistemas en detalle"
-          subtitle={`Mismas tarjetas de Planificación de Daily · ${periodLabel}`}
-          action={
-            <Link
-              to="/daily"
-              className="text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-            >
-              Ver Daily →
-            </Link>
-          }
-        />
-
-        {loading ? (
+      {loading ? (
+        <div className="space-y-4">
+          <div className="h-32 animate-pulse rounded-2xl bg-muted/40" />
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
             {Array.from({ length: 5 }).map((_, index) => (
               <div key={index} className="h-40 animate-pulse rounded-2xl bg-muted/40" />
             ))}
           </div>
-        ) : (
-          <div className="space-y-5">
-            {groups.map((group) => (
-              <div key={group.areaId} className="space-y-2">
-                <div className="flex items-center gap-2 px-0.5">
-                  <span className="text-sm leading-none">{group.area.icon}</span>
-                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground/70">
-                    {group.area.label}
-                  </h3>
-                  <span className="hidden truncate text-[10px] text-muted-foreground sm:inline">
-                    {group.note}
-                  </span>
-                  <span className="h-px flex-1 bg-border/60" />
-                  <span className="shrink-0 text-[9px] font-semibold tabular-nums text-muted-foreground">
-                    {group.cards.length} {group.cards.length === 1 ? "sistema" : "sistemas"}
-                  </span>
-                </div>
-
-                <div className={cn(
-                  "grid grid-cols-2 gap-2.5 sm:grid-cols-3",
-                  group.cards.length >= 5 ? "lg:grid-cols-5" : "lg:grid-cols-4",
-                )}>
-                  {group.cards.map((card) => (
-                    <PlanAreaCard key={card.id} card={card} />
-                  ))}
-                </div>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <SystemStabilitySummary metrics={metrics} />
+          {groups.map((group) => (
+            <div key={group.areaId} className="space-y-2">
+              <div className="flex items-center gap-2 px-0.5">
+                <span className="text-sm leading-none">{group.area.icon}</span>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground/70">
+                  {group.area.label}
+                </h3>
+                <span className="hidden truncate text-[10px] text-muted-foreground sm:inline">
+                  {group.note}
+                </span>
+                <span className="h-px flex-1 bg-border/60" />
+                <span className="shrink-0 text-[9px] font-semibold tabular-nums text-muted-foreground">
+                  {group.cards.length} {group.cards.length === 1 ? "sistema" : "sistemas"}
+                </span>
               </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+
+              <div className={cn(
+                "grid grid-cols-2 gap-2.5 sm:grid-cols-3",
+                group.cards.length >= 5 ? "lg:grid-cols-5" : "lg:grid-cols-4",
+              )}>
+                {group.cards.map((card) => (
+                  <PlanAreaCard key={card.id} card={card} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

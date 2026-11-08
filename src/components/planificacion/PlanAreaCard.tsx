@@ -15,6 +15,7 @@ import {
   type PlanDayStatus,
   type PlanificationScope,
   type PlanSystemMetrics,
+  type PlanTaskMetrics,
 } from '@/lib/planSystems';
 import { cn } from '@/lib/utils';
 
@@ -63,11 +64,20 @@ export interface PlanAreaCardData {
   system?: PlanSystemMetrics;
   /** Métricas del área (para las tarjetas Salud, Fuerza Mental y Apariencia). */
   area?: PlanAreaMetrics;
+  /** Métricas de la tarjeta sintética "Tareas generales". */
+  tasks?: PlanTaskMetrics;
   /**
    * `stability` prioriza racha, brecha, recuperaciones y tendencia sobre los
    * minutos. Se usa en la sección de tendencia de Inicio 2.0.
    */
   view?: 'plan' | 'stability';
+  /**
+   * En la vista "Hoy", colorea la tarjeta según el estado del día
+   * (cumplido, parcial, saltado o descanso).
+   */
+  dayStatus?: PlanDayStatus;
+  /** Añade la franja compacta de estabilidad bajo las métricas del sistema. */
+  showStability?: boolean;
   /** Cambia la meta de cumplimiento del sistema (clic en la tarjeta). */
   onTargetChange?: (pct: number) => void;
   /** Abre el formulario de nueva meta para esta tarjeta. */
@@ -91,6 +101,14 @@ const STATUS_COLOR: Record<PlanDayStatus, string> = {
   skip: 'bg-red-500',
   rest: 'bg-sky-500/50',
   none: 'bg-red-500/25',
+};
+
+/** Colores de la tarjeta completa cuando la vista es "Hoy". */
+const DAY_CARD_TONE: Partial<Record<PlanDayStatus, { ring: string; bg: string }>> = {
+  done: { ring: 'ring-emerald-500/40', bg: 'bg-emerald-500/5' },
+  partial: { ring: 'ring-blue-500/40', bg: 'bg-blue-500/5' },
+  skip: { ring: 'ring-red-500/40', bg: 'bg-red-500/5' },
+  rest: { ring: 'ring-sky-500/40', bg: 'bg-sky-500/5' },
 };
 
 const shortDate = (value?: string | null): string | null => {
@@ -134,32 +152,40 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
   const stabilityComplete = card.view === 'stability'
     && card.system?.compliance != null
     && card.system.compliance >= 80;
+  const dayTone = card.dayStatus ? DAY_CARD_TONE[card.dayStatus] : undefined;
+  const completedTone = complete || systemComplete || areaComplete || stabilityComplete;
 
-  const counter = card.view === 'stability'
-    ? card.system?.compliance != null
-      ? `${card.system.compliance}%`
+  const counter = card.tasks
+    ? card.tasks.total > 0
+      ? `${card.tasks.done}/${card.tasks.total}`
       : ''
-    : card.area
-      ? card.area.compliance != null
-        ? `${card.area.compliance}%`
+    : card.view === 'stability'
+      ? card.system?.compliance != null
+        ? `${card.system.compliance}%`
         : ''
-      : structural
-        ? card.system?.compliance != null
-          ? `${card.system.compliance}%`
+      : card.area
+        ? card.area.compliance != null
+          ? `${card.area.compliance}%`
           : ''
-        : toggleable.length > 0
-          ? `${doneCount}/${toggleable.length}`
-          : card.items.length > 0
-            ? `${card.items.length}`
-            : '';
+        : structural
+          ? card.system?.compliance != null
+            ? `${card.system.compliance}%`
+            : ''
+          : toggleable.length > 0
+            ? `${doneCount}/${toggleable.length}`
+            : card.items.length > 0
+              ? `${card.items.length}`
+              : '';
 
   return (
     <div
       className={cn(
         'relative flex flex-col overflow-hidden rounded-2xl ring-2 transition-colors',
-        complete || systemComplete || areaComplete || stabilityComplete
-          ? 'ring-emerald-500/40 bg-emerald-500/5'
-          : 'ring-border/40 bg-white/80 dark:bg-zinc-950/80'
+        dayTone
+          ? cn(dayTone.ring, dayTone.bg)
+          : completedTone
+            ? 'ring-emerald-500/40 bg-emerald-500/5'
+            : 'ring-border/40 bg-white/80 dark:bg-zinc-950/80'
       )}
     >
       <div className={cn('relative h-14 w-full shrink-0 overflow-hidden bg-gradient-to-br', getCoverGradient(card.id))}>
@@ -199,7 +225,11 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
           )}
         </div>
 
-        {card.area && !card.system && <AreaMetricsBlock area={card.area} />}
+        {card.tasks ? (
+          <TaskMetricsBlock tasks={card.tasks} />
+        ) : card.area && !card.system ? (
+          <AreaMetricsBlock area={card.area} />
+        ) : null}
 
         {card.system && (
           card.view === 'stability' ? (
@@ -219,6 +249,10 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
           )
         )}
 
+        {card.showStability && card.system && card.system.kind !== 'estructural' && card.view !== 'stability' && (
+          <StabilityStats system={card.system} />
+        )}
+
         {card.items.length > 0 ? (
           <div className="space-y-1">
             {card.items.map(item => (
@@ -227,7 +261,7 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
           </div>
         ) : card.emptyHint ? (
           <p className="text-[9px] leading-tight text-muted-foreground/80">{card.emptyHint}</p>
-        ) : !card.system && !card.area ? (
+        ) : !card.system && !card.area && !card.tasks ? (
           <p className="text-[9px] leading-tight text-muted-foreground/80">Solo meta de minutos</p>
         ) : null}
 
@@ -300,6 +334,164 @@ function trendTone(trend: number | null): string {
   if (trend > 0) return 'text-emerald-600 dark:text-emerald-400';
   if (trend < 0) return 'text-red-500';
   return 'text-muted-foreground';
+}
+
+/**
+ * Franja compacta de estabilidad para las tarjetas centrales de Inicio 2.0:
+ * integra racha/brecha/recuperaciones/tendencia/semanas verdes sin duplicar
+ * una sección aparte.
+ */
+function StabilityStats({ system }: { system: PlanSystemMetrics }) {
+  return (
+    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 rounded-lg bg-foreground/[0.04] p-1.5">
+      <Stat
+        label="Mejor"
+        value={`${system.bestStreak}d`}
+        hint="Mejor racha histórica"
+        tone="text-orange-500"
+      />
+      <Stat
+        label="Brecha"
+        value={`${system.maxGap}d`}
+        hint="Mayor cantidad de días seguidos sin cumplir"
+      />
+      <Stat
+        label="Recup."
+        value={`${system.recoveries}`}
+        hint="Veces que retomaste el sistema después de una brecha"
+      />
+      <Stat
+        label="Tend."
+        value={trendLabel(system.trend)}
+        hint="Cumplimiento vs periodo anterior"
+        tone={trendTone(system.trend)}
+      />
+      <Stat
+        label="Verde"
+        value={`${system.greenWeeks}/${system.totalWeeks}`}
+        hint="Semanas con ≥80% de cumplimiento"
+      />
+      <Stat
+        label="Últ."
+        value={system.lastDone ? shortDate(system.lastDone) ?? '—' : '—'}
+        hint="Último día cumplido"
+      />
+    </div>
+  );
+}
+
+/**
+ * Métricas de la tarjeta "Tareas generales": progreso de las tareas del
+ * periodo y cumplimiento por día (días en los que se completaron todas).
+ */
+function TaskMetricsBlock({ tasks }: { tasks: PlanTaskMetrics }) {
+  const pct = tasks.completion;
+  const state = pct == null
+    ? {
+        label: 'Sin tareas',
+        text: 'text-muted-foreground',
+        dot: 'bg-muted-foreground/60',
+        bar: 'bg-muted-foreground/40',
+      }
+    : pct >= 100
+      ? {
+          label: 'Completado',
+          text: 'text-emerald-600 dark:text-emerald-400',
+          dot: 'bg-emerald-500',
+          bar: 'bg-emerald-500',
+        }
+      : pct >= 50
+        ? {
+            label: 'En marcha',
+            text: 'text-amber-600 dark:text-amber-400',
+            dot: 'bg-amber-500',
+            bar: 'bg-amber-500',
+          }
+        : {
+            label: 'Pendiente',
+            text: 'text-red-500',
+            dot: 'bg-red-500',
+            bar: 'bg-red-500',
+          };
+
+  return (
+    <div className="space-y-1 rounded-lg bg-foreground/[0.04] p-1.5">
+      <div className="flex items-center gap-1">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', state.dot)} />
+        <span className={cn('truncate text-[8px] font-semibold leading-tight', state.text)}>
+          {state.label}
+        </span>
+        {(tasks.streak ?? 0) > 0 && (
+          <span
+            className="ml-auto shrink-0 text-[8px] font-bold text-orange-500"
+            title={`Días seguidos completando todas las tareas${tasks.bestStreak ? ` · mejor ${tasks.bestStreak}` : ''}`}
+          >
+            🔥 {tasks.streak}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-end justify-between gap-1">
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl font-extrabold leading-none tabular-nums">{tasks.done}</span>
+          <span className="text-sm font-bold leading-none text-muted-foreground">/{tasks.total}</span>
+          <span className="text-[9px] text-muted-foreground">tareas</span>
+        </div>
+        <span className={cn('text-[11px] font-extrabold leading-none tabular-nums', state.text)}>
+          {pct == null ? '—' : `${pct}%`}
+        </span>
+      </div>
+
+      <div className="h-1 overflow-hidden rounded-full bg-muted">
+        <div className={cn('h-full rounded-full', state.bar)} style={{ width: `${pct ?? 0}%` }} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+        <Stat
+          label="Días"
+          value={`${tasks.daysDone}/${tasks.daysWithTasks}`}
+          hint="Días con todas las tareas completadas"
+        />
+        <Stat
+          label="Brecha"
+          value={`${tasks.maxGap}d`}
+          hint="Días seguidos con tareas sin completar"
+        />
+        <Stat
+          label="Recup."
+          value={`${tasks.recoveries}`}
+          hint="Veces que retomaste las tareas después de una brecha"
+        />
+        <Stat
+          label="Verde"
+          value={`${tasks.greenWeeks}/${tasks.totalWeeks}`}
+          hint="Semanas con ≥80% de días completados"
+        />
+      </div>
+
+      {tasks.days.length > 1 && (
+        <div className="flex gap-px">
+          {tasks.days.map((day, index) => {
+            const status = tasks.status[index] ?? 'none';
+            return (
+              <span
+                key={day}
+                title={`${STATUS_LABEL[status]} · ${shortDate(day) ?? day}`}
+                className={cn('h-1.5 flex-1 rounded-[1px]', STATUS_COLOR[status])}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-1 text-[8px] text-muted-foreground">
+        <span className="tabular-nums">{tasks.pending} pendientes</span>
+        <span className={cn('tabular-nums', trendTone(tasks.trend))}>
+          Tend. {trendLabel(tasks.trend)}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */

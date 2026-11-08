@@ -43,8 +43,8 @@ export const SYSTEM_GROUPS: SystemGroupDef[] = [
   },
   {
     areaId: "profesional",
-    systemIds: ["universidad", "emprendimiento", "proyectos"],
-    note: "Universidad · Emprendimiento · Proyectos",
+    systemIds: ["universidad", "emprendimiento", "proyectos", "tareas"],
+    note: "Universidad · Emprendimiento · Proyectos · Tareas generales",
   },
   {
     areaId: "finanzas",

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { supabase } from "@/integrations/supabase/client"
-import { format, subDays } from "date-fns"
 import type { Timeframe } from "@/contexts/TimeframeContext"
+import { naturalPeriodRange } from "@/lib/periodRange"
 
 function dayCount(start: string, end: string): number {
   const s = new Date(`${start}T00:00:00`).getTime()
@@ -10,33 +10,9 @@ function dayCount(start: string, end: string): number {
 }
 
 function getDateRange(timeframe: Timeframe): { start: string; end: string } {
-  const today = new Date()
-  const end = format(today, "yyyy-MM-dd")
-  let start: Date
-
-  switch (timeframe) {
-    case "today":
-      start = today
-      break
-    case "week":
-      start = subDays(today, 6)
-      break
-    case "month":
-      start = subDays(today, 29)
-      break
-    case "quarter":
-      start = subDays(today, 89)
-      break
-    case "year":
-      start = subDays(today, 364)
-      break
-    case "sprint":
-      return { start: "", end: "" }
-    default:
-      start = subDays(today, 6)
-  }
-
-  return { start: format(start, "yyyy-MM-dd"), end }
+  if (timeframe === "sprint") return { start: "", end: "" }
+  const range = naturalPeriodRange(timeframe)
+  return { start: range.startKey, end: range.endKey }
 }
 
 async function fetchCompletionsMap(start: string, end: string): Promise<Map<string, Set<string>>> {

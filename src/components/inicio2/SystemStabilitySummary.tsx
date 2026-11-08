@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
 import {
   Activity,
   ArrowDownRight,
@@ -11,21 +10,10 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import {
-  PlanAreaCard,
-  type PlanAreaCardData,
-} from "@/components/planificacion/PlanAreaCard";
-import { coverKey } from "@/hooks/useAreaCovers";
 import type { PlanSystemMetricsResult } from "@/hooks/usePlanSystemMetrics";
-import {
-  PLAN_AREA_BY_ID,
-  PLAN_SYSTEM_META,
-  type PlanSystemMetrics,
-} from "@/lib/planSystems";
-import type { Timeframe } from "@/contexts/TimeframeContext";
+import { PLAN_SYSTEM_META, type PlanSystemMetrics } from "@/lib/planSystems";
 import { cn } from "@/lib/utils";
-import { PERIOD_LABEL } from "./PeriodSwitch";
-import { SectionHeader, TONES, toneForCompliance } from "./shared";
+import { TONES, toneForCompliance } from "./shared";
 import { SYSTEM_GROUPS } from "./systemGroups";
 
 interface StabilityEntry {
@@ -92,7 +80,12 @@ function SummaryStat({
   );
 }
 
-function StabilitySummary({ metrics }: { metrics: PlanSystemMetricsResult }) {
+/**
+ * Resumen de estabilidad que acompaña a las tarjetas de "Sistemas en detalle".
+ * La racha y la tendencia importan más que la meta: un sistema que se cumple
+ * todos los días vuelve inevitables los resultados.
+ */
+export function SystemStabilitySummary({ metrics }: { metrics: PlanSystemMetricsResult }) {
   const entries = entriesFor(metrics);
   const done = entries.reduce((sum, entry) => sum + entry.system.daysDone, 0);
   const available = entries.reduce((sum, entry) => sum + entry.system.daysTotal, 0);
@@ -184,121 +177,9 @@ function StabilitySummary({ metrics }: { metrics: PlanSystemMetricsResult }) {
           )}
         </span>
         <span className="ml-auto text-muted-foreground">
-          La racha y la tendencia importan más que la meta: un sistema que se cumple todos los días vuelve inevitables los resultados.
+          Un sistema que se cumple todos los días vuelve inevitables los resultados.
         </span>
       </div>
     </Card>
-  );
-}
-
-/**
- * Sección de tendencia: las mismas tarjetas de sistema, pero con la vista de
- * estabilidad (racha, brecha, recuperaciones, tendencia y mapa de días).
- */
-export function SystemStabilityCards({
-  timeframe,
-  metrics,
-  covers,
-}: {
-  timeframe: Timeframe;
-  metrics: PlanSystemMetricsResult;
-  covers: Record<string, string>;
-}) {
-  const periodLabel = PERIOD_LABEL[timeframe] || "este periodo";
-
-  if (metrics.loading) {
-    return (
-      <section className="space-y-4">
-        <SectionHeader
-          icon={<Flame className="h-4 w-4" />}
-          title="Estabilidad y tendencia"
-          subtitle={`¿Se está cumpliendo el sistema día a día? · ${periodLabel}`}
-        />
-        <div className="h-32 animate-pulse rounded-2xl bg-muted/40" />
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="h-48 animate-pulse rounded-2xl bg-muted/40" />
-          ))}
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="space-y-4">
-      <SectionHeader
-        icon={<Flame className="h-4 w-4" />}
-        title="Estabilidad y tendencia"
-        subtitle={`Racha, brecha y tendencia de cada sistema · ${periodLabel}`}
-        action={
-          <Link
-            to="/metas-sistemas"
-            className="text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          >
-            Ver metas →
-          </Link>
-        }
-      />
-
-      <StabilitySummary metrics={metrics} />
-
-      <div className="space-y-5">
-        {SYSTEM_GROUPS.map(group => {
-          const area = PLAN_AREA_BY_ID[group.areaId];
-          if (!area) return null;
-
-          const cards = group.systemIds.flatMap((id): PlanAreaCardData[] => {
-            const meta = PLAN_SYSTEM_META[id];
-            const system = metrics.systems[id];
-            if (!meta || !system) return [];
-
-            return [{
-              id,
-              title: meta.name,
-              emoji: meta.emoji,
-              note: meta.role === "ancla" ? "ancla" : undefined,
-              cover:
-                covers[coverKey("sub", id)]
-                ?? covers[coverKey("area", id)]
-                ?? covers[coverKey("area", group.areaId)]
-                ?? null,
-              system,
-              view: "stability",
-              onTargetChange: (pct: number) => metrics.setTarget(id, pct),
-              items: [],
-            }];
-          });
-
-          if (cards.length === 0) return null;
-
-          return (
-            <div key={group.areaId} className="space-y-2">
-              <div className="flex items-center gap-2 px-0.5">
-                <span className="text-sm leading-none">{area.icon}</span>
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-foreground/70">
-                  {area.label}
-                </h3>
-                <span className="hidden truncate text-[10px] text-muted-foreground sm:inline">
-                  {group.note}
-                </span>
-                <span className="h-px flex-1 bg-border/60" />
-                <span className="shrink-0 text-[9px] font-semibold tabular-nums text-muted-foreground">
-                  {cards.length} {cards.length === 1 ? "sistema" : "sistemas"}
-                </span>
-              </div>
-
-              <div className={cn(
-                "grid grid-cols-2 gap-2.5 sm:grid-cols-3",
-                cards.length >= 5 ? "lg:grid-cols-5" : "lg:grid-cols-4",
-              )}>
-                {cards.map(card => (
-                  <PlanAreaCard key={card.id} card={card} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
   );
 }

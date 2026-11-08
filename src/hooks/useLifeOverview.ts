@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { format, parseISO, subDays } from "date-fns";
+import { differenceInCalendarDays, eachDayOfInterval, format, parseISO, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import type { Timeframe } from "@/contexts/TimeframeContext";
 import { DAY_SYSTEMS, systemActualMinutes, type DaySystem } from "@/lib/daySystems";
+import { naturalPeriodRange } from "@/lib/periodRange";
 
 export interface LifeTrendPoint {
   label: string;
@@ -35,16 +36,6 @@ interface TrackingRow {
   block_completions: Record<string, boolean> | null;
 }
 
-const PERIOD_DAYS: Record<string, number> = {
-  today: 1,
-  week: 7,
-  month: 30,
-  quarter: 90,
-  year: 365,
-};
-
-// Se consulta el máximo periodo para poder calcular la racha real aunque el
-// usuario esté viendo solo "hoy" o "esta semana".
 const HISTORY_DAYS = 90;
 
 const SYSTEM_TARGETS: Record<string, number> = {
@@ -130,12 +121,10 @@ function buildTrend(
   timeframe: Timeframe,
   dateKeys: string[],
   byDate: Map<string, TrackingRow>,
-  end: Date,
 ): LifeTrendPoint[] {
-  if (timeframe === "today" || timeframe === "week") {
-    return Array.from({ length: 7 }).map((_, index) => {
-      const date = subDays(end, 6 - index);
-      const key = format(date, "yyyy-MM-dd");
+  if (timeframe === "today" || timeframe === "week" || timeframe === "sprint") {
+    return dateKeys.map((key) => {
+      const date = parseISO(key);
       const metrics = parseRowMetrics(byDate.get(key));
       return {
         label: format(date, "EEE", { locale: es }).replace(".", ""),
@@ -187,25 +176,31 @@ export function useLifeOverview(timeframe: Timeframe) {
   const [rows, setRows] = useState<TrackingRow[]>([]);
   const [streaks, setStreaks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const days = PERIOD_DAYS[timeframe] ?? 7;
-  // Para el año hace falta un histórico mayor; en el resto basta con 90 días.
-  const historyDays = Math.max(HISTORY_DAYS, days);
+  const range = useMemo(() => naturalPeriodRange(timeframe), [timeframe]);
+  const { start: periodStart, end: periodEnd, endKey: periodEndKey, days } = range;
+
+  // Se consulta también el histórico necesario para calcular la racha real
+  // aunque el periodo visible sea solo hoy o esta semana.
+  const historyStart = useMemo(() => {
+    const history = subDays(periodEnd, HISTORY_DAYS - 1);
+    return history.getTime() < periodStart.getTime() ? history : periodStart;
+  }, [periodStart, periodEnd]);
+  const historyStartKey = format(historyStart, "yyyy-MM-dd");
+  const historyDays = Math.max(1, differenceInCalendarDays(periodEnd, historyStart) + 1);
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
-      const end = new Date();
-      const start = subDays(end, historyDays - 1);
 
       try {
         const [trackingRes, streaksRes] = await Promise.all([
           supabase
             .from("daily_systems_tracking")
             .select("tracking_date, completions, time_data, workout_duration, water_data, block_completions")
-            .gte("tracking_date", format(start, "yyyy-MM-dd"))
-            .lte("tracking_date", format(end, "yyyy-MM-dd"))
+            .gte("tracking_date", historyStartKey)
+            .lte("tracking_date", periodEndKey)
             .order("tracking_date", { ascending: true }),
           supabase
             .from("system_habit_streaks")
@@ -233,18 +228,14 @@ export function useLifeOverview(timeframe: Timeframe) {
 
     load();
     return () => { cancelled = true; };
-  }, [timeframe, days, historyDays]);
+  }, [historyStartKey, periodEndKey]);
 
   return useMemo(() => {
-    const end = new Date();
-    const start = subDays(end, days - 1);
-    const dateKeys = Array.from({ length: days }).map((_, index) =>
-      format(subDays(end, days - 1 - index), "yyyy-MM-dd"),
-    );
+    const { start, end, startKey, endKey } = range;
+    const dateKeys = eachDayOfInterval({ start, end }).map((date) => format(date, "yyyy-MM-dd"));
     const byDate = new Map(rows.map((row) => [row.tracking_date, row]));
     const daily = dateKeys.map((key) => ({ key, ...parseRowMetrics(byDate.get(key)) }));
-    const startKey = format(start, "yyyy-MM-dd");
-    const periodRows = rows.filter((row) => row.tracking_date >= startKey);
+    const periodRows = rows.filter((row) => row.tracking_date >= startKey && row.tracking_date <= endKey);
 
     const totalMinutes = daily.reduce((sum, day) => sum + day.minutes, 0);
     const avgConsistency = days > 0
@@ -255,7 +246,7 @@ export function useLifeOverview(timeframe: Timeframe) {
     const waterGlasses = daily.reduce((sum, day) => sum + day.water, 0);
     const workouts = periodRows.filter((row) => numberValue(row.workout_duration) > 0).length;
 
-    const todayKey = format(end, "yyyy-MM-dd");
+    const todayKey = endKey;
     const streakStartOffset = byDate.has(todayKey) ? 0 : 1;
     let currentStreak = 0;
     for (let offset = streakStartOffset; offset < historyDays; offset++) {
@@ -311,9 +302,9 @@ export function useLifeOverview(timeframe: Timeframe) {
       currentStreak,
       workouts,
       waterGlasses,
-      trend: buildTrend(timeframe, dateKeys, byDate, end),
+      trend: buildTrend(timeframe, dateKeys, byDate),
       systems,
       hasData: periodRows.length > 0,
     };
-  }, [rows, streaks, timeframe, days, historyDays, loading]);
+  }, [rows, streaks, timeframe, days, historyDays, loading, range]);
 }

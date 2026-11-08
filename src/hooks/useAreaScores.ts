@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/integrations/supabase/client"
-import { format, subDays } from "date-fns"
 import type { Timeframe, ScoreView } from "@/contexts/TimeframeContext"
+import { naturalPeriodRange } from "@/lib/periodRange"
 import { POINT_B_AREAS } from "@/data/pointB2027"
 import type { PointBArea, PointBSubAxis } from "@/lib/definitions"
 import { useMultiConsistencyScores } from "./useConsistencyScores"
@@ -30,18 +30,8 @@ export interface AreaScore {
 function getDateRange(timeframe: Timeframe, sprintDateRange?: { start: string; end: string }): { start: string; end: string } | null {
   if (timeframe === "sprint" && sprintDateRange) return sprintDateRange
   if (timeframe === "sprint") return null
-  const today = new Date()
-  const end = format(today, "yyyy-MM-dd")
-  let start: Date
-  switch (timeframe) {
-    case "today": start = today; break
-    case "week": start = subDays(today, 6); break
-    case "month": start = subDays(today, 29); break
-    case "quarter": start = subDays(today, 89); break
-    case "year": start = subDays(today, 364); break
-    default: start = subDays(today, 6)
-  }
-  return { start: format(start, "yyyy-MM-dd"), end }
+  const range = naturalPeriodRange(timeframe)
+  return { start: range.startKey, end: range.endKey }
 }
 
 function buildEffortGroups(areas: PointBArea[]): Record<string, string[]> {
