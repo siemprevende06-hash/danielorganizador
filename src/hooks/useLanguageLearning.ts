@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCubaDate } from '@/lib/cubaTime';
 
 export type Language = 'english' | 'italian';
 export type BlockType = 'morning' | 'afternoon';
@@ -66,6 +67,14 @@ const mapRowToSession = (row: any): LanguageSession => ({
   totalDuration: row.total_duration ?? 0,
 });
 
+const mapRowToSettings = (row: any): LanguageSettings => ({
+  id: row.id,
+  currentLanguage: row.current_language as Language,
+  englishLevel: row.english_level || 'intermediate',
+  italianLevel: row.italian_level || 'beginner',
+  aiConversationEnabled: row.ai_conversation_enabled ?? true,
+});
+
 export const useLanguageLearning = () => {
   const [settings, setSettings] = useState<LanguageSettings | null>(null);
   const [todaySession, setTodaySession] = useState<LanguageSession | null>(null);
@@ -81,19 +90,13 @@ export const useLanguageLearning = () => {
     if (error) throw error;
     if (!data) return null;
 
-    return {
-      id: data.id,
-      currentLanguage: data.current_language as Language,
-      englishLevel: data.english_level || 'intermediate',
-      italianLevel: data.italian_level || 'beginner',
-      aiConversationEnabled: data.ai_conversation_enabled ?? true,
-    };
+    return mapRowToSettings(data);
   }, []);
 
   const loadTodaySession = useCallback(async (languageOverride?: Language) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const language = languageOverride ?? settings?.currentLanguage ?? 'english';
+      const today = getCubaDate();
+      const language = languageOverride ?? 'english';
 
       const { data, error } = await supabase
         .from('language_sessions')
@@ -109,7 +112,7 @@ export const useLanguageLearning = () => {
     } catch (error) {
       console.error('Error loading today session:', error);
     }
-  }, [settings?.currentLanguage]);
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -130,7 +133,17 @@ export const useLanguageLearning = () => {
 
   const setLanguage = useCallback(async (language: Language) => {
     try {
-      if (!settings) return;
+      if (!settings) {
+        const { data, error } = await supabase
+          .from('language_settings')
+          .insert({ current_language: language })
+          .select('*')
+          .single();
+        if (error) throw error;
+        if (data) setSettings(mapRowToSettings(data));
+        await loadTodaySession(language);
+        return;
+      }
 
       await supabase
         .from('language_settings')
@@ -155,7 +168,7 @@ export const useLanguageLearning = () => {
 
   const toggleSubTask = useCallback(async (taskId: string, blockType: BlockType) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getCubaDate();
       const language = settings?.currentLanguage ?? 'english';
       const fieldName = `${taskId}_completed`;
 
@@ -191,7 +204,7 @@ export const useLanguageLearning = () => {
     try {
       if (minutes <= 0) return;
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getCubaDate();
       const language = settings?.currentLanguage ?? 'english';
 
       // 1) Asegurar sesión (para el idioma actual)

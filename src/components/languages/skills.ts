@@ -1,25 +1,76 @@
-import { BookOpen, Headphones, MessageCircle, PenTool } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { BookText, Headphones, MessageCircle, PenLine, Sparkles, type LucideIcon } from 'lucide-react';
+import { LANGUAGE_SKILLS as CANONICAL_SKILLS, type LanguageSkillId } from '@/lib/languagePlan';
 
-export type LanguageSkillId = 'vocabulary' | 'grammar' | 'speaking' | 'reading' | 'listening';
+export type { LanguageSkillId };
+
 export type SkillTone = 'info' | 'focus' | 'success' | 'warning';
 
 export type LanguageSkillDef = {
   id: LanguageSkillId;
   label: string;
+  short: string;
   Icon: LucideIcon;
   tone: SkillTone;
   resource: string;
   url?: string | null;
+  /** Minutos orientativos de una sesión completa de esta habilidad. */
+  durationMinutes: number;
 };
 
-export const LANGUAGE_SKILLS: LanguageSkillDef[] = [
-  { id: 'vocabulary', label: 'Vocabulario', Icon: BookOpen, tone: 'info', resource: 'Anki / Quizlet', url: 'https://apps.ankiweb.net/' },
-  { id: 'grammar', label: 'Gramática', Icon: PenTool, tone: 'focus', resource: 'Duolingo', url: 'https://www.duolingo.com/' },
-  { id: 'speaking', label: 'Speaking', Icon: MessageCircle, tone: 'success', resource: 'ChatGPT', url: 'https://chat.openai.com/' },
-  { id: 'reading', label: 'Lectura', Icon: BookOpen, tone: 'info', resource: 'Artículos', url: null },
-  { id: 'listening', label: 'Escucha', Icon: Headphones, tone: 'warning', resource: 'Netflix / YouTube', url: 'https://www.youtube.com/' },
-];
+const SKILL_META: Record<
+  LanguageSkillId,
+  { Icon: LucideIcon; tone: SkillTone; resource: string; url?: string | null; durationMinutes: number }
+> = {
+  gramatica: {
+    Icon: PenLine,
+    tone: 'focus',
+    resource: 'Duolingo / Tutor IA',
+    url: 'https://www.duolingo.com/',
+    durationMinutes: 15,
+  },
+  vocabulario: {
+    Icon: Sparkles,
+    tone: 'info',
+    resource: 'Anki / Quizlet',
+    url: 'https://apps.ankiweb.net/',
+    durationMinutes: 10,
+  },
+  'lectura-l': {
+    Icon: BookText,
+    tone: 'warning',
+    resource: 'Artículos / Libros',
+    url: null,
+    durationMinutes: 15,
+  },
+  listening: {
+    Icon: Headphones,
+    tone: 'info',
+    resource: 'Netflix / YouTube',
+    url: 'https://www.youtube.com/',
+    durationMinutes: 20,
+  },
+  speaking: {
+    Icon: MessageCircle,
+    tone: 'success',
+    resource: 'Tutor IA',
+    url: null,
+    durationMinutes: 15,
+  },
+  escritura: {
+    Icon: PenLine,
+    tone: 'focus',
+    resource: 'Tutor IA / Diario',
+    url: null,
+    durationMinutes: 15,
+  },
+};
+
+export const LANGUAGE_SKILLS: LanguageSkillDef[] = CANONICAL_SKILLS.map(skill => ({
+  id: skill.id as LanguageSkillId,
+  label: skill.name,
+  short: skill.short,
+  ...SKILL_META[skill.id as LanguageSkillId],
+}));
 
 export function toneTextClass(tone: SkillTone) {
   switch (tone) {
@@ -33,3 +84,26 @@ export function toneTextClass(tone: SkillTone) {
       return 'text-warning';
   }
 }
+
+export function toneBgClass(tone: SkillTone) {
+  switch (tone) {
+    case 'info':
+      return 'bg-info/10';
+    case 'focus':
+      return 'bg-focus/10';
+    case 'success':
+      return 'bg-success/10';
+    case 'warning':
+      return 'bg-warning/10';
+  }
+}
+
+export const SKILL_LABELS: Record<LanguageSkillId, string> = LANGUAGE_SKILLS.reduce(
+  (acc, skill) => ({ ...acc, [skill.id]: skill.label }),
+  {} as Record<LanguageSkillId, string>
+);
+
+export const SKILL_DURATIONS: Record<LanguageSkillId, number> = LANGUAGE_SKILLS.reduce(
+  (acc, skill) => ({ ...acc, [skill.id]: skill.durationMinutes }),
+  {} as Record<LanguageSkillId, number>
+);

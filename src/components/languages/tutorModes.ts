@@ -8,7 +8,7 @@ export interface TutorModeDef {
   id: TutorSkill;
   label: string;
   Icon: LucideIcon;
-  /** Columna de language_sessions donde se guardan los minutos de esta habilidad. */
+  /** Identificador de la práctica; el dashboard lo mapea a la habilidad canónica. */
   statId: string;
   placeholder: string;
   quick: Record<Language, string[]>;
@@ -74,7 +74,7 @@ export const TUTOR_MODES: TutorModeDef[] = [
     id: 'writing',
     label: 'Escritura',
     Icon: SquarePen,
-    statId: 'grammar',
+    statId: 'writing',
     placeholder: 'Escribe algo y te lo corrijo con explicación...',
     quick: {
       english: ['Write me an email to my boss', 'Write a paragraph about my week', 'Correct my text and explain each mistake'],

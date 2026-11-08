@@ -1,79 +1,114 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, ExternalLink, Play } from 'lucide-react';
-import type { LanguageSubTask } from '@/hooks/useLanguageLearning';
-import { toneTextClass, type LanguageSkillDef } from './skills';
+import { Check, Clock, ExternalLink, Play } from 'lucide-react';
+import type { LanguageSkillDef, LanguageSkillId } from './skills';
+import { toneBgClass, toneTextClass } from './skills';
 
 export function LanguageSkillsChecklist({
   skills,
-  subTasks,
+  completions,
+  skillKeyPrefix,
   activeSkillId,
   onToggle,
   onStartTimer,
 }: {
   skills: LanguageSkillDef[];
-  subTasks: LanguageSubTask[];
+  completions: Record<string, boolean>;
+  skillKeyPrefix: string;
   activeSkillId: string | null;
-  onToggle: (id: string) => void;
-  onStartTimer: (id: string) => void;
+  onToggle: (id: LanguageSkillId) => void;
+  onStartTimer: (id: LanguageSkillId) => void;
 }) {
+  const done = skills.filter(skill => completions[`${skillKeyPrefix}-${skill.id}`]).length;
+  const totalMinutes = skills.reduce((sum, skill) => sum + skill.durationMinutes, 0);
+  const percent = skills.length > 0 ? Math.round((done / skills.length) * 100) : 0;
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base sm:text-lg">Habilidades del día</CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-base sm:text-lg">Habilidades del día</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {done}/{skills.length} completadas · {totalMinutes} min orientativos
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xl font-bold tabular-nums">{percent}%</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">del plan diario</p>
+          </div>
+        </div>
+        <Progress value={percent} className="mt-2 h-2" />
       </CardHeader>
-      <CardContent className="space-y-2 sm:space-y-3">
+      <CardContent className="grid gap-2 sm:grid-cols-2">
         {skills.map(skill => {
-          const sub = subTasks.find(t => t.id === skill.id);
-          const isCompleted = sub?.completed || false;
+          const isCompleted = !!completions[`${skillKeyPrefix}-${skill.id}`];
           const isActive = activeSkillId === skill.id;
 
           return (
             <div
               key={skill.id}
               className={cn(
-                'flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg transition-all border',
-                isCompleted ? 'bg-success/5 border-success/20' : 'bg-muted/30 border-transparent',
-                isActive && 'ring-2 ring-primary'
+                'group flex items-center gap-2.5 rounded-xl border p-2.5 transition-all',
+                isCompleted
+                  ? 'border-success/30 bg-success/5'
+                  : 'border-border/60 bg-muted/20 hover:border-border hover:bg-muted/40',
+                isActive && 'ring-2 ring-primary ring-offset-1 ring-offset-background'
               )}
             >
               <button
+                type="button"
                 onClick={() => onToggle(skill.id)}
+                aria-pressed={isCompleted}
+                aria-label={isCompleted ? `Desmarcar ${skill.label}` : `Marcar ${skill.label}`}
                 className={cn(
-                  'w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0',
-                  isCompleted ? 'bg-success border-success' : 'border-muted-foreground/30'
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all',
+                  isCompleted
+                    ? 'border-success bg-success text-success-foreground'
+                    : 'border-muted-foreground/30 hover:border-primary'
                 )}
-                aria-label={isCompleted ? 'Marcar como pendiente' : 'Marcar como completada'}
               >
-                {isCompleted && <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-success-foreground" />}
+                {isCompleted && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
               </button>
 
-              <skill.Icon className={cn('w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0', toneTextClass(skill.tone))} />
+              <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', toneBgClass(skill.tone))}>
+                <skill.Icon className={cn('h-4 w-4', toneTextClass(skill.tone))} />
+              </div>
 
-              <div className="flex-1 min-w-0">
-                <p className={cn('font-medium text-xs sm:text-sm', isCompleted && 'line-through text-muted-foreground')}>
+              <div className="min-w-0 flex-1">
+                <p className={cn('truncate text-sm font-semibold', isCompleted && 'text-muted-foreground line-through')}>
                   {skill.label}
                 </p>
-                <p className="text-xs text-muted-foreground hidden sm:block">
-                  {sub?.durationMinutes}min • {skill.resource}
+                <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  {skill.durationMinutes} min · {skill.resource}
                 </p>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-0.5">
                 {skill.url && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => window.open(skill.url!, '_blank')}
+                    className="h-8 w-8 p-0 text-muted-foreground opacity-70 hover:opacity-100"
+                    aria-label={`Abrir recurso de ${skill.label}`}
+                    onClick={() => window.open(skill.url!, '_blank', 'noopener,noreferrer')}
                   >
-                    <ExternalLink className="w-3 h-3" />
+                    <ExternalLink className="h-3.5 w-3.5" />
                   </Button>
                 )}
                 {!isCompleted && (
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onStartTimer(skill.id)}>
-                    <Play className="w-3 h-3" />
+                  <Button
+                    variant={isActive ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-8 gap-1 px-2 text-xs"
+                    onClick={() => onStartTimer(skill.id)}
+                    aria-label={`Practicar ${skill.label} con temporizador`}
+                  >
+                    <Play className="h-3 w-3" />
+                    <span className="hidden sm:inline">Practicar</span>
                   </Button>
                 )}
               </div>

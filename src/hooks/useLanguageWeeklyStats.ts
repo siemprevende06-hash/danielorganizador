@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format, subDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { getCubaDate } from '@/lib/cubaTime';
 import type { Language } from '@/hooks/useLanguageLearning';
 import { LANGUAGE_SKILLS, skillCompletionKey, type LanguageId } from '@/lib/languagePlan';
 
@@ -12,6 +13,10 @@ export type LanguageWeeklyDay = {
 };
 
 const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+function parseLocalDate(date: string) {
+  return new Date(`${date}T12:00:00`);
+}
 
 function toDateStr(d: Date) {
   return format(d, 'yyyy-MM-dd');
@@ -30,9 +35,10 @@ export function useLanguageWeeklyStats(language: Language) {
   const languageKey: LanguageId = language === 'italian' ? 'italiano' : 'ingles';
 
   const dateRange = useMemo(() => {
-    const end = new Date();
+    // La app usa la fecha de Cuba para el corte diario; no mezclar con UTC.
+    const end = parseLocalDate(getCubaDate());
     const start = subDays(end, 6);
-    return { startStr: toDateStr(start), endStr: toDateStr(end) };
+    return { startStr: toDateStr(start), endStr: toDateStr(end), end };
   }, []);
 
   useEffect(() => {
@@ -61,7 +67,7 @@ export function useLanguageWeeklyStats(language: Language) {
 
         const days: LanguageWeeklyDay[] = [];
         for (let i = 6; i >= 0; i--) {
-          const date = subDays(new Date(), i);
+          const date = subDays(dateRange.end, i);
           const dateStr = toDateStr(date);
           const row = byDate.get(dateStr);
           days.push({
@@ -72,14 +78,18 @@ export function useLanguageWeeklyStats(language: Language) {
           });
         }
 
-        // Racha: días consecutivos hacia atrás con minutos o habilidades.
-        const streakDays = [...days]
-          .reverse()
-          .reduce((acc, day) => {
-            if (acc.broken) return acc;
-            if (day.minutes > 0 || day.skills > 0) return { ...acc, count: acc.count + 1 };
-            return { ...acc, broken: true };
-          }, { count: 0, broken: false as boolean }).count;
+        // Racha: días consecutivos hacia atrás. Si hoy aún no hay práctica,
+        // se conserva la racha de ayer para no castigar el día en curso.
+        let startIndex = 6;
+        const todayActive = (days[6]?.minutes ?? 0) > 0 || (days[6]?.skills ?? 0) > 0;
+        if (!todayActive) startIndex = 5;
+
+        let streakDays = 0;
+        for (let i = startIndex; i >= 0; i--) {
+          const day = days[i];
+          if ((day?.minutes ?? 0) > 0 || (day?.skills ?? 0) > 0) streakDays += 1;
+          else break;
+        }
 
         setWeeklyData(days);
         setStreak(streakDays);
