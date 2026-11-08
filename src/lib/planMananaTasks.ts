@@ -25,6 +25,7 @@ const AREA_TO_SYSTEM: Record<string, string> = {
   lectura: 'lectura',
   ajedrez: 'ajedrez',
   game: 'game',
+  gym: 'gym',
   tareas: 'tareas',
   general: 'tareas',
 };
@@ -42,6 +43,7 @@ const SOURCE_TO_SYSTEM: Record<string, string> = {
   lectura: 'lectura',
   ajedrez: 'ajedrez',
   game: 'game',
+  gym: 'gym',
   general: 'tareas',
 };
 
@@ -67,6 +69,7 @@ export const PLAN_SYSTEM_EMOJI: Record<string, string> = {
   game: '🎲',
   ajedrez: '♟️',
   lectura: '📖',
+  gym: '💪',
 };
 
 export function planSystemName(systemId: string): string {
@@ -92,4 +95,5 @@ export const TASK_SOURCE_LABEL: Record<string, string> = {
   lectura: 'Lectura',
   ajedrez: 'Ajedrez',
   game: 'Game',
+  gym: 'Gym',
 };

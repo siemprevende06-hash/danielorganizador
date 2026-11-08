@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { DAY_SYSTEMS, systemSpeedOptions, type SystemSpeed } from "@/lib/daySystems";
-import { supabase } from "@/integrations/supabase/client";
+import { loadDailyPlan } from "@/lib/dailyPlanStorage";
 
 const STORAGE_KEY = "daniel_system_speed_v1";
 const LEGACY_INTENSITY_KEY = "planIntensity";
@@ -79,11 +79,7 @@ export function useSystemSpeed(date?: Date) {
     setLoadedFromPlan(false);
     (async () => {
       try {
-        const { data: plan } = await supabase
-          .from("daily_plans")
-          .select("notes")
-          .eq("plan_date", dateStr)
-          .maybeSingle();
+        const plan = await loadDailyPlan(dateStr);
         if (cancelled) return;
         if (plan?.notes) {
           try {

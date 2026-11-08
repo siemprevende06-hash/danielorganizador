@@ -56,6 +56,7 @@ const FOCUS_OPTIONS = [
   { value: 'lectura', label: '📖 Lectura', color: 'text-indigo-500' },
   { value: 'ajedrez', label: '♟️ Ajedrez', color: 'text-amber-500' },
   { value: 'game', label: '🎲 Game', color: 'text-violet-500' },
+  { value: 'gym', label: '💪 Gym', color: 'text-orange-500' },
   { value: 'descanso', label: '🛌 Descanso', color: 'text-slate-500' },
   { value: 'ocio', label: '☕ Ocio', color: 'text-orange-500' },
   { value: 'entretenimiento', label: '🎮 Entretenimiento', color: 'text-orange-500' },

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
+import { loadDailyPlan, saveDailyPlan } from "@/lib/dailyPlanStorage";
+import { legacyModeForRoutine } from "@/hooks/useRoutineBlocks";
 import {
   deriveSystemIntensity,
   emptySpeedPlan,
@@ -55,13 +56,9 @@ export function useDaySpeedPlan(date: Date | undefined, options: UseDaySpeedPlan
 
     (async () => {
       try {
-        const { data } = await supabase
-          .from("daily_plans")
-          .select("notes")
-          .eq("plan_date", dateStr)
-          .maybeSingle();
+        const plan = await loadDailyPlan(dateStr);
         if (cancelled) return;
-        const notes = parseNotes(data?.notes);
+        const notes = parseNotes(plan?.notes);
         setPlanState(normalizeSpeedPlan(notes.speedPlan));
       } catch {
         if (!cancelled) setPlanState(emptySpeedPlan());
@@ -89,13 +86,8 @@ export function useDaySpeedPlan(date: Date | undefined, options: UseDaySpeedPlan
       const value = override ?? planRef.current;
       setIsSaving(true);
       try {
-        const { data } = await supabase
-          .from("daily_plans")
-          .select("id, notes")
-          .eq("plan_date", dateStr)
-          .maybeSingle();
-
-        const notes = parseNotes(data?.notes);
+        const existing = await loadDailyPlan(dateStr);
+        const notes = parseNotes(existing?.notes);
         const intensity = deriveSystemIntensity(value, blocksRef.current);
         const nextNotes = {
           ...notes,
@@ -104,21 +96,12 @@ export function useDaySpeedPlan(date: Date | undefined, options: UseDaySpeedPlan
           planIntensity: intensity,
         };
 
-        if (data?.id) {
-          const { error } = await supabase
-            .from("daily_plans")
-            .update({ notes: JSON.stringify(nextNotes) })
-            .eq("id", data.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.from("daily_plans").insert({
-            plan_date: dateStr,
-            mode: routineType || "disciplina",
-            routine_type: routineType || null,
-            notes: JSON.stringify(nextNotes),
-          });
-          if (error) throw error;
-        }
+        await saveDailyPlan({
+          plan_date: dateStr,
+          mode: legacyModeForRoutine(routineType),
+          routine_type: routineType || null,
+          notes: JSON.stringify(nextNotes),
+        });
 
         dirtyRef.current = planRef.current === value ? false : dirtyRef.current;
         return true;

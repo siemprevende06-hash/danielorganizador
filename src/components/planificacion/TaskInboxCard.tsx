@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, GripVertical, Inbox, Search, Target, X } from 'lucide-react';
+import { ArrowRight, GripVertical, Inbox, Loader2, Moon, Plus, Search, Target, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +18,8 @@ interface TaskInboxCardProps {
   onAssignSelected: () => void;
   onRemove: (taskId: string) => void;
   onDragStart: (event: React.DragEvent, taskId: string) => void;
+  /** Acceso rápido: crea una tarea y la deja seleccionada en la pestaña Mañana. */
+  onCreateTask?: (title: string, systemId?: string) => Promise<boolean | void> | boolean | void;
 }
 
 const SYSTEM_ORDER = SPEED_PLAN_SYSTEMS.map(system => system.id);
@@ -31,9 +33,17 @@ export function TaskInboxCard({
   onAssignSelected,
   onRemove,
   onDragStart,
+  onCreateTask,
 }: TaskInboxCardProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
+  const [quickTitle, setQuickTitle] = useState('');
+  const [quickCreating, setQuickCreating] = useState(false);
+
+  const stagedIds = useMemo(() => {
+    const known = new Set(tasks.map(task => task.id));
+    return new Set([...selectedIds].filter(id => !assignedIds.has(id) && known.has(id)));
+  }, [selectedIds, assignedIds, tasks]);
 
   const presentSystems = useMemo(() => {
     const ids = new Set(tasks.map(task => task.systemId));
@@ -42,8 +52,18 @@ export function TaskInboxCard({
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return tasks
-      .filter(task => filter === 'all' || task.systemId === filter)
+    let list = tasks;
+
+    if (filter === 'manana') {
+      list = list.filter(task => stagedIds.has(task.id));
+    } else if (filter === 'all') {
+      // Al seleccionar una tarea se mueve a la pestaña Mañana.
+      list = list.filter(task => !stagedIds.has(task.id));
+    } else {
+      list = list.filter(task => task.systemId === filter && !stagedIds.has(task.id));
+    }
+
+    return list
       .filter(task => !query || task.title.toLowerCase().includes(query))
       .sort((a, b) => {
         const orderA = SYSTEM_ORDER.indexOf(a.systemId);
@@ -51,12 +71,27 @@ export function TaskInboxCard({
         if (orderA !== orderB) return orderA - orderB;
         return a.title.localeCompare(b.title, 'es');
       });
-  }, [tasks, filter, search]);
+  }, [tasks, filter, search, stagedIds]);
 
-  const selectedCount = useMemo(
-    () => [...selectedIds].filter(id => !assignedIds.has(id)).length,
-    [selectedIds, assignedIds],
-  );
+  const selectedCount = stagedIds.size;
+
+  const handleQuickCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const title = quickTitle.trim();
+    if (!title || quickCreating || !onCreateTask) return;
+
+    setQuickCreating(true);
+    try {
+      const systemId = filter !== 'all' && filter !== 'manana' ? filter : undefined;
+      const created = await onCreateTask(title, systemId);
+      if (created !== false) {
+        setQuickTitle('');
+        setFilter('manana');
+      }
+    } finally {
+      setQuickCreating(false);
+    }
+  };
 
   return (
     <Card className="overflow-hidden rounded-2xl border-0 bg-white/80 shadow-sm dark:bg-zinc-950/80">
@@ -68,8 +103,35 @@ export function TaskInboxCard({
           <Badge variant="secondary" className="ml-auto text-[9px]">{tasks.length}</Badge>
         </div>
         <p className="text-[9px] text-muted-foreground">
-          Busca, selecciona y coloca cada tarea en un Deep Work. También puedes arrastrarlas a la línea de tiempo.
+          Selecciona tareas: pasan a la pestaña <strong>Mañana</strong> y desde ahí las arrastras a los bloques de tiempo.
         </p>
+
+        {onCreateTask && (
+          <form
+            onSubmit={handleQuickCreate}
+            className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 p-1"
+          >
+            <div className="flex items-center gap-1">
+              <Plus className="ml-1 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <Input
+                value={quickTitle}
+                onChange={event => setQuickTitle(event.target.value)}
+                placeholder="Acceso rápido: nueva tarea..."
+                className="h-7 border-0 bg-transparent px-1 text-[11px] shadow-none focus-visible:ring-0"
+                disabled={quickCreating}
+              />
+              <Button
+                type="submit"
+                size="sm"
+                className="h-7 shrink-0 gap-1 rounded-lg bg-amber-500 px-2 text-[10px] text-white hover:bg-amber-600"
+                disabled={!quickTitle.trim() || quickCreating}
+              >
+                {quickCreating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                <span className="hidden sm:inline">Crear</span>
+              </Button>
+            </div>
+          </form>
+        )}
 
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -93,6 +155,28 @@ export function TaskInboxCard({
             )}
           >
             Todas
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('manana')}
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-semibold transition-colors',
+              filter === 'manana'
+                ? 'border-amber-500 bg-amber-500 text-white'
+                : 'border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-400',
+            )}
+          >
+            <Moon className="h-2.5 w-2.5" /> Mañana
+            {stagedIds.size > 0 && (
+              <span
+                className={cn(
+                  'rounded-full px-1 text-[8px] tabular-nums',
+                  filter === 'manana' ? 'bg-white/25' : 'bg-amber-500/20',
+                )}
+              >
+                {stagedIds.size}
+              </span>
+            )}
           </button>
           {presentSystems.map(systemId => (
             <button
@@ -148,7 +232,7 @@ export function TaskInboxCard({
                       <span>{planSystemEmoji(task.systemId)}</span>
                       <span>{planSystemName(task.systemId)}</span>
                       {assigned && <span className="font-semibold text-emerald-600 dark:text-emerald-400">· En un bloque</span>}
-                      {!assigned && selected && <span className="font-semibold text-amber-600 dark:text-amber-400">· En el plan</span>}
+                      {!assigned && selected && <span className="font-semibold text-amber-600 dark:text-amber-400">· En Mañana</span>}
                     </p>
                   </div>
                   {assigned ? (
@@ -164,7 +248,7 @@ export function TaskInboxCard({
                     <button
                       type="button"
                       onClick={() => onAssign(task)}
-                      title="Colocar en un Deep Work"
+                      title="Colocar en un bloque"
                       className="flex h-5 shrink-0 items-center gap-0.5 rounded px-1 text-[8px] font-semibold text-muted-foreground transition-colors hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400"
                     >
                       <Target className="h-3 w-3" />
@@ -176,14 +260,27 @@ export function TaskInboxCard({
             })
           ) : (
             <div className="rounded-xl border border-dashed border-border/60 py-6 text-center">
-              <p className="text-xs text-muted-foreground">No hay tareas con este filtro.</p>
+              <p className="text-xs text-muted-foreground">
+                {filter === 'manana'
+                  ? 'Aún no has seleccionado tareas para Mañana.'
+                  : 'No hay tareas con este filtro.'}
+              </p>
+              {filter !== 'manana' && stagedIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilter('manana')}
+                  className="mt-1 text-[10px] font-semibold text-amber-600 hover:underline dark:text-amber-400"
+                >
+                  Ver {stagedIds.size} en Mañana
+                </button>
+              )}
             </div>
           )}
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
           <span className="text-[9px] font-medium text-muted-foreground">
-            {selectedCount > 0 ? `${selectedCount} seleccionada${selectedCount === 1 ? '' : 's'}` : 'Selecciona tareas para el plan'}
+            {selectedCount > 0 ? `${selectedCount} en Mañana` : 'Selecciona tareas para Mañana'}
           </span>
           <Button
             size="sm"
@@ -191,7 +288,7 @@ export function TaskInboxCard({
             disabled={selectedCount === 0}
             onClick={onAssignSelected}
           >
-            <ArrowRight className="h-3 w-3" /> Asignar al plan
+            <ArrowRight className="h-3 w-3" /> Colocar en bloques
           </Button>
         </div>
       </CardContent>

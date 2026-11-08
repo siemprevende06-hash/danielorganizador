@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { loadDailyPlan } from '@/lib/dailyPlanStorage';
 import { useRoutineBlocksDB, type RoutineBlock } from '@/hooks/useRoutineBlocksDB';
 import { useBlockCompletions } from '@/hooks/useBlockCompletions';
 import { useQueryClient } from '@tanstack/react-query';
@@ -47,7 +48,7 @@ export function useDailyPlanData(date?: Date) {
     setPlanLoaded(false);
     setPlanSpeedPlan(null);
     try {
-      const { data: plan } = await supabase.from('daily_plans').select('routine_type, block_assignments, notes').eq('plan_date', dateStr).maybeSingle();
+      const plan = await loadDailyPlan(dateStr);
 
 if (plan && plan.block_assignments) {
         setPlanAssignments(plan.block_assignments as Record<string, string[]>);

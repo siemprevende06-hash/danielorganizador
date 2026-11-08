@@ -15,7 +15,8 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { lifeAreas } from "@/lib/data";
 import { flattenAreas } from "@/lib/utils";
-import { useRoutineBlocks, type RoutineType, ROUTINES } from "@/hooks/useRoutineBlocks";
+import { useRoutineBlocks, type RoutineType, ROUTINES, legacyModeForRoutine } from "@/hooks/useRoutineBlocks";
+import { loadDailyPlan, saveDailyPlan } from "@/lib/dailyPlanStorage";
 import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
 import { DaySpeedSection } from "@/components/today/DaySpeedSection";
 import { useDaySpeedPlan } from "@/hooks/useDaySpeedPlan";
@@ -30,7 +31,7 @@ import {
 import {
   Sun, Moon, Clock, Target, Languages, Save, PlusCircle, Loader2, Layers,
 } from "lucide-react";
-import { DAY_SYSTEMS, SPEED_PLAN_SYSTEMS, systemSpeedOptions, type SystemSpeed } from "@/lib/daySystems";
+import { SPEED_PLAN_SYSTEMS, systemSpeedOptions, type DaySystem, type SystemSpeed } from "@/lib/daySystems";
 import {
   autoSystemForBlock,
   blockDurationMinutes,
@@ -79,14 +80,19 @@ const SYSTEM_GROUP_DOT: Record<string, string> = {
   desarrollo: 'bg-violet-500',
 };
 
-const SYSTEM_GROUPS = DAY_SYSTEMS
-  .filter(area => area.kind === 'central' && area.id !== 'finanzas')
-  .map(area => ({
-    id: area.id,
-    name: area.name,
-    dot: SYSTEM_GROUP_DOT[area.id] ?? 'bg-slate-500',
-    systems: area.systems,
-  }));
+/** Orden específico de /plan-manana: dos columnas de 3, de arriba hacia abajo. */
+const DEVELOPMENT_SYSTEM_IDS = ['lectura', 'ajedrez', 'game', 'idiomas', 'musica', 'gym'] as const;
+const PROFESSIONAL_SYSTEM_IDS = ['universidad', 'emprendimiento', 'tareas'] as const;
+
+const SYSTEM_BY_ID = new Map(SPEED_PLAN_SYSTEMS.map(system => [system.id, system]));
+
+const DEVELOPMENT_SYSTEMS = DEVELOPMENT_SYSTEM_IDS
+  .map(id => SYSTEM_BY_ID.get(id))
+  .filter((system): system is DaySystem => Boolean(system));
+
+const PROFESSIONAL_SYSTEMS = PROFESSIONAL_SYSTEM_IDS
+  .map(id => SYSTEM_BY_ID.get(id))
+  .filter((system): system is DaySystem => Boolean(system));
 
 const CREATE_AREA_OPTIONS = (() => {
   const base = flattenAreas(lifeAreas).map(area => ({ id: area.id, name: area.name }));
@@ -513,7 +519,7 @@ export default function PlanManana() {
       setMusicInstrument(localStorage.getItem(`planInstrument_${dateStr}`) || localStorage.getItem(`planManana_instrument`) || "piano");
     };
     try {
-      const { data: plan } = await supabase.from("daily_plans").select("routine_type, block_assignments, notes").eq("plan_date", dateStr).maybeSingle();
+      const plan = await loadDailyPlan(dateStr);
       if (plan && plan.block_assignments) {
         const assignments = plan.block_assignments as Record<string, string[]>;
         const rest = { ...assignments };
@@ -635,6 +641,36 @@ export default function PlanManana() {
     }
   };
 
+  const handleQuickCreateTask = useCallback(async (title: string, systemId?: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return false;
+
+    try {
+      const { data: created, error } = await supabase.from('tasks').insert({
+        title: trimmed,
+        description: null,
+        priority: 'medium',
+        due_date: null,
+        area_id: systemId || null,
+        completed: false,
+        source: 'general',
+        status: 'pendiente',
+      }).select('id, title, source, area_id, completed, routine_block_id').single();
+      if (error) throw error;
+      if (!created) return false;
+
+      const task = created as TaskItem;
+      setTasks(prev => (prev.some(existing => existing.id === task.id) ? prev : [...prev, task]));
+      setSelectedTasks(prev => new Set(prev).add(task.id));
+      toast.success('Tarea añadida a Mañana');
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al crear tarea';
+      toast.error(message);
+      return false;
+    }
+  }, []);
+
   const syncTaskDueDates = async (taskIds: string[], dateStr: string | null) => {
     if (taskIds.length === 0) return;
     const entreTaskIds = new Set(entreTasks.map(t => t.id));
@@ -685,23 +721,15 @@ export default function PlanManana() {
         dayGoals,
       });
 
-      const existing = await supabase.from("daily_plans").select("id").eq("plan_date", targetStr).maybeSingle();
-      if (existing.data) {
-        const { error } = await supabase.from("daily_plans").update({
-          routine_type: routineType,
-          block_assignments: JSON.parse(JSON.stringify(assignments)),
-          notes: notesJSON,
-        }).eq("id", existing.data.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("daily_plans").insert({
-          plan_date: targetStr,
-          mode: routineType,
-          routine_type: routineType,
-          block_assignments: JSON.parse(JSON.stringify(assignments)),
-          notes: notesJSON,
-        });
-        if (error) throw error;
+      const persistedIn = await saveDailyPlan({
+        plan_date: targetStr,
+        mode: legacyModeForRoutine(routineType),
+        routine_type: routineType,
+        block_assignments: JSON.parse(JSON.stringify(assignments)),
+        notes: notesJSON,
+      });
+      if (persistedIn === "app_settings") {
+        console.warn("El plan se guardó en app_settings porque daily_plans rechazó la escritura por RLS.");
       }
 
       const goalRows = ALL_HIERARCHY_AREAS
@@ -728,7 +756,15 @@ export default function PlanManana() {
       setPrevPlanSnapshot({ selectedTasks: [...planTaskIds], blockAssignments: { ...assignments } });
 
       toast.success(mode === 'hoy' ? "Plan para hoy guardado" : "Plan para mañana guardado");
-    } catch { toast.error("Error al guardar"); }
+    } catch (error) {
+      console.error("Error al guardar el plan:", error);
+      const detail = error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message: unknown }).message)
+          : "";
+      toast.error(detail ? `Error al guardar: ${detail}` : "Error al guardar");
+    }
     setSaving(false);
   };
 
@@ -755,6 +791,24 @@ export default function PlanManana() {
       ?? covers[coverKey('sub', systemId)]
       ?? null;
   }, [covers]);
+
+  const renderSystemCard = (system: DaySystem) => (
+    <PlanSystemCard
+      key={system.id}
+      system={system}
+      cover={systemCover(system.id)}
+      emoji={planSystemEmoji(system.id)}
+      speed={getSpeed(system.id)}
+      onSpeedChange={speed => setSpeed(system.id, speed)}
+      plannedMinutes={speedSummary.bySystem[system.id]?.plannedMinutes ?? 0}
+      tasks={systemTasks[system.id] ?? []}
+      blocks={systemBlocks[system.id] ?? []}
+      availableTasks={availableTasksForSystem(system.id)}
+      onAddTask={task => assignTasks([task], system.id)}
+      onCreateTask={() => openCreateForSystem(system.id)}
+      onRemoveTask={handleRemoveTask}
+    />
+  );
 
   if (loading || !routineLoaded || !speedPlanLoaded || !systemSpeedLoaded) {
     return (
@@ -840,37 +894,38 @@ export default function PlanManana() {
             </Badge>
           </div>
           <p className="-mt-1 text-[10px] text-muted-foreground">
-            Elige la velocidad de cada sistema y añade sus tareas: cada tarjeta las coloca en un Deep Work.
+            Elige la velocidad de cada sistema y añade sus tareas: cada tarjeta las coloca en un bloque de tiempo.
           </p>
 
-          {SYSTEM_GROUPS.map(group => (
-            <div key={group.id} className="space-y-1.5">
-              <div className="flex items-center gap-2 px-0.5">
-                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', group.dot)} />
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">{group.name}</h3>
-                <span className="h-px flex-1 bg-border/60" />
+          {/* Profesional / Académico en un cuadro */}
+          <div className="rounded-2xl border-2 border-sky-200/70 bg-sky-50/40 p-3 shadow-sm dark:border-sky-900/50 dark:bg-sky-950/20">
+            <div className="mb-2 flex items-center gap-2 px-0.5">
+              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', SYSTEM_GROUP_DOT['prof-acad'])} />
+              <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Profesional / Académico</h3>
+              <span className="h-px flex-1 bg-sky-200/70 dark:bg-sky-900/60" />
+            </div>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              {PROFESSIONAL_SYSTEMS.map(renderSystemCard)}
+            </div>
+          </div>
+
+          {/* Desarrollo Personal: dos columnas de 3, en orden fijo */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-0.5">
+              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', SYSTEM_GROUP_DOT.desarrollo)} />
+              <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Desarrollo Personal</h3>
+              <span className="h-px flex-1 bg-border/60" />
+              <Badge variant="secondary" className="text-[8px] tabular-nums">2 columnas · 3 cada una</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-2.5">
+                {DEVELOPMENT_SYSTEMS.slice(0, 3).map(renderSystemCard)}
               </div>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-                {group.systems.map(system => (
-                  <PlanSystemCard
-                    key={system.id}
-                    system={system}
-                    cover={systemCover(system.id)}
-                    emoji={planSystemEmoji(system.id)}
-                    speed={getSpeed(system.id)}
-                    onSpeedChange={speed => setSpeed(system.id, speed)}
-                    plannedMinutes={speedSummary.bySystem[system.id]?.plannedMinutes ?? 0}
-                    tasks={systemTasks[system.id] ?? []}
-                    blocks={systemBlocks[system.id] ?? []}
-                    availableTasks={availableTasksForSystem(system.id)}
-                    onAddTask={task => assignTasks([task], system.id)}
-                    onCreateTask={() => openCreateForSystem(system.id)}
-                    onRemoveTask={handleRemoveTask}
-                  />
-                ))}
+              <div className="space-y-2.5">
+                {DEVELOPMENT_SYSTEMS.slice(3, 6).map(renderSystemCard)}
               </div>
             </div>
-          ))}
+          </div>
         </section>
 
         {/* Bandeja + línea de tiempo */}
@@ -885,24 +940,32 @@ export default function PlanManana() {
               onAssignSelected={assignSelectedTasks}
               onRemove={handleRemoveFromPlan}
               onDragStart={handlePoolDragStart}
+              onCreateTask={handleQuickCreateTask}
             />
           </div>
 
           <div className="space-y-3">
-            <DailyTimelinePlanner
-              blocks={blocks as any}
-              tasksByBlock={tasksByBlockForPlanner}
-              onToggleBlock={() => {}}
-              isBlockCompleted={() => false}
-              onDropTask={handleDropTask}
-              onRemoveTask={handleRemoveTask}
-              onUpdateFocus={(blockId, focus) => updateBlockFocus(blockId, focus)}
-              musicInstrument={musicInstrument === "piano" ? "piano" : "guitar"}
-              languageChoice={languageChoice as "ingles" | "italiano"}
-              isFutureView={mode !== 'hoy'}
-              speedPlan={speedPlan}
-              onSpeedPlanChange={setSpeedPlan}
-            />
+            <div className="rounded-2xl border-2 border-indigo-200/70 bg-indigo-50/30 p-2.5 shadow-sm dark:border-indigo-900/50 dark:bg-indigo-950/20">
+              <div className="mb-2 flex items-center gap-2 px-0.5">
+                <Clock className="h-4 w-4 text-indigo-500" />
+                <h2 className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Bloques de tiempo</h2>
+                <span className="h-px flex-1 bg-indigo-200/70 dark:bg-indigo-900/60" />
+              </div>
+              <DailyTimelinePlanner
+                blocks={blocks as any}
+                tasksByBlock={tasksByBlockForPlanner}
+                onToggleBlock={() => {}}
+                isBlockCompleted={() => false}
+                onDropTask={handleDropTask}
+                onRemoveTask={handleRemoveTask}
+                onUpdateFocus={(blockId, focus) => updateBlockFocus(blockId, focus)}
+                musicInstrument={musicInstrument === "piano" ? "piano" : "guitar"}
+                languageChoice={languageChoice as "ingles" | "italiano"}
+                isFutureView={mode !== 'hoy'}
+                speedPlan={speedPlan}
+                onSpeedPlanChange={setSpeedPlan}
+              />
+            </div>
 
             {/* Metas de minutos del día */}
             <Card className="overflow-hidden rounded-2xl border border-indigo-200/60 bg-indigo-50/40 shadow-sm dark:border-indigo-800/40 dark:bg-indigo-950/20">

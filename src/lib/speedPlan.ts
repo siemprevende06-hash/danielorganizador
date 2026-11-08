@@ -115,6 +115,7 @@ function focusToSystem(focus?: string): string | null {
     case "lectura":
     case "ajedrez":
     case "game":
+    case "gym":
       return focus;
     case "general":
     case "tareas":
@@ -141,6 +142,7 @@ export function naturalSystemForBlock(block: SpeedBlockLike): string | null {
   }
   if (title.includes("lectura") || title.includes("podcast")) return "lectura";
   if (title.includes("idiomas")) return "idiomas";
+  if (title.includes("gym") || title.includes("entreno") || title.includes("gimnasio")) return "gym";
   if (title.includes("música") || title.includes("musica") || title.includes("piano") || title.includes("guitarra")) {
     return "musica";
   }

@@ -188,7 +188,19 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
     name: "Salud y Bienestar",
     kind: "estructural",
     cover: { type: "area", id: "salud" },
-    systems: [],
+    systems: [
+      {
+        id: "gym",
+        name: "Gym",
+        cover: { type: "sub", id: "gym" },
+        streakMinutes: 20,
+        speedOptions: [
+          { id: "minimo", label: "Mín", minutes: 30 },
+          { id: "maximo", label: "Máx", minutes: 60 },
+          { id: "extra", label: "Extra", minutes: 90 },
+        ],
+      },
+    ],
   },
   {
     id: "fuerza-mental",
@@ -208,7 +220,7 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
 
 /** Sistemas que participan en el plan de velocidad diario (Finanzas queda fuera). */
 export const SPEED_PLAN_SYSTEMS: DaySystem[] = DAY_SYSTEMS
-  .filter(area => area.kind === "central" && area.id !== "finanzas")
+  .filter(area => area.id !== "finanzas")
   .flatMap(area => area.systems);
 
 export function findDaySystemMeta(id: string): { area: DaySystemArea; system: DaySystem } | null {

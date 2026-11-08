@@ -161,7 +161,7 @@ export function PlanSystemCard({
           </div>
         ) : (
           <p className="rounded-md border border-dashed border-border/50 px-1.5 py-1.5 text-[8px] leading-tight text-muted-foreground/80">
-            Sin tareas asignadas. Añade una para planificarla en un Deep Work.
+            Sin tareas asignadas. Añade una para planificarla en un bloque.
           </p>
         )}
 

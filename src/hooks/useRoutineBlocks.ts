@@ -42,6 +42,22 @@ export const ROUTINES: RoutineInfo[] = [
   { type: 'descanso', label: 'Descanso', shortLabel: 'Descanso', wakeTime: '8:00', sleepTime: '10:30', icon: '🌿', color: 'green', description: 'Recuperación y ocio', totalBlocks: 14 },
 ];
 
+/**
+ * La columna `daily_plans.mode` conserva el CHECK histórico de la tabla
+ * ('alto-rendimiento' | 'normal' | 'minimo-energia' | 'minimo-emergencia').
+ * Los tipos de rutina actuales ('disciplina' | 'normal' | 'descanso') se
+ * guardan aparte en `routine_type`; aquí se traducen para no violar el CHECK.
+ */
+export type LegacyDailyPlanMode = 'alto-rendimiento' | 'normal' | 'minimo-energia';
+
+export const legacyModeForRoutine = (
+  routineType: string | null | undefined,
+): LegacyDailyPlanMode => {
+  if (routineType === 'normal') return 'normal';
+  if (routineType === 'descanso') return 'minimo-energia';
+  return 'alto-rendimiento';
+};
+
 const makeBlock = (
   id: string,
   title: string,
