@@ -1,5 +1,9 @@
 import {
   differenceInCalendarDays,
+  endOfMonth,
+  endOfQuarter,
+  endOfWeek,
+  endOfYear,
   format,
   startOfDay,
   startOfMonth,
@@ -12,48 +16,71 @@ import type { Timeframe } from "@/contexts/TimeframeContext";
 export interface NaturalPeriodRange {
   /** Primer día del periodo natural (lunes en la semana, día 1 en el mes…). */
   start: Date;
-  /** Último día transcurrido del periodo (hoy). */
+  /**
+   * Último día del periodo visible. Si el periodo está en curso, termina hoy;
+   * si es un periodo pasado, termina en su último día natural.
+   */
   end: Date;
   startKey: string;
   endKey: string;
-  /** Días transcurridos del periodo, contando hoy. */
+  /** Días del periodo visible. */
   days: number;
+}
+
+function periodStart(timeframe: Timeframe, date: Date): Date {
+  switch (timeframe) {
+    case "today":
+      return startOfDay(date);
+    case "month":
+      return startOfMonth(date);
+    case "quarter":
+      return startOfQuarter(date);
+    case "year":
+      return startOfYear(date);
+    case "week":
+    case "sprint":
+    default:
+      return startOfWeek(date, { weekStartsOn: 1 });
+  }
+}
+
+function periodEnd(timeframe: Timeframe, date: Date): Date {
+  switch (timeframe) {
+    case "today":
+      return startOfDay(date);
+    case "month":
+      return endOfMonth(date);
+    case "quarter":
+      return endOfQuarter(date);
+    case "year":
+      return endOfYear(date);
+    case "week":
+    case "sprint":
+    default:
+      return endOfWeek(date, { weekStartsOn: 1 });
+  }
 }
 
 /**
  * Periodos naturales en lugar de ventanas móviles:
- * - hoy: solo hoy
- * - semana / sprint: desde el lunes hasta hoy
- * - mes: desde el día 1 hasta hoy
- * - trimestre: desde el primer día del trimestre hasta hoy
- * - año: desde el 1 de enero hasta hoy
+ * - hoy: solo el día ancla
+ * - semana / sprint: de lunes a domingo
+ * - mes, trimestre y año: el periodo natural completo
+ *
+ * Si el ancla cae en el periodo actual, el rango termina hoy para no contar
+ * días futuros. Si es un periodo pasado, se devuelve completo.
  */
 export function naturalPeriodRange(
   timeframe: Timeframe,
   anchorDate: Date = new Date(),
 ): NaturalPeriodRange {
-  const end = startOfDay(anchorDate);
-  let start: Date;
-
-  switch (timeframe) {
-    case "today":
-      start = end;
-      break;
-    case "month":
-      start = startOfMonth(end);
-      break;
-    case "quarter":
-      start = startOfQuarter(end);
-      break;
-    case "year":
-      start = startOfYear(end);
-      break;
-    case "week":
-    case "sprint":
-    default:
-      start = startOfWeek(end, { weekStartsOn: 1 });
-      break;
-  }
+  const anchor = startOfDay(anchorDate);
+  const today = startOfDay(new Date());
+  const start = periodStart(timeframe, anchor);
+  const currentStart = periodStart(timeframe, today);
+  const end = start.getTime() === currentStart.getTime()
+    ? today
+    : periodEnd(timeframe, anchor);
 
   return {
     start,

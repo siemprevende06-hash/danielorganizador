@@ -172,11 +172,14 @@ function buildTrend(
   });
 }
 
-export function useLifeOverview(timeframe: Timeframe) {
+export function useLifeOverview(timeframe: Timeframe, anchorDate?: Date) {
   const [rows, setRows] = useState<TrackingRow[]>([]);
   const [streaks, setStreaks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const range = useMemo(() => naturalPeriodRange(timeframe), [timeframe]);
+  const range = useMemo(
+    () => naturalPeriodRange(timeframe, anchorDate),
+    [timeframe, anchorDate],
+  );
   const { start: periodStart, end: periodEnd, endKey: periodEndKey, days } = range;
 
   // Se consulta también el histórico necesario para calcular la racha real

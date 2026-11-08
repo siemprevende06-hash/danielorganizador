@@ -9,9 +9,14 @@ function dayCount(start: string, end: string): number {
   return Math.max(1, Math.round((e - s) / 86400000) + 1)
 }
 
-function getDateRange(timeframe: Timeframe): { start: string; end: string } {
+function getDateRange(
+  timeframe: Timeframe,
+  sprintDateRange?: { start: string; end: string },
+  anchorDate?: Date,
+): { start: string; end: string } {
+  if (timeframe === "sprint" && sprintDateRange) return sprintDateRange
   if (timeframe === "sprint") return { start: "", end: "" }
-  const range = naturalPeriodRange(timeframe)
+  const range = naturalPeriodRange(timeframe, anchorDate)
   return { start: range.startKey, end: range.endKey }
 }
 
@@ -41,7 +46,8 @@ async function fetchCompletionsMap(start: string, end: string): Promise<Map<stri
 export function useConsistencyScores(
   areaIds: string[],
   timeframe: Timeframe,
-  sprintDateRange?: { start: string; end: string }
+  sprintDateRange?: { start: string; end: string },
+  anchorDate?: Date,
 ) {
   const [score, setScore] = useState(0)
   const [daysWithData, setDaysWithData] = useState(0)
@@ -78,7 +84,7 @@ export function useConsistencyScores(
         return
       }
     } else {
-      const range = getDateRange(timeframe)
+      const range = getDateRange(timeframe, sprintDateRange, anchorDate)
       start = range.start
       end = range.end
     }
@@ -155,7 +161,7 @@ export function useConsistencyScores(
     } finally {
       setLoading(false)
     }
-  }, [areaIds.join(","), timeframe, sprintDateRange?.start, sprintDateRange?.end])
+  }, [areaIds.join(","), timeframe, sprintDateRange?.start, sprintDateRange?.end, anchorDate])
 
   useEffect(() => {
     load()
@@ -167,7 +173,8 @@ export function useConsistencyScores(
 export function useMultiConsistencyScores(
   groups: Record<string, string[]>,
   timeframe: Timeframe,
-  sprintDateRange?: { start: string; end: string }
+  sprintDateRange?: { start: string; end: string },
+  anchorDate?: Date,
 ) {
   const [scores, setScores] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
@@ -204,7 +211,7 @@ export function useMultiConsistencyScores(
         return
       }
     } else {
-      const range = getDateRange(timeframe)
+      const range = getDateRange(timeframe, sprintDateRange, anchorDate)
       start = range.start
       end = range.end
     }
@@ -277,7 +284,7 @@ export function useMultiConsistencyScores(
     } finally {
       setLoading(false)
     }
-  }, [allAreaIds.join(","), timeframe, sprintDateRange?.start, sprintDateRange?.end])
+  }, [allAreaIds.join(","), timeframe, sprintDateRange?.start, sprintDateRange?.end, anchorDate])
 
   useEffect(() => {
     loadAll()

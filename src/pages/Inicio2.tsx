@@ -20,7 +20,9 @@ import { useLifeOverview } from "@/hooks/useLifeOverview";
 import { useDailyPlanData } from "@/hooks/useDailyPlanData";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { PeriodSwitch, PERIOD_LABEL } from "@/components/inicio2/PeriodSwitch";
+import { PeriodSwitch, PeriodNavigator } from "@/components/inicio2/PeriodSwitch";
+import { SCOPE_BY_TIMEFRAME } from "@/components/inicio2/systemGroups";
+import { goalPeriodLabel } from "@/lib/metasSistemas";
 import { LifeSummarySection } from "@/components/inicio2/LifeSummarySection";
 import { TodayRoutineCard } from "@/components/inicio2/TodayRoutineCard";
 import { DailyGoalsCard } from "@/components/inicio2/DailyGoalsCard";
@@ -45,6 +47,7 @@ function getGreeting(): string {
 
 export default function Inicio2() {
   const [timeframe, setTimeframe] = useState<Timeframe>("week");
+  const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [screenIndex, setScreenIndex] = useState(0);
   const pagerRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<{ name: string; email: string; initials: string }>({
@@ -53,8 +56,9 @@ export default function Inicio2() {
     initials: "US",
   });
 
-  const { scores: areas, averages, loading: areasLoading } = useAreaScores(timeframe, "ambos");
-  const overview = useLifeOverview(timeframe);
+  const scope = SCOPE_BY_TIMEFRAME[timeframe] ?? "week";
+  const { scores: areas, averages, loading: areasLoading } = useAreaScores(timeframe, "ambos", undefined, anchor);
+  const overview = useLifeOverview(timeframe, anchor);
   const {
     blocks,
     blocksLoaded,
@@ -142,7 +146,7 @@ export default function Inicio2() {
   const lifeScore = Math.round((averages.esfuerzo + averages.resultados) / 2);
   const firstName = profile.name.split(" ")[0] || "Organizador";
   const todayLabel = format(new Date(), "EEEE, d 'de' MMMM", { locale: es });
-  const periodLabel = PERIOD_LABEL[timeframe] || "este periodo";
+  const periodLabel = goalPeriodLabel(scope, anchor);
   const routineLoading = !blocksLoaded || completionsLoading;
 
   return (
@@ -180,6 +184,7 @@ export default function Inicio2() {
 
             <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-end">
               <PeriodSwitch value={timeframe} onChange={setTimeframe} />
+              <PeriodNavigator scope={scope} anchor={anchor} onChange={setAnchor} />
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-[10px] font-semibold">
                   <Gauge className="h-3 w-3" /> Score {lifeScore}/100
@@ -270,6 +275,7 @@ export default function Inicio2() {
                 {screen.id === "resumen" ? (
                   <LifeSummarySection
                     timeframe={timeframe}
+                    periodLabel={periodLabel}
                     areas={areas}
                     averages={averages}
                     loading={areasLoading}
@@ -304,8 +310,9 @@ export default function Inicio2() {
                       systems={overview.systems}
                       loading={overview.loading}
                       timeframe={timeframe}
+                      periodLabel={periodLabel}
                     />
-                    <SystemDataCards timeframe={timeframe} />
+                    <SystemDataCards timeframe={timeframe} anchor={anchor} />
                   </div>
                 ) : null}
 

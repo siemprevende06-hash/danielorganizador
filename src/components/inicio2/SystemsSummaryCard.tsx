@@ -24,7 +24,17 @@ import {
   toneForCompliance,
 } from "./shared";
 
-function SystemTooltip({ active, payload }: any) {
+interface TooltipEntry {
+  payload?: {
+    icon?: string;
+    name?: string;
+    avg?: number;
+    target?: number;
+    total?: number;
+  };
+}
+
+function SystemTooltip({ active, payload }: { active?: boolean; payload?: TooltipEntry[] }) {
   if (!active || !payload?.length) return null;
   const data = payload[0]?.payload;
   if (!data) return null;
@@ -32,13 +42,13 @@ function SystemTooltip({ active, payload }: any) {
     <div className="rounded-xl border bg-popover/95 px-3 py-2 text-xs shadow-lg backdrop-blur">
       <p className="font-semibold text-foreground">{data.icon} {data.name}</p>
       <p className="mt-1 text-muted-foreground">
-        Promedio: <span className="font-semibold text-foreground">{data.avg} min/día</span>
+        Promedio: <span className="font-semibold text-foreground">{data.avg ?? 0} min/día</span>
       </p>
       <p className="text-muted-foreground">
-        Meta: <span className="font-semibold text-foreground">{data.target} min/día</span>
+        Meta: <span className="font-semibold text-foreground">{data.target ?? 0} min/día</span>
       </p>
       <p className="text-muted-foreground">
-        Total: <span className="font-semibold text-foreground">{formatMinutes(data.total)}</span>
+        Total: <span className="font-semibold text-foreground">{formatMinutes(Number(data.total ?? 0))}</span>
       </p>
     </div>
   );
@@ -48,10 +58,12 @@ export function SystemsSummaryCard({
   systems,
   loading,
   timeframe,
+  periodLabel: periodLabelProp,
 }: {
   systems: LifeSystemSummary[];
   loading: boolean;
   timeframe: Timeframe;
+  periodLabel?: string;
 }) {
   const chartData = systems.map((system) => ({
     ...system,
@@ -68,7 +80,7 @@ export function SystemsSummaryCard({
       <SectionHeader
         icon={<Layers className="h-4 w-4" />}
         title="Sistemas de vida"
-        subtitle={`Minutos promedio por día vs meta · ${PERIOD_LABEL[timeframe] || "este periodo"}`}
+        subtitle={`Minutos promedio por día vs meta · ${periodLabelProp || PERIOD_LABEL[timeframe] || "este periodo"}`}
         action={
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-[10px] font-medium">

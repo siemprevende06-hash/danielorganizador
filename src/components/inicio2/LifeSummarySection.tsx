@@ -64,12 +64,35 @@ function MiniBar({ value, tone }: { value: number; tone: Tone }) {
   );
 }
 
-function TrendTooltip({ active, payload, label }: any) {
+interface TooltipEntry {
+  dataKey?: string | number;
+  name?: string | number;
+  value?: string | number;
+  color?: string;
+  payload?: {
+    fullLabel?: string;
+    icon?: string;
+    name?: string;
+    avg?: number;
+    target?: number;
+    total?: number;
+  };
+}
+
+function TrendTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+}) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border bg-popover/95 px-3 py-2 text-xs shadow-lg backdrop-blur">
       <p className="mb-1.5 font-semibold capitalize text-foreground">{payload[0]?.payload?.fullLabel || label}</p>
-      {payload.map((entry: any) => (
+      {payload.map((entry) => (
         <div key={entry.dataKey} className="flex items-center gap-2 py-0.5">
           <span className="h-2 w-2 rounded-full" style={{ background: entry.color }} />
           <span className="text-muted-foreground">{entry.name}:</span>
@@ -84,12 +107,14 @@ function TrendTooltip({ active, payload, label }: any) {
 
 export function LifeSummarySection({
   timeframe,
+  periodLabel: periodLabelProp,
   areas,
   averages,
   loading,
   overview,
 }: {
   timeframe: Timeframe;
+  periodLabel?: string;
   areas: AreaScore[];
   averages: { esfuerzo: number; resultados: number };
   loading: boolean;
@@ -100,7 +125,7 @@ export function LifeSummarySection({
   const wheelValues2 = areas.map((area) => Math.round(area.resultados / 10));
   const wheelAverage = Math.round(averages.esfuerzo / 10);
   const wheelAverage2 = Math.round(averages.resultados / 10);
-  const periodLabel = PERIOD_LABEL[timeframe] || "este periodo";
+  const periodLabel = periodLabelProp || PERIOD_LABEL[timeframe] || "este periodo";
 
   return (
     <section className="space-y-4">

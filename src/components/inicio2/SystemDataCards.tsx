@@ -17,7 +17,7 @@ import {
 } from "@/hooks/usePlanObjectivesBySystem";
 import { useSystemGoals } from "@/hooks/useSystemGoals";
 import { goalsInDateRange, type SystemGoal } from "@/lib/systemGoals";
-import { formatGoalDate, goalPeriodRange } from "@/lib/metasSistemas";
+import { formatGoalDate, goalPeriodLabel, goalPeriodRange } from "@/lib/metasSistemas";
 import {
   PlanAreaCard,
   type PlanAreaCardData,
@@ -32,7 +32,6 @@ import {
 import type { Timeframe } from "@/contexts/TimeframeContext";
 import { cn } from "@/lib/utils";
 import { getCubaDate } from "@/lib/cubaTime";
-import { PERIOD_LABEL } from "./PeriodSwitch";
 import { SectionHeader } from "./shared";
 import { SystemStabilitySummary } from "./SystemStabilitySummary";
 import { aggregateSystemMetrics } from "./groupMetrics";
@@ -44,7 +43,6 @@ import {
 } from "./systemGroups";
 
 interface SharedCardsProps {
-  timeframe: Timeframe;
   scope: PlanificationScope;
   anchor: Date;
   metrics: PlanSystemMetricsResult;
@@ -53,15 +51,13 @@ interface SharedCardsProps {
   onToggleGoal: (id: string) => void;
 }
 
-export function SystemDataCards({ timeframe }: { timeframe: Timeframe }) {
+export function SystemDataCards({ timeframe, anchor }: { timeframe: Timeframe; anchor: Date }) {
   const scope = SCOPE_BY_TIMEFRAME[timeframe] ?? "week";
-  const anchor = useMemo(() => new Date(), []);
   const metrics = usePlanSystemMetrics(scope, anchor);
   const { covers } = useAreaCovers();
   const { goals, toggleGoal } = useSystemGoals();
 
   const shared: SharedCardsProps = {
-    timeframe,
     scope,
     anchor,
     metrics,
@@ -124,7 +120,6 @@ function dayStatusFor(
 }
 
 function SystemCardsContent({
-  timeframe,
   scope,
   anchor,
   metrics,
@@ -133,14 +128,15 @@ function SystemCardsContent({
   onToggleGoal,
   objectives,
 }: SharedCardsProps & { objectives: ExistingSystemObjectives }) {
-  const periodLabel = PERIOD_LABEL[timeframe] || "este periodo";
+  const periodLabel = goalPeriodLabel(scope, anchor);
 
   const range = useMemo(() => goalPeriodRange(scope, anchor), [scope, anchor]);
   const todayKey = useMemo(() => getCubaDate(), []);
+  const checklistDayKey = scope === "day" ? range.startKey : todayKey;
   const generalTasks = useGeneralTaskMetrics(range.start, range.end);
   const taskMetrics = generalTasks.metrics;
   const taskItems = generalTasks.items;
-  const habits = useHabitChecklist(todayKey, metrics.refresh);
+  const habits = useHabitChecklist(checklistDayKey, metrics.refresh);
   const { done: habitDone, toggle: toggleHabit } = habits;
 
   const periodGoals = useMemo(
@@ -173,7 +169,7 @@ function SystemCardsContent({
       return [{
         id: `habit-check-${id}`,
         title: meta.name,
-        meta: isDone ? "Hecha hoy" : "Hoy",
+        meta: isDone ? "Hecha" : "Pendiente",
         emoji: meta.emoji,
         tag: isDone ? "Hecha" : undefined,
         done: isDone,
@@ -230,7 +226,7 @@ function SystemCardsContent({
             system: { ...system, plannedMinutes: planned },
             showStability: true,
             dayStatus: scope === "day"
-              ? dayStatusFor(system.days, system.status, todayKey)
+              ? dayStatusFor(system.days, system.status, range.startKey)
               : undefined,
             onTargetChange: (pct: number) => metrics.setTarget(id, pct),
             items: [
@@ -272,14 +268,14 @@ function SystemCardsContent({
             minutesUnit: PLANNED_UNIT_BY_SCOPE[scope],
             system: { ...merged, plannedMinutes: planned > 0 ? planned : undefined },
             dayStatus: scope === "day"
-              ? dayStatusFor(merged.days, merged.status, todayKey)
+              ? dayStatusFor(merged.days, merged.status, range.startKey)
               : undefined,
             onTargetChange: def.id === "barbero-estetica"
               ? undefined
               : (pct: number) => ids.forEach(systemId => metrics.setTarget(systemId, pct)),
             items: [
               ...ids.flatMap(id => goalRowsById[id] ?? []),
-              ...habitRowsFor(ids),
+              ...(scope === "day" ? habitRowsFor(ids) : []),
               ...ids.flatMap(id => objectives.itemsById[id] ?? []),
             ],
             emptyHint: "Sin objetivos del periodo",
@@ -304,6 +300,7 @@ function SystemCardsContent({
       objectives,
       goalRowsById,
       scope,
+      range.startKey,
       taskMetrics,
       taskItems,
       todayKey,

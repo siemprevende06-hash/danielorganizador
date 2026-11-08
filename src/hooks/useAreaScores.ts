@@ -27,10 +27,14 @@ export interface AreaScore {
   sub: SubAreaScore[]
 }
 
-function getDateRange(timeframe: Timeframe, sprintDateRange?: { start: string; end: string }): { start: string; end: string } | null {
+function getDateRange(
+  timeframe: Timeframe,
+  sprintDateRange?: { start: string; end: string },
+  anchorDate?: Date,
+): { start: string; end: string } | null {
   if (timeframe === "sprint" && sprintDateRange) return sprintDateRange
   if (timeframe === "sprint") return null
-  const range = naturalPeriodRange(timeframe)
+  const range = naturalPeriodRange(timeframe, anchorDate)
   return { start: range.startKey, end: range.endKey }
 }
 
@@ -94,7 +98,8 @@ function collectLeafTrackingIds(sub: PointBSubAxis[]): string[] {
 export function useAreaScores(
   timeframe: Timeframe,
   view: ScoreView,
-  sprintDateRange?: { start: string; end: string }
+  sprintDateRange?: { start: string; end: string },
+  anchorDate?: Date,
 ) {
   const [scores, setScores] = useState<AreaScore[]>([])
   const [averages, setAverages] = useState({ esfuerzo: 0, resultados: 0 })
@@ -104,7 +109,8 @@ export function useAreaScores(
   const { scores: effortScores, loading: effortLoading } = useMultiConsistencyScores(
     effortGroups,
     timeframe,
-    sprintDateRange
+    sprintDateRange,
+    anchorDate,
   )
 
   const [subStats, setSubStats] = useState<Record<string, { consistency: number; minutes: number }>>({})
@@ -125,7 +131,7 @@ export function useAreaScores(
       return
     }
 
-    const range = getDateRange(timeframe, sprintDateRange)
+    const range = getDateRange(timeframe, sprintDateRange, anchorDate)
     if (!range) {
       setSubStats({})
       setSubStatsLoading(false)
@@ -168,7 +174,7 @@ export function useAreaScores(
         }
 
         const canjesEnRango = (rewardsRes?.data ?? [])
-          .filter((r: any) => {
+          .filter((r: { fecha: string | null }) => {
             const fecha = String(r.fecha ?? "").slice(0, 10)
             return fecha >= range.start && fecha <= range.end
           })
@@ -213,7 +219,7 @@ export function useAreaScores(
         setSubStats(result)
         setSubStatsLoading(false)
       })
-  }, [timeframe, sprintDateRange?.start, sprintDateRange?.end])
+  }, [timeframe, sprintDateRange?.start, sprintDateRange?.end, anchorDate])
 
   function buildSubScores(sub: PointBSubAxis[], areaId: string): SubAreaScore[] {
     const subScores = ppEntries[areaId]?.sub_scores ?? {}
