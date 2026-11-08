@@ -1,12 +1,13 @@
-import { CalendarDays, CalendarRange, CalendarClock, Sun } from "lucide-react";
+import { Calendar, CalendarClock, CalendarDays, CalendarRange, Sun } from "lucide-react";
 import type { Timeframe } from "@/contexts/TimeframeContext";
 import { cn } from "@/lib/utils";
 
 const OPTIONS: { value: Timeframe; label: string; icon: typeof Sun }[] = [
   { value: "today", label: "Día", icon: Sun },
   { value: "week", label: "Semana", icon: CalendarDays },
-  { value: "quarter", label: "Trimestre", icon: CalendarRange },
-  { value: "year", label: "Año", icon: CalendarClock },
+  { value: "month", label: "Mes", icon: CalendarRange },
+  { value: "quarter", label: "Trimestre", icon: CalendarClock },
+  { value: "year", label: "Año", icon: Calendar },
 ];
 
 export function PeriodSwitch({
@@ -33,7 +34,7 @@ export function PeriodSwitch({
             aria-selected={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all sm:flex-none",
+              "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-all sm:flex-none",
               active
                 ? "bg-background text-foreground shadow-sm ring-1 ring-border"
                 : "text-muted-foreground hover:bg-background/60 hover:text-foreground",

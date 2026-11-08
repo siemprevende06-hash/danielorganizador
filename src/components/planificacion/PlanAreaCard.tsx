@@ -63,6 +63,11 @@ export interface PlanAreaCardData {
   system?: PlanSystemMetrics;
   /** Métricas del área (para las tarjetas Salud, Fuerza Mental y Apariencia). */
   area?: PlanAreaMetrics;
+  /**
+   * `stability` prioriza racha, brecha, recuperaciones y tendencia sobre los
+   * minutos. Se usa en la sección de tendencia de Inicio 2.0.
+   */
+  view?: 'plan' | 'stability';
   /** Cambia la meta de cumplimiento del sistema (clic en la tarjeta). */
   onTargetChange?: (pct: number) => void;
   /** Abre el formulario de nueva meta para esta tarjeta. */
@@ -126,26 +131,33 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
   const structural = card.system?.kind === 'estructural';
   const systemComplete = structural && card.system?.targetMet === true;
   const areaComplete = card.area?.compliance != null && card.area.compliance >= 80;
+  const stabilityComplete = card.view === 'stability'
+    && card.system?.compliance != null
+    && card.system.compliance >= 80;
 
-  const counter = card.area
-    ? card.area.compliance != null
-      ? `${card.area.compliance}%`
+  const counter = card.view === 'stability'
+    ? card.system?.compliance != null
+      ? `${card.system.compliance}%`
       : ''
-    : structural
-      ? card.system?.compliance != null
-        ? `${card.system.compliance}%`
+    : card.area
+      ? card.area.compliance != null
+        ? `${card.area.compliance}%`
         : ''
-      : toggleable.length > 0
-        ? `${doneCount}/${toggleable.length}`
-        : card.items.length > 0
-          ? `${card.items.length}`
-          : '';
+      : structural
+        ? card.system?.compliance != null
+          ? `${card.system.compliance}%`
+          : ''
+        : toggleable.length > 0
+          ? `${doneCount}/${toggleable.length}`
+          : card.items.length > 0
+            ? `${card.items.length}`
+            : '';
 
   return (
     <div
       className={cn(
         'relative flex flex-col overflow-hidden rounded-2xl ring-2 transition-colors',
-        complete || systemComplete || areaComplete
+        complete || systemComplete || areaComplete || stabilityComplete
           ? 'ring-emerald-500/40 bg-emerald-500/5'
           : 'ring-border/40 bg-white/80 dark:bg-zinc-950/80'
       )}
@@ -190,7 +202,9 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
         {card.area && !card.system && <AreaMetricsBlock area={card.area} />}
 
         {card.system && (
-          card.system.kind === 'estructural' ? (
+          card.view === 'stability' ? (
+            <StabilityMetrics system={card.system} minutesUnit={card.minutesUnit} />
+          ) : card.system.kind === 'estructural' ? (
             <StructuralMetrics
               system={card.system}
               onTargetChange={card.onTargetChange}
@@ -198,6 +212,7 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
           ) : (
             <SystemMetrics
               system={card.system}
+              minutesUnit={card.minutesUnit}
               objectivesDone={measurable.filter(item => item.done === true).length}
               objectivesTotal={measurable.length}
             />
@@ -666,6 +681,141 @@ function StructuralMetrics({
   );
 }
 
+/**
+ * Vista de estabilidad: lo importante no es cuánto avanzó la meta, sino si el
+ * sistema se está cumpliendo día a día. El dato grande es la racha actual y el
+ * mapa de días del periodo; brecha, recuperaciones, tendencia y semanas verdes
+ * explican si el sistema es estable o se está rompiendo.
+ */
+function StabilityMetrics({
+  system,
+  minutesUnit,
+}: {
+  system: PlanSystemMetrics;
+  minutesUnit?: string;
+}) {
+  const { palette, dot, barColor, stateLabel, pct } = structuralTone(system);
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const buckets = seriesBuckets(system, todayKey);
+  const todayIndex = system.days?.indexOf(todayKey) ?? -1;
+  const todayStatus = todayIndex >= 0 ? system.status?.[todayIndex] : undefined;
+  const targetLabel = system.daysTotal > 0
+    ? `${system.targetDays}d`
+    : `${system.targetPct}%`;
+
+  return (
+    <div className="space-y-1 rounded-lg bg-foreground/[0.04] p-1.5">
+      <div className="flex items-center gap-1">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} />
+        <span className={cn('truncate text-[8px] font-semibold leading-tight', palette.text)}>
+          {stateLabel}
+        </span>
+        <span
+          className={cn('ml-auto shrink-0 text-[8px] font-bold tabular-nums', trendTone(system.trend))}
+          title="Cumplimiento vs periodo anterior"
+        >
+          {trendLabel(system.trend)}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between gap-1">
+        <div className="flex items-baseline gap-1" title="Días seguidos cumpliendo el sistema">
+          <span className="text-2xl font-extrabold leading-none tabular-nums text-orange-500">
+            {system.streak}
+          </span>
+          <span className="text-[9px] leading-tight text-muted-foreground">días<br />seguidos</span>
+        </div>
+        <div className="text-right">
+          <div className="text-[11px] font-extrabold leading-none tabular-nums">
+            {system.daysDone}/{system.daysTotal}
+          </div>
+          <div className="text-[7px] uppercase tracking-wide text-muted-foreground">días cumplidos</div>
+        </div>
+      </div>
+
+      <div className="relative h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className={cn('h-full rounded-full', barColor)} style={{ width: `${pct}%` }} />
+        <span
+          className="absolute inset-y-0 w-px bg-foreground/60"
+          style={{ left: `${Math.max(0, Math.min(100, system.targetPct))}%` }}
+          title={`Meta: ${system.targetPct}%`}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+        <Stat
+          label="Mejor"
+          value={`${system.bestStreak}d`}
+          hint="Mejor racha histórica"
+          tone="text-orange-500"
+        />
+        <Stat
+          label="Brecha"
+          value={`${system.maxGap}d`}
+          hint="Mayor cantidad de días seguidos sin cumplir"
+        />
+        <Stat
+          label="Recup."
+          value={`${system.recoveries}`}
+          hint="Veces que retomaste el sistema después de una brecha"
+        />
+        <Stat
+          label="Verde"
+          value={`${system.greenWeeks}/${system.totalWeeks}`}
+          hint="Semanas con ≥80% de cumplimiento"
+        />
+        <Stat
+          label="Meta"
+          value={targetLabel}
+          hint={`Meta ${system.targetPct}% del periodo`}
+        />
+        <Stat
+          label="Hoy"
+          value={todayStatus === 'done'
+            ? '✓'
+            : todayStatus === 'skip'
+              ? '✗'
+              : todayStatus === 'rest'
+                ? 'desc.'
+                : todayStatus === 'partial'
+                  ? 'parc.'
+                  : '—'}
+          hint="Estado del día de hoy"
+        />
+      </div>
+
+      {system.status && system.status.length > 0 && (
+        <div className="flex gap-px">
+          {buckets.map(bucket => (
+            <span
+              key={bucket.key}
+              title={bucketStatusTitle(bucket, todayKey)}
+              className={cn('h-2 flex-1 rounded-[1px]', bucketStatusColor(bucket, todayKey))}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-x-1.5 gap-y-0.5 text-[8px] text-muted-foreground">
+        <span className="tabular-nums">
+          {system.compliance == null ? '—' : `${system.compliance}%`} cumplido
+        </span>
+        {(system.plannedMinutes ?? 0) > 0 && (
+          <span
+            className="tabular-nums"
+            title="Minutos planificados y reales del periodo"
+          >
+            ⏱ {system.actualMinutes}/{system.plannedMinutes} {minutesUnit ?? 'min'}
+          </span>
+        )}
+        <span className="tabular-nums">
+          Últ. {system.lastDone ? shortDate(system.lastDone) : '—'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function RowStat({
   label,
   value,
@@ -844,10 +994,12 @@ export function StructuralSystemRow({ card }: { card: PlanAreaCardData }) {
  */
 function SystemMetrics({
   system,
+  minutesUnit,
   objectivesDone = 0,
   objectivesTotal = 0,
 }: {
   system: PlanSystemMetrics;
+  minutesUnit?: string;
   objectivesDone?: number;
   objectivesTotal?: number;
 }) {
@@ -910,12 +1062,12 @@ function SystemMetrics({
       <div className="flex items-end justify-between gap-1">
         <div className="flex items-baseline gap-1">
           <span className="text-2xl font-extrabold leading-none tabular-nums">{actual}</span>
-          <span className="text-[9px] text-muted-foreground">min</span>
+          <span className="text-[9px] text-muted-foreground">{minutesUnit ?? 'min'}</span>
         </div>
         {planned > 0 && (
           <span
             className="shrink-0 text-[9px] font-semibold text-muted-foreground tabular-nums"
-            title="Objetivo de minutos del periodo"
+            title={`Objetivo de minutos del periodo (${minutesUnit ?? 'min'})`}
           >
             /{planned}
           </span>
