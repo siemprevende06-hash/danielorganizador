@@ -1,6 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { format } from "date-fns";
 import { Layers } from "lucide-react";
 import { coverKey, useAreaCovers } from "@/hooks/useAreaCovers";
 import {
@@ -8,6 +7,7 @@ import {
   type PlanSystemMetricsResult,
 } from "@/hooks/usePlanSystemMetrics";
 import { useGeneralTaskMetrics } from "@/hooks/useGeneralTaskMetrics";
+import { useHabitChecklist } from "@/hooks/useHabitChecklist";
 import {
   useDayWeekSystemObjectives,
   useMonthSystemObjectives,
@@ -31,13 +31,16 @@ import {
 } from "@/lib/planSystems";
 import type { Timeframe } from "@/contexts/TimeframeContext";
 import { cn } from "@/lib/utils";
+import { getCubaDate } from "@/lib/cubaTime";
 import { PERIOD_LABEL } from "./PeriodSwitch";
 import { SectionHeader } from "./shared";
 import { SystemStabilitySummary } from "./SystemStabilitySummary";
+import { aggregateSystemMetrics } from "./groupMetrics";
 import {
   PLANNED_UNIT_BY_SCOPE,
   SCOPE_BY_TIMEFRAME,
   SYSTEM_GROUPS,
+  type SystemCardGroupDef,
 } from "./systemGroups";
 
 interface SharedCardsProps {
@@ -133,10 +136,12 @@ function SystemCardsContent({
   const periodLabel = PERIOD_LABEL[timeframe] || "este periodo";
 
   const range = useMemo(() => goalPeriodRange(scope, anchor), [scope, anchor]);
-  const todayKey = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  const todayKey = useMemo(() => getCubaDate(), []);
   const generalTasks = useGeneralTaskMetrics(range.start, range.end);
   const taskMetrics = generalTasks.metrics;
   const taskItems = generalTasks.items;
+  const habits = useHabitChecklist(todayKey, metrics.refresh);
+  const { done: habitDone, toggle: toggleHabit } = habits;
 
   const periodGoals = useMemo(
     () => goalsInDateRange(goals, range.startKey, range.endKey),
@@ -160,15 +165,34 @@ function SystemCardsContent({
     return out;
   }, [periodGoals, onToggleGoal]);
 
+  const habitRowsFor = useMemo(
+    () => (ids: string[]): PlanObjectiveRow[] => ids.flatMap((id) => {
+      const meta = PLAN_SYSTEM_META[id];
+      if (!meta) return [];
+      const isDone = !!habitDone[id];
+      return [{
+        id: `habit-check-${id}`,
+        title: meta.name,
+        meta: isDone ? "Hecha hoy" : "Hoy",
+        emoji: meta.emoji,
+        tag: isDone ? "Hecha" : undefined,
+        done: isDone,
+        onToggle: () => toggleHabit(id),
+        ignoreForCompletion: true,
+      }];
+    }),
+    [habitDone, toggleHabit],
+  );
+
   const groups = useMemo(
     () =>
       SYSTEM_GROUPS.flatMap((group) => {
         const area = PLAN_AREA_BY_ID[group.areaId];
         if (!area) return [];
 
-        const cards = group.systemIds.flatMap((id): PlanAreaCardData[] => {
+        const systemCard = (id: string): PlanAreaCardData | null => {
           if (id === "tareas") {
-            return [{
+            return {
               id,
               title: "Tareas generales",
               emoji: "✅",
@@ -182,16 +206,16 @@ function SystemCardsContent({
               dayStatus: scope === "day" ? taskMetrics.todayStatus : undefined,
               items: taskItems,
               emptyHint: "Sin tareas generales del periodo",
-            }];
+            };
           }
 
           const meta = PLAN_SYSTEM_META[id];
           const system = metrics.systems[id];
-          if (!meta || !system) return [];
+          if (!meta || !system) return null;
 
           const planned = objectives.plannedById[id];
 
-          return [{
+          return {
             id,
             title: meta.name,
             emoji: meta.emoji,
@@ -214,15 +238,88 @@ function SystemCardsContent({
               ...(objectives.itemsById[id] ?? []),
             ],
             emptyHint: "Sin objetivos del periodo",
-          }];
-        });
+          };
+        };
+
+        const groupCard = (def: SystemCardGroupDef): PlanAreaCardData | null => {
+          const ids = def.systemIds;
+          const members = ids.filter(id => !!metrics.systems[id]);
+          if (members.length === 0) return null;
+
+          const planned = ids.reduce(
+            (sum, id) => sum + (objectives.plannedById[id] ?? 0),
+            0,
+          );
+          const merged = aggregateSystemMetrics({
+            id: def.id,
+            systemIds: ids,
+            systems: metrics.systems,
+            todayKey,
+          });
+          if (!merged) return null;
+
+          return {
+            id: def.id,
+            title: def.title,
+            emoji: def.emoji,
+            note: def.note,
+            cover:
+              covers[coverKey("sub", def.id)]
+              ?? covers[coverKey("sub", ids[0])]
+              ?? covers[coverKey("area", group.areaId)]
+              ?? null,
+            minutes: planned > 0 ? planned : undefined,
+            minutesUnit: PLANNED_UNIT_BY_SCOPE[scope],
+            system: { ...merged, plannedMinutes: planned > 0 ? planned : undefined },
+            dayStatus: scope === "day"
+              ? dayStatusFor(merged.days, merged.status, todayKey)
+              : undefined,
+            onTargetChange: def.id === "barbero-estetica"
+              ? undefined
+              : (pct: number) => ids.forEach(systemId => metrics.setTarget(systemId, pct)),
+            items: [
+              ...ids.flatMap(id => goalRowsById[id] ?? []),
+              ...habitRowsFor(ids),
+              ...ids.flatMap(id => objectives.itemsById[id] ?? []),
+            ],
+            emptyHint: "Sin objetivos del periodo",
+          };
+        };
+
+        const cards = group.cards
+          ? group.cards.flatMap((def): PlanAreaCardData[] => {
+              const card = groupCard(def);
+              return card ? [card] : [];
+            })
+          : group.systemIds.flatMap((id): PlanAreaCardData[] => {
+              const card = systemCard(id);
+              return card ? [card] : [];
+            });
 
         return cards.length > 0 ? [{ ...group, area, cards }] : [];
       }),
-    [covers, metrics, objectives, goalRowsById, scope, taskMetrics, taskItems, todayKey],
+    [
+      covers,
+      metrics,
+      objectives,
+      goalRowsById,
+      scope,
+      taskMetrics,
+      taskItems,
+      todayKey,
+      habitRowsFor,
+    ],
   );
 
-  const loading = metrics.loading || objectives.loading || generalTasks.loading;
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  useEffect(() => {
+    if (!metrics.loading) setInitialLoaded(true);
+  }, [metrics.loading]);
+  // Al marcar un hábito se refrescan las métricas: no volvemos al esqueleto
+  // completo, solo se actualizan las tarjetas con los datos nuevos.
+  const showSkeleton = (!initialLoaded && metrics.loading)
+    || objectives.loading
+    || generalTasks.loading;
 
   return (
     <section className="space-y-4">
@@ -240,7 +337,7 @@ function SystemCardsContent({
         }
       />
 
-      {loading ? (
+      {showSkeleton ? (
         <div className="space-y-4">
           <div className="h-32 animate-pulse rounded-2xl bg-muted/40" />
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">

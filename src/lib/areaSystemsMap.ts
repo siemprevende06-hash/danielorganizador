@@ -415,6 +415,7 @@ export interface HabitMeta {
 const EXTRA_HABITS: Record<string, { name: string; emoji?: string; hasWater?: boolean }> = {
   proyectos: { name: "Proyectos" },
   hidratacion: { name: "Hidratación", emoji: "💧", hasWater: true },
+  "barbero-estetica": { name: "Barbero y estética", emoji: "💈" },
   "organizacion-cuarto": { name: "Recoger cuarto", emoji: "🛏️" },
   "organizacion-bano": { name: "Recoger baño", emoji: "🚿" },
   "organizacion-sala": { name: "Recoger sala", emoji: "🛋️" },

@@ -43,6 +43,8 @@ export interface PlanObjectiveRow {
   createdLabel?: string;
   /** Etiqueta de la fecha de realización (por defecto "Hecho"). */
   completedLabel?: string;
+  /** No cuenta para pintar la tarjeta como completada (ej. hábitos de hoy). */
+  ignoreForCompletion?: boolean;
   /** Acciones opcionales para metas creadas desde Metas Sistemas. */
   onEdit?: () => void;
   onDelete?: () => void;
@@ -141,10 +143,10 @@ function nextTarget(current: number): number {
  * del periodo al pie.
  */
 export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
-  const toggleable = card.items.filter(i => i.onToggle);
+  const toggleable = card.items.filter(i => i.onToggle && !i.ignoreForCompletion);
   const doneCount = toggleable.filter(i => i.done).length;
   // Objetivos con estado de cumplimiento: alimentan la barra "Res" del sistema.
-  const measurable = card.items.filter(i => i.done !== undefined);
+  const measurable = card.items.filter(i => i.done !== undefined && !i.ignoreForCompletion);
   const complete = toggleable.length > 0 && doneCount === toggleable.length;
   const structural = card.system?.kind === 'estructural';
   const systemComplete = structural && card.system?.targetMet === true;

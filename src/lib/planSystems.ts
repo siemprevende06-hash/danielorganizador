@@ -218,6 +218,28 @@ const CENTRAL_SECTION_ORDER: Record<PlanAreaId, string[]> = {
   finanzas: ['finanzas'],
 };
 
+/**
+ * Sistemas que solo existen en Inicio 2.0: no forman parte del cumplimiento
+ * del área (para no duplicar controles que ya viven en Daily), pero sí tienen
+ * métricas y se pueden marcar desde sus tarjetas.
+ */
+export interface PlanExtraSystemDef {
+  id: string;
+  name: string;
+  emoji: string;
+  areaId: PlanAreaId;
+  defaultTargetPct: number;
+}
+
+export const PLAN_EXTRA_SYSTEMS: PlanExtraSystemDef[] = [
+  { id: 'organizacion-cuarto', name: 'Recoger cuarto', emoji: '🛏️', areaId: 'apariencia', defaultTargetPct: 80 },
+  { id: 'organizacion-bano', name: 'Recoger baño', emoji: '🚿', areaId: 'apariencia', defaultTargetPct: 80 },
+  { id: 'organizacion-sala', name: 'Recoger sala', emoji: '🛋️', areaId: 'apariencia', defaultTargetPct: 80 },
+  { id: 'organizacion-platos', name: 'Fregar platos', emoji: '🍽️', areaId: 'apariencia', defaultTargetPct: 80 },
+  // El barbero es mensual: la meta son 1-2 días al mes (≈4%).
+  { id: 'barbero-estetica', name: 'Barbero y estética', emoji: '💈', areaId: 'apariencia', defaultTargetPct: 4 },
+];
+
 const SYSTEM_NAME: Record<string, string> = {
   lectura: 'Lectura',
   musica: 'Música',
@@ -367,6 +389,23 @@ export const PLAN_SYSTEM_META: Record<string, PlanSystemDef> = (() => {
     }
   }
 
+  for (const extra of PLAN_EXTRA_SYSTEMS) {
+    if (out[extra.id]) continue;
+    out[extra.id] = {
+      id: extra.id,
+      name: extra.name,
+      emoji: extra.emoji,
+      areaId: extra.areaId,
+      kind: 'estructural',
+      sectionId: `${extra.areaId}-sistemas`,
+      sectionTitle: extra.areaId === 'apariencia' ? 'Apariencia' : extra.areaId,
+      role: 'mantenimiento',
+      timed: false,
+      minimumDose: 1,
+      defaultTargetPct: extra.defaultTargetPct,
+    };
+  }
+
   return out;
 })();
 
@@ -376,10 +415,13 @@ export const PLAN_STRUCTURAL_SYSTEM_IDS: string[] = PLAN_STRUCTURAL_AREAS
 export const PLAN_CENTRAL_SYSTEM_IDS: string[] = PLAN_CENTRAL_AREAS
   .flatMap(area => area.systems);
 
+export const PLAN_EXTRA_SYSTEM_IDS: string[] = PLAN_EXTRA_SYSTEMS.map(system => system.id);
+
 /** Lista estable (módulo) para hooks de rachas y consultas en lote. */
 export const PLAN_SYSTEM_IDS: string[] = [
   ...PLAN_STRUCTURAL_SYSTEM_IDS,
   ...PLAN_CENTRAL_SYSTEM_IDS,
+  ...PLAN_EXTRA_SYSTEM_IDS,
 ];
 
 export const PLAN_SYSTEM_AREA: Record<string, PlanAreaId> = Object.fromEntries(

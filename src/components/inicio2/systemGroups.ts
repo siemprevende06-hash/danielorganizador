@@ -24,18 +24,201 @@ export const PLANNED_UNIT_BY_SCOPE: Record<PlanificationScope, string> = {
   year: "min año",
 };
 
+export interface SystemCardGroupDef {
+  id: string;
+  title: string;
+  emoji: string;
+  note?: string;
+  /**
+   * Hábitos que forman la tarjeta. Si hay más de uno, el día se considera
+   * cumplido cuando se completa al menos el 80% del grupo.
+   */
+  systemIds: string[];
+}
+
 export interface SystemGroupDef {
   areaId: PlanAreaId;
   systemIds: string[];
   note: string;
+  /**
+   * Tarjetas del área. Si falta, se muestra una tarjeta por cada systemId
+   * (comportamiento de Desarrollo, Profesional y Finanzas).
+   */
+  cards?: SystemCardGroupDef[];
 }
 
 /**
- * Mismos sistemas que se siguen en la pestaña Planificación de Daily:
- * los centrales (Desarrollo, Profesional y Finanzas) más Gym, que se agrupa
- * dentro de Salud.
+ * Sistemas visibles en Inicio 2.0. Las áreas estructurales agrupan sus hábitos
+ * en una sola tarjeta por sección (Alimentación, Rutinas, Skin care…), mientras
+ * las centrales mantienen una tarjeta por sistema.
  */
 export const SYSTEM_GROUPS: SystemGroupDef[] = [
+  {
+    areaId: "salud",
+    systemIds: [
+      "pre-entreno",
+      "desayuno",
+      "merienda-1",
+      "almuerzo",
+      "merienda-2",
+      "comida",
+      "antes-dormir",
+      "horario-regular",
+      "hidratacion",
+      "gym",
+      "suplementos",
+    ],
+    note: "Alimentación · Sueño · Hidratación · Gym · Suplementos",
+    cards: [
+      {
+        id: "alimentacion",
+        title: "Alimentación",
+        emoji: "🍽️",
+        note: "7 comidas",
+        systemIds: [
+          "pre-entreno",
+          "desayuno",
+          "merienda-1",
+          "almuerzo",
+          "merienda-2",
+          "comida",
+          "antes-dormir",
+        ],
+      },
+      {
+        id: "sueno",
+        title: "Sueño",
+        emoji: "🌙",
+        note: "horario",
+        systemIds: ["horario-regular"],
+      },
+      {
+        id: "hidratacion",
+        title: "Hidratación",
+        emoji: "💧",
+        note: "agua",
+        systemIds: ["hidratacion"],
+      },
+      {
+        id: "gym",
+        title: "Gym",
+        emoji: "💪",
+        note: "entreno",
+        systemIds: ["gym"],
+      },
+      {
+        id: "suplementos",
+        title: "Suplementos",
+        emoji: "💊",
+        note: "diario",
+        systemIds: ["suplementos"],
+      },
+    ],
+  },
+  {
+    areaId: "fuerza-mental",
+    systemIds: [
+      "rutina-activacion",
+      "alistamiento-desayuno",
+      "rutina-desactivacion",
+      "habit-sueno",
+      "habit-rutina-activacion",
+      "habit-entrenamiento",
+      "habit-desayuno",
+      "habit-skincare-am",
+      "habit-skincare-pm",
+      "habit-rutina-desactivacion",
+      "habit-alimentacion",
+      "habit-finanzas",
+      "mini-nofap",
+      "mini-nosocial",
+      "no-videojuegos",
+      "no-porn",
+    ],
+    note: "Rutinas · Hábitos · Detox dopamínico",
+    cards: [
+      {
+        id: "rutinas",
+        title: "Rutinas",
+        emoji: "🔁",
+        note: "3 rutinas",
+        systemIds: ["rutina-activacion", "alistamiento-desayuno", "rutina-desactivacion"],
+      },
+      {
+        id: "habitos",
+        title: "Hábitos",
+        emoji: "🎯",
+        note: "9 hábitos",
+        systemIds: [
+          "habit-sueno",
+          "habit-rutina-activacion",
+          "habit-entrenamiento",
+          "habit-desayuno",
+          "habit-skincare-am",
+          "habit-skincare-pm",
+          "habit-rutina-desactivacion",
+          "habit-alimentacion",
+          "habit-finanzas",
+        ],
+      },
+      {
+        id: "detox",
+        title: "Detox dopamínico",
+        emoji: "🧘",
+        note: "4 hábitos",
+        systemIds: ["mini-nofap", "mini-nosocial", "no-videojuegos", "no-porn"],
+      },
+    ],
+  },
+  {
+    areaId: "apariencia",
+    systemIds: [
+      "skincare-manana",
+      "skincare-noche",
+      "banarme-vestirme",
+      "organizacion-cuarto",
+      "organizacion-bano",
+      "organizacion-sala",
+      "organizacion-platos",
+      "barbero-estetica",
+    ],
+    note: "Skin care · Higiene · Orden · Barbero",
+    cards: [
+      {
+        id: "skincare",
+        title: "Skin care AM y PM",
+        emoji: "✨",
+        note: "AM + PM",
+        systemIds: ["skincare-manana", "skincare-noche"],
+      },
+      {
+        id: "banarme-vestirme",
+        title: "Bañarme y vestirme",
+        emoji: "👔",
+        note: "diario",
+        systemIds: ["banarme-vestirme"],
+      },
+      {
+        id: "orden-espacio",
+        title: "Orden del espacio",
+        emoji: "🧹",
+        note: "4 espacios",
+        systemIds: [
+          "organizacion-cuarto",
+          "organizacion-bano",
+          "organizacion-sala",
+          "organizacion-platos",
+        ],
+      },
+      {
+        id: "barbero-estetica",
+        title: "Barbero y estética",
+        emoji: "💈",
+        note: "1/mes",
+        systemIds: ["barbero-estetica"],
+      },
+    ],
+  },
   {
     areaId: "desarrollo",
     systemIds: ["lectura", "musica", "idiomas", "ajedrez", "game"],
@@ -50,11 +233,6 @@ export const SYSTEM_GROUPS: SystemGroupDef[] = [
     areaId: "finanzas",
     systemIds: ["finanzas"],
     note: "Finanzas",
-  },
-  {
-    areaId: "salud",
-    systemIds: ["gym"],
-    note: "Gym",
   },
 ];
 
