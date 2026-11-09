@@ -31,10 +31,10 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODELOS_RAPIDOS = ["google/gemini-2.5-flash", "google/gemini-2.0-flash-001", "openai/gpt-4o-mini"];
 
 const MODELOS_FREE = [
-  "qwen/qwen3-32b:free",
-  "moonshotai/kimi-k2-0905:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "qwen/qwen3-8b:free",
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "nvidia/nemotron-3.5-super-vl:free",
+  "google/gemma-4-31b-it:free",
+  "google/gemma-4-26b-a4b-it:free",
 ];
 
 type Proveedor = {
@@ -752,6 +752,22 @@ async function abrirStream(messages: any[], opts: StreamOpts): Promise<Response 
 const cleanText = (value: unknown, max = 1200) =>
   typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
 
+/** Quita frases repetidas: los modelos de razonamiento a veces duplican el texto. */
+function sinRepeticiones(texto: string) {
+  const partes = texto.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g) || [texto];
+  const vistos = new Set<string>();
+  const salida: string[] = [];
+  for (const parte of partes) {
+    const limpio = parte.trim();
+    if (!limpio) continue;
+    const clave = limpio.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ");
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    salida.push(limpio);
+  }
+  return salida.join(" ");
+}
+
 function sanitizeHistory(raw: unknown) {
   return (Array.isArray(raw) ? raw : [])
     .filter(
@@ -872,7 +888,7 @@ Frase original: """${mensaje}"""
 Corrección: """${corrected || mensaje}"""
 Explicación breve: """${explanation || "(sin explicación previa)"}"""
 
-Explica en ESPAÑOL, para leer en voz alta, por qué la frase original es incorrecta y cómo se usa la corrección. 3-5 frases naturales, sin markdown, sin listas, sin emojis. Incluye una regla sencilla y un ejemplo extra en ${info.nombre} con su traducción. Tono cercano y directo.`;
+Explica en ESPAÑOL, para leer en voz alta, por qué la frase original es incorrecta y cómo se usa la corrección. 3-5 frases naturales, sin markdown, sin listas, sin emojis. Incluye una regla sencilla y un ejemplo extra en ${info.nombre} con su traducción. Tono cercano y directo. No repitas ni parafrasees ideas: cada punto se dice una sola vez.`;
 }
 
 function promptSuggest(
@@ -940,7 +956,7 @@ Deno.serve(async (req) => {
             { role: "system", content: promptFeedback(info, nivel, message, contexto) },
             { role: "user", content: "Evalúa la intervención y devuelve solo el JSON." },
           ],
-          { maxTokens: 400, temperature: 0.2 },
+          { maxTokens: 700, temperature: 0.2 },
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
         if (!parsed) return json({ error: "No pude evaluar la frase" }, 502);
@@ -963,9 +979,9 @@ Deno.serve(async (req) => {
             },
             { role: "user", content: "Dame la explicación para leer en voz alta." },
           ],
-          { maxTokens: 500, temperature: 0.4 },
+          { maxTokens: 900, temperature: 0.4 },
         );
-        const text = cleanText(raw, 1800);
+        const text = sinRepeticiones(cleanText(raw, 1800));
         if (!text) return json({ error: "No pude generar la explicación" }, 502);
         return json({ explanation: text });
       }
@@ -975,7 +991,7 @@ Deno.serve(async (req) => {
           { role: "system", content: promptSuggest(info, nivel, message, history) },
           { role: "user", content: "Dame la sugerencia en JSON." },
         ],
-        { maxTokens: 350, temperature: 0.6 },
+        { maxTokens: 600, temperature: 0.6 },
       );
       const parsed = raw ? parseJsonLoose(raw) : null;
       if (!parsed) return json({ error: "No pude generar una sugerencia" }, 502);
@@ -1024,7 +1040,7 @@ Deno.serve(async (req) => {
     // registrar los minutos con un botón.
     const herramientas = esSpeaking ? [] : tools;
     const maxRondas = esSpeaking ? 1 : 3;
-    const maxTokens = esSpeaking ? 400 : modo === "listening" ? 800 : 1200;
+    const maxTokens = esSpeaking ? 700 : modo === "listening" ? 1000 : 1500;
     const temperature = esSpeaking ? 0.7 : 0.5;
 
     const upstream = new AbortController();
