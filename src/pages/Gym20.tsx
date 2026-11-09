@@ -97,7 +97,7 @@ function GymApp() {
         {tab === "library" && <Library />}
         {tab === "stats" && <Stats />}
         {tab === "history" && <History />}
-        {tab === "coach" && <AiCoach />}
+        {tab === "coach" && <AiCoach onGo={onGo} />}
       </main>
 
       {/* bottom nav — always visible, pegado al panel lateral */}

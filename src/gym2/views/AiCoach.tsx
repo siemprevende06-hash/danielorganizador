@@ -5,9 +5,22 @@ import type { Components } from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Plus, History, Dumbbell } from "lucide-react";
+import {
+  AlertCircle,
+  Bot,
+  CheckCircle2,
+  Dumbbell,
+  History,
+  Loader2,
+  Plus,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useGym } from "../store";
 import { useGymCoach } from "@/hooks/useGymCoach";
+import { lastBW, streakDays } from "../lib/history";
+import { fmtNum, todayISO, weekKey } from "../lib/format";
 import { cn } from "@/lib/utils";
 
 const md: Components = {
@@ -51,31 +64,35 @@ const md: Components = {
 
 const PROMPTS: { label: string; text: string }[] = [
   {
-    label: "Plan del próximo entrenamiento",
-    text: "Prepara mi próximo entrenamiento según mi plan y progresión. Dame cada ejercicio con series, repeticiones y el peso sugerido.",
+    label: "Prepara mi próximo entrenamiento",
+    text: "Prepara mi próximo entrenamiento con los pesos que me tocan según mi historial real. Dame cada ejercicio con series, repeticiones, peso y descanso.",
   },
   {
-    label: "¿Cómo voy progresando?",
-    text: "Revisa mi historial y progresión real. Señala si estoy progresando en peso/reps, qué estancado está y qué ajustar esta semana.",
+    label: "¿Cómo voy? (datos reales)",
+    text: "Revisa mi historial y mi progresión real. Dime en qué ejercicios estoy subiendo, cuáles están estancados y qué peso debo mover esta semana.",
   },
   {
-    label: "Recomiéndame descansos",
-    text: "Según mi tope cardíaco (FC máx 148) y mi rutina, sugiero cuántos minutos descansar entre series de cada ejercicio hoy.",
+    label: "Ajusta series, reps y descansos",
+    text: "Revisa mis rutinas actuales y ajusta series, repeticiones y descansos para hipertrofia, respetando mi tope cardíaco. Aplica los cambios.",
   },
   {
-    label: "Plan de comidas para subir de peso",
-    text: "Con mi objetivo de ganar masa muscular y mi plan de entrenamiento, sugiéreme comidas y qué cantidad de proteínas/carbohidratos necesito cada día.",
+    label: "Organiza mi semana",
+    text: "Organiza mi semana de entrenamiento con mis rutinas actuales. Asigna cada día, deja los descansos y guárdalo en el plan.",
   },
   {
-    label: "Sueño y recuperación",
-    text: "Revisa mis horas de sueño de los últimos días y dime qué ajustar para llegar mejor entrenado y recuperarme bien.",
+    label: "Registra peso y medidas",
+    text: "Pregúntame mi peso corporal de hoy y mis medidas, y regístralos en Gym 2.0.",
+  },
+  {
+    label: "Crea una rutina nueva",
+    text: "Créame una rutina nueva de 4 días para ganar masa muscular. Usa ejercicios de mi biblioteca y guárdala con series, reps y descansos.",
   },
 ];
 
-export default function AiCoach() {
+export default function AiCoach({ onGo }: { onGo?: (tab: string) => void }) {
   const { S } = useGym();
-  const { meta, convId, messages, loading, error, sendMessage, openConversation, newConversation } =
-    useGymCoach();
+  const { meta, convId, messages, loading, error, sendMessage, openConversation, newConversation, clearError } =
+    useGymCoach({ onNavigate: onGo });
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -85,17 +102,27 @@ export default function AiCoach() {
 
   const submit = (text: string) => {
     if (!text.trim() || loading) return;
-    sendMessage(text, S);
+    sendMessage(text);
     setInput("");
   };
 
+  const planned = Object.keys(S.week).filter((k) => S.week[Number(k)]).length;
+  const thisWeek = S.workouts.filter((w) => weekKey(w.d) === weekKey(todayISO())).length;
+  const bw = lastBW(S);
+  const streak = streakDays(S);
+
   return (
     <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-2xl lg:px-6">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Coach IA</h1>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">Coach GYM</h1>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              Solo Gym 2.0
+            </span>
+          </div>
           <div className="text-sm text-muted-foreground">
-            Entrenador personal: gym, nutrición y sueño
+            Entrenador de fuerza e hipertrofia con acceso real a tus rutinas, plan, historial y pesos.
           </div>
         </div>
         <Button size="icon" variant="outline" onClick={newConversation} aria-label="Nueva conversación">
@@ -103,12 +130,37 @@ export default function AiCoach() {
         </Button>
       </div>
 
+      <div className="mb-3 grid grid-cols-4 gap-1.5 text-center">
+        <div className="rounded-xl border bg-card px-1 py-1.5">
+          <div className="text-[10px] uppercase text-muted-foreground">Rutinas</div>
+          <div className="text-sm font-bold">{S.routines.length}</div>
+        </div>
+        <div className="rounded-xl border bg-card px-1 py-1.5">
+          <div className="text-[10px] uppercase text-muted-foreground">Semana</div>
+          <div className="text-sm font-bold">
+            {thisWeek}
+            {planned ? `/${planned}` : ""}
+          </div>
+        </div>
+        <div className="rounded-xl border bg-card px-1 py-1.5">
+          <div className="text-[10px] uppercase text-muted-foreground">Racha</div>
+          <div className="text-sm font-bold">{streak}d</div>
+        </div>
+        <div className="rounded-xl border bg-card px-1 py-1.5">
+          <div className="text-[10px] uppercase text-muted-foreground">Peso</div>
+          <div className="text-sm font-bold">
+            {bw ? fmtNum(bw.w) : "—"}
+            {bw ? <span className="text-[10px] font-normal"> {S.bwUnit}</span> : null}
+          </div>
+        </div>
+      </div>
+
       {!convId && meta.length > 0 && (
         <div className="mb-3">
           <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Conversaciones anteriores
+            Conversaciones del Coach Gym
           </h4>
-          <div className="divide-y divide-border rounded-2xl border bg-card">
+          <div className="max-h-40 overflow-y-auto divide-y divide-border rounded-2xl border bg-card">
             {meta.map((c) => (
               <button
                 key={c.id}
@@ -129,25 +181,34 @@ export default function AiCoach() {
         </div>
       )}
 
-      <ScrollArea className="h-[calc(100dvh-17rem)] min-h-[16rem] rounded-2xl border bg-card p-3">
+      <ScrollArea className="h-[calc(100dvh-23rem)] min-h-[16rem] rounded-2xl border bg-card p-3">
         <div className="space-y-3">
           {messages.length === 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Dumbbell className="h-4 w-4 text-primary" />
-                Cuéntale al Coach IA tu sesión o pídele el próximo entrenamiento.
+                Puedo leer tus datos y también cambiarlos:
               </div>
-              {PROMPTS.map((p) => (
-                <Button
-                  key={p.label}
-                  variant="outline"
-                  className="w-full justify-start text-left text-xs"
-                  onClick={() => submit(p.text)}
-                  disabled={loading}
-                >
-                  {p.label}
-                </Button>
-              ))}
+              <ul className="ml-6 list-disc space-y-0.5 text-xs text-muted-foreground">
+                <li>Crear y editar rutinas, ejercicios y el plan semanal.</li>
+                <li>Ajustar pesos, series, reps y descansos.</li>
+                <li>Registrar entrenamientos, peso corporal y medidas.</li>
+                <li>Analizar tu progreso real y decirte qué subir o descargar.</li>
+              </ul>
+              <div className="grid gap-2 pt-1 sm:grid-cols-2">
+                {PROMPTS.map((p) => (
+                  <Button
+                    key={p.label}
+                    variant="outline"
+                    className="h-auto min-h-9 justify-start whitespace-normal text-left text-xs leading-snug"
+                    onClick={() => submit(p.text)}
+                    disabled={loading}
+                  >
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -156,9 +217,7 @@ export default function AiCoach() {
               key={m.id}
               className={cn(
                 "max-w-[92%] rounded-2xl px-3 py-2 text-sm",
-                m.role === "user"
-                  ? "ml-auto bg-primary text-primary-foreground"
-                  : "bg-muted"
+                m.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted"
               )}
             >
               {m.role === "user" ? (
@@ -168,17 +227,48 @@ export default function AiCoach() {
                   {m.content}
                 </ReactMarkdown>
               )}
+
+              {!!m.actions?.length && (
+                <div className="mt-2 space-y-1 border-t border-border/60 pt-2">
+                  {m.actions.map((a, i) => (
+                    <div
+                      key={`${a.tipo}-${i}`}
+                      className={cn(
+                        "flex items-start gap-1.5 text-[11px] leading-snug",
+                        a.ok ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                      )}
+                    >
+                      {a.ok ? (
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      ) : (
+                        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span>{a.mensaje}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 
           {loading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Preparando tu plan…
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Leyendo tus datos y preparando la respuesta…
             </div>
           )}
           {error && (
-            <div className="border border-destructive/30 rounded-md p-2 text-sm text-destructive">
-              {error}
+            <div className="flex items-start gap-2 rounded-md border border-destructive/30 p-2 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="grow">{error}</div>
+              <button
+                type="button"
+                className="shrink-0 rounded p-0.5 hover:bg-destructive/10"
+                onClick={clearError}
+                aria-label="Cerrar error"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           )}
           <div ref={endRef} />
@@ -195,13 +285,18 @@ export default function AiCoach() {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Pregúntale al Coach IA…"
+          placeholder="Pídele algo al Coach Gym…"
           disabled={loading}
         />
         <Button type="submit" size="icon" disabled={loading || !input.trim()}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
+
+      <div className="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+        <Bot className="h-3 w-3" />
+        Solo responde sobre entrenamiento, ejercicios, rutinas, progresión y recuperación muscular.
+      </div>
     </div>
   );
 }
