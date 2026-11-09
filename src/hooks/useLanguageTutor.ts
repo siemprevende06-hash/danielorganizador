@@ -52,6 +52,15 @@ export interface TutorMemory {
   importance: number | null;
 }
 
+export interface SendMessageOptions {
+  /** No muestra ni guarda el mensaje del usuario (arranque interno de una simulación). */
+  hidden?: boolean;
+  /** Marca el primer turno para que el tutor abra él la conversación. */
+  start?: boolean;
+  /** Título para la conversación nueva. */
+  title?: string;
+}
+
 const scopeFor = (language: Language) => `tutor-${language}`;
 
 /** Recorta el historial: prompts más cortos = primera palabra mucho antes. */
@@ -246,10 +255,11 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
   }, []);
 
   const sendMessage = useCallback(
-    async (text: string, scenario?: string) => {
+    async (text: string, scenario?: string, options?: SendMessageOptions) => {
       const trimmed = text.trim();
       if (!trimmed || busyRef.current) return;
 
+      const hidden = options?.hidden === true;
       busyRef.current = true;
       canceladoRef.current = false;
       setLoading(true);
@@ -262,8 +272,10 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
 
       setMessages(prev => [
         ...prev,
-        { id: userId, role: 'user', content: trimmed, visuals: [], acciones: [] },
-        { id: assistantId, role: 'assistant', content: '', visuals: [], acciones: [], streaming: true },
+        ...(hidden
+          ? []
+          : [{ id: userId, role: 'user' as const, content: trimmed, visuals: [], acciones: [] }]),
+        { id: assistantId, role: 'assistant' as const, content: '', visuals: [], acciones: [], streaming: true },
       ]);
 
       // La conversación se crea en paralelo: no bloquea la llamada al modelo.
@@ -271,18 +283,22 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
       const convPromise: Promise<string | null> = (async () => {
         try {
           if (convId) {
-            fire(db.from('ai_messages').insert({ conversation_id: convId, role: 'user', content: trimmed }));
+            if (!hidden) {
+              fire(db.from('ai_messages').insert({ conversation_id: convId, role: 'user', content: trimmed }));
+            }
             return convId;
           }
           const { data, error: convErr } = await db
             .from('ai_conversations')
-            .insert({ title: trimmed.slice(0, 60), scope })
+            .insert({ title: options?.title || trimmed.slice(0, 60), scope })
             .select('id')
             .single();
           if (convErr || !data) return null;
           convRef.current = data.id;
           setConversationId(data.id);
-          fire(db.from('ai_messages').insert({ conversation_id: data.id, role: 'user', content: trimmed }));
+          if (!hidden) {
+            fire(db.from('ai_messages').insert({ conversation_id: data.id, role: 'user', content: trimmed }));
+          }
           return data.id;
         } catch {
           return null;
@@ -323,6 +339,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
             level,
             skill: skillRef.current,
             scenario: scenario || undefined,
+            start: options?.start === true,
             stream: true,
           }),
           signal: ctrl.signal,

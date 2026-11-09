@@ -66,8 +66,14 @@ export const SPEAKING_SCENARIOS: SpeakingScenario[] = [
   },
 ];
 
-export const SCENARIO_START_MSG =
-  'Quiero practicar speaking con un simulacro. Empieza tú la conversación.';
+/**
+ * Mensaje interno que arranca la simulación. No se muestra en el chat: el
+ * tutor debe abrir la conversación con su primera intervención.
+ */
+export const SCENARIO_START_MSG: Record<Language, string> = {
+  english: 'Start the role-play now. You speak first and lead the conversation.',
+  italian: 'Inizia il role-play adesso. Parla tu per primo e guida la conversazione.',
+};
 
 export const SCENARIO_END_MSG =
   'Termina la simulación y dame el resumen final: errores clave, lo que hice bien y 3 frases nuevas que deba reutilizar.';

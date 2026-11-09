@@ -5,6 +5,9 @@ import type { Components } from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, Hand, Loader2, Mic, Minimize2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { TutorFeedback, TutorSuggestion } from '@/hooks/useLanguageTutorCoach';
+import { TutorFeedbackBubble } from './TutorFeedbackBubble';
+import { TutorSuggestionCard } from './TutorSuggestionCard';
 
 const md: Components = {
   h2: ({ children }) => <h2 className="mt-4 mb-1.5 text-lg font-bold first:mt-0">{children}</h2>,
@@ -121,6 +124,23 @@ interface Props {
   onHoldStart: () => void;
   onHoldEnd: () => void;
   onHoldCancel: () => void;
+  showFeedback?: boolean;
+  lastUserText?: string;
+  lastUserFeedback?: TutorFeedback | null;
+  feedbackEvaluating?: boolean;
+  feedbackExplaining?: boolean;
+  onExplainFeedback?: () => void;
+  onSpeakCorrection?: () => void;
+  onRetryFeedback?: () => void;
+  showSuggestion?: boolean;
+  suggestion?: TutorSuggestion | null;
+  suggestionLoading?: boolean;
+  suggestionError?: string | null;
+  onRefreshSuggestion?: () => void;
+  onUseSuggestion?: () => void;
+  onSendSuggestion?: () => void;
+  onSpeakSuggestion?: () => void;
+  onDismissSuggestion?: () => void;
 }
 
 const CANCEL_THRESHOLD = 70;
@@ -144,6 +164,23 @@ export function TutorVoiceFullscreen({
   onHoldStart,
   onHoldEnd,
   onHoldCancel,
+  showFeedback,
+  lastUserText,
+  lastUserFeedback,
+  feedbackEvaluating,
+  feedbackExplaining,
+  onExplainFeedback,
+  onSpeakCorrection,
+  onRetryFeedback,
+  showSuggestion,
+  suggestion,
+  suggestionLoading,
+  suggestionError,
+  onRefreshSuggestion,
+  onUseSuggestion,
+  onSendSuggestion,
+  onSpeakSuggestion,
+  onDismissSuggestion,
 }: Props) {
   const [showCancel, setShowCancel] = useState(false);
   const holdingRef = useRef(false);
@@ -234,7 +271,8 @@ export function TutorVoiceFullscreen({
       </div>
 
       {/* Onda de voz + respuesta de la IA */}
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-5 px-5 sm:px-10">
+      <div className="flex-1 min-h-0 px-5 sm:px-10 overflow-y-auto">
+        <div className="min-h-full flex flex-col items-center justify-center gap-5 py-4">
         <div className="w-full max-w-2xl">
           <VoiceWave active={waveActive} />
         </div>
@@ -264,6 +302,36 @@ export function TutorVoiceFullscreen({
                 : 'Mantén pulsado el botón y habla. Al soltarlo se envía al Tutor.'}
             </p>
           )}
+        </div>
+
+        {showFeedback && lastUserText && (
+          <div className="w-full max-w-2xl">
+            <TutorFeedbackBubble
+              original={lastUserText}
+              feedback={lastUserFeedback ?? null}
+              evaluating={!!feedbackEvaluating}
+              explaining={!!feedbackExplaining}
+              onExplain={onExplainFeedback ?? (() => undefined)}
+              onSpeakCorrection={onSpeakCorrection ?? (() => undefined)}
+              onRetry={onRetryFeedback ?? (() => undefined)}
+            />
+          </div>
+        )}
+
+        {showSuggestion && (suggestion || suggestionLoading || suggestionError) && (
+          <div className="w-full max-w-2xl">
+            <TutorSuggestionCard
+              loading={!!suggestionLoading}
+              error={suggestionError ?? null}
+              suggestion={suggestion ?? null}
+              onRefresh={onRefreshSuggestion ?? (() => undefined)}
+              onUse={onUseSuggestion ?? (() => undefined)}
+              onSend={onSendSuggestion ?? (() => undefined)}
+              onSpeak={onSpeakSuggestion ?? (() => undefined)}
+              onDismiss={onDismissSuggestion ?? (() => undefined)}
+            />
+          </div>
+        )}
         </div>
       </div>
 

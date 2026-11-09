@@ -149,28 +149,37 @@ const SCENARIOS: Record<string, string> = {
   interview: "ENTREVISTA DE TRABAJO: tú eres el entrevistador. Preséntate y presenta el puesto, haz preguntas típicas (experiencia, fortalezas, debilidades, por qué quiere el puesto) y reacciona a cada respuesta con una pregunta de seguimiento.",
   doctor: "CONSULTA MÉDICA: tú eres el médico. Pregúntale síntomas, desde cuándo, intensidad y antecedentes; después explica el diagnóstico provisional, el tratamiento y las señales de alarma.",
   shopping: "TIENDA DE ROPA: tú eres el dependiente. Pregúntale qué busca, ofrece tallas, colores, materiales y precios, sugiere alternativas y gestiona una devolución.",
-  smalltalk: "CONOCER A ALGUIEN: tú eres una persona nueva en una fiesta. Preséntate, haz preguntas cotidianas (trabajo, planes, aficiones, viajes) y comparte algo tuyo para que él también pregunte.",
+  smalltalk:
+    "SMALL TALK — CONOCER A ALGUIEN: tú eres una persona nueva en una fiesta. Tú llevas la iniciativa: preséntate con un nombre y algo de ti, y haz una pregunta abierta. En cada turno reacciona brevemente a lo que dice y haz otra pregunta o propón un tema (trabajo, planes, aficiones, viajes, comida). Si responde con una palabra o se queda corto, no lo dejes en silencio: ofrece dos opciones o cuenta una anécdota breve. Nunca preguntes '¿de qué quieres hablar?' ni esperes a que él abra la conversación.",
 };
 
 /**
  * Prompt de speaking: corto, hablado y sin clase magistral.
  * Es la diferencia entre "contesta mal" y una conversación real.
  */
-function promptSpeaking(info: (typeof IDIOMA_INFO)[Idioma], nivel: string, escenarioId: string) {
+function promptSpeaking(
+  info: (typeof IDIOMA_INFO)[Idioma],
+  nivel: string,
+  escenarioId: string,
+  startTurno: boolean,
+) {
   const escenario = SCENARIOS[escenarioId];
   return `MODO SPEAKING — CONVERSACIÓN ORAL EN TIEMPO REAL
 Tu respuesta se escucha por voz y Daniel te contesta hablando. Todo debe sonar a charla, nunca a clase.
 
 REGLAS DURAS (tienen prioridad sobre cualquier otra instrucción):
-1. Escribe SOLO en ${info.nombre}. El español se usa únicamente en la línea de corrección final.
+1. Escribe SOLO en ${info.nombre}. Nada de español en el chat. La única excepción es el resumen final si Daniel pide terminar la simulación.
 2. Máximo 2 frases y 30 palabras en total. UNA sola pregunta por turno.
 3. PROHIBIDO: markdown, listas, tablas, títulos, negritas, emojis, paréntesis con traducción, despedidas, "ejercicio", "lección", "repitamos", resúmenes y explicaciones de gramática.
-4. Si hay un error, añade como MUCHO una línea al final, en español, con el formato exacto: ✗ lo que dijo → ✓ lo correcto. Sin explicación. Si no hay errores, no comentes nada.
-5. Nunca repitas ni traduzcas lo que él acaba de decir. Nunca digas que eres una IA.
-6. Si no entiendes, pide que repita con una pregunta corta en ${info.nombre}.
-7. Nivel de Daniel: ${nivel}. Adapta el vocabulario, sin simplificar de más.
-8. El historial puede traer respuestas antiguas con explicaciones en español: ignóralas y sigue estas reglas.
-${escenario ? `\nESCENARIO ACTIVO: ${escenario}\nMantente en el rol en todo momento. Si es el primer mensaje, abre tú la conversación con una frase dentro del rol, sin explicaciones previas.` : ""}`;
+4. NO corrijas sus errores en el chat. Hay un sistema de feedback aparte que se encarga de eso. Aunque haya errores, responde a la idea y sigue la conversación con naturalidad. No incluyas ✗, ✓, "corrección" ni explicaciones.
+5. Tú llevas la iniciativa: cada respuesta debe terminar con una pregunta abierta o una propuesta concreta. Si Daniel responde con una palabra o se queda corto, no lo dejes en silencio: comenta algo breve, ofrece dos opciones o cambia de tema.
+6. Nunca repitas ni traduzcas lo que él acaba de decir. Nunca digas que eres una IA.
+7. Si no entiendes, pide que repita con una pregunta corta en ${info.nombre}.
+8. Nivel de Daniel: ${nivel}. Adapta el vocabulario, sin simplificar de más.
+9. El historial puede traer respuestas antiguas con explicaciones en español: ignóralas y sigue estas reglas.
+${escenario ? `\nESCENARIO ACTIVO: ${escenario}\nMantente en el rol en todo momento.` : ""}
+${startTurno ? `\nPRIMER TURNO: abre tú la conversación ahora. Preséntate o da la primera línea del rol y haz la primera pregunta. No pidas a Daniel que empiece ni le preguntes de qué quiere hablar.` : ""}
+${escenarioId === "smalltalk" ? `\nSMALL TALK: eres tú quien mantiene la charla viva. Preséntate, comparte algo tuyo y encadena preguntas cotidianas. No dejes que la conversación se quede en monosílabos.` : ""}`;
 }
 
 function promptGeneral(
@@ -737,6 +746,165 @@ async function abrirStream(messages: any[], opts: StreamOpts): Promise<Response 
 }
 
 // ---------------------------------------------------------------------------
+// Feedback, explicaciones y sugerencias (sin streaming)
+// ---------------------------------------------------------------------------
+
+const cleanText = (value: unknown, max = 1200) =>
+  typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+
+function sanitizeHistory(raw: unknown) {
+  return (Array.isArray(raw) ? raw : [])
+    .filter(
+      (m: any) =>
+        (m?.role === "user" || m?.role === "assistant") && typeof m?.content === "string",
+    )
+    .slice(-10)
+    .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 1000) }));
+}
+
+function parseJsonLoose(text: string): any | null {
+  const limpio = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const start = limpio.indexOf("{");
+  const end = limpio.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+  try {
+    return JSON.parse(limpio.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
+async function completar(
+  messages: any[],
+  opts: { maxTokens: number; temperature: number },
+): Promise<string | null> {
+  for (const p of candidatos()) {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const res = await fetch(p.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${p.key}`,
+          ...(p.nombre === "openrouter"
+            ? { "HTTP-Referer": "https://lovable.dev", "X-Title": "Segundo Cerebro" }
+            : {}),
+        },
+        body: JSON.stringify({
+          model: p.modelo,
+          messages,
+          stream: false,
+          temperature: opts.temperature,
+          max_tokens: opts.maxTokens,
+        }),
+        signal: ctrl.signal,
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.warn(
+          `[language-tutor] ${p.nombre}/${p.modelo} -> ${res.status} ${errText.slice(0, 180)}`,
+        );
+        continue;
+      }
+
+      const data = await res.json().catch(() => null);
+      const bruto = data?.choices?.[0]?.message?.content;
+      const content =
+        typeof bruto === "string"
+          ? bruto
+          : Array.isArray(bruto)
+            ? bruto.map((x: any) => x?.text || "").join("")
+            : "";
+      if (content.trim()) {
+        PROVEEDOR_OK = p;
+        return content.trim();
+      }
+    } catch (e) {
+      console.warn(`[language-tutor] ${p.nombre}/${p.modelo} falló: ${(e as Error).message}`);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  return null;
+}
+
+function promptFeedback(
+  info: (typeof IDIOMA_INFO)[Idioma],
+  nivel: string,
+  mensaje: string,
+  contexto: string,
+) {
+  return `Eres un profesor de ${info.nombre} evaluando a un estudiante hispanohablante de nivel ${nivel}.
+
+Evalúa SOLO la última intervención del estudiante, no la del tutor.
+
+INTERVENCIÓN DEL ESTUDIANTE:
+"""${mensaje}"""
+
+CONTEXTO (última frase del tutor, si existe):
+"""${contexto || "(sin contexto)"}"""
+
+CRITERIOS:
+- "correcto": no hay errores gramaticales claros y la frase se entiende y suena natural para su nivel. Si hay una mejora opcional, ponla en "tip".
+- "incorrecto": hay al menos un error de gramática, vocabulario, orden, tiempo verbal, preposición o concordancia que un nativo corregiría.
+- "no_aplica": la intervención no está en ${info.nombre} o es una instrucción meta (por ejemplo, "explícame una regla").
+
+Evalúa solo la forma: no penalices el contenido, las opiniones ni las elecciones personales.
+
+Devuelve SOLO un objeto JSON válido, sin markdown, con esta forma exacta:
+{"status":"correcto"|"incorrecto"|"no_aplica","corrected":"frase completa corregida en ${info.nombre}","explanation":"explicación breve en español, máximo 2 frases, clara y concreta","tip":"mejora opcional en español o vacío"}
+
+No inventes errores. Si la frase es correcta, "corrected" debe ser igual a la intervención y "explanation" puede explicar brevemente por qué está bien.`;
+}
+
+function promptExplain(
+  info: (typeof IDIOMA_INFO)[Idioma],
+  nivel: string,
+  mensaje: string,
+  corrected: string,
+  explanation: string,
+) {
+  return `Eres un profesor de ${info.nombre} explicando un error a un estudiante hispanohablante de nivel ${nivel}.
+
+Frase original: """${mensaje}"""
+Corrección: """${corrected || mensaje}"""
+Explicación breve: """${explanation || "(sin explicación previa)"}"""
+
+Explica en ESPAÑOL, para leer en voz alta, por qué la frase original es incorrecta y cómo se usa la corrección. 3-5 frases naturales, sin markdown, sin listas, sin emojis. Incluye una regla sencilla y un ejemplo extra en ${info.nombre} con su traducción. Tono cercano y directo.`;
+}
+
+function promptSuggest(
+  info: (typeof IDIOMA_INFO)[Idioma],
+  nivel: string,
+  assistantMessage: string,
+  history: { role: string; content: string }[],
+) {
+  const contexto = history
+    .slice(-6)
+    .map((m) => `${m.role === "assistant" ? "Tutor" : "Estudiante"}: ${m.content}`)
+    .join("\n");
+
+  return `Eres un coach de conversación para un estudiante hispanohablante de nivel ${nivel} que practica ${info.nombre}.
+
+El tutor acaba de decir:
+"""${assistantMessage}"""
+
+Historial reciente:
+${contexto || "(sin historial)"}
+
+Propón UNA respuesta natural que el estudiante podría decir ahora para continuar la conversación. Debe:
+- estar en ${info.nombre}, 1-2 frases cortas y adecuadas a su nivel;
+- responder directamente a lo que dijo el tutor (si es una pregunta, contéstala);
+- sonar como algo que diría una persona real, no como un ejercicio;
+- no ser una pregunta meta ni una explicación de gramática.
+
+Devuelve SOLO JSON válido, sin markdown:
+{"suggestion":"respuesta en ${info.nombre}","translation":"traducción al español","hint":"pista breve en español o vacío"}`;
+}
+
+// ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 
@@ -756,22 +924,81 @@ Deno.serve(async (req) => {
 
     const idioma: Idioma = body?.language === "italian" ? "italian" : "english";
     const info = IDIOMA_INFO[idioma];
+    const action = String(body?.action || "chat");
+
+    // Acciones auxiliares del coach: no hacen streaming y devuelven JSON corto.
+    if (action === "feedback" || action === "explain" || action === "suggest") {
+      const ctxLigero = await buildContext(sb, idioma, true);
+      const nivel = String(ctxLigero.nivel);
+      const history = sanitizeHistory(body?.history);
+
+      if (action === "feedback") {
+        const contexto =
+          [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+        const raw = await completar(
+          [
+            { role: "system", content: promptFeedback(info, nivel, message, contexto) },
+            { role: "user", content: "Evalúa la intervención y devuelve solo el JSON." },
+          ],
+          { maxTokens: 400, temperature: 0.2 },
+        );
+        const parsed = raw ? parseJsonLoose(raw) : null;
+        if (!parsed) return json({ error: "No pude evaluar la frase" }, 502);
+        return json({
+          status: cleanText(parsed.status, 30) || "no_aplica",
+          corrected: cleanText(parsed.corrected, 500),
+          explanation: cleanText(parsed.explanation, 900),
+          tip: cleanText(parsed.tip, 400),
+        });
+      }
+
+      if (action === "explain") {
+        const corrected = cleanText(body?.corrected, 500);
+        const explanation = cleanText(body?.explanation, 900);
+        const raw = await completar(
+          [
+            {
+              role: "system",
+              content: promptExplain(info, nivel, message, corrected, explanation),
+            },
+            { role: "user", content: "Dame la explicación para leer en voz alta." },
+          ],
+          { maxTokens: 500, temperature: 0.4 },
+        );
+        const text = cleanText(raw, 1800);
+        if (!text) return json({ error: "No pude generar la explicación" }, 502);
+        return json({ explanation: text });
+      }
+
+      const raw = await completar(
+        [
+          { role: "system", content: promptSuggest(info, nivel, message, history) },
+          { role: "user", content: "Dame la sugerencia en JSON." },
+        ],
+        { maxTokens: 350, temperature: 0.6 },
+      );
+      const parsed = raw ? parseJsonLoose(raw) : null;
+      if (!parsed) return json({ error: "No pude generar una sugerencia" }, 502);
+      return json({
+        suggestion: cleanText(parsed.suggestion, 400),
+        translation: cleanText(parsed.translation, 400),
+        hint: cleanText(parsed.hint, 300),
+      });
+    }
+
     const skill = String(body?.skill || "");
     const modo = MODOS[skill] ? skill : "libre";
     const escenarioId = modo === "speaking" && typeof body?.scenario === "string" ? body.scenario : "";
     const esSpeaking = modo === "speaking";
 
     // El historial se recorta: menos tokens = respuesta más rápida.
-    const history = (Array.isArray(body?.history) ? body.history : [])
-      .filter((m: any) => (m?.role === "user" || m?.role === "assistant") && typeof m?.content === "string")
-      .slice(-10)
-      .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 1200) }));
+    const history = sanitizeHistory(body?.history);
 
     const ctx = await buildContext(sb, idioma, esSpeaking);
     const nivel = String(ctx.nivel);
 
     const systemPrompt = esSpeaking
-      ? promptSpeaking(info, nivel, escenarioId)
+      ? promptSpeaking(info, nivel, escenarioId, body?.start === true)
       : promptGeneral(
           info,
           nivel,

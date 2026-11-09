@@ -14,6 +14,7 @@ import {
   GraduationCap,
   Hand,
   History,
+  Lightbulb,
   Loader2,
   Maximize2,
   Mic,
@@ -27,14 +28,18 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { VisualBlock, VisualCanvas } from '@/components/coach/VisualCanvas';
-import { useLanguageTutor } from '@/hooks/useLanguageTutor';
+import { useLanguageTutor, type SendMessageOptions } from '@/hooks/useLanguageTutor';
+import { useLanguageTutorCoach } from '@/hooks/useLanguageTutorCoach';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import type { Language } from '@/hooks/useLanguageLearning';
 import { TUTOR_EMPTY, TUTOR_GENERAL, TUTOR_HEADER, TUTOR_MODES, type TutorModeDef, type TutorSkill } from './tutorModes';
 import { SCENARIO_END_MSG, SCENARIO_START_MSG, SPEAKING_SCENARIOS } from './speakingScenarios';
+import { TutorFeedbackBubble } from './TutorFeedbackBubble';
+import { TutorSuggestionCard } from './TutorSuggestionCard';
 import { TutorVoiceFullscreen } from './TutorVoiceFullscreen';
 
 const md: Components = {
@@ -85,11 +90,17 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const [handsFree, setHandsFree] = useState(false);
   const [micArmed, setMicArmed] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
+  const [feedbackOn, setFeedbackOn] = useState(false);
+  const [suggestOn, setSuggestOn] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastSendRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   /** true cuando la grabación viene del botón de pantalla completa (siempre envía al soltar) */
   const fullSendRef = useRef(false);
+  /** Mensajes ya evaluados: evita repetir la llamada de feedback. */
+  const evaluatedRef = useRef<Set<string>>(new Set());
+  /** Última respuesta del tutor para la que ya se pidió sugerencia. */
+  const suggestionForRef = useRef<string | null>(null);
 
   const {
     conversations,
@@ -104,6 +115,20 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     newConversation,
     deleteMemory,
   } = useLanguageTutor(language, level, mode);
+
+  const {
+    feedback,
+    evaluating,
+    explainingId,
+    evaluate,
+    explain,
+    suggestion,
+    suggestionLoading,
+    suggestionError,
+    suggest,
+    clearSuggestion,
+    reset: resetCoach,
+  } = useLanguageTutorCoach(language, level);
 
   const speechLang = language === 'italian' ? 'it-IT' : 'en-US';
   const rate = mode === 'listening' ? 0.9 : 1;
@@ -120,6 +145,13 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     voiceOk,
   } = useSpeechSynthesis(speechLang, rate);
 
+  // Voz aparte en español: la explicación del error se lee en su idioma.
+  const {
+    speak: speakExplanation,
+    stop: stopExplanation,
+    speaking: explanationSpeaking,
+  } = useSpeechSynthesis('es-ES', 1);
+
   const header = TUTOR_HEADER[language];
   const activeMode: TutorModeDef | null = TUTOR_MODES.find(m => m.id === mode) ?? null;
   const activeScenario = scenario ? SPEAKING_SCENARIOS.find(s => s.id === scenario) ?? null : null;
@@ -135,8 +167,34 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const allVisuals = messages.flatMap(m => m.visuals);
 
   const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant') ?? null;
+  const lastUser = [...messages].reverse().find(m => m.role === 'user') ?? null;
   const lastAssistantId = lastAssistant?.id;
+  const lastAssistantIndex = lastAssistant ? messages.findIndex(m => m.id === lastAssistant.id) : -1;
   const showLogButton = !loading && messages.length > 0 && lastAssistantId && !logged.includes(lastAssistantId);
+
+  /** Marca los mensajes actuales como ya vistos al activar el feedback. */
+  const markCurrentAsEvaluated = () => {
+    messages.forEach(m => {
+      if (m.role === 'user') evaluatedRef.current.add(m.id);
+    });
+  };
+
+  /** Historial previo a un mensaje, para dar contexto al coach. */
+  const historyBefore = (index: number) =>
+    messages
+      .slice(0, Math.max(index, 0))
+      .filter(m => m.content.trim())
+      .map(m => ({ role: m.role, content: m.content }));
+
+  const resetCoachTracking = () => {
+    evaluatedRef.current.clear();
+    // Los mensajes que ya están en pantalla no se reevalúan al cambiar de hilo.
+    messages.forEach(m => {
+      if (m.role === 'user') evaluatedRef.current.add(m.id);
+    });
+    suggestionForRef.current = lastAssistantId ?? null;
+    resetCoach();
+  };
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -154,8 +212,18 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     setScenario(null);
     setHandsFree(false);
     setMicArmed(false);
+    setFeedbackOn(false);
+    setSuggestOn(false);
     stopSpeak();
-  }, [language, stopSpeak]);
+    stopExplanation();
+    evaluatedRef.current.clear();
+    messages.forEach(m => {
+      if (m.role === 'user') evaluatedRef.current.add(m.id);
+    });
+    suggestionForRef.current = lastAssistantId ?? null;
+    resetCoach();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language, stopSpeak, stopExplanation, resetCoach]);
 
   // La voz empieza a sonar en cuanto hay una frase, sin esperar la respuesta completa
   useEffect(() => {
@@ -167,20 +235,41 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     speakStream(last.id, last.content, !loading);
   }, [messages, loading, autoSpeak, speakStream]);
 
+  // Feedback automático: evalúa cada frase nueva del estudiante.
+  useEffect(() => {
+    if (!feedbackOn) return;
+    messages.forEach((m, index) => {
+      if (m.role !== 'user' || !m.id.startsWith('tmp-u-')) return;
+      if (evaluatedRef.current.has(m.id)) return;
+      evaluatedRef.current.add(m.id);
+      void evaluate(m.id, m.content, historyBefore(index));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, feedbackOn, evaluate]);
+
+  // Sugerencia bajo demanda: una por cada respuesta nueva del tutor.
+  useEffect(() => {
+    if (!suggestOn || !lastAssistant || !lastAssistant.content || lastAssistant.streaming || loading) return;
+    if (suggestionForRef.current === lastAssistant.id) return;
+    suggestionForRef.current = lastAssistant.id;
+    void suggest(lastAssistant.id, lastAssistant.content, historyBefore(lastAssistantIndex));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestOn, lastAssistant?.id, lastAssistant?.content, lastAssistant?.streaming, loading, suggest]);
+
   const { supported: sttSupported, listening: sttListening, interim: sttInterim, start: sttStart, stop: sttStop, abort: sttAbort } =
     useSpeechRecognition({
       lang: speechLang,
       onFinal: text => handleFinal(text),
-      onError: code => {
-        if (code === 'silencio') {
-          setMicArmed(false);
-        }
+      onError: () => {
+        // Cualquier error corta el modo manos libres para no reabrir el micro en bucle.
+        setMicArmed(false);
       },
     });
 
   const startListening = () => {
     if (!sttSupported || loading) return;
     stopSpeak();
+    stopExplanation();
     sttStart();
   };
 
@@ -192,8 +281,16 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     setHandsFree(next === 'speaking');
     setMicArmed(false);
     if (!conVoz) stopSpeak();
+    if (next === 'speaking') {
+      markCurrentAsEvaluated();
+      setFeedbackOn(true);
+    } else {
+      setFeedbackOn(false);
+    }
     if (next !== 'speaking') setScenario(null);
     if (sttListening) sttAbort();
+    clearSuggestion();
+    suggestionForRef.current = lastAssistantId ?? null;
   };
 
   const toggleSpeak = (id: string, text: string) => {
@@ -205,17 +302,20 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     speak(id, text);
   };
 
-  function submit(text: string, scenarioId?: string | null) {
+  function submit(text: string, scenarioId?: string | null, options?: SendMessageOptions) {
     const limpio = text.trim();
     if (!limpio || loading) return;
     // Evita el doble envío típico: onend del micro + clic en enviar
-    const ahora = Date.now();
-    if (lastSendRef.current.text === limpio && ahora - lastSendRef.current.at < 1500) return;
-    lastSendRef.current = { text: limpio, at: ahora };
+    if (!options?.hidden) {
+      const ahora = Date.now();
+      if (lastSendRef.current.text === limpio && ahora - lastSendRef.current.at < 1500) return;
+      lastSendRef.current = { text: limpio, at: ahora };
+    }
     fullSendRef.current = false;
 
     stopSpeak();
-    sendMessage(limpio, scenarioId ?? scenario ?? undefined);
+    stopExplanation();
+    sendMessage(limpio, scenarioId ?? scenario ?? undefined, options);
     setInput('');
     if (sttListening) sttAbort();
   }
@@ -235,12 +335,12 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   // Manos libres: tras la respuesta (y su voz) el micro se reactiva solo
   useEffect(() => {
     if (!handsFree || !micArmed || !esSpeaking) return;
-    if (loading || speaking || sttListening || !sttSupported) return;
+    if (loading || speaking || explanationSpeaking || sttListening || !sttSupported) return;
     // Margen para que arranque el TTS antes de abrir el micro (evita eco)
     const t = window.setTimeout(() => sttStart(), 700);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handsFree, micArmed, esSpeaking, loading, speaking, sttListening, sttSupported]);
+  }, [handsFree, micArmed, esSpeaking, loading, speaking, explanationSpeaking, sttListening, sttSupported]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,16 +349,97 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
 
   const startScenario = (id: string) => {
     if (loading) return;
+    const def = SPEAKING_SCENARIOS.find(s => s.id === id);
     setScenario(id);
     setHandsFree(true);
     setAutoSpeak(true);
-    submit(SCENARIO_START_MSG, id);
+    markCurrentAsEvaluated();
+    setFeedbackOn(true);
+    submit(SCENARIO_START_MSG[language], id, {
+      hidden: true,
+      start: true,
+      title: def ? `Simulación · ${def.label[language]}` : undefined,
+    });
   };
 
   const finishScenario = () => {
     if (!scenario || loading) return;
     submit(SCENARIO_END_MSG, scenario);
     setScenario(null);
+  };
+
+  const toggleFeedback = () => {
+    if (feedbackOn) {
+      setFeedbackOn(false);
+      return;
+    }
+    markCurrentAsEvaluated();
+    setFeedbackOn(true);
+  };
+
+  const toggleSuggestion = () => {
+    if (suggestOn) {
+      setSuggestOn(false);
+      clearSuggestion();
+      return;
+    }
+    setSuggestOn(true);
+  };
+
+  const retryFeedback = (messageId: string, text: string) => {
+    const index = messages.findIndex(m => m.id === messageId);
+    void evaluate(messageId, text, historyBefore(index));
+  };
+
+  const explainFeedback = async (messageId: string, text: string) => {
+    const current = feedback[messageId];
+    if (!current) return;
+    stopSpeak();
+    stopExplanation();
+    // Si ya se amplió antes, no hace falta otra llamada: se vuelve a leer.
+    if (current.longExplanation) {
+      speakExplanation(`explain-${messageId}`, current.longExplanation);
+      return;
+    }
+    const long = await explain(messageId, text, current);
+    if (!long) {
+      toast.error('No pude ampliar la explicación. Inténtalo otra vez.');
+      return;
+    }
+    speakExplanation(`explain-${messageId}`, long);
+  };
+
+  const speakCorrection = (messageId: string) => {
+    const current = feedback[messageId];
+    if (!current?.corrected) return;
+    stopExplanation();
+    stopSpeak();
+    speak(`fix-${messageId}`, current.corrected);
+  };
+
+  const refreshSuggestion = () => {
+    if (!lastAssistant || !lastAssistant.content) return;
+    void suggest(lastAssistant.id, lastAssistant.content, historyBefore(lastAssistantIndex));
+  };
+
+  const useSuggestion = () => {
+    if (!suggestion) return;
+    setInput(suggestion.text);
+    inputRef.current?.focus();
+  };
+
+  const sendSuggestion = () => {
+    if (!suggestion) return;
+    const text = suggestion.text;
+    clearSuggestion();
+    submit(text);
+  };
+
+  const speakSuggestion = () => {
+    if (!suggestion) return;
+    stopSpeak();
+    stopExplanation();
+    speak('suggestion', suggestion.text);
   };
 
   const logPractice = async (messageId: string, minutes: number) => {
@@ -273,9 +454,11 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
       ? lastAssistant?.content
         ? 'Respondiendo…'
         : 'Pensando…'
-      : speaking
-        ? 'Hablando…'
-        : '';
+      : explanationSpeaking
+        ? 'Explicando…'
+        : speaking
+          ? 'Hablando…'
+          : '';
 
   return (
     <div className="space-y-3">
@@ -336,6 +519,35 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             </Button>
           </div>
         )}
+      </div>
+
+      {/* Herramientas de conversación */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button
+          variant={feedbackOn ? 'default' : 'outline'}
+          size="sm"
+          className="h-8 text-xs"
+          onClick={toggleFeedback}
+          title="Muestra Correcto / Incorrecto en cada frase tuya, con explicación y botón para escucharla"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+          Feedback {feedbackOn ? 'on' : 'off'}
+        </Button>
+        <Button
+          variant={suggestOn ? 'default' : 'outline'}
+          size="sm"
+          className="h-8 text-xs"
+          onClick={toggleSuggestion}
+          title="Te propone una respuesta para seguir la conversación cuando te trabas"
+        >
+          <Lightbulb className="w-3.5 h-3.5 mr-1" />
+          Ayuda {suggestOn ? 'on' : 'off'}
+        </Button>
+        <span className="text-[11px] leading-snug text-muted-foreground">
+          {feedbackOn
+            ? 'Cada frase tuya se corrige aparte: la conversación sigue sin cortes.'
+            : 'Activa Feedback para ver si tu frase es correcta y por qué.'}
+        </span>
       </div>
 
       {mode === 'speaking' && (
@@ -409,8 +621,10 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               className="h-7 px-2 text-xs"
               onClick={() => {
                 stopSpeak();
+                stopExplanation();
                 setScenario(null);
                 setMicArmed(false);
+                resetCoachTracking();
                 newConversation();
               }}
             >
@@ -453,8 +667,10 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                             key={c.id}
                             onClick={() => {
                               stopSpeak();
+                              stopExplanation();
                               setScenario(null);
                               setMicArmed(false);
+                              resetCoachTracking();
                               openConversation(c.id);
                             }}
                             className={cn(
@@ -513,8 +729,21 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               {messages.map(m => (
                 <div key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
                   {m.role === 'user' ? (
-                    <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-primary text-primary-foreground whitespace-pre-wrap">
-                      {m.content}
+                    <div className="max-w-[85%] space-y-1">
+                      <div className="rounded-lg px-3 py-2 text-sm bg-primary text-primary-foreground whitespace-pre-wrap">
+                        {m.content}
+                      </div>
+                      {feedbackOn && (
+                        <TutorFeedbackBubble
+                          original={m.content}
+                          feedback={feedback[m.id] ?? null}
+                          evaluating={!!evaluating[m.id]}
+                          explaining={explainingId === m.id}
+                          onExplain={() => void explainFeedback(m.id, m.content)}
+                          onSpeakCorrection={() => speakCorrection(m.id)}
+                          onRetry={() => retryFeedback(m.id, m.content)}
+                        />
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -617,6 +846,19 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive animate-pulse flex-shrink-0" />
               <span className="truncate">{sttInterim || 'Escuchando... habla con normalidad'}</span>
             </div>
+          )}
+
+          {suggestOn && (suggestion || suggestionLoading || suggestionError) && (
+            <TutorSuggestionCard
+              loading={suggestionLoading}
+              error={suggestionError}
+              suggestion={suggestion}
+              onRefresh={refreshSuggestion}
+              onUse={useSuggestion}
+              onSend={sendSuggestion}
+              onSpeak={speakSuggestion}
+              onDismiss={toggleSuggestion}
+            />
           )}
 
           <form onSubmit={handleSubmit} className="p-3 pt-2 border-t border-border flex gap-2 items-end">
@@ -732,13 +974,36 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
         level={level}
         modeLabel={activeScenario ? `🎭 ${activeScenario.label[language]}` : activeMode ? activeMode.label : 'Chat libre'}
         aiText={lastAssistant?.content ?? ''}
-        aiSpeaking={speakingId !== null}
+        aiSpeaking={speakingId !== null || explanationSpeaking}
         loading={loading}
         stopSpeak={stopSpeak}
         sttSupported={sttSupported}
         sttListening={sttListening}
         sttInterim={sttInterim}
         handsFree={handsFree}
+        showFeedback={feedbackOn}
+        lastUserText={lastUser?.content ?? ''}
+        lastUserFeedback={lastUser ? feedback[lastUser.id] ?? null : null}
+        feedbackEvaluating={lastUser ? !!evaluating[lastUser.id] : false}
+        feedbackExplaining={lastUser ? explainingId === lastUser.id : false}
+        onExplainFeedback={() => {
+          if (lastUser) void explainFeedback(lastUser.id, lastUser.content);
+        }}
+        onSpeakCorrection={() => {
+          if (lastUser) speakCorrection(lastUser.id);
+        }}
+        onRetryFeedback={() => {
+          if (lastUser) retryFeedback(lastUser.id, lastUser.content);
+        }}
+        showSuggestion={suggestOn}
+        suggestion={suggestion}
+        suggestionLoading={suggestionLoading}
+        suggestionError={suggestionError}
+        onRefreshSuggestion={refreshSuggestion}
+        onUseSuggestion={useSuggestion}
+        onSendSuggestion={sendSuggestion}
+        onSpeakSuggestion={speakSuggestion}
+        onDismissSuggestion={toggleSuggestion}
         onToggleHandsFree={() => {
           if (handsFree) {
             setHandsFree(false);
