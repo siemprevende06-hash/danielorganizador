@@ -13,6 +13,10 @@ import {
   Link2,
   Timer,
   Flag,
+  ChevronRight,
+  Dumbbell,
+  History,
+  ListChecks,
 } from "lucide-react";
 import { useGym, getGym } from "../store";
 import { useUI, getUI } from "../components/SheetStack";
@@ -62,74 +66,130 @@ function StartChooser({ onGo }: { onGo: (tab: string) => void }) {
   const todayR = effectiveRoutine(S, todayISO());
   const todayOvr = S.dayPlan[todayISO()] !== undefined;
   const others = S.routines.filter((r) => r !== todayR);
+  const todaySets = todayR
+    ? todayR.ex.reduce((n, e) => n + Math.max(1, e.sets || 1), 0)
+    : 0;
+  const lastSession = todayR
+    ? S.workouts
+        .slice()
+        .reverse()
+        .find((w) => w.routineId === todayR.id)
+    : null;
+
   return (
     <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-2xl lg:px-6">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight">Empezar entrenamiento</h1>
-        <div className="text-sm text-muted-foreground capitalize">
+      <div className="mb-5">
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary/70">
+          Sesión de hoy
+        </div>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight">Entrenar</h1>
+        <div className="mt-1 text-sm capitalize text-muted-foreground">
           {DAYN[new Date().getDay()]} —{" "}
           {todayR
             ? "hoy toca " + todayR.name
             : "día de descanso, pero nada te lo impide"}
         </div>
       </div>
+
       {todayR && (
-        <div className="rounded-2xl border bg-card p-4 shadow-sm ring-1 ring-primary/40">
-          <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-primary">
-            Plan de hoy{todayOvr ? " · reagendado" : ""}
-          </h2>
-          <div className="mb-3 flex items-center gap-3">
-            <div>
-              <div className="text-xl font-bold">{todayR.name}</div>
-              <div className="text-xs text-muted-foreground">{exCount(todayR.ex.length)}</div>
+        <div className="relative overflow-hidden rounded-3xl border bg-card shadow-sm">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/[0.12] via-primary/[0.04] to-transparent" />
+          <div className="relative p-5">
+            <div className="flex items-start gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-inner">
+                <Glyph name={todayR.emoji} className="h-7 w-7" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                  {todayOvr ? "Reagendado" : "Plan de hoy"}
+                </span>
+                <h2 className="mt-1 truncate text-2xl font-bold tracking-tight">
+                  {todayR.name}
+                </h2>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Dumbbell className="h-3.5 w-3.5" /> {exCount(todayR.ex.length)}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <ListChecks className="h-3.5 w-3.5" /> {todaySets} series
+                  </span>
+                  {lastSession && (
+                    <span className="inline-flex items-center gap-1">
+                      <History className="h-3.5 w-3.5" /> Última: {fmtDate(lastSession.d)}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <span className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <Glyph name={todayR.emoji} className="h-5 w-5 text-primary" />
-            </span>
+            <Button
+              size="lg"
+              className="mt-5 w-full rounded-xl shadow-sm"
+              onClick={() => startFlow(todayR.id)}
+            >
+              <Play className="h-4 w-4 fill-current" /> Empezar entrenamiento
+            </Button>
           </div>
-          <Button className="w-full" onClick={() => startFlow(todayR.id)}>
-            <Play className="h-4 w-4" /> Empezar {todayR.name}
-          </Button>
         </div>
       )}
+
       {others.length > 0 && (
         <>
-          <h4 className="mb-1 mt-5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <h4 className="mb-2 mt-6 px-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
             Otras rutinas
           </h4>
-          <div className="divide-y divide-border rounded-2xl border bg-card">
+          <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             {others.map((r) => (
-              <div
+              <button
                 key={r.id}
-                className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/60"
+                type="button"
+                className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-accent/60"
                 onClick={() => startFlow(r.id)}
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
                   <Glyph name={r.emoji} className="h-5 w-5" />
                 </span>
-                <div className="min-w-0 grow">
-                  <div className="truncate text-sm font-semibold">{r.name}</div>
-                  <div className="text-xs text-muted-foreground">{exCount(r.ex.length)}</div>
-                </div>
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                  Empezar
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{r.name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {exCount(r.ex.length)} ·{" "}
+                    {r.ex.reduce((n, e) => n + Math.max(1, e.sets || 1), 0)} series
+                  </span>
                 </span>
-              </div>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <ChevronRight className="h-4 w-4" />
+                </span>
+              </button>
             ))}
           </div>
         </>
       )}
-      <div className="h-3" />
-      <Button variant="outline" className="w-full" onClick={() => startFlow(undefined)}>
-        <Shuffle className="h-4 w-4" /> Entrenamiento libre
-      </Button>
+
+      <h4 className="mb-2 mt-6 px-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        Sin plan
+      </h4>
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 rounded-2xl border border-dashed bg-card/60 px-4 py-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+        onClick={() => startFlow(undefined)}
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <Shuffle className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">Entrenamiento libre</span>
+          <span className="block text-xs text-muted-foreground">
+            Elige los ejercicios sobre la marcha
+          </span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </button>
+
       {!S.routines.length && (
-        <>
-          <div className="h-1.5" />
+        <div className="mt-4">
           <Button className="w-full" onClick={() => onGo("plan")}>
             Primero arma un plan
           </Button>
-        </>
+        </div>
       )}
     </div>
   );
@@ -248,6 +308,7 @@ function ExerciseBlock({
   ordinal,
   total,
   compact,
+  current,
   onToggle,
   onField,
   onAddSet,
@@ -258,6 +319,7 @@ function ExerciseBlock({
   ordinal: number;
   total: number;
   compact?: boolean;
+  current?: boolean;
   onToggle: (i: number) => void;
   onField: (i: number, f: string, v: number | null) => void;
   onAddSet: () => void;
@@ -268,6 +330,12 @@ function ExerciseBlock({
   const { work } = useUI();
   const entry = S.active!.entries[entryIdx];
   const ex = exOr(entry.id);
+  const doneSets = entry.sets.filter((s) => s.done).length;
+  const nextSet = entry.sets.findIndex((s) => !s.done);
+  const complete = entry.sets.length > 0 && doneSets === entry.sets.length;
+  const donePct = entry.sets.length
+    ? Math.round((doneSets / entry.sets.length) * 100)
+    : 0;
   const mode = modeOf({ ...(entry.target || {}), id: entry.id });
   const cardio = mode === "cardio";
   const timed = mode === "time";
@@ -380,62 +448,92 @@ function ExerciseBlock({
 
   return (
     <>
-      <ExerciseImg ex={ex} />
-      <div className="mb-1.5 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            Ejercicio {ordinal} / {total}
+      <div className="flex items-start gap-3">
+        <ExerciseImg ex={ex} className="h-14 w-14 rounded-2xl" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Ejercicio {ordinal} / {total}
+            </span>
+            {current && !complete && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                Ahora
+              </span>
+            )}
+            {complete && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                <Check className="h-3 w-3" /> Hecho
+              </span>
+            )}
           </div>
-          <div className="text-lg font-bold capitalize leading-tight tracking-tight">
+          <h3 className="mt-0.5 text-lg font-bold capitalize leading-tight tracking-tight">
             {esName(ex)}
+          </h3>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {cardio && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                Cardio
+              </span>
+            )}
+            {!cardio && !timed && isPerSide(cfg) && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                {fmtNum(sideReps(entry.sets.find((s2) => !s2.done)?.r ?? entry.sets[0]?.r))} por lado
+              </span>
+            )}
+            {(ex.tg || ex.bp) && (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                {tgEs(ex.tg) || bpEs(ex.bp)}
+              </span>
+            )}
+            {ex.eq && (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                {eqEs(ex.eq)}
+              </span>
+            )}
+            {best > 0 && (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                Mejor: {fmtNum(best)} {S.unit}
+              </span>
+            )}
           </div>
         </div>
         <button
           type="button"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-background/60 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           aria-label="Detalles"
           onClick={() => exerciseDetailSheet(ex)}
         >
           <Info className="h-4 w-4" />
         </button>
       </div>
-      <div className="mb-2 flex flex-wrap gap-1.5">
-        {cardio && (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-            Cardio
-          </span>
-        )}
-        {!cardio && !timed && isPerSide(cfg) && (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-            {fmtNum(sideReps(entry.sets.find((s2) => !s2.done)?.r ?? entry.sets[0]?.r))} por lado
-          </span>
-        )}
-        {(ex.tg || ex.bp) && (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-            {tgEs(ex.tg) || bpEs(ex.bp)}
-          </span>
-        )}
-        {ex.eq && (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-            {eqEs(ex.eq)}
-          </span>
-        )}
-        {best > 0 && (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-            Mejor: {fmtNum(best)} {S.unit}
-          </span>
-        )}
+      <div className="mt-3 flex items-center gap-2">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all duration-500",
+              complete ? "bg-emerald-500" : "bg-primary"
+            )}
+            style={{ width: donePct + "%" }}
+          />
+        </div>
+        <span className="w-8 text-right text-[10px] font-bold tabular-nums text-muted-foreground">
+          {doneSets}/{entry.sets.length}
+        </span>
       </div>
       {last && (
-        <div className="mb-1 text-[11px] text-muted-foreground">
-          Última vez ({fmtDate(last.d)}):{" "}
-          {last.sets.map((s) => setLabel(entry.id, s, last.target)).join(", ")}
+        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-muted/50 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          <History className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            <span className="font-semibold text-foreground/80">Última vez</span> ({fmtDate(last.d)}):{" "}
+            {last.sets.map((s) => setLabel(entry.id, s, last.target)).join(", ")}
+          </span>
         </div>
       )}
       {plan && plan.why && plan.kind !== "off" && (
         <div
           className={cn(
-            "mb-1.5 flex items-start gap-1.5 rounded-lg px-2 py-1.5 text-xs",
+            "mt-2 flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-xs",
             plan.kind === "deload"
               ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-500"
               : plan.kind === "up"
@@ -448,8 +546,10 @@ function ExerciseBlock({
         </div>
       )}
       {timed && (
-        <div className="mt-2 flex items-center gap-2 rounded-xl border bg-card px-2 py-1.5">
-          <Timer className="h-4 w-4 shrink-0 text-primary" />
+        <div className="mt-2 flex items-center gap-2 rounded-xl border bg-background/60 px-2.5 py-1.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Timer className="h-4 w-4" />
+          </span>
           <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Objetivo
           </span>
@@ -479,12 +579,12 @@ function ExerciseBlock({
           </div>
         </div>
       )}
-      <div className="mt-2 rounded-2xl border bg-card p-2 shadow-sm">
-        <div className="overflow-x-auto">
+      <div className="mt-3 overflow-hidden rounded-xl border bg-background/60">
+        <div className="overflow-x-auto p-1.5">
           <div
             className={cn(
               ROW_MIN,
-              "grid items-center gap-x-1 px-1 pb-1 text-[9px] font-semibold uppercase leading-tight text-muted-foreground sm:text-[10px]"
+              "mb-1 grid items-center gap-x-1 border-b border-border/60 px-1.5 pb-1.5 text-[9px] font-semibold uppercase leading-tight text-muted-foreground sm:text-[10px]"
             )}
             style={{ gridTemplateColumns: gridTpl }}
           >
@@ -502,13 +602,24 @@ function ExerciseBlock({
               key={i}
               className={cn(
                 ROW_MIN,
-                "grid items-center gap-x-1 px-1 py-1.5",
-                s.done && "opacity-50"
+                "grid items-center gap-x-1 rounded-lg px-1.5 py-1.5 transition-colors",
+                s.done && "bg-emerald-500/[0.07]",
+                !s.done && i === nextSet && "bg-primary/[0.06] ring-1 ring-inset ring-primary/15",
+                !s.done && i !== nextSet && i % 2 === 1 && "bg-muted/20"
               )}
               style={{ gridTemplateColumns: gridTpl }}
             >
-              <span className="text-center text-xs font-semibold text-muted-foreground">
-                {i + 1}
+              <span
+                className={cn(
+                  "mx-auto flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold",
+                  s.done
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    : i === nextSet
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted text-muted-foreground"
+                )}
+              >
+                {s.done ? <Check className="h-3 w-3" /> : i + 1}
               </span>
               {cols.map((c, k) => (
                 <div key={k}>{cell(s, i, c)}</div>
@@ -542,12 +653,18 @@ function ExerciseBlock({
             </div>
           ))}
         </div>
-        <div className="mt-1 flex gap-2">
-          <Button size="sm" variant="outline" disabled={entry.sets.length <= 1} onClick={onRemoveSet}>
-            <Minus className="h-3.5 w-3.5" /> Quitar
+        <div className="flex gap-2 border-t border-border/60 bg-muted/20 p-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            disabled={entry.sets.length <= 1}
+            onClick={onRemoveSet}
+          >
+            <Minus className="h-3.5 w-3.5" /> Quitar serie
           </Button>
-          <Button size="sm" variant="outline" onClick={onAddSet}>
-            <Plus className="h-3.5 w-3.5" /> Añadir
+          <Button size="sm" variant="outline" className="flex-1" onClick={onAddSet}>
+            <Plus className="h-3.5 w-3.5" /> Añadir serie
           </Button>
         </div>
       </div>
@@ -680,88 +797,117 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
     }
   };
 
+  const pct = total ? Math.round((done / total) * 100) : 0;
+
   return (
     <div className="mx-auto w-full max-w-lg px-4 pb-32 lg:max-w-2xl lg:px-6">
-      <div className="mb-1 flex items-center justify-between">
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-destructive hover:bg-accent"
-          aria-label="Descartar"
-          onClick={() =>
-            confirmSheet({
-              title: "¿Descartar entrenamiento?",
-              message: "Las series que llevas registradas se perderán.",
-              confirmText: "Descartar",
-              danger: true,
-              onConfirm: () => {
-                getGym().update((s) => {
-                  s.active = null;
-                });
-                stopRest();
-                onGo("home");
-              },
-            })
-          }
-        >
-          <X className="h-5 w-5" />
-        </button>
-        <div className="text-center">
-          <div className="font-bold">{A.name}</div>
-          <div className="text-xs text-muted-foreground">
-            <Elapsed start={A.start} /> · {done}/{total} series
+      <div className="sticky top-12 z-20 -mx-4 mb-4 border-b bg-background/85 px-4 pb-2.5 pt-1.5 backdrop-blur-md lg:top-0 lg:-mx-6 lg:px-6">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-destructive/20 bg-destructive/5 text-destructive transition-colors hover:bg-destructive/10"
+            aria-label="Descartar"
+            onClick={() =>
+              confirmSheet({
+                title: "¿Descartar entrenamiento?",
+                message: "Las series que llevas registradas se perderán.",
+                confirmText: "Descartar",
+                danger: true,
+                onConfirm: () => {
+                  getGym().update((s) => {
+                    s.active = null;
+                  });
+                  stopRest();
+                  onGo("home");
+                },
+              })
+            }
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1 text-center">
+            <div className="truncate text-base font-bold leading-tight">{A.name}</div>
+            <div className="mt-0.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 tabular-nums">
+                <Timer className="h-3 w-3" />
+                <Elapsed start={A.start} />
+              </span>
+              <span className="h-3 w-px bg-border" />
+              <span className="tabular-nums">
+                {done}/{total} series
+              </span>
+            </div>
           </div>
+          <button
+            type="button"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+            aria-label="Terminar"
+            onClick={finishWorkout}
+          >
+            <Check className="h-5 w-5" />
+          </button>
         </div>
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-primary hover:bg-accent"
-          aria-label="Terminar"
-          onClick={finishWorkout}
-        >
-          <Check className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full bg-primary transition-all"
-          style={{ width: (total ? (done / total) * 100 : 0) + "%" }}
-        />
+        <div className="mt-2 flex items-center gap-2">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                total > 0 && done === total ? "bg-emerald-500" : "bg-primary"
+              )}
+              style={{ width: pct + "%" }}
+            />
+          </div>
+          <span className="w-8 text-right text-[10px] font-bold tabular-nums text-muted-foreground">
+            {pct}%
+          </span>
+        </div>
       </div>
 
       {A.entries.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {units.map((u, ui) => {
             const sg = u.length > 1;
+            const activeUnit = u.includes(cur);
             return (
               <div
                 key={ui}
-                className={cn(sg && "rounded-2xl border bg-card p-3 shadow-sm")}
+                className={cn(
+                  sg && "rounded-3xl border bg-muted/20 p-2.5 sm:p-3",
+                  sg && activeUnit && "border-primary/30 bg-primary/[0.03]"
+                )}
               >
                 {sg && (
-                  <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-primary">
+                  <div className="mb-2.5 flex flex-wrap items-center gap-1.5 px-1 text-[11px] font-bold uppercase tracking-wide text-primary">
                     <Link2 className="h-3.5 w-3.5" /> Superset {ui + 1} / {units.length}
-                    <span className="font-normal text-muted-foreground">
+                    <span className="font-normal normal-case tracking-normal text-muted-foreground">
                       — hazlos seguidos, descansa al terminar ambos
                     </span>
                   </div>
                 )}
-                <div className={cn(sg && "space-y-5")}>
+                <div className={cn(sg && "space-y-2.5")}>
                   {u.map((idx, k) => (
-                    <div
-                      key={idx}
-                      ref={blockRef(idx)}
-                      className={cn("scroll-mt-20", idx === cur && "rounded-xl")}
-                    >
+                    <div key={idx} ref={blockRef(idx)} className="scroll-mt-28">
                       {sg && k > 0 && (
-                        <div className="mb-1 text-center text-lg font-bold text-muted-foreground">
-                          +
+                        <div className="flex items-center gap-2 py-1.5 text-muted-foreground">
+                          <span className="h-px flex-1 bg-border" />
+                          <Plus className="h-3 w-3" />
+                          <span className="h-px flex-1 bg-border" />
                         </div>
                       )}
-                      <div className={cn(idx === cur && "rounded-xl ring-1 ring-primary/40")}>
+                      <div
+                        className={cn(
+                          "rounded-2xl border bg-card p-3 shadow-sm transition-all sm:p-4",
+                          idx === cur
+                            ? "border-primary/40 shadow-md ring-2 ring-primary/15"
+                            : "hover:border-border"
+                        )}
+                      >
                         <ExerciseBlock
                           entryIdx={idx}
                           ordinal={idx + 1}
                           total={A.entries.length}
                           compact={sg}
+                          current={idx === cur}
                           onToggle={(i) => toggle(idx, i)}
                           onField={(i, f, v) => setField(idx, i, f, v)}
                           onAddSet={() => addSet(idx)}
@@ -777,10 +923,13 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
           })}
         </div>
       ) : (
-        <div className="rounded-2xl border py-10 text-center">
-          <Shuffle className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            Entrenamiento libre — añade tu primer ejercicio.
+        <div className="rounded-3xl border border-dashed bg-card/60 py-12 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+            <Shuffle className="h-7 w-7" />
+          </span>
+          <p className="mt-3 text-sm font-semibold">Entrenamiento libre</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Añade tu primer ejercicio para empezar.
           </p>
         </div>
       )}
@@ -788,7 +937,7 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
       <div className="h-3" />
       <Button
         variant="outline"
-        className="w-full"
+        className="h-12 w-full rounded-xl border-dashed"
         onClick={() =>
           exercisePicker((ex) =>
             exConfigSheet(
@@ -815,23 +964,33 @@ function ActiveWorkout({ onGo }: { onGo: (tab: string) => void }) {
       >
         <Plus className="h-4 w-4" /> Añadir ejercicio
       </Button>
-      <div className="h-1.5" />
+      <div className="h-2" />
       {(() => {
         const exDone = A.entries.filter(
           (e) => e.sets.length && e.sets.every((s) => s.done)
         ).length;
         const allDone = A.entries.length > 0 && exDone === A.entries.length;
         return (
-          <Button
-            className={cn("w-full", !allDone && "text-muted-foreground")}
-            variant={allDone ? "default" : "outline"}
-            onClick={finishWorkout}
-          >
-            <Flag className="h-4 w-4" />
-            {allDone
-              ? "Terminar entrenamiento"
-              : "Terminar antes de tiempo · " + exDone + "/" + A.entries.length + " ejercicios"}
-          </Button>
+          <div className="rounded-2xl border bg-card p-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>
+                {exDone}/{A.entries.length} ejercicios completados
+              </span>
+              <span className="tabular-nums">
+                {done}/{total} series
+              </span>
+            </div>
+            <Button
+              className={cn("w-full rounded-xl", !allDone && "text-muted-foreground")}
+              variant={allDone ? "default" : "outline"}
+              onClick={finishWorkout}
+            >
+              <Flag className="h-4 w-4" />
+              {allDone
+                ? "Terminar entrenamiento"
+                : "Terminar antes · " + exDone + "/" + A.entries.length + " ejercicios"}
+            </Button>
+          </div>
         );
       })()}
     </div>

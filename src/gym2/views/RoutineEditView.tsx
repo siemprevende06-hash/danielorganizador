@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useGym } from "../store";
 import { uid } from "../lib/format";
-import { exOr, esName } from "../lib/exercises";
+import { exOr, esName, type AnyExercise } from "../lib/exercises";
 import { supersetUnits, cleanupSg, exLine } from "../lib/history";
 import { POLICIES_FOR, POLICY_NAME, POLICY_DESC } from "../lib/progression";
 import { loadOfRoutine, rankOf, MUSCLE_NAME } from "../lib/muscles";
@@ -205,6 +205,9 @@ export default function RoutineEditView({
         <div className="divide-y divide-border rounded-2xl border bg-card">
           {rut.ex.map((c, i) => {
             const ex = exOr(c.id!);
+            // Configuraciones antiguas que perdieron el id al editar: se pueden
+            // reparar eligiendo otra vez el ejercicio sin perder sus ajustes.
+            const unknown = !c.id || !!ex.missing;
             const sg = (() => {
               const u = units.find((uu) => uu.includes(i));
               if (!u || u.length < 2) return null;
@@ -217,28 +220,47 @@ export default function RoutineEditView({
                 <button
                   type="button"
                   className="min-w-0 grow text-left"
-                  onClick={() =>
-                    exConfigSheet(
-                      ex,
-                      c,
-                      (cfg) =>
-                        update((r) => {
-                          r.ex[i] = cfg;
-                          cleanupSg(r.ex);
-                        }),
-                      () =>
-                        update((r) => {
-                          r.ex.splice(i, 1);
-                          cleanupSg(r.ex);
-                        }),
-                      rut
-                    )
-                  }
+                  onClick={() => {
+                    const openConfig = (picked: AnyExercise) =>
+                      exConfigSheet(
+                        picked,
+                        c,
+                        (cfg) =>
+                          update((r) => {
+                            // Conserva la identidad del ejercicio y su superset:
+                            // el formulario solo devuelve la configuración.
+                            r.ex[i] = {
+                              ...cfg,
+                              id: c.id || picked.id,
+                              sg: c.sg,
+                            };
+                            cleanupSg(r.ex);
+                          }),
+                        () =>
+                          update((r) => {
+                            r.ex.splice(i, 1);
+                            cleanupSg(r.ex);
+                          }),
+                        rut
+                      );
+                    if (unknown) exercisePicker(openConfig);
+                    else openConfig(ex);
+                  }}
                 >
-                  <div className="truncate text-sm font-semibold">{esName(ex)}</div>
+                  <div className="truncate text-sm font-semibold">
+                    {unknown ? "Ejercicio sin identificar" : esName(ex)}
+                  </div>
                   <div className="truncate text-[11px] text-muted-foreground">
-                    {sg && <span className="mr-1 font-semibold text-primary">{sg} ·</span>}
-                    {exLine({ ...c, id: ex.id }, S.unit)}
+                    {unknown ? (
+                      <span className="font-medium text-orange-500">
+                        Toca para elegir qué ejercicio era
+                      </span>
+                    ) : (
+                      <>
+                        {sg && <span className="mr-1 font-semibold text-primary">{sg} ·</span>}
+                        {exLine({ ...c, id: ex.id }, S.unit)}
+                      </>
+                    )}
                   </div>
                 </button>
                 <div className="flex shrink-0 items-center gap-0.5">

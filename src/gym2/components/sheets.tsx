@@ -1238,9 +1238,10 @@ function ExConfigContent({
     const rest = Math.max(0, Math.round(c.rest || 0));
     const restCfg = rest > 0 ? { rest } : {};
     if (cardio)
-      onSave({ sets, min: Math.max(1, Math.round(c.min || 0) || 20), speed: Math.max(0, c.speed || 8), ...restCfg });
+      onSave({ id: ex.id, sets, min: Math.max(1, Math.round(c.min || 0) || 20), speed: Math.max(0, c.speed || 8), ...restCfg });
     else if (mode === "time")
       onSave({
+        id: ex.id,
         sets,
         mode: "time",
         sec: Math.max(1, Math.round(c.sec || 0) || 45),
@@ -1253,6 +1254,7 @@ function ExConfigContent({
       const typed = Math.max(1, Math.round(c.reps || 0) || 10);
       const reps = perSide ? Math.ceil(typed / 2) * 2 : typed;
       const out: ExConfig = {
+        id: ex.id,
         sets,
         mode: "reps",
         reps,
