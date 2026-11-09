@@ -109,12 +109,14 @@ const STATUS_LABEL: Record<WeekDayStatus, string> = {
   done: "Cumplido",
   partial: "Parcial",
   skip: "Saltado",
-  none: "Sin registro",
+  rest: "Descanso",
+  none: "No cumplido",
+  nodata: "Sin datos",
 };
 
 /**
  * Color de un día del periodo: verde = cumplido, azul = parcial, rojo = no
- * cumplido/saltado y gris tenue solo para los días que todavía no llegan.
+ * cumplido/saltado y gris = sin datos o día que todavía no llega.
  */
 function dayColor(status: WeekDayStatus, isFuture: boolean): string {
   if (isFuture) return "bg-muted-foreground/20";
@@ -125,8 +127,12 @@ function dayColor(status: WeekDayStatus, isFuture: boolean): string {
       return "bg-blue-500";
     case "skip":
       return "bg-red-500";
-    default:
+    case "rest":
+      return "bg-sky-500/50";
+    case "none":
       return "bg-red-500/40";
+    default:
+      return "bg-muted-foreground/25";
   }
 }
 
@@ -246,7 +252,7 @@ export default function WeekHabitCard({
           </span>
         )}
 
-        {/* Días del periodo: verde cumplido · azul parcial · rojo no cumplido */}
+        {/* Días del periodo: verde cumplido · azul parcial · rojo no cumplido · gris sin datos */}
         <div
           className={cn("grid gap-px", status.length > 7 ? "h-2" : "h-1.5")}
           style={{ gridTemplateColumns: `repeat(${Math.max(1, status.length)}, minmax(0, 1fr))` }}
@@ -268,9 +274,13 @@ export default function WeekHabitCard({
         {spark.some(v => v > 0) && (
           <div className="flex items-end gap-px h-5">
             {spark.map((v, i) => {
-              const s = status[i] ?? "none";
+              const s = status[i] ?? "nodata";
               const future = isFutureDay(i);
-              const missed = !future && s !== "done" && s !== "partial";
+              const missed = !future
+                && s !== "done"
+                && s !== "partial"
+                && s !== "rest"
+                && s !== "nodata";
               return (
                 <div
                   key={i}

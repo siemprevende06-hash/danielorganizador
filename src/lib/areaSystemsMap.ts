@@ -484,6 +484,69 @@ function buildHabitMeta(): Record<string, HabitMeta> {
 
 export const HABIT_META: Record<string, HabitMeta> = buildHabitMeta();
 
+/** Campos de `daily_systems_tracking` que delatan actividad de un hábito. */
+export interface HabitTrackingRow {
+  completions?: Record<string, unknown> | null;
+  time_data?: Record<string, unknown> | null;
+  count_data?: Record<string, unknown> | null;
+  skipped?: Record<string, unknown> | null;
+  rest?: Record<string, unknown> | null;
+  workout_duration?: number | null;
+}
+
+const HABIT_TRACKING_ALIASES: Record<string, string[]> = {
+  gym: ["gym", "entrenamiento-fisico"],
+  "entrenamiento-fisico": ["gym", "entrenamiento-fisico"],
+  idiomas: ["idiomas", "ingles", "italiano"],
+};
+
+/** Ids con los que se guarda el tracking de un hábito (gym e idiomas tienen alias). */
+export function habitTrackingIds(id: string): string[] {
+  return HABIT_TRACKING_ALIASES[id] ?? [id];
+}
+
+function hasOwnKey(
+  record: Record<string, unknown> | null | undefined,
+  key: string,
+): boolean {
+  return !!record && Object.prototype.hasOwnProperty.call(record, key);
+}
+
+/**
+ * ¿La fila del día contiene algún registro propio de este hábito?
+ *
+ * Un día sin marcas no es un fallo: el hábito simplemente no se registró y la
+ * tarjeta debe pintarlo gris. Los ceros tampoco cuentan como registro (una
+ * clave `ingles: 0` significa que no hubo minutos). El rojo se reserva para un
+ * fallo explícito: saltado, `false` o avance insuficiente con minutos reales.
+ */
+export function hasHabitTrackingData(
+  id: string,
+  row: HabitTrackingRow | null | undefined,
+): boolean {
+  if (!row) return false;
+  const ids = habitTrackingIds(id);
+
+  const hasCompletion = ids.some(
+    key => hasOwnKey(row.completions, key) || hasOwnKey(row.completions, `streak:${key}`),
+  );
+  if (hasCompletion) return true;
+
+  if (ids.some(key => Number(row.time_data?.[key]) > 0)) return true;
+
+  const meta = HABIT_META[id];
+  const countKey = meta?.system?.countKey ?? (meta?.hasWater ? id : undefined);
+  if (countKey && Number(row.count_data?.[countKey]) > 0) return true;
+  if (ids.some(key => Number(row.count_data?.[key]) > 0)) return true;
+
+  // Los flags solo cuentan cuando están activos.
+  if (row.skipped && ids.some(key => !!row.skipped?.[key])) return true;
+  if (row.rest && ids.some(key => !!row.rest?.[key])) return true;
+
+  return (id === "gym" || id === "entrenamiento-fisico")
+    && Number(row.workout_duration) > 0;
+}
+
 // ---------------------------------------------------------------------------
 // Conjunto de hábitos trackeables hoy (para no perder ningún control)
 // ---------------------------------------------------------------------------

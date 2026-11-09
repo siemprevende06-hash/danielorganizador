@@ -94,7 +94,8 @@ const STATUS_LABEL: Record<PlanDayStatus, string> = {
   partial: 'Parcial',
   skip: 'Saltado',
   rest: 'Descanso',
-  none: 'Sin registro',
+  none: 'No cumplido',
+  nodata: 'Sin datos',
 };
 
 const STATUS_COLOR: Record<PlanDayStatus, string> = {
@@ -103,6 +104,7 @@ const STATUS_COLOR: Record<PlanDayStatus, string> = {
   skip: 'bg-red-500',
   rest: 'bg-sky-500/50',
   none: 'bg-red-500/25',
+  nodata: 'bg-muted-foreground/25',
 };
 
 /** Colores de la tarjeta completa cuando la vista es "Hoy". */
@@ -561,7 +563,7 @@ function bucketCompliance(bucket: SeriesBucket, todayKey: string): number | null
   const evaluated = bucket.statuses.filter((status, index) => {
     const day = bucket.dayKeys[index];
     if (day && day > todayKey) return false;
-    return status !== 'rest';
+    return status !== 'rest' && status !== 'nodata';
   });
   if (evaluated.length === 0) return null;
   const done = evaluated.filter(status => status === 'done').length;
@@ -571,10 +573,13 @@ function bucketCompliance(bucket: SeriesBucket, todayKey: string): number | null
 function bucketStatusColor(bucket: SeriesBucket, todayKey: string): string {
   if (bucket.future) return 'bg-muted-foreground/20';
   if (bucket.single) {
-    return STATUS_COLOR[bucket.statuses[0] ?? 'none'];
+    return STATUS_COLOR[bucket.statuses[0] ?? 'nodata'];
   }
   if (bucket.statuses.length > 0 && bucket.statuses.every(status => status === 'rest')) {
     return STATUS_COLOR.rest;
+  }
+  if (bucket.statuses.length > 0 && bucket.statuses.every(status => status === 'nodata' || status === 'rest')) {
+    return STATUS_COLOR.nodata;
   }
   const pct = bucketCompliance(bucket, todayKey);
   if (pct == null) return 'bg-muted-foreground/20';
@@ -587,25 +592,27 @@ function bucketStatusTitle(bucket: SeriesBucket, todayKey: string): string {
   const range = bucketRangeLabel(bucket);
   if (bucket.future) return `${range || 'Pendiente'} · Pendiente`;
   if (bucket.single) {
-    const status = bucket.statuses[0] ?? 'none';
+    const status = bucket.statuses[0] ?? 'nodata';
     return `${STATUS_LABEL[status]}${range ? ` · ${range}` : ''}`;
   }
   const pct = bucketCompliance(bucket, todayKey);
-  return `${range}${pct == null ? '' : ` · ${pct}% cumplido`}`;
+  if (pct == null) return `${range} · Sin datos`;
+  return `${range} · ${pct}% cumplido`;
 }
 
 function bucketSparkColor(bucket: SeriesBucket, todayKey: string): string {
   if (bucket.future) return 'bg-muted-foreground/20';
-  if (bucket.single) return STATUS_COLOR[bucket.statuses[0] ?? 'none'];
+  if (bucket.single) return STATUS_COLOR[bucket.statuses[0] ?? 'nodata'];
   if (bucket.statuses.some(status => status === 'done')) return 'bg-emerald-500';
   if (bucket.statuses.some(status => status === 'partial')) return 'bg-blue-500';
-  if (bucket.statuses.some(status => status === 'skip')) return 'bg-red-500';
+  if (bucket.statuses.some(status => status === 'skip' || status === 'none')) return 'bg-red-500';
   return 'bg-muted-foreground/40';
 }
 
 function bucketSparkHeight(bucket: SeriesBucket, max: number): number {
   const hasProgress = bucket.statuses.some(status => status === 'done' || status === 'partial');
-  const floor = !bucket.future && !hasProgress ? 16 : 8;
+  const hasFailure = bucket.statuses.some(status => status === 'skip' || status === 'none');
+  const floor = !bucket.future && !hasProgress && hasFailure ? 16 : 8;
   return Math.max(floor, (bucket.minutes / Math.max(1, max)) * 100);
 }
 

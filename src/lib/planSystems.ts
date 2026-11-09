@@ -17,7 +17,7 @@ import { SOSTEN_AREAS, systemSpeedOptions } from '@/lib/daySystems';
 export type PlanificationScope = 'day' | 'week' | 'month' | 'quarter' | 'year';
 export type PlanSystemKind = 'estructural' | 'central';
 export type PlanSystemRole = 'ancla' | 'mantenimiento';
-export type PlanDayStatus = 'done' | 'partial' | 'skip' | 'rest' | 'none';
+export type PlanDayStatus = 'done' | 'partial' | 'skip' | 'rest' | 'none' | 'nodata';
 export type PlanAreaStatus = 'green' | 'amber' | 'red' | 'grey';
 
 export type PlanAreaId =

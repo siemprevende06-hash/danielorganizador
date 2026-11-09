@@ -19,7 +19,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAreaScores } from '@/hooks/useAreaScores';
 import { useSystemStreaks } from '@/hooks/useSystemStreaks';
-import { HABIT_META } from '@/lib/areaSystemsMap';
+import { HABIT_META, hasHabitTrackingData } from '@/lib/areaSystemsMap';
 import { systemActualMinutes } from '@/lib/daySystems';
 import {
   PLAN_AREAS,
@@ -262,7 +262,7 @@ function aggregateRange(
 
       // Los días futuros no cuentan como disponibles ni como fallo.
       if (future) {
-        aggregate.status.push('none');
+        aggregate.status.push('nodata');
         aggregate.spark.push(0);
         aggregate.availableFlags.push(false);
         continue;
@@ -279,8 +279,12 @@ function aggregateRange(
       }
 
       aggregate.available += 1;
-      aggregate.availableFlags.push(true);
       aggregate.minutes += minutes;
+
+      // Sin registro propio del hábito no hay fallo: el día se pinta gris y no
+      // entra en rachas, brechas ni semanas verdes.
+      const hasData = hasHabitTrackingData(id, row);
+      aggregate.availableFlags.push(hasData);
 
       const skipped = flag(row?.skipped, id);
       const completed = flag(row?.completions, id);
@@ -300,7 +304,7 @@ function aggregateRange(
         aggregate.partial += 1;
         aggregate.status.push('partial');
       } else {
-        aggregate.status.push('none');
+        aggregate.status.push(hasData ? 'none' : 'nodata');
       }
 
       aggregate.spark.push(minutes);

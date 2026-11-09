@@ -67,15 +67,17 @@ export function aggregateSystemMetrics({
     spark.push(members.reduce((sum, member) => sum + (Number(member.spark[index]) || 0), 0));
 
     if (day > todayKey) {
-      status.push("none");
+      status.push("nodata");
       availableFlags.push(false);
       return;
     }
 
-    const eligible = dayStatuses.filter(dayStatus => dayStatus !== "rest" && dayStatus != null);
+    const tracked = dayStatuses.filter((dayStatus): dayStatus is PlanDayStatus => dayStatus != null);
+    const eligible = tracked.filter(dayStatus => dayStatus !== "rest" && dayStatus !== "nodata");
 
     if (eligible.length === 0) {
-      status.push(dayStatuses.every(dayStatus => dayStatus === "rest") ? "rest" : "none");
+      const allRest = tracked.length > 0 && tracked.every(dayStatus => dayStatus === "rest");
+      status.push(allRest ? "rest" : "nodata");
       availableFlags.push(false);
       return;
     }
@@ -108,7 +110,9 @@ export function aggregateSystemMetrics({
   let streak = 0;
   const todayIndex = days.indexOf(todayKey);
   let streakStart = status.length - 1;
-  if (todayIndex >= 0 && status[todayIndex] === "none") streakStart = todayIndex - 1;
+  if (todayIndex >= 0 && (status[todayIndex] === "none" || status[todayIndex] === "nodata")) {
+    streakStart = todayIndex - 1;
+  }
   for (let index = streakStart; index >= 0; index--) {
     if (!availableFlags[index]) continue;
     if (status[index] === "done") streak += 1;

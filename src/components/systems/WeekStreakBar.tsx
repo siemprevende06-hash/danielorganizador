@@ -4,8 +4,13 @@ import { cn } from "@/lib/utils";
 import { Check, Star, Flame, Trophy } from "lucide-react";
 import { useSystemHabitStreak } from "@/hooks/useSystemHabitStreaks";
 import { getCubaDate } from "@/lib/cubaTime";
+import {
+  habitTrackingIds,
+  hasHabitTrackingData,
+  type HabitTrackingRow,
+} from "@/lib/areaSystemsMap";
 
-export type DayStatus = "max" | "min" | "none" | "special";
+export type DayStatus = "max" | "min" | "none" | "missed" | "rest" | "special";
 
 interface WeekStreakBarProps {
   habitId: string;
@@ -38,12 +43,48 @@ const getMondayOfWeek = (date?: Date) => {
 
 const dateKey = (d: Date) => getCubaDate(d);
 
-function getBarColor(minutes: number, minT: number, maxT: number) {
-  if (minutes <= 0) return "bg-red-400";
-  if (minutes > maxT) return "bg-amber-400";
-  if (minutes >= maxT) return "bg-green-400";
-  if (minutes >= minT) return "bg-blue-400";
-  return "bg-blue-300/60";
+interface WeekTrackingRow extends HabitTrackingRow {
+  tracking_date: string;
+}
+
+function habitFlag(row: WeekTrackingRow | undefined, key: "skipped" | "rest", id: string): boolean {
+  const map = row?.[key];
+  if (!map) return false;
+  return habitTrackingIds(id).some(alias => !!map[alias]);
+}
+
+/**
+ * Estado de un día a partir de la fila: cumplido, descanso, fallo explícito o
+ * sin datos. Un día pasado con actividad del hábito pero sin cumplirlo es un
+ * fallo (rojo); sin ninguna marca es «sin datos» (gris).
+ */
+function dayStateFor(
+  id: string,
+  row: WeekTrackingRow | undefined,
+  dayKey: string,
+  todayKey: string,
+): DayStatus {
+  const completions = (row?.completions ?? {}) as Record<string, string | boolean>;
+  const value = completions[`streak:${id}`] ?? completions[id];
+
+  if (value === "max") return "max";
+  if (value === "min" || value === true || value === "true") return "min";
+  if (habitFlag(row, "rest", id)) return "rest";
+  if (habitFlag(row, "skipped", id) || value === false) return "missed";
+  if (dayKey < todayKey && hasHabitTrackingData(id, row)) return "missed";
+  return "none";
+}
+
+function getBarColor(minutes: number, minT: number, maxT: number, status?: DayStatus) {
+  if (minutes > 0) {
+    if (minutes > maxT) return "bg-amber-400";
+    if (minutes >= maxT) return "bg-green-400";
+    if (minutes >= minT) return "bg-blue-400";
+    return "bg-blue-300/60";
+  }
+  if (status === "rest") return "bg-sky-400/60";
+  if (status === "missed") return "bg-red-400";
+  return "bg-muted-foreground/20";
 }
 
 function getBarLabel(minutes: number, minT: number, maxT: number) {
@@ -93,16 +134,25 @@ export const WeekStreakBar = ({
         const endStr = dateKey(weekDates[6]);
         const { data } = await supabase
           .from("daily_systems_tracking")
-          .select("tracking_date, time_data")
+          .select("tracking_date, completions, time_data, count_data, skipped, rest, workout_duration")
           .gte("tracking_date", startStr)
           .lte("tracking_date", endStr)
           .order("tracking_date", { ascending: true });
-        const byDate: Record<string, number> = {};
-        (data || []).forEach((row: any) => {
-          const td = row.time_data || {};
-          byDate[row.tracking_date] = (td[timeDataKey] || 0) as number;
-        });
-        setDailyMinutes(weekDates.map(d => byDate[dateKey(d)] || 0));
+        const rows = (data || []) as unknown as WeekTrackingRow[];
+        const byDate = new Map(rows.map(row => [row.tracking_date, row]));
+        const todayKey = dateKey(new Date());
+
+        setDailyMinutes(weekDates.map(d => {
+          const row = byDate.get(dateKey(d));
+          return Number(row?.time_data?.[timeDataKey]) || 0;
+        }));
+
+        if (!weekStatuses) {
+          setStatuses(weekDates.map((d) => {
+            const k = dateKey(d);
+            return dayStateFor(habitId, byDate.get(k), k, todayKey);
+          }));
+        }
       })();
     } else if (!weekStatuses) {
       (async () => {
@@ -110,35 +160,30 @@ export const WeekStreakBar = ({
         sixtyAgo.setDate(sixtyAgo.getDate() - 60);
         const { data } = await supabase
           .from("daily_systems_tracking")
-          .select("tracking_date, completions")
+          .select("tracking_date, completions, time_data, count_data, skipped, rest, workout_duration")
           .gte("tracking_date", sixtyAgo.toISOString().split("T")[0])
           .order("tracking_date", { ascending: true });
 
-        const map: Record<string, DayStatus> = {};
-        const key = `streak:${habitId}`;
-        (data || []).forEach((row: any) => {
-          const c = (row.completions || {}) as Record<string, string | boolean>;
-          const v = c[key];
-          if (v === "max" || v === "min") map[row.tracking_date] = v as DayStatus;
-          else if (v === true) map[row.tracking_date] = "min";
-        });
+        const rows = (data || []) as unknown as WeekTrackingRow[];
+        const byDate = new Map(rows.map(row => [row.tracking_date, row]));
+        const todayKey = dateKey(new Date());
 
         const weekArr: DayStatus[] = weekDates.map((d) => {
           const k = dateKey(d);
-          if (map[k]) {
-            if (d.getDay() === 0) return "special";
-            return map[k];
+          const state = dayStateFor(habitId, byDate.get(k), k, todayKey);
+          if (state === "max" || state === "min") {
+            return d.getDay() === 0 ? "special" : state;
           }
-          return "none";
+          return state;
         });
 
-        const todayIdx = weekDates.findIndex((d) => dateKey(d) === dateKey(new Date()));
+        const todayIdx = weekDates.findIndex((d) => dateKey(d) === todayKey);
         if (todayIdx >= 0) {
           if (typeof todayValue === "number") {
             if (todayValue >= maxThreshold) weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "max";
             else if (todayValue >= minThreshold) weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "min";
           }
-          if (todayCompleted && weekArr[todayIdx] === "none") {
+          if (todayCompleted && (weekArr[todayIdx] === "none" || weekArr[todayIdx] === "missed")) {
             weekArr[todayIdx] = weekDates[todayIdx].getDay() === 0 ? "special" : "min";
           }
         }
@@ -177,7 +222,7 @@ export const WeekStreakBar = ({
               const mins = dailyMinutes[i] || 0;
               const pct = (mins / Math.max(maxMin, minThreshold)) * 100;
               const isToday = dateKey(d) === dateKey(new Date());
-              const barColor = getBarColor(mins, minThreshold, maxThreshold);
+              const barColor = getBarColor(mins, minThreshold, maxThreshold, statuses[i]);
               const barLabel = getBarLabel(mins, minThreshold, maxThreshold);
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
@@ -234,6 +279,8 @@ export const WeekStreakBar = ({
                   status === "max" && "bg-amber-400 text-amber-950 shadow-[0_0_10px_rgba(251,191,36,0.6)] animate-[bounce_0.5s_ease-out]",
                   status === "min" && "bg-amber-200 text-amber-900",
                   status === "special" && "bg-gradient-to-br from-yellow-300 to-amber-500 text-white ring-2 ring-amber-400/60 animate-pulse",
+                  status === "missed" && "bg-red-500/50 text-red-950 dark:text-red-50",
+                  status === "rest" && "bg-sky-500/40 text-sky-950 dark:text-sky-50",
                   status === "none" && "bg-muted text-muted-foreground/60",
                   shaking === i && "animate-[wiggle_0.4s_ease-in-out]",
                   isToday && "ring-2 ring-primary ring-offset-1 ring-offset-background"
@@ -243,7 +290,8 @@ export const WeekStreakBar = ({
                 {status === "max" && <Check className="h-3 w-3" strokeWidth={3} />}
                 {status === "min" && <Check className="h-3 w-3" strokeWidth={2.5} />}
                 {status === "special" && <Star className="h-3 w-3 fill-current" />}
-                {status === "none" && DAY_LABELS[i]}
+                {status === "missed" && <span className="text-[10px] leading-none">✕</span>}
+                {(status === "none" || status === "rest") && DAY_LABELS[i]}
               </button>
             );
           })}

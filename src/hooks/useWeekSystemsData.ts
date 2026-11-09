@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { HABIT_META } from "@/lib/areaSystemsMap";
+import {
+  HABIT_META,
+  habitTrackingIds,
+  hasHabitTrackingData,
+} from "@/lib/areaSystemsMap";
 import { systemActualMinutes, systemSpeedOptions } from "@/lib/daySystems";
 
-export type WeekDayStatus = "done" | "partial" | "skip" | "none";
+export type WeekDayStatus = "done" | "partial" | "skip" | "rest" | "none" | "nodata";
 
 export interface WeekSystemsAggregate {
   days: string[];
@@ -25,6 +29,7 @@ interface WeekRow {
   count_data?: Record<string, number>;
   workout_duration?: number;
   skipped?: Record<string, boolean>;
+  rest?: Record<string, boolean>;
 }
 
 function isGymId(id: string): boolean {
@@ -56,11 +61,28 @@ function habitTargetMinutes(id: string): number {
   return opts.find(o => o.id === "minimo")?.minutes ?? opts[0]?.minutes ?? 1;
 }
 
-/** Verde (meta), azul (parcial) o rojo (saltado) para cada día del periodo. */
-function dayStatus(isDone: boolean, isSkip: boolean, minutes: number, target: number): WeekDayStatus {
+function habitFlag(map: Record<string, boolean> | null | undefined, id: string): boolean {
+  if (!map) return false;
+  return habitTrackingIds(id).some(key => !!map[key]);
+}
+
+/**
+ * Verde (meta), azul (parcial), rojo (saltado o fallo explícito) o gris (sin
+ * registro propio del hábito ese día) para cada día del periodo.
+ */
+function dayStatus(
+  isDone: boolean,
+  isSkip: boolean,
+  isRest: boolean,
+  minutes: number,
+  target: number,
+  hasData: boolean,
+): WeekDayStatus {
   if (isSkip) return "skip";
+  if (isRest) return "rest";
   if (isDone || (minutes > 0 && minutes >= target)) return "done";
-  return minutes > 0 ? "partial" : "none";
+  if (minutes > 0) return "partial";
+  return hasData ? "none" : "nodata";
 }
 
 /**
@@ -143,9 +165,10 @@ export function useWeekSystemsData(
         const row = byDate.get(d);
         const completions = (row?.completions ?? {}) as Record<string, boolean>;
         const isDone = habitDone(id, completions);
-        const isSkip = !!row?.skipped?.[id];
+        const isSkip = habitFlag(row?.skipped, id);
+        const isRest = habitFlag(row?.rest, id);
         const m = habitMinutes(id, row);
-        const state = dayStatus(isDone, isSkip, m, target);
+        const state = dayStatus(isDone, isSkip, isRest, m, target, hasHabitTrackingData(id, row));
         if (state === "done") done++;
         if (isSkip) skipped++;
         minutes += m;
