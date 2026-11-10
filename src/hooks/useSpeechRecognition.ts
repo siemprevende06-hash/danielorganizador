@@ -98,6 +98,13 @@ function unirFragmentos(partes: string[]): string {
       continue;
     }
 
+    // Si la frase anterior ya cerró (punto, coma, etc.), no se fusiona el
+    // solape: "I like pizza." + "Pizza is great." son dos frases distintas.
+    if (/[.,!?;:…]$/.test(salida)) {
+      salida = `${salida} ${parte}`.replace(/\s+/g, ' ').trim();
+      continue;
+    }
+
     // Solape parcial en la frontera: "I want to" + "to go" -> "I want to go".
     const palabrasActual = salida.split(/\s+/);
     const palabrasNuevas = parte.split(/\s+/);
