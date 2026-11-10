@@ -29,6 +29,10 @@ const json = (body: unknown, status = 200) =>
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODELS_URL = "https://openrouter.ai/api/v1/models";
+/** OpenCode Console: proveedor alternativo elegido en Configuración. */
+const OPENCODE_BASE = (Deno.env.get("OPENCODE_BASE_URL") || "https://opencode.ai/inference").replace(/\/+$/, "");
+const OPENCODE_URL = `${OPENCODE_BASE}/openai/v1/chat/completions`;
+const OPENCODE_MODEL = (Deno.env.get("OPENCODE_MODEL") || "deepseek-v4.1-flash-free").trim();
 
 /** Presupuesto total por petición (el cliente corta a los 100 s). */
 const GLOBAL_BUDGET_MS = 94_000;
@@ -809,10 +813,10 @@ class ModelHttpError extends Error {
   status: number;
   /** Solo una clave inválida (401) invalida toda la cadena de modelos. */
   fatal: boolean;
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, fatal = status === 401) {
     super(message);
     this.status = status;
-    this.fatal = status === 401;
+    this.fatal = fatal;
   }
 }
 
@@ -823,20 +827,26 @@ async function callOpenRouter(
   timeoutMs: number,
   useTools: boolean,
   toolChoice?: unknown,
+  provider: "openrouter" | "opencode" = "openrouter",
 ): Promise<ModelReply> {
+  const opencode = provider === "opencode";
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(4_000, timeoutMs));
   try {
-    const res = await fetch(OPENROUTER_URL, {
+    const res = await fetch(opencode ? OPENCODE_URL : OPENROUTER_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://lovable.dev",
-        "X-Title": "Segundo Cerebro - Coach Gym",
+        Authorization: `Bearer ${opencode ? Deno.env.get("OPENCODE_API_KEY") || "" : apiKey}`,
+        ...(opencode
+          ? { "x-opencode-session": `ses_${crypto.randomUUID()}` }
+          : {
+              "HTTP-Referer": "https://lovable.dev",
+              "X-Title": "Segundo Cerebro - Coach Gym",
+            }),
       },
       body: JSON.stringify({
-        model,
+        model: opencode ? OPENCODE_MODEL : model,
         messages,
         ...(useTools ? { tools } : {}),
         ...(useTools && toolChoice ? { tool_choice: toolChoice } : {}),
@@ -857,7 +867,9 @@ async function callOpenRouter(
       }
       throw new ModelHttpError(
         res.status,
-        `OpenRouter ${res.status}: ${String(detail || "sin detalle").slice(0, 400)}`,
+        `${opencode ? "OpenCode" : "OpenRouter"} ${res.status}: ${String(detail || "sin detalle").slice(0, 400)}`,
+        // Un fallo de OpenCode nunca es fatal: siempre debe caer a OpenRouter.
+        opencode ? false : undefined,
       );
     }
 
@@ -866,6 +878,7 @@ async function callOpenRouter(
       throw new ModelHttpError(
         Number(data.error?.code) || 502,
         data.error?.message || "El modelo devolvió un error.",
+        opencode ? false : undefined,
       );
     }
     const msg = data?.choices?.[0]?.message;
@@ -1323,6 +1336,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") return json({ error: "Petición inválida." }, 400);
+    const proveedor = body.provider === "deepseek" ? "deepseek" : "openrouter";
+    const opencodeKey = Deno.env.get("OPENCODE_API_KEY") || "";
+    const usarOpenCode = proveedor === "deepseek" && Boolean(opencodeKey);
 
     const message = typeof body.message === "string" ? body.message.trim() : "";
     if (!message) return json({ error: "Falta el mensaje." }, 400);
@@ -1366,9 +1382,17 @@ Deno.serve(async (req) => {
 
     // ------------------------- modelos -------------------------
     const allModels = await discoverModels(apiKey);
-    let activeModel: string | null = intent ? null : lastGoodModel;
-    let toolModels = pickModels(allModels, true, activeModel);
+    // `lastGoodModel` puede ser el modelo de OpenCode; no debe reutilizarse
+    // como si fuera un id de OpenRouter.
+    const activeSeed = lastGoodModel === OPENCODE_MODEL ? null : lastGoodModel;
+    let activeModel: string | null = intent ? null : activeSeed;
+    let toolModels = pickModels(allModels, true, activeSeed);
     if (!allModels.length || !toolModels.length) toolModels = STATIC_TOOL_MODELS.slice(0, 6);
+    // DeepSeek va primero solo si el usuario lo eligió. Si falla, la cadena
+    // continúa con los modelos de OpenRouter (fallback automático).
+    if (usarOpenCode) {
+      toolModels = [OPENCODE_MODEL, ...toolModels.filter((m) => m !== OPENCODE_MODEL)];
+    }
 
     let lastError = "";
     let partialActions: any[] = [];
@@ -1400,7 +1424,11 @@ Deno.serve(async (req) => {
         : "__required__"
       : null;
 
-    const runToolLoop = async (model: string, forcedTool: string | null) => {
+    const runToolLoop = async (
+      model: string,
+      forcedTool: string | null,
+      provider: "openrouter" | "opencode",
+    ) => {
       const messages = [...baseMessages];
       const actions: any[] = [];
       let lastContent = "";
@@ -1425,13 +1453,14 @@ Deno.serve(async (req) => {
             timeout(),
             true,
             toolChoice,
+            provider,
           );
         } catch (e) {
           const err = e as ModelHttpError;
           // Algunos modelos gratuitos no aceptan tool_choice forzado: reintenta
           // sin forzarlo en vez de descartar el modelo.
           if (toolChoice && (err.status === 400 || err.status === 422)) {
-            reply = await callOpenRouter(apiKey, model, messages, timeout(), true);
+            reply = await callOpenRouter(apiKey, model, messages, timeout(), true, undefined, provider);
           } else {
             throw e;
           }
@@ -1505,8 +1534,10 @@ Deno.serve(async (req) => {
 
     for (const model of toolModels) {
       if (remaining() < 8_000) break;
+      const proveedorModelo =
+        usarOpenCode && model === OPENCODE_MODEL ? "opencode" : "openrouter";
       try {
-        const result = await runToolLoop(model, forcedIntentTool);
+        const result = await runToolLoop(model, forcedIntentTool, proveedorModelo);
         activeModel = model;
         if (result.sawAction || result.actions.length) {
           lastGoodModel = model;
@@ -1556,7 +1587,11 @@ Deno.serve(async (req) => {
 
     // ------------------------- fallback sin herramientas -------------------------
     if (remaining() > 18_000) {
-      let textModels = pickModels(allModels, false, intent ? null : activeModel);
+      let textModels = pickModels(
+        allModels,
+        false,
+        intent ? null : activeModel === OPENCODE_MODEL ? null : activeModel,
+      );
       if (!allModels.length) textModels = STATIC_TEXT_MODELS.filter((id) => !modeloBloqueado(id));
       for (const model of textModels.slice(0, 3)) {
         if (remaining() < 14_000) break;

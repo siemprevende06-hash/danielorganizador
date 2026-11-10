@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
+import { getAIProvider } from "@/lib/aiProvider";
 import { getGym } from "@/gym2/store";
 import { buildGymSnapshot } from "@/gym2/lib/coachContext";
 import { applyCoachActions, type CoachActionResult } from "@/gym2/lib/coachActions";
@@ -219,6 +220,7 @@ export function useGymCoach(options: GymCoachOptions = {}) {
             message: trimmed,
             history: history.slice(-16),
             snapshot,
+            provider: getAIProvider(),
           }),
           signal: controller.signal,
         });

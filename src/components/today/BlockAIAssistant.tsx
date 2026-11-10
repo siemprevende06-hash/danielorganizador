@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Bot, Send, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
+import { getAIProvider } from "@/lib/aiProvider";
 
 interface TaskInfo {
   id: string;
@@ -86,7 +87,7 @@ export function BlockAIAssistant({ dayContext }: BlockAIAssistantProps) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ message: messageText, dayContext }),
+          body: JSON.stringify({ message: messageText, dayContext, provider: getAIProvider() }),
         }
       );
 

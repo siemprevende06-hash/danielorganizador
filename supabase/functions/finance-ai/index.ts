@@ -64,6 +64,11 @@ const MODELOS_PREFERIDOS = [
 
 let MODELO_ACTIVO: string | null = null;
 
+/** OpenCode Console: proveedor alternativo elegido en Configuración. */
+const OPENCODE_BASE = (Deno.env.get("OPENCODE_BASE_URL") || "https://opencode.ai/inference").replace(/\/+$/, "");
+const OPENCODE_URL = `${OPENCODE_BASE}/openai/v1/chat/completions`;
+const OPENCODE_MODEL = (Deno.env.get("OPENCODE_MODEL") || "deepseek-v4.1-flash-free").trim();
+
 /**
  * OpenRouter restringe algunos gratuitos a "agentic harnesses": desde una Edge
  * Function devuelven 403. Nunca deben entrar en la cadena de modelos.
@@ -173,6 +178,9 @@ serve(async (req) => {
     const history: { role: string; content: string }[] = Array.isArray(body?.history) ? body.history : [];
     const wallets: WalletInfo[] = Array.isArray(body?.wallets) ? body.wallets : [];
     const categories: CategoryInfo[] = Array.isArray(body?.categories) ? body.categories : [];
+    const proveedor = body?.provider === "deepseek" ? "deepseek" : "openrouter";
+    const opencodeKey = Deno.env.get("OPENCODE_API_KEY") || "";
+    const usarOpenCode = proveedor === "deepseek" && Boolean(opencodeKey);
     if (!message || typeof message !== "string") return json({ error: "Falta el mensaje" }, 400);
 
     const catsTxt = categories.length > 0
@@ -233,58 +241,101 @@ B) Faltan datos:
         signal: AbortSignal.timeout(45_000),
       });
 
+    const chatOpenCode = () =>
+      fetch(OPENCODE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${opencodeKey}`,
+          "x-opencode-session": `ses_${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ model: OPENCODE_MODEL, messages, temperature: 0.2 }),
+        signal: AbortSignal.timeout(45_000),
+      });
+
     let ultimoEstado = 0;
     let ultimoDetalle = "";
     let parsed: any = null;
     let modeloUsado = "";
 
-    for (const modelo of await candidatosModelo(OPENROUTER_API_KEY)) {
-      let intento: Response;
+    // DeepSeek primero si el usuario lo eligió. Si falla o no devuelve JSON,
+    // seguimos con la cadena normal de OpenRouter.
+    if (usarOpenCode) {
       try {
-        intento = await chat(modelo);
-      } catch {
-        continue;
-      }
-
-      if (intento.ok) {
-        const data = await intento.json().catch(() => null);
-        const content = data?.choices?.[0]?.message?.content || "";
-        const intentoParsed = extractJson(content);
-        if (intentoParsed) {
-          MODELO_ACTIVO = modelo;
-          modeloUsado = modelo;
-          parsed = intentoParsed;
-          break;
+        const intento = await chatOpenCode();
+        if (intento.ok) {
+          const data = await intento.json().catch(() => null);
+          const content = data?.choices?.[0]?.message?.content || "";
+          const intentoParsed = extractJson(content);
+          if (intentoParsed) {
+            modeloUsado = OPENCODE_MODEL;
+            parsed = intentoParsed;
+          } else {
+            console.warn(`[finance-ai] opencode/${OPENCODE_MODEL} -> respuesta sin JSON`);
+          }
+        } else {
+          ultimoEstado = intento.status;
+          ultimoDetalle = await leerErrorOpenRouter(intento);
+          console.warn(
+            `[finance-ai] opencode/${OPENCODE_MODEL} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`,
+          );
         }
-        ultimoEstado = 200;
-        ultimoDetalle = `respuesta sin JSON válido: ${String(content).slice(0, 160)}`;
-        console.warn(`[finance-ai] ${modelo} -> respuesta sin JSON`);
-        // Los modelos pequeños a veces ignoran el formato: probamos otro.
-        continue;
+      } catch (e) {
+        console.warn(
+          `[finance-ai] opencode/${OPENCODE_MODEL} falló: ${(e as Error).message}`,
+        );
       }
+    }
 
-      ultimoEstado = intento.status;
-      ultimoDetalle = await leerErrorOpenRouter(intento);
-      console.warn(`[finance-ai] ${modelo} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`);
+    if (!parsed) {
+      for (const modelo of await candidatosModelo(OPENROUTER_API_KEY)) {
+        let intento: Response;
+        try {
+          intento = await chat(modelo);
+        } catch {
+          continue;
+        }
 
-      // Solo una clave inválida corta la cadena. Un 403 de un modelo
-      // restringido (p. ej. thinkingmachines/inkling) es del modelo.
-      if (intento.status === 401) break;
+        if (intento.ok) {
+          const data = await intento.json().catch(() => null);
+          const content = data?.choices?.[0]?.message?.content || "";
+          const intentoParsed = extractJson(content);
+          if (intentoParsed) {
+            MODELO_ACTIVO = modelo;
+            modeloUsado = modelo;
+            parsed = intentoParsed;
+            break;
+          }
+          ultimoEstado = 200;
+          ultimoDetalle = `respuesta sin JSON válido: ${String(content).slice(0, 160)}`;
+          console.warn(`[finance-ai] ${modelo} -> respuesta sin JSON`);
+          // Los modelos pequeños a veces ignoran el formato: probamos otro.
+          continue;
+        }
 
-      if (
-        intento.status === 400 ||
-        intento.status === 403 ||
-        intento.status === 404 ||
-        intento.status === 422
-      ) {
-        MODELOS_INVALIDOS.add(modelo);
-        if (MODELO_ACTIVO === modelo) MODELO_ACTIVO = null;
+        ultimoEstado = intento.status;
+        ultimoDetalle = await leerErrorOpenRouter(intento);
+        console.warn(`[finance-ai] ${modelo} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`);
+
+        // Solo una clave inválida corta la cadena. Un 403 de un modelo
+        // restringido (p. ej. thinkingmachines/inkling) es del modelo.
+        if (intento.status === 401) break;
+
+        if (
+          intento.status === 400 ||
+          intento.status === 403 ||
+          intento.status === 404 ||
+          intento.status === 422
+        ) {
+          MODELOS_INVALIDOS.add(modelo);
+          if (MODELO_ACTIVO === modelo) MODELO_ACTIVO = null;
+        }
+
+        // 402 = sin crédito y 429 diario = cuenta agotada: insistir no ayuda.
+        // Otros 429 pueden ser del proveedor de ese modelo: probamos el siguiente.
+        if (intento.status === 402) break;
+        if (intento.status === 429 && esLimiteDiario(ultimoDetalle)) break;
       }
-
-      // 402 = sin crédito y 429 diario = cuenta agotada: insistir no ayuda.
-      // Otros 429 pueden ser del proveedor de ese modelo: probamos el siguiente.
-      if (intento.status === 402) break;
-      if (intento.status === 429 && esLimiteDiario(ultimoDetalle)) break;
     }
 
     if (!parsed) {

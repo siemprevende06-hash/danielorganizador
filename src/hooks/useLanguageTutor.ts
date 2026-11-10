@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/env';
+import { getAIProvider } from '@/lib/aiProvider';
 import type { CoachVisual } from '@/components/coach/VisualCanvas';
 import type { Language } from './useLanguageLearning';
 import type { TutorSkill } from '@/components/languages/tutorModes';
@@ -341,6 +342,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
             scenario: scenario || undefined,
             start: options?.start === true,
             stream: true,
+            provider: getAIProvider(),
           }),
           signal: ctrl.signal,
         });

@@ -23,6 +23,11 @@ type Idioma = "english" | "italian";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+/** OpenCode Console: proveedor alternativo elegido en Configuración. */
+const OPENCODE_BASE = (Deno.env.get("OPENCODE_BASE_URL") || "https://opencode.ai/inference").replace(/\/+$/, "");
+const OPENCODE_URL = `${OPENCODE_BASE}/openai/v1/chat/completions`;
+const OPENCODE_MODEL = (Deno.env.get("OPENCODE_MODEL") || "deepseek-v4.1-flash-free").trim();
+type AIProvider = "openrouter" | "deepseek";
 
 /**
  * Modelos rápidos y buenos (segundos, no minutos) para la pasarela de Lovable.
@@ -107,7 +112,7 @@ async function descubrirModelos(): Promise<string[]> {
 }
 
 type Proveedor = {
-  nombre: "gateway" | "openrouter";
+  nombre: "gateway" | "openrouter" | "opencode";
   modelo: string;
   url: string;
   key: string;
@@ -116,12 +121,21 @@ type Proveedor = {
 /** Último proveedor que funcionó: se prueba primero para no perder tiempo. */
 let PROVEEDOR_OK: Proveedor | null = null;
 
-function candidatos(descubiertos: string[] = []): Proveedor[] {
+function candidatos(descubiertos: string[] = [], provider: AIProvider = "openrouter"): Proveedor[] {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   const orKey = Deno.env.get("OPENROUTER_API_KEY");
   const override = (Deno.env.get("LANGUAGE_TUTOR_MODEL") || "").trim();
 
   const lista: Proveedor[] = [];
+
+  // DeepSeek/OpenCode va primero solo cuando el usuario lo eligió. Si falla,
+  // la cadena continúa con los proveedores de siempre (fallback automático).
+  if (provider === "deepseek") {
+    const ocKey = Deno.env.get("OPENCODE_API_KEY");
+    if (ocKey) {
+      lista.push({ nombre: "opencode", modelo: OPENCODE_MODEL, url: OPENCODE_URL, key: ocKey });
+    }
+  }
 
   if (lovableKey) {
     if (override) {
@@ -769,9 +783,9 @@ interface StreamOpts {
  * Intenta cada proveedor hasta encontrar uno que responda y emita texto.
  * Devuelve la respuesta HTTP abierta para leerla en streaming.
  */
-async function abrirStream(messages: any[], opts: StreamOpts): Promise<Response | null> {
+async function abrirStream(messages: any[], opts: StreamOpts, provider: AIProvider = "openrouter"): Promise<Response | null> {
   const descubiertos = await descubrirModelos();
-  for (const p of candidatos(descubiertos)) {
+  for (const p of candidatos(descubiertos, provider)) {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 45000);
     const onAbort = () => ctrl.abort();
@@ -794,6 +808,9 @@ async function abrirStream(messages: any[], opts: StreamOpts): Promise<Response 
           Authorization: `Bearer ${p.key}`,
           ...(p.nombre === "openrouter"
             ? { "HTTP-Referer": "https://lovable.dev", "X-Title": "Segundo Cerebro" }
+            : {}),
+          ...(p.nombre === "opencode"
+            ? { "x-opencode-session": `ses_${crypto.randomUUID()}` }
             : {}),
         },
         body: JSON.stringify(body),
@@ -878,10 +895,11 @@ const esLimiteDiario = (detalle: string) => /free-models-per-day|per day|daily/i
 async function completar(
   messages: any[],
   opts: { maxTokens: number; temperature: number; validar?: (texto: string) => boolean },
+  provider: AIProvider = "openrouter",
 ): Promise<string | null> {
   const descubiertos = await descubrirModelos();
   ULTIMO_ERROR = "";
-  for (const p of candidatos(descubiertos)) {
+  for (const p of candidatos(descubiertos, provider)) {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 20000);
     try {
@@ -892,6 +910,9 @@ async function completar(
           Authorization: `Bearer ${p.key}`,
           ...(p.nombre === "openrouter"
             ? { "HTTP-Referer": "https://lovable.dev", "X-Title": "Segundo Cerebro" }
+            : {}),
+          ...(p.nombre === "opencode"
+            ? { "x-opencode-session": `ses_${crypto.randomUUID()}` }
             : {}),
         },
         body: JSON.stringify({
@@ -1041,6 +1062,7 @@ Deno.serve(async (req) => {
     const idioma: Idioma = body?.language === "italian" ? "italian" : "english";
     const info = IDIOMA_INFO[idioma];
     const action = String(body?.action || "chat");
+    const proveedor: AIProvider = body?.provider === "deepseek" ? "deepseek" : "openrouter";
 
     // Acciones auxiliares del coach: no hacen streaming y devuelven JSON corto.
     if (action === "feedback" || action === "explain" || action === "suggest") {
@@ -1057,6 +1079,7 @@ Deno.serve(async (req) => {
             { role: "user", content: "Evalúa la intervención y devuelve solo el JSON." },
           ],
           { maxTokens: 700, temperature: 0.2, validar: (t) => parseJsonLoose(t) !== null },
+          proveedor,
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
         if (!parsed) {
@@ -1086,6 +1109,7 @@ Deno.serve(async (req) => {
             { role: "user", content: "Dame la explicación para leer en voz alta." },
           ],
           { maxTokens: 900, temperature: 0.4 },
+          proveedor,
         );
         const text = sinRepeticiones(cleanText(raw, 1800));
         if (!text) {
@@ -1104,6 +1128,7 @@ Deno.serve(async (req) => {
           { role: "user", content: "Dame la sugerencia en JSON." },
         ],
         { maxTokens: 600, temperature: 0.6, validar: (t) => parseJsonLoose(t) !== null },
+        proveedor,
       );
       const parsed = raw ? parseJsonLoose(raw) : null;
       if (!parsed) {
@@ -1195,7 +1220,7 @@ Deno.serve(async (req) => {
               maxTokens,
               temperature,
               signal: upstream.signal,
-            });
+            }, proveedor);
 
             if (!res) {
               enviar({

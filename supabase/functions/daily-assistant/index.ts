@@ -5,6 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** OpenCode Console: proveedor alternativo elegido en Configuración. */
+const OPENCODE_BASE = (Deno.env.get("OPENCODE_BASE_URL") || "https://opencode.ai/inference").replace(/\/+$/, "");
+const OPENCODE_URL = `${OPENCODE_BASE}/openai/v1/chat/completions`;
+const OPENCODE_MODEL = (Deno.env.get("OPENCODE_MODEL") || "deepseek-v4.1-flash-free").trim();
+
 interface TaskInfo {
   id: string;
   title: string;
@@ -54,12 +59,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, dayContext } = await req.json() as { message: string; dayContext: DayContext };
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    const { message, dayContext, provider } = await req.json() as { message: string; dayContext: DayContext; provider?: string };
 
     // Build comprehensive context about the day
     const currentHour = parseInt(dayContext.currentTime.split(':')[0]);
@@ -191,41 +191,82 @@ CUANDO DANIEL ESTÉ PRODUCTIVO:
 
 HABLA SIEMPRE EN ESPAÑOL, DE FORMA NATURAL Y CERCANA.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message },
-        ],
-        stream: true,
-      }),
-    });
+    const OPENCODE_KEY = Deno.env.get("OPENCODE_API_KEY");
+    let response: Response | null = null;
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Intenta de nuevo en unos segundos." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // DeepSeek primero si el usuario lo eligió. Cualquier fallo cae a la
+    // pasarela de Lovable, que es el comportamiento de siempre.
+    if (provider === "deepseek" && OPENCODE_KEY) {
+      try {
+        const intento = await fetch(OPENCODE_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENCODE_KEY}`,
+            "Content-Type": "application/json",
+            "x-opencode-session": `ses_${crypto.randomUUID()}`,
+          },
+          body: JSON.stringify({
+            model: OPENCODE_MODEL,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: message },
+            ],
+            stream: true,
+          }),
         });
+        if (intento.ok && intento.body) {
+          response = intento;
+        } else {
+          const detalle = await intento.text().catch(() => "");
+          console.warn("[daily-assistant] OpenCode falló:", intento.status, detalle.slice(0, 180));
+        }
+      } catch (e) {
+        console.warn("[daily-assistant] OpenCode falló:", (e as Error).message);
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos agotados. Recarga tu cuenta para seguir usando el asistente." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    }
+
+    if (!response) {
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY is not configured");
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "Error al conectar con DANI" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message },
+          ],
+          stream: true,
+        }),
       });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limit exceeded. Intenta de nuevo en unos segundos." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos agotados. Recarga tu cuenta para seguir usando el asistente." }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const errorText = await response.text();
+        console.error("AI gateway error:", response.status, errorText);
+        return new Response(JSON.stringify({ error: "Error al conectar con DANI" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     return new Response(response.body, {

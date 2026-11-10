@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/env';
+import { getAIProvider } from '@/lib/aiProvider';
 import type { Language } from './useLanguageLearning';
 
 const FN_URL = edgeFunctionUrl('language-tutor');
@@ -50,7 +51,7 @@ async function callCoach(payload: Record<string, unknown>): Promise<Record<strin
         Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
         apikey: SUPABASE_PUBLISHABLE_KEY,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, provider: getAIProvider() }),
       signal: ctrl.signal,
     });
     const data = await res.json().catch(() => null);

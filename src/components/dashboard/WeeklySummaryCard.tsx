@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
+import { getAIProvider } from "@/lib/aiProvider";
 import { useWeekComparison } from "@/hooks/useWeekComparison";
 
 export function WeeklySummaryCard() {
@@ -36,6 +37,7 @@ export function WeeklySummaryCard() {
               weekNumber: Math.ceil((new Date().getTime() - new Date(2026, 0, 1).getTime()) / 604800000),
               daysRemainingInQuarter: 90 - (Math.floor((new Date().getTime() - new Date(2026, Math.floor(new Date().getMonth() / 3) * 3, 1).getTime()) / 86400000)),
             },
+            provider: getAIProvider(),
           }),
         }
       );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getAIProvider } from '@/lib/aiProvider';
 import { useToast } from '@/hooks/use-toast';
 
 export interface NutritionEstimate {
@@ -61,6 +62,7 @@ export const useNutritionAI = () => {
           currentWeight: 50,
           targetWeight: 70,
           dailyGoals: DAILY_GOALS,
+          provider: getAIProvider(),
         },
       });
 

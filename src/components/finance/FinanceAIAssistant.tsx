@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Bot, Loader2, Mic, MicOff, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
+import { getAIProvider } from "@/lib/aiProvider";
 
 interface AIMessage {
   role: "user" | "assistant";
@@ -106,7 +107,7 @@ export function FinanceAIAssistant({ wallets, categories, onCreateTransaction }:
           Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           apikey: SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ message: trimmed, history, wallets, categories }),
+        body: JSON.stringify({ message: trimmed, history, wallets, categories, provider: getAIProvider() }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || data.error) {

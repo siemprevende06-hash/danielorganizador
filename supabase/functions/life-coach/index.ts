@@ -30,6 +30,11 @@ const MODELOS_PREFERIDOS = [
 
 let MODELO_ACTIVO: string | null = null;
 
+/** OpenCode Console: proveedor alternativo elegido en Configuración. */
+const OPENCODE_BASE = (Deno.env.get("OPENCODE_BASE_URL") || "https://opencode.ai/inference").replace(/\/+$/, "");
+const OPENCODE_URL = `${OPENCODE_BASE}/openai/v1/chat/completions`;
+const OPENCODE_MODEL = (Deno.env.get("OPENCODE_MODEL") || "deepseek-v4.1-flash-free").trim();
+
 /**
  * OpenRouter restringe algunos gratuitos a "agentic harnesses": desde una Edge
  * Function devuelven 403. Nunca deben entrar en la cadena de modelos.
@@ -856,6 +861,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => null);
     const message = body?.message;
     const history: { role: string; content: string }[] = Array.isArray(body?.history) ? body.history : [];
+    const proveedor = body?.provider === "deepseek" ? "deepseek" : "openrouter";
+    const opencodeKey = Deno.env.get("OPENCODE_API_KEY") || "";
+    const usarOpenCode = proveedor === "deepseek" && Boolean(opencodeKey);
     if (!message || typeof message !== "string") return json({ error: "Falta el mensaje" }, 400);
 
     const ctx = await buildContext(sb);
@@ -922,46 +930,81 @@ Reglas:
         signal: AbortSignal.timeout(45_000),
       });
 
+    const chatOpenCode = () =>
+      fetch(OPENCODE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${opencodeKey}`,
+          "x-opencode-session": `ses_${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ model: OPENCODE_MODEL, messages, tools }),
+        signal: AbortSignal.timeout(45_000),
+      });
+
     for (let round = 0; round < 6; round++) {
       let res: Response | null = null;
       let ultimoEstado = 0;
       let ultimoDetalle = "";
 
-      for (const modelo of await candidatosModelo(OPENROUTER_API_KEY)) {
-        let intento: Response;
+      // DeepSeek va primero solo si el usuario lo eligió. Cualquier fallo
+      // (red, 401, 402, 429…) cae a la cadena normal de OpenRouter.
+      if (usarOpenCode) {
         try {
-          intento = await chat(modelo);
-        } catch {
-          continue;
+          const intento = await chatOpenCode();
+          if (intento.ok) {
+            res = intento;
+          } else {
+            ultimoEstado = intento.status;
+            ultimoDetalle = await leerErrorOpenRouter(intento);
+            console.warn(
+              `[life-coach] opencode/${OPENCODE_MODEL} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`,
+            );
+          }
+        } catch (e) {
+          console.warn(
+            `[life-coach] opencode/${OPENCODE_MODEL} falló: ${(e as Error).message}`,
+          );
         }
-        if (intento.ok) {
-          MODELO_ACTIVO = modelo;
-          res = intento;
-          break;
+      }
+
+      if (!res) {
+        for (const modelo of await candidatosModelo(OPENROUTER_API_KEY)) {
+          let intento: Response;
+          try {
+            intento = await chat(modelo);
+          } catch {
+            continue;
+          }
+          if (intento.ok) {
+            MODELO_ACTIVO = modelo;
+            res = intento;
+            break;
+          }
+
+          ultimoEstado = intento.status;
+          ultimoDetalle = await leerErrorOpenRouter(intento);
+          console.warn(`[life-coach] ${modelo} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`);
+
+          // Solo una clave inválida corta la cadena. Un 403 de un modelo
+          // restringido (p. ej. thinkingmachines/inkling) es del modelo.
+          if (intento.status === 401) break;
+
+          if (
+            intento.status === 400 ||
+            intento.status === 403 ||
+            intento.status === 404 ||
+            intento.status === 422
+          ) {
+            MODELOS_INVALIDOS.add(modelo);
+            if (MODELO_ACTIVO === modelo) MODELO_ACTIVO = null;
+          }
+
+          // 402 = sin crédito y 429 diario = cuenta agotada: insistir no ayuda.
+          // Otros 429 pueden ser del proveedor de ese modelo: probamos el siguiente.
+          if (intento.status === 402) break;
+          if (intento.status === 429 && esLimiteDiario(ultimoDetalle)) break;
         }
-
-        ultimoEstado = intento.status;
-        ultimoDetalle = await leerErrorOpenRouter(intento);
-        console.warn(`[life-coach] ${modelo} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`);
-
-        // Solo una clave inválida corta la cadena. Un 403 de un modelo
-        // restringido (p. ej. thinkingmachines/inkling) es del modelo.
-        if (intento.status === 401) break;
-
-        if (
-          intento.status === 400 ||
-          intento.status === 403 ||
-          intento.status === 404 ||
-          intento.status === 422
-        ) {
-          MODELOS_INVALIDOS.add(modelo);
-          if (MODELO_ACTIVO === modelo) MODELO_ACTIVO = null;
-        }
-
-        // 402 = sin crédito y 429 diario = cuenta agotada: insistir no ayuda.
-        // Otros 429 pueden ser del proveedor de ese modelo: probamos el siguiente.
-        if (intento.status === 402) break;
-        if (intento.status === 429 && esLimiteDiario(ultimoDetalle)) break;
       }
 
       if (!res || !res.ok) {

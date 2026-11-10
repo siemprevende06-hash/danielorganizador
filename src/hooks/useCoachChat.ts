@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
+import { getAIProvider } from "@/lib/aiProvider";
 import type { Json } from "@/integrations/supabase/types";
 import type { CoachVisual } from "@/components/coach/VisualCanvas";
 
@@ -147,7 +148,7 @@ export function useCoachChat() {
             Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
             apikey: SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ message: prompt, history }),
+          body: JSON.stringify({ message: prompt, history, provider: getAIProvider() }),
         });
 
         const data = await res.json().catch(() => null);

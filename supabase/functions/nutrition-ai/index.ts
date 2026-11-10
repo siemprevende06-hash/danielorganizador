@@ -5,18 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+/** OpenCode Console: proveedor alternativo elegido en Configuración. */
+const OPENCODE_BASE = (Deno.env.get('OPENCODE_BASE_URL') || 'https://opencode.ai/inference').replace(/\/+$/, '');
+const OPENCODE_URL = `${OPENCODE_BASE}/openai/v1/chat/completions`;
+const OPENCODE_MODEL = (Deno.env.get('OPENCODE_MODEL') || 'deepseek-v4.1-flash-free').trim();
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { description, currentWeight, targetWeight, dailyGoals } = await req.json();
-    
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    const { description, currentWeight, targetWeight, dailyGoals, provider } = await req.json();
 
     const systemPrompt = `Eres un nutricionista deportivo experto especializado en aumento de masa muscular.
 
@@ -47,38 +47,79 @@ RESPONDE ÚNICAMENTE en este formato JSON exacto:
   "advice": "string con consejo motivador"
 }`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Analiza esta comida: ${description}` },
-        ],
-        temperature: 0.3,
-      }),
-    });
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `Analiza esta comida: ${description}` },
+    ];
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const OPENCODE_KEY = Deno.env.get('OPENCODE_API_KEY');
+    let response: Response | null = null;
+
+    // DeepSeek primero si el usuario lo eligió. Cualquier fallo cae a la
+    // pasarela de Lovable, que es el comportamiento de siempre.
+    if (provider === 'deepseek' && OPENCODE_KEY) {
+      try {
+        const intento = await fetch(OPENCODE_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${OPENCODE_KEY}`,
+            'Content-Type': 'application/json',
+            'x-opencode-session': `ses_${crypto.randomUUID()}`,
+          },
+          body: JSON.stringify({
+            model: OPENCODE_MODEL,
+            messages,
+            temperature: 0.3,
+          }),
+          signal: AbortSignal.timeout(45_000),
         });
+        if (intento.ok) {
+          response = intento;
+        } else {
+          const detalle = await intento.text().catch(() => '');
+          console.warn('[nutrition-ai] OpenCode falló:', intento.status, detalle.slice(0, 180));
+        }
+      } catch (e) {
+        console.warn('[nutrition-ai] OpenCode falló:', (e as Error).message);
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required. Please add credits." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    }
+
+    if (!response) {
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (!LOVABLE_API_KEY) {
+        throw new Error('LOVABLE_API_KEY is not configured');
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("AI gateway error");
+
+      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages,
+          temperature: 0.3,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: 'Payment required. Please add credits.' }), {
+            status: 402,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const errorText = await response.text();
+        console.error('AI gateway error:', response.status, errorText);
+        throw new Error('AI gateway error');
+      }
     }
 
     const aiResponse = await response.json();

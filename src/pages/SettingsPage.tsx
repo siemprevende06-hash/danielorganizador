@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Settings, BookOpen, Save, CloudUpload, CheckCircle2, XCircle, Loader2, Clock, Bell } from 'lucide-react';
+import { Settings, BookOpen, Save, CloudUpload, CheckCircle2, XCircle, Loader2, Clock, Bell, Cpu } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { syncAll, type SyncReport } from '@/lib/dataSync';
 import { getTimeUnit, setTimeUnit as persistTimeUnit, type TimeUnit } from '@/lib/timeUnit';
 import { getSetting, setSetting } from '@/lib/settings';
+import { AI_PROVIDER_LABEL, useAIProvider } from '@/lib/aiProvider';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const [booksPerMonth, setBooksPerMonth] = useState(2);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>(() => getTimeUnit());
   const [notificationsOn, setNotificationsOn] = useState(() => areNotificationsEnabled());
+  const [aiProvider, setAiProvider] = useAIProvider();
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncReport, setLastSyncReport] = useState<SyncReport | null>(null);
@@ -176,6 +178,55 @@ export default function SettingsPage() {
               onCheckedChange={handleNotificationsToggle}
               aria-label="Activar notificaciones"
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Proveedor de IA */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Cpu className="h-5 w-5" />
+            Proveedor de IA
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Motor que usan los asistentes</Label>
+            <div className="grid grid-cols-2 gap-2 max-w-md">
+              {(['openrouter', 'deepseek'] as const).map((provider) => (
+                <button
+                  key={provider}
+                  type="button"
+                  onClick={() => {
+                    setAiProvider(provider);
+                    toast({
+                      title: `Proveedor: ${AI_PROVIDER_LABEL[provider]}`,
+                      description:
+                        provider === 'deepseek'
+                          ? 'Se intentará DeepSeek primero; si falla, la app sigue con OpenRouter.'
+                          : 'Se usarán los modelos de OpenRouter como hasta ahora.',
+                    });
+                  }}
+                  className={cn(
+                    'rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all',
+                    aiProvider === provider
+                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                      : 'bg-muted/40 border-border/40 text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {AI_PROVIDER_LABEL[provider]}
+                  <span className="mt-0.5 block text-[11px] font-normal opacity-80">
+                    {provider === 'openrouter' ? 'Modelos gratuitos de OpenRouter' : 'DeepSeek V4.1 Flash Free'}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Se aplica al tutor de idiomas, coach de vida, finanzas, gym, nutrición y DANI. Si DeepSeek
+              no está disponible, la app usa OpenRouter automáticamente para que nada se quede sin
+              respuesta.
+            </p>
           </div>
         </CardContent>
       </Card>
