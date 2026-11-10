@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 import { VisualBlock, VisualCanvas } from '@/components/coach/VisualCanvas';
 import { useLanguageTutor, type SendMessageOptions } from '@/hooks/useLanguageTutor';
 import { useLanguageTutorCoach } from '@/hooks/useLanguageTutorCoach';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { limpiarRepeticiones, useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import type { Language } from '@/hooks/useLanguageLearning';
 import { TUTOR_EMPTY, TUTOR_GENERAL, TUTOR_HEADER, TUTOR_MODES, type TutorModeDef, type TutorSkill } from './tutorModes';
@@ -305,11 +305,13 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   function submit(text: string, scenarioId?: string | null, options?: SendMessageOptions) {
     const limpio = text.trim();
     if (!limpio || loading) return;
-    // Evita el doble envío típico: onend del micro + clic en enviar
+    // Evita el doble envío típico: onend del micro + clic en enviar, o el mismo
+    // texto repetido por el reconocimiento al reiniciar la escucha.
     if (!options?.hidden) {
       const ahora = Date.now();
-      if (lastSendRef.current.text === limpio && ahora - lastSendRef.current.at < 1500) return;
-      lastSendRef.current = { text: limpio, at: ahora };
+      const clave = limpio.toLowerCase().replace(/\s+/g, ' ');
+      if (lastSendRef.current.text === clave && ahora - lastSendRef.current.at < 2500) return;
+      lastSendRef.current = { text: clave, at: ahora };
     }
     fullSendRef.current = false;
 
@@ -323,11 +325,13 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   function handleFinal(text: string) {
     const fromFullscreen = fullSendRef.current;
     fullSendRef.current = false;
-    if (!text.trim()) return;
+    // Segunda barrera: aunque el navegador repita el final, aquí se limpia.
+    const limpio = limpiarRepeticiones(text);
+    if (!limpio) return;
     if (fromFullscreen || autoSend || handsFree) {
-      submit(text);
+      submit(limpio);
     } else {
-      setInput(prev => (prev ? `${prev} ${text}` : text));
+      setInput(prev => (prev ? `${prev} ${limpio}` : limpio));
       inputRef.current?.focus();
     }
   }
@@ -336,8 +340,8 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   useEffect(() => {
     if (!handsFree || !micArmed || !esSpeaking) return;
     if (loading || speaking || explanationSpeaking || sttListening || !sttSupported) return;
-    // Margen para que arranque el TTS antes de abrir el micro (evita eco)
-    const t = window.setTimeout(() => sttStart(), 700);
+    // Margen para que termine el audio del TTS antes de abrir el micro (evita eco)
+    const t = window.setTimeout(() => sttStart(), 1000);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handsFree, micArmed, esSpeaking, loading, speaking, explanationSpeaking, sttListening, sttSupported]);

@@ -60,6 +60,92 @@ interface Options {
   onError?: (code: string) => void;
 }
 
+/** Texto comparable: sin mayúsculas, tildes ni puntuación. */
+const normalizar = (texto: string) =>
+  texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * Une los fragmentos finales evitando los solapamientos que produce Chrome:
+ * a veces repite el mismo final con otro índice o manda un fragmento que ya
+ * incluye todo lo dicho antes.
+ */
+function unirFragmentos(partes: string[]): string {
+  let salida = '';
+  for (const bruto of partes) {
+    const parte = bruto.trim();
+    if (!parte) continue;
+    if (!salida) {
+      salida = parte;
+      continue;
+    }
+
+    const actual = normalizar(salida);
+    const nueva = normalizar(parte);
+    if (!nueva) continue;
+
+    // Mismo texto, o un prefijo de lo que ya tenemos: duplicado.
+    if (nueva === actual || actual.startsWith(`${nueva} `)) continue;
+
+    // El fragmento nuevo ya contiene todo lo anterior: reemplaza.
+    if (nueva.startsWith(`${actual} `)) {
+      salida = parte;
+      continue;
+    }
+
+    // Solape parcial en la frontera: "I want to" + "to go" -> "I want to go".
+    const palabrasActual = salida.split(/\s+/);
+    const palabrasNuevas = parte.split(/\s+/);
+    let solape = 0;
+    for (let k = Math.min(palabrasActual.length, palabrasNuevas.length); k > 0; k--) {
+      if (
+        normalizar(palabrasActual.slice(-k).join(' ')) ===
+        normalizar(palabrasNuevas.slice(0, k).join(' '))
+      ) {
+        solape = k;
+        break;
+      }
+    }
+
+    salida = `${salida} ${palabrasNuevas.slice(solape).join(' ')}`
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  return salida;
+}
+
+/** Colapsa una transcripción que repite la misma palabra o la misma frase. */
+export function limpiarRepeticiones(texto: string): string {
+  const limpio = texto.replace(/\s+/g, ' ').trim();
+  const palabras = limpio.split(' ').filter(Boolean);
+  if (palabras.length < 2) return limpio;
+
+  // Busca el período más pequeño: "hello hello hello" o "I want to go I want to go".
+  const maxPeriodo = Math.floor(palabras.length / 2);
+  for (let periodo = 1; periodo <= maxPeriodo; periodo++) {
+    if (palabras.length % periodo !== 0) continue;
+    let igual = true;
+    for (let i = periodo; i < palabras.length; i++) {
+      if (normalizar(palabras[i]) !== normalizar(palabras[i % periodo])) {
+        igual = false;
+        break;
+      }
+    }
+    if (!igual) continue;
+    const veces = palabras.length / periodo;
+    // Dos repeticiones de una palabra suelta pueden ser intencionadas ("no no").
+    if (periodo === 1 && veces < 3) continue;
+    return palabras.slice(0, periodo).join(' ');
+  }
+
+  return limpio;
+}
+
 /** Silencios seguidos permitidos en modo manos libres antes de rendirse. */
 const MAX_SILENCIOS = 4;
 /** Algunos navegadores no disparan onend al llamar stop(): forzamos el cierre. */
@@ -68,10 +154,10 @@ const STOP_FALLBACK_MS = 1400;
 /**
  * Reconocimiento de voz con una transcripción fiable.
  *
- * Chrome a veces repite el mismo resultado final (sobre todo al parar o al
- * reiniciar la escucha en modo continuo). Por eso los resultados finales se
- * guardan por índice absoluto en un Map: cada fragmento se añade una sola vez
- * aunque el navegador lo emita de nuevo. Además, `onFinal` se entrega como
+ * Chrome a veces repite el mismo resultado final (sobre todo al parar, al
+ * reiniciar la escucha en modo continuo o al mandar fragmentos acumulativos).
+ * Los finales se guardan por índice y además se fusionan por contenido, de modo
+ * que "hello hello hello" se entrega como "hello". `onFinal` se entrega como
  * máximo una vez por sesión de escucha.
  */
 export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
@@ -105,14 +191,12 @@ export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
     }
   }, []);
 
-  /** Junta los fragmentos finales en orden, sin repetir índices. */
+  /** Junta los fragmentos finales en orden, sin repetir índices ni contenido. */
   const finalText = useCallback(() => {
-    return [...finalsRef.current.entries()]
+    const partes = [...finalsRef.current.entries()]
       .sort((a, b) => a[0] - b[0])
-      .map(([, text]) => text)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+      .map(([, text]) => text);
+    return limpiarRepeticiones(unirFragmentos(partes));
   }, []);
 
   /** Suelta el micrófono SIN entregar la transcripción. */
