@@ -16,14 +16,114 @@ const AREAS = [
   "lectura", "musica", "piano", "guitarra", "apariencia", "finanzas", "mental", "social", "gaming",
 ];
 
-const MODELOS_FREE = [
+/**
+ * Modelos gratuitos de reserva. La lista real se descubre en vivo; estos solo
+ * se usan si el catálogo de OpenRouter no está disponible.
+ */
+const MODELOS_PREFERIDOS = [
+  "recursive/flint-v1.0:free",
   "qwen/qwen3-32b:free",
-  "qwen/qwen3-8b:free",
   "moonshotai/kimi-k2-0905:free",
   "meta-llama/llama-3.3-70b-instruct:free",
+  "google/gemma-3-27b-it:free",
 ];
 
 let MODELO_ACTIVO: string | null = null;
+
+/**
+ * OpenRouter restringe algunos gratuitos a "agentic harnesses": desde una Edge
+ * Function devuelven 403. Nunca deben entrar en la cadena de modelos.
+ */
+const MODELOS_RESTRINGIDOS = /thinkingmachines|inkling/i;
+/** Modelos que ya fallaron por sí mismos en esta instancia. */
+const MODELOS_INVALIDOS = new Set<string>();
+
+const modeloBloqueado = (id: string) =>
+  !id || MODELOS_RESTRINGIDOS.test(id) || MODELOS_INVALIDOS.has(id);
+
+const puntuarModelo = (id: string) => {
+  let score = 0;
+  if (/deepseek/.test(id)) score += 60;
+  if (/qwen/.test(id)) score += 50;
+  if (/mistral/.test(id)) score += 40;
+  if (/llama/.test(id)) score += 35;
+  if (/gemini|gemma/.test(id)) score += 30;
+  if (/kimi|moonshot/.test(id)) score += 25;
+  if (/glm/.test(id)) score += 20;
+  if (/flint/.test(id)) score += 90;
+  // Modelo gratuito que ha respondido de forma fiable en las pruebas reales.
+  if (/xingchen|xing4/.test(id)) score += 100;
+  if (/reason|thinking|r1/.test(id)) score -= 40;
+  if (/audio|embed|rerank|moderation|safety|image|vision|-vl|vl-/.test(id)) score -= 200;
+  const size = Number((id.match(/(\d+(?:\.\d+)?)b(?:-|:|\b)/) || [])[1]);
+  if (Number.isFinite(size) && size > 0 && size < 7) score -= 60;
+  return score;
+};
+
+let catalogoCache: { at: number; modelos: string[] } | null = null;
+
+/** Lee el catálogo y devuelve gratuitos de texto que aceptan herramientas. */
+async function descubrirModelos(apiKey: string): Promise<string[]> {
+  if (catalogoCache && Date.now() - catalogoCache.at < 10 * 60 * 1000) {
+    return catalogoCache.modelos;
+  }
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return catalogoCache?.modelos || [];
+    const data = await res.json();
+    const modelos = (Array.isArray(data?.data) ? data.data : [])
+      .filter((m: any) => {
+        if (!m || typeof m.id !== "string") return false;
+        if (modeloBloqueado(m.id)) return false;
+        const pricing = m.pricing || {};
+        if (Number(pricing.prompt) !== 0 || Number(pricing.completion) !== 0) return false;
+        if (Number(pricing.request || 0) !== 0) return false;
+        if (Array.isArray(m.supported_parameters) && !m.supported_parameters.includes("tools")) return false;
+        const outputs = m.architecture?.output_modalities;
+        if (Array.isArray(outputs) && !outputs.includes("text")) return false;
+        return true;
+      })
+      .map((m: any) => m.id as string)
+      .sort((a: string, b: string) => puntuarModelo(b) - puntuarModelo(a))
+      .slice(0, 12);
+    catalogoCache = { at: Date.now(), modelos };
+    return modelos;
+  } catch {
+    return catalogoCache?.modelos || [];
+  }
+}
+
+async function candidatosModelo(apiKey: string): Promise<string[]> {
+  const descubiertos = await descubrirModelos(apiKey);
+  const preferidos = descubiertos.length
+    ? MODELOS_PREFERIDOS.filter((id) => descubiertos.includes(id))
+    : MODELOS_PREFERIDOS;
+  const lista = [
+    ...(MODELO_ACTIVO ? [MODELO_ACTIVO] : []),
+    ...descubiertos,
+    ...preferidos,
+    ...MODELOS_PREFERIDOS,
+  ];
+  return [...new Set(lista)].filter((id) => !modeloBloqueado(id)).slice(0, 12);
+}
+
+async function leerErrorOpenRouter(res: Response): Promise<string> {
+  const texto = await res.text().catch(() => "");
+  try {
+    const parsed = JSON.parse(texto);
+    return String(parsed?.error?.message || parsed?.message || texto || `HTTP ${res.status}`);
+  } catch {
+    return texto || `HTTP ${res.status}`;
+  }
+}
+
+const MENSAJE_LIMITE_DIARIO =
+  "Se agotó el límite diario de modelos gratuitos de OpenRouter. Se renueva mañana; si necesitas más hoy, añade 10 créditos en OpenRouter para desbloquear 1000 peticiones gratuitas al día.";
+
+const esLimiteDiario = (detalle: string) => /free-models-per-day|per day|daily/i.test(detalle);
 
 const CUBA_OFFSET_MS = 4 * 60 * 60 * 1000;
 
@@ -819,48 +919,73 @@ Reglas:
           "X-Title": "Segundo Cerebro",
         },
         body: JSON.stringify({ model: modelo, messages, tools }),
+        signal: AbortSignal.timeout(45_000),
       });
 
     for (let round = 0; round < 6; round++) {
       let res: Response | null = null;
-      if (MODELO_ACTIVO) {
-        try { res = await chat(MODELO_ACTIVO); } catch { res = null; }
-      }
-      if (!res || !res.ok) {
-        for (const m of MODELOS_FREE) {
-          try { res = await chat(m); } catch { continue; }
-          if (res.ok) { MODELO_ACTIVO = m; break; }
-          if (res.status === 401 || res.status === 403) break;
+      let ultimoEstado = 0;
+      let ultimoDetalle = "";
+
+      for (const modelo of await candidatosModelo(OPENROUTER_API_KEY)) {
+        let intento: Response;
+        try {
+          intento = await chat(modelo);
+        } catch {
+          continue;
         }
-        if (!res || !res.ok) {
-          try {
-            const mr = await fetch("https://openrouter.ai/api/v1/models", {
-              headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}` },
-            });
-            if (mr.ok) {
-              const lista = await mr.json();
-              const free: string[] = (lista.data || [])
-                .filter((x: any) => x.pricing && Number(x.pricing.prompt) === 0 && Number(x.pricing.completion) === 0)
-                .map((x: any) => x.id)
-                .slice(0, 12);
-              for (const m of free) {
-                try { res = await chat(m); } catch { continue; }
-                if (res.ok) { MODELO_ACTIVO = m; break; }
-                if (res.status === 401 || res.status === 403) break;
-              }
-            }
-          } catch { /* sin descubrimiento */ }
+        if (intento.ok) {
+          MODELO_ACTIVO = modelo;
+          res = intento;
+          break;
         }
+
+        ultimoEstado = intento.status;
+        ultimoDetalle = await leerErrorOpenRouter(intento);
+        console.warn(`[life-coach] ${modelo} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`);
+
+        // Solo una clave inválida corta la cadena. Un 403 de un modelo
+        // restringido (p. ej. thinkingmachines/inkling) es del modelo.
+        if (intento.status === 401) break;
+
+        if (
+          intento.status === 400 ||
+          intento.status === 403 ||
+          intento.status === 404 ||
+          intento.status === 422
+        ) {
+          MODELOS_INVALIDOS.add(modelo);
+          if (MODELO_ACTIVO === modelo) MODELO_ACTIVO = null;
+        }
+
+        // 402 = sin crédito y 429 diario = cuenta agotada: insistir no ayuda.
+        // Otros 429 pueden ser del proveedor de ese modelo: probamos el siguiente.
+        if (intento.status === 402) break;
+        if (intento.status === 429 && esLimiteDiario(ultimoDetalle)) break;
       }
 
       if (!res || !res.ok) {
-        if (res) {
-          const errText = await res.text();
-          let msg = errText;
-          try { msg = JSON.parse(errText)?.error?.message || JSON.parse(errText)?.message || errText; } catch { /* texto plano */ }
-          return json({ error: msg, status: res.status }, res.status);
+        if (ultimoEstado === 401) {
+          return json({ error: "La clave de OpenRouter no es válida o no tiene permisos." }, 500);
         }
-        return json({ error: "No se pudo conectar con OpenRouter" }, 502);
+        if (ultimoEstado === 429 || ultimoEstado === 402) {
+          return json(
+            {
+              error: esLimiteDiario(ultimoDetalle)
+                ? MENSAJE_LIMITE_DIARIO
+                : "OpenRouter está limitando las peticiones gratuitas ahora mismo. Espera un minuto y vuelve a intentarlo.",
+              detalle: ultimoDetalle.slice(0, 300),
+            },
+            429,
+          );
+        }
+        return json(
+          {
+            error: "Ningún modelo gratuito respondió ahora mismo. Vuelve a intentarlo en un minuto.",
+            detalle: ultimoDetalle.slice(0, 240),
+          },
+          429,
+        );
       }
 
       const data = await res.json();

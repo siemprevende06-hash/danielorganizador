@@ -807,11 +807,12 @@ interface ModelReply {
 
 class ModelHttpError extends Error {
   status: number;
+  /** Solo una clave inválida (401) invalida toda la cadena de modelos. */
   fatal: boolean;
   constructor(status: number, message: string) {
     super(message);
     this.status = status;
-    this.fatal = status === 401 || status === 403;
+    this.fatal = status === 401;
   }
 }
 
@@ -881,6 +882,41 @@ async function callOpenRouter(
 
 // ---------------------------------------------------------------- model discovery
 
+/**
+ * OpenRouter restringe algunos modelos gratuitos a "agentic harnesses": desde
+ * una Edge Function devuelven 403 con el mensaje "only available on agentic
+ * harnesses". Nunca deben entrar en la cadena de modelos.
+ */
+const MODELOS_RESTRINGIDOS = /thinkingmachines|inkling/i;
+/** Modelos que ya fallaron por sí mismos en esta instancia. */
+const MODELOS_INVALIDOS = new Set<string>();
+
+const esErrorDeModelo = (detalle: string, status: number) =>
+  status === 400 ||
+  status === 403 ||
+  status === 404 ||
+  status === 422 ||
+  /agentic harness|only available|deprecated|not a valid model|does not exist|no endpoints? found/i.test(
+    detalle,
+  );
+
+const modeloBloqueado = (id: string, detalle = "") =>
+  !id ||
+  MODELOS_RESTRINGIDOS.test(id) ||
+  MODELOS_INVALIDOS.has(id) ||
+  /agentic harness|only available on/i.test(detalle);
+
+function marcarModeloInvalido(id: string) {
+  if (!id) return;
+  MODELOS_INVALIDOS.add(id);
+  if (lastGoodModel === id) lastGoodModel = null;
+}
+
+const MENSAJE_LIMITE_DIARIO =
+  "Se agotó el límite diario de modelos gratuitos de OpenRouter. Se renueva mañana; si necesitas más hoy, añade 10 créditos en OpenRouter para desbloquear 1000 peticiones gratuitas al día.";
+
+const esLimiteDiario = (detalle: string) => /free-models-per-day|per day|daily/i.test(detalle);
+
 let modelsCache: { at: number; models: any[] } | null = null;
 /** Último modelo que respondió bien en esta instancia (se reinicia en frío). */
 let lastGoodModel: string | null = null;
@@ -932,6 +968,8 @@ const modelScore = (id: string, contextLength: number) => {
   if (/gemini/.test(id)) score += 90;
   if (/kimi|moonshot/.test(id)) score += 80;
   if (/glm/.test(id)) score += 70;
+  // Modelo gratuito que ha respondido de forma fiable en las pruebas reales.
+  if (/xingchen|xing4/.test(id)) score += 210;
   if (/reason|thinking|r1/.test(id)) score -= 90;
   if (/audio|embed|rerank|moderation|safety|image|vision/.test(id)) score -= 500;
   const size = Number((id.match(/(\d+(?:\.\d+)?)b(?:\b|-)/) || [])[1]);
@@ -943,13 +981,14 @@ function pickModels(all: any[], onlyTools: boolean, active: string | null): stri
   const free = all
     .filter((m) => {
       if (!m || typeof m.id !== "string" || !m.id.endsWith(":free")) return false;
+      if (modeloBloqueado(m.id)) return false;
       const pricing = m.pricing || {};
       const isFree =
         Number(pricing.prompt) === 0 &&
         Number(pricing.completion) === 0 &&
         Number(pricing.request || 0) === 0;
       if (!isFree) return false;
-      if (onlyTools && !(Array.isArray(m.supported_parameters) && m.supported_parameters.includes("tools")))
+      if (onlyTools && Array.isArray(m.supported_parameters) && !m.supported_parameters.includes("tools"))
         return false;
       const outputs = m.architecture?.output_modalities;
       if (Array.isArray(outputs) && !outputs.includes("text")) return false;
@@ -966,15 +1005,15 @@ function pickModels(all: any[], onlyTools: boolean, active: string | null): stri
   // ya no existen (p. ej. Qwen3 8B, retirado en octubre de 2026).
   const available = new Set(all.map((m) => m?.id).filter(Boolean));
   const preferred = (onlyTools ? STATIC_TOOL_MODELS : STATIC_TEXT_MODELS).filter(
-    (id) => !all.length || available.has(id),
+    (id) => !modeloBloqueado(id) && (!all.length || available.has(id)),
   );
 
   const out: string[] = [];
-  if (active) out.push(active);
+  if (active && !modeloBloqueado(active)) out.push(active);
   // Los 4 mejores gratuitos descubiertos, luego los estáticos fiables y
   // finalmente el resto de gratuitos.
   for (const id of [...free.slice(0, 4), ...preferred, ...free.slice(4)]) {
-    if (!out.includes(id)) out.push(id);
+    if (!out.includes(id) && !modeloBloqueado(id)) out.push(id);
   }
   return out.slice(0, 8);
 }
@@ -1496,7 +1535,12 @@ Deno.serve(async (req) => {
         if (err.fatal) {
           return json({ error: `La clave de OpenRouter no es válida o no tiene permisos. ${lastError}` }, 500);
         }
-        // 429 / modelo caído / timeout: probamos el siguiente.
+        // Modelo caído, restringido, retirado o sin soporte de herramientas:
+        // lo vetamos y seguimos con el siguiente. Nunca devolvemos su error.
+        if (esErrorDeModelo(lastError, Number(err.status) || 0)) marcarModeloInvalido(model);
+        // Límite diario de la cuenta: probar más modelos solo añade espera.
+        if (err.status === 429 && esLimiteDiario(lastError)) break;
+        // 429 / timeout: probamos el siguiente.
       }
     }
 
@@ -1513,7 +1557,7 @@ Deno.serve(async (req) => {
     // ------------------------- fallback sin herramientas -------------------------
     if (remaining() > 18_000) {
       let textModels = pickModels(allModels, false, intent ? null : activeModel);
-      if (!allModels.length) textModels = STATIC_TEXT_MODELS;
+      if (!allModels.length) textModels = STATIC_TEXT_MODELS.filter((id) => !modeloBloqueado(id));
       for (const model of textModels.slice(0, 3)) {
         if (remaining() < 14_000) break;
         try {
@@ -1551,7 +1595,9 @@ Deno.serve(async (req) => {
             return json({ content: reply.content.trim(), acciones: [], modelo: model });
           }
         } catch (e) {
-          lastError = (e as Error).message || lastError;
+          const err = e as Error & { status?: number };
+          lastError = err.message || lastError;
+          if (esErrorDeModelo(lastError, Number(err.status) || 0)) marcarModeloInvalido(model);
         }
       }
     }
@@ -1577,11 +1623,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    const limiteDiario = esLimiteDiario(lastError);
     return json(
       {
-        error:
-          "Ningún modelo gratuito respondió ahora mismo. Es una limitación temporal de OpenRouter: espera un minuto y vuelve a intentarlo. " +
-          (lastError ? `Detalle: ${lastError.slice(0, 240)}` : ""),
+        error: limiteDiario
+          ? MENSAJE_LIMITE_DIARIO
+          : "Ningún modelo gratuito respondió ahora mismo. Espera un minuto y vuelve a intentarlo. " +
+            (lastError ? `Detalle: ${lastError.slice(0, 240)}` : ""),
       },
       429,
     );

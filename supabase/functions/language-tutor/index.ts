@@ -37,6 +37,75 @@ const MODELOS_FREE = [
   "google/gemma-4-26b-a4b-it:free",
 ];
 
+/**
+ * OpenRouter restringe algunos gratuitos a "agentic harnesses": devuelven 403
+ * desde una Edge Function. Nunca deben entrar en la cadena de proveedores.
+ */
+const MODELOS_RESTRINGIDOS = /thinkingmachines|inkling/i;
+/** Modelos que ya fallaron por sí mismos en esta instancia. */
+const MODELOS_INVALIDOS = new Set<string>();
+
+const modeloBloqueado = (id: string) =>
+  !id || MODELOS_RESTRINGIDOS.test(id) || MODELOS_INVALIDOS.has(id);
+
+const esFalloDelModelo = (status: number) =>
+  status === 400 || status === 403 || status === 404 || status === 422;
+
+const puntuarModelo = (id: string) => {
+  let score = 0;
+  if (/deepseek/.test(id)) score += 60;
+  if (/qwen/.test(id)) score += 50;
+  if (/mistral/.test(id)) score += 40;
+  if (/llama/.test(id)) score += 35;
+  if (/gemini|gemma/.test(id)) score += 30;
+  if (/kimi|moonshot/.test(id)) score += 25;
+  if (/glm/.test(id)) score += 20;
+  if (/flint/.test(id)) score += 90;
+  if (/xingchen|xing4/.test(id)) score += 100;
+  if (/reason|thinking|r1/.test(id)) score -= 40;
+  if (/audio|embed|rerank|moderation|safety|image|vision|-vl|vl-/.test(id)) score -= 200;
+  const size = Number((id.match(/(\d+(?:\.\d+)?)b(?:-|:|\b)/) || [])[1]);
+  if (Number.isFinite(size) && size > 0 && size < 7) score -= 60;
+  return score;
+};
+
+let catalogoCache: { at: number; modelos: string[] } | null = null;
+
+/** Descubre gratuitos de texto vigentes en OpenRouter (con caché corta). */
+async function descubrirModelos(): Promise<string[]> {
+  const orKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!orKey) return [];
+  if (catalogoCache && Date.now() - catalogoCache.at < 10 * 60 * 1000) {
+    return catalogoCache.modelos;
+  }
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/models", {
+      headers: { Authorization: `Bearer ${orKey}` },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return catalogoCache?.modelos || [];
+    const data = await res.json();
+    const modelos = (Array.isArray(data?.data) ? data.data : [])
+      .filter((m: any) => {
+        if (!m || typeof m.id !== "string") return false;
+        if (modeloBloqueado(m.id)) return false;
+        const pricing = m.pricing || {};
+        if (Number(pricing.prompt) !== 0 || Number(pricing.completion) !== 0) return false;
+        if (Number(pricing.request || 0) !== 0) return false;
+        const outputs = m.architecture?.output_modalities;
+        if (Array.isArray(outputs) && !outputs.includes("text")) return false;
+        return true;
+      })
+      .map((m: any) => m.id as string)
+      .sort((a: string, b: string) => puntuarModelo(b) - puntuarModelo(a))
+      .slice(0, 10);
+    catalogoCache = { at: Date.now(), modelos };
+    return modelos;
+  } catch {
+    return catalogoCache?.modelos || [];
+  }
+}
+
 type Proveedor = {
   nombre: "gateway" | "openrouter";
   modelo: string;
@@ -47,7 +116,7 @@ type Proveedor = {
 /** Último proveedor que funcionó: se prueba primero para no perder tiempo. */
 let PROVEEDOR_OK: Proveedor | null = null;
 
-function candidatos(): Proveedor[] {
+function candidatos(descubiertos: string[] = []): Proveedor[] {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   const orKey = Deno.env.get("OPENROUTER_API_KEY");
   const override = (Deno.env.get("LANGUAGE_TUTOR_MODEL") || "").trim();
@@ -67,22 +136,24 @@ function candidatos(): Proveedor[] {
     if (override && !lovableKey) {
       lista.push({ nombre: "openrouter", modelo: override, url: OPENROUTER_URL, key: orKey });
     }
-    for (const m of MODELOS_FREE) {
+    for (const m of [...descubiertos, ...MODELOS_FREE]) {
       if (m !== override) lista.push({ nombre: "openrouter", modelo: m, url: OPENROUTER_URL, key: orKey });
     }
   }
 
+  const disponibles = lista.filter((p) => !modeloBloqueado(p.modelo));
+
   if (PROVEEDOR_OK) {
-    const primero = lista.findIndex(
+    const primero = disponibles.findIndex(
       (p) => p.nombre === PROVEEDOR_OK!.nombre && p.modelo === PROVEEDOR_OK!.modelo,
     );
     if (primero > 0) {
-      const [ok] = lista.splice(primero, 1);
-      lista.unshift(ok);
+      const [ok] = disponibles.splice(primero, 1);
+      disponibles.unshift(ok);
     }
   }
 
-  return lista;
+  return disponibles;
 }
 
 // ---------------------------------------------------------------------------
@@ -699,7 +770,8 @@ interface StreamOpts {
  * Devuelve la respuesta HTTP abierta para leerla en streaming.
  */
 async function abrirStream(messages: any[], opts: StreamOpts): Promise<Response | null> {
-  for (const p of candidatos()) {
+  const descubiertos = await descubrirModelos();
+  for (const p of candidatos(descubiertos)) {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 45000);
     const onAbort = () => ctrl.abort();
@@ -735,6 +807,11 @@ async function abrirStream(messages: any[], opts: StreamOpts): Promise<Response 
 
       const errText = await res.text().catch(() => "");
       console.warn(`[language-tutor] ${p.nombre}/${p.modelo} -> ${res.status} ${errText.slice(0, 180)}`);
+      if (esFalloDelModelo(res.status)) {
+        MODELOS_INVALIDOS.add(p.modelo);
+        if (PROVEEDOR_OK?.modelo === p.modelo) PROVEEDOR_OK = null;
+      }
+      if (res.status === 429 && esLimiteDiario(errText)) break;
     } catch (e) {
       console.warn(`[language-tutor] ${p.nombre}/${p.modelo} falló: ${(e as Error).message}`);
     } finally {
@@ -790,11 +867,21 @@ function parseJsonLoose(text: string): any | null {
   }
 }
 
+/** Último fallo de `completar`, para diagnosticar sin exponer detalles al usuario. */
+let ULTIMO_ERROR = "";
+
+const MENSAJE_LIMITE_DIARIO =
+  "Se agotó el límite diario de modelos gratuitos de OpenRouter. Se renueva mañana; si necesitas más hoy, añade 10 créditos en OpenRouter para desbloquear 1000 peticiones gratuitas al día.";
+
+const esLimiteDiario = (detalle: string) => /free-models-per-day|per day|daily/i.test(detalle);
+
 async function completar(
   messages: any[],
-  opts: { maxTokens: number; temperature: number },
+  opts: { maxTokens: number; temperature: number; validar?: (texto: string) => boolean },
 ): Promise<string | null> {
-  for (const p of candidatos()) {
+  const descubiertos = await descubrirModelos();
+  ULTIMO_ERROR = "";
+  for (const p of candidatos(descubiertos)) {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 20000);
     try {
@@ -822,6 +909,12 @@ async function completar(
         console.warn(
           `[language-tutor] ${p.nombre}/${p.modelo} -> ${res.status} ${errText.slice(0, 180)}`,
         );
+        if (esFalloDelModelo(res.status)) {
+          MODELOS_INVALIDOS.add(p.modelo);
+          if (PROVEEDOR_OK?.modelo === p.modelo) PROVEEDOR_OK = null;
+        }
+        ULTIMO_ERROR = `${p.modelo}: ${res.status} ${errText.slice(0, 160)}`;
+        if (res.status === 429 && esLimiteDiario(errText)) break;
         continue;
       }
 
@@ -833,12 +926,19 @@ async function completar(
           : Array.isArray(bruto)
             ? bruto.map((x: any) => x?.text || "").join("")
             : "";
-      if (content.trim()) {
+      const texto = content.trim();
+      if (texto) {
+        if (opts.validar && !opts.validar(texto)) {
+          console.warn(`[language-tutor] ${p.nombre}/${p.modelo} -> respuesta inválida`);
+          ULTIMO_ERROR = `${p.modelo}: respuesta sin el formato esperado`;
+          continue;
+        }
         PROVEEDOR_OK = p;
-        return content.trim();
+        return texto;
       }
     } catch (e) {
       console.warn(`[language-tutor] ${p.nombre}/${p.modelo} falló: ${(e as Error).message}`);
+      ULTIMO_ERROR = `${p.modelo}: ${(e as Error).message}`;
     } finally {
       clearTimeout(timeout);
     }
@@ -956,10 +1056,16 @@ Deno.serve(async (req) => {
             { role: "system", content: promptFeedback(info, nivel, message, contexto) },
             { role: "user", content: "Evalúa la intervención y devuelve solo el JSON." },
           ],
-          { maxTokens: 700, temperature: 0.2 },
+          { maxTokens: 700, temperature: 0.2, validar: (t) => parseJsonLoose(t) !== null },
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
-        if (!parsed) return json({ error: "No pude evaluar la frase" }, 502);
+        if (!parsed) {
+          const diario = esLimiteDiario(ULTIMO_ERROR);
+          return json(
+            { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude evaluar la frase", detalle: ULTIMO_ERROR.slice(0, 300) },
+            diario ? 429 : 502,
+          );
+        }
         return json({
           status: cleanText(parsed.status, 30) || "no_aplica",
           corrected: cleanText(parsed.corrected, 500),
@@ -982,7 +1088,13 @@ Deno.serve(async (req) => {
           { maxTokens: 900, temperature: 0.4 },
         );
         const text = sinRepeticiones(cleanText(raw, 1800));
-        if (!text) return json({ error: "No pude generar la explicación" }, 502);
+        if (!text) {
+          const diario = esLimiteDiario(ULTIMO_ERROR);
+          return json(
+            { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude generar la explicación", detalle: ULTIMO_ERROR.slice(0, 300) },
+            diario ? 429 : 502,
+          );
+        }
         return json({ explanation: text });
       }
 
@@ -991,10 +1103,16 @@ Deno.serve(async (req) => {
           { role: "system", content: promptSuggest(info, nivel, message, history) },
           { role: "user", content: "Dame la sugerencia en JSON." },
         ],
-        { maxTokens: 600, temperature: 0.6 },
+        { maxTokens: 600, temperature: 0.6, validar: (t) => parseJsonLoose(t) !== null },
       );
       const parsed = raw ? parseJsonLoose(raw) : null;
-      if (!parsed) return json({ error: "No pude generar una sugerencia" }, 502);
+      if (!parsed) {
+        const diario = esLimiteDiario(ULTIMO_ERROR);
+        return json(
+          { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude generar una sugerencia", detalle: ULTIMO_ERROR.slice(0, 300) },
+          diario ? 429 : 502,
+        );
+      }
       return json({
         suggestion: cleanText(parsed.suggestion, 400),
         translation: cleanText(parsed.translation, 400),
