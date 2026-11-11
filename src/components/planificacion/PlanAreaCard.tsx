@@ -62,6 +62,11 @@ export interface PlanAreaCardData {
   /** Meta de minutos del área en el periodo. */
   minutes?: number;
   minutesUnit?: string;
+  /**
+   * Describe cómo se cumple el sistema. Se muestra en un recuadro destacado
+   * dentro de la tarjeta.
+   */
+  systemRule?: string;
   /** Rendimiento real del sistema durante el periodo. */
   system?: PlanSystemMetrics;
   /** Métricas del área (para las tarjetas Salud, Fuerza Mental y Apariencia). */
@@ -228,6 +233,17 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
             </button>
           )}
         </div>
+
+        {card.systemRule && (
+          <div className="rounded-lg border border-primary/30 bg-primary/[0.07] px-2 py-1.5">
+            <p className="text-[7px] font-bold uppercase tracking-[0.14em] text-primary/80">
+              Sistema
+            </p>
+            <p className="mt-0.5 text-[9px] font-medium leading-snug text-foreground/80">
+              {card.systemRule}
+            </p>
+          </div>
+        )}
 
         {card.tasks ? (
           <TaskMetricsBlock tasks={card.tasks} />

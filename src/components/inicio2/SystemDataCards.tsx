@@ -41,6 +41,7 @@ import {
   SYSTEM_GROUPS,
   type SystemCardGroupDef,
 } from "./systemGroups";
+import { SYSTEM_CARD_RULE } from "./systemRules";
 
 interface SharedCardsProps {
   scope: PlanificationScope;
@@ -205,6 +206,7 @@ function SystemCardsContent({
               title: "Tareas generales",
               emoji: "✅",
               note: "general",
+              systemRule: SYSTEM_CARD_RULE.tareas,
               cover:
                 covers[coverKey("sub", "tareas")]
                 ?? covers[coverKey("sub", "general")]
@@ -228,6 +230,7 @@ function SystemCardsContent({
             title: meta.name,
             emoji: meta.emoji,
             note: meta.role === "ancla" ? "ancla" : undefined,
+            systemRule: SYSTEM_CARD_RULE[id],
             cover:
               covers[coverKey("sub", id)]
               ?? covers[coverKey("area", id)]
@@ -271,6 +274,7 @@ function SystemCardsContent({
             title: def.title,
             emoji: def.emoji,
             note: def.note,
+            systemRule: SYSTEM_CARD_RULE[def.id],
             cover:
               covers[coverKey("sub", def.id)]
               ?? covers[coverKey("sub", ids[0])]
