@@ -119,6 +119,18 @@ function dayStatusFor(
   return index >= 0 ? statuses[index] : undefined;
 }
 
+/**
+ * Columnas del grid según cuántas tarjetas tiene el grupo. Así las filas
+ * siempre se llenan: 3 tarjetas ocupan 3 columnas y 1 ocupa toda la fila.
+ */
+function cardGridClass(count: number): string {
+  if (count <= 1) return "grid-cols-1";
+  if (count === 2) return "grid-cols-2";
+  if (count === 3) return "grid-cols-1 sm:grid-cols-3";
+  if (count === 4) return "grid-cols-2 lg:grid-cols-4";
+  return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5";
+}
+
 function SystemCardsContent({
   scope,
   anchor,
@@ -363,8 +375,8 @@ function SystemCardsContent({
               </div>
 
               <div className={cn(
-                "grid grid-cols-2 gap-2.5 sm:grid-cols-3",
-                group.cards.length >= 5 ? "lg:grid-cols-5" : "lg:grid-cols-4",
+                "grid gap-2.5",
+                cardGridClass(group.cards.length),
               )}>
                 {group.cards.map((card) => (
                   <PlanAreaCard key={card.id} card={card} />
