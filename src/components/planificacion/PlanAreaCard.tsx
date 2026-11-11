@@ -144,12 +144,94 @@ function nextTarget(current: number): number {
   return step ?? PLAN_TARGET_STEPS[0];
 }
 
+type RuleStateKey = 'done' | 'partial' | 'none' | 'empty';
+
+const RULE_STATE: Record<
+  RuleStateKey,
+  { label: string; icon: string; pill: string }
+> = {
+  done: {
+    label: 'Cumplido',
+    icon: '✓',
+    pill: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  },
+  partial: {
+    label: 'Parcial',
+    icon: '◐',
+    pill: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  },
+  none: {
+    label: 'No cumplido',
+    icon: '✕',
+    pill: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  },
+  empty: {
+    label: 'Sin datos',
+    icon: '—',
+    pill: 'bg-foreground/[0.06] text-muted-foreground',
+  },
+};
+
+/**
+ * Estado del sistema en el periodo visible. Se apoya en la misma meta que ya
+ * usa la tarjeta: targetMet para sistemas y grupos, y % de tareas completadas
+ * para la tarjeta de tareas generales.
+ */
+function ruleStateFor(card: PlanAreaCardData): {
+  label: string;
+  icon: string;
+  pill: string;
+  detail: string;
+} {
+  const state = (key: RuleStateKey, detail: string) => ({
+    ...RULE_STATE[key],
+    detail,
+  });
+
+  if (card.tasks) {
+    const pct = card.tasks.completion;
+    if (pct == null) return state('empty', 'Sin tareas en el periodo');
+    if (pct >= 100) return state('done', `${pct}% de las tareas completadas`);
+    if (pct > 0) return state('partial', `${pct}% de las tareas completadas`);
+    return state('none', '0% de las tareas completadas');
+  }
+
+  const system = card.system;
+  if (system) {
+    const pct = system.compliance;
+    if (system.targetMet == null || system.daysTotal === 0 || pct == null) {
+      return state('empty', 'Sin días evaluables en el periodo');
+    }
+    const detail = `${pct}% de cumplimiento · meta ${system.targetPct}%`;
+    if (system.targetMet) return state('done', detail);
+    if (pct > 0) return state('partial', detail);
+    return state('none', detail);
+  }
+
+  if (card.area) {
+    const pct = card.area.compliance;
+    if (pct == null) return state('empty', 'Sin datos del periodo');
+    if (pct >= 80) return state('done', `${pct}% de cumplimiento`);
+    if (pct > 0) return state('partial', `${pct}% de cumplimiento`);
+    return state('none', '0% de cumplimiento');
+  }
+
+  return state('empty', 'Sin datos del periodo');
+}
+
 /**
  * Tarjeta de área con el mismo lenguaje visual que las tarjetas de Sistemas:
  * portada arriba, rendimiento real del sistema, objetivos dentro y los minutos
  * del periodo al pie.
  */
-export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
+export function PlanAreaCard({
+  card,
+  periodLabel,
+}: {
+  card: PlanAreaCardData;
+  /** Periodo visible (día, semana, mes…), para el tooltip del indicador. */
+  periodLabel?: string;
+}) {
   const toggleable = card.items.filter(i => i.onToggle && !i.ignoreForCompletion);
   const doneCount = toggleable.filter(i => i.done).length;
   // Objetivos con estado de cumplimiento: alimentan la barra "Res" del sistema.
@@ -163,6 +245,10 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
     && card.system.compliance >= 80;
   const dayTone = card.dayStatus ? DAY_CARD_TONE[card.dayStatus] : undefined;
   const completedTone = complete || systemComplete || areaComplete || stabilityComplete;
+  const ruleState = card.systemRule ? ruleStateFor(card) : null;
+  const ruleTitle = ruleState
+    ? `${ruleState.detail}${periodLabel ? ` · ${periodLabel}` : ''}`
+    : undefined;
 
   const counter = card.tasks
     ? card.tasks.total > 0
@@ -236,9 +322,23 @@ export function PlanAreaCard({ card }: { card: PlanAreaCardData }) {
 
         {card.systemRule && (
           <div className="rounded-lg border border-primary/30 bg-primary/[0.07] px-2 py-1.5">
-            <p className="text-[7px] font-bold uppercase tracking-[0.14em] text-primary/80">
-              Sistema
-            </p>
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-[7px] font-bold uppercase tracking-[0.14em] text-primary/80">
+                Sistema
+              </p>
+              {ruleState && (
+                <span
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-0.5 rounded-full px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide',
+                    ruleState.pill,
+                  )}
+                  title={ruleTitle}
+                >
+                  <span aria-hidden="true">{ruleState.icon}</span>
+                  {ruleState.label}
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 text-[9px] font-medium leading-snug text-foreground/80">
               {card.systemRule}
             </p>

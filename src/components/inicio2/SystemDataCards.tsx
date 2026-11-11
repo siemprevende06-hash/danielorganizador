@@ -383,7 +383,7 @@ function SystemCardsContent({
                 cardGridClass(group.cards.length),
               )}>
                 {group.cards.map((card) => (
-                  <PlanAreaCard key={card.id} card={card} />
+                  <PlanAreaCard key={card.id} card={card} periodLabel={periodLabel} />
                 ))}
               </div>
             </div>
