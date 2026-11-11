@@ -49,6 +49,7 @@ import { useDaySpeedPlan } from '@/hooks/useDaySpeedPlan';
 import { PlanSistemaSection } from '@/components/today/PlanSistemaSection';
 import { UniEntrepreneurshipProjectPanel } from '@/components/today/UniEntrepreneurshipProjectPanel';
 import { WorkBlocksSection } from '@/components/today/WorkBlocksSection';
+import { DailyControlPanel } from '@/components/today/DailyControlPanel';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
 import { usePeriodFocus } from '@/hooks/usePeriodFocus';
@@ -300,9 +301,9 @@ export default function DailyView() {
 
   return (
     <div className="min-h-screen bg-background p-3 md:p-6 pt-20 pb-24">
-      <div className="max-w-4xl mx-auto space-y-4">
+      <div className={cn("mx-auto space-y-4", viewMode === 'panel' ? "max-w-[1200px]" : "max-w-4xl")}>
         <div className="flex justify-center">
-          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica withDireccion withPronosticos withPlanificacion />
+          <EsfuerzoResultadosToggle value={viewMode} onChange={setViewMode} withAutocritica withDireccion withPronosticos withPlanificacion withPanel />
         </div>
 
         <div className="flex items-center justify-between">
@@ -337,7 +338,24 @@ export default function DailyView() {
           </div>
         </div>
 
-        {viewMode === 'plan' ? (
+        {viewMode === 'panel' ? (
+          <DailyControlPanel
+            date={selectedDate}
+            blocks={planBlocks}
+            tasksByBlock={tasksByBlock || {}}
+            tasks={tasks}
+            completedTasks={completedTasks}
+            completedBlocks={completedBlocks}
+            dayScore={dayScore}
+            toggleTaskDone={toggleTaskDone}
+            toggleBlockComplete={toggleBlockComplete}
+            isBlockCompleted={isBlockCompleted}
+            routineLoading={!routineLoaded && planBlocks.length === 0}
+            tasksLoading={dailyPlanData.tasksLoading}
+            systems={data}
+            onToggleSystem={toggleCompletion}
+          />
+        ) : viewMode === 'plan' ? (
           <>
             {/* Routine Selector */}
             <div className="flex flex-wrap items-center justify-center gap-2">

@@ -16,6 +16,7 @@ export function DailyGoalsCard({
   dayScore,
   toggleTaskDone,
   loading,
+  maxTasks = 6,
 }: {
   tasks: TaskItem[];
   completedTasks: TaskItem[];
@@ -24,6 +25,8 @@ export function DailyGoalsCard({
   dayScore: number;
   toggleTaskDone: (taskId: string) => void;
   loading?: boolean;
+  /** Máximo de tareas visibles antes de mostrar "+N tareas más". */
+  maxTasks?: number;
 }) {
   const taskPct = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
   const blockPct = blocks.length > 0 ? Math.round((completedBlocks.length / blocks.length) * 100) : 0;
@@ -37,7 +40,7 @@ export function DailyGoalsCard({
     [tasks],
   );
 
-  const visibleTasks = orderedTasks.slice(0, 6);
+  const visibleTasks = orderedTasks.slice(0, Math.max(0, maxTasks));
 
   return (
     <section className="space-y-4">

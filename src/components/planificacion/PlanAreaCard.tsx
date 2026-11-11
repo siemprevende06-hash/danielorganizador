@@ -67,6 +67,15 @@ export interface PlanAreaCardData {
    * dentro de la tarjeta.
    */
   systemRule?: string;
+  /**
+   * Estado de la regla calculado fuera de las métricas del periodo, por
+   * ejemplo con el checklist del día. Tiene prioridad sobre `system`, `area`
+   * y `tasks`.
+   */
+  statusOverride?: {
+    state: RuleStateKey;
+    detail?: string;
+  };
   /** Rendimiento real del sistema durante el periodo. */
   system?: PlanSystemMetrics;
   /** Métricas del área (para las tarjetas Salud, Fuerza Mental y Apariencia). */
@@ -144,7 +153,7 @@ function nextTarget(current: number): number {
   return step ?? PLAN_TARGET_STEPS[0];
 }
 
-type RuleStateKey = 'done' | 'partial' | 'none' | 'empty';
+export type RuleStateKey = 'done' | 'partial' | 'none' | 'pending' | 'empty';
 
 const RULE_STATE: Record<
   RuleStateKey,
@@ -164,6 +173,11 @@ const RULE_STATE: Record<
     label: 'No cumplido',
     icon: '✕',
     pill: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  },
+  pending: {
+    label: 'Pendiente',
+    icon: '○',
+    pill: 'bg-foreground/[0.06] text-muted-foreground',
   },
   empty: {
     label: 'Sin datos',
@@ -187,6 +201,13 @@ function ruleStateFor(card: PlanAreaCardData): {
     ...RULE_STATE[key],
     detail,
   });
+
+  if (card.statusOverride) {
+    return state(
+      card.statusOverride.state,
+      card.statusOverride.detail ?? RULE_STATE[card.statusOverride.state].label,
+    );
+  }
 
   if (card.tasks) {
     const pct = card.tasks.completion;

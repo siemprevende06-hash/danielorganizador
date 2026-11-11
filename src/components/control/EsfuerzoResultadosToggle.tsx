@@ -1,8 +1,9 @@
 import { cn } from '@/lib/utils';
 
-export type PeriodViewMode = 'esfuerzo' | 'focus' | 'plan' | 'planificacion' | 'resultados' | 'sistemas' | 'autocritica' | 'pronosticos' | 'direccion';
+export type PeriodViewMode = 'panel' | 'esfuerzo' | 'focus' | 'plan' | 'planificacion' | 'resultados' | 'sistemas' | 'autocritica' | 'pronosticos' | 'direccion';
 
 const OPTIONS: { id: PeriodViewMode; label: string }[] = [
+  { id: 'panel', label: 'Panel de control' },
   { id: 'plan', label: 'Plan' },
   { id: 'planificacion', label: 'Planificación' },
   { id: 'esfuerzo', label: 'Esfuerzo' },
@@ -14,7 +15,7 @@ const OPTIONS: { id: PeriodViewMode; label: string }[] = [
   { id: 'pronosticos', label: 'Pronósticos' },
 ];
 
-export function EsfuerzoResultadosToggle({ value, onChange, className, withPlan = true, withFocus = true, withAutocritica = false, withDireccion = false, withPronosticos = false, withPlanificacion = false }: {
+export function EsfuerzoResultadosToggle({ value, onChange, className, withPlan = true, withFocus = true, withAutocritica = false, withDireccion = false, withPronosticos = false, withPlanificacion = false, withPanel = false }: {
   value: PeriodViewMode;
   onChange: (v: PeriodViewMode) => void;
   className?: string;
@@ -24,8 +25,10 @@ export function EsfuerzoResultadosToggle({ value, onChange, className, withPlan 
   withDireccion?: boolean;
   withPronosticos?: boolean;
   withPlanificacion?: boolean;
+  withPanel?: boolean;
 }) {
   let options = withPlan ? OPTIONS : OPTIONS.filter(o => o.id !== 'plan' && o.id !== 'sistemas');
+  if (!withPanel) options = options.filter(o => o.id !== 'panel');
   if (!withFocus) options = options.filter(o => o.id !== 'focus');
   if (!withAutocritica) options = options.filter(o => o.id !== 'autocritica');
   if (!withDireccion) options = options.filter(o => o.id !== 'direccion');

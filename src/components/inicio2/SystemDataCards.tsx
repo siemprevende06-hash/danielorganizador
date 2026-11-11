@@ -39,6 +39,7 @@ import {
   PLANNED_UNIT_BY_SCOPE,
   SCOPE_BY_TIMEFRAME,
   SYSTEM_GROUPS,
+  cardGridClass,
   type SystemCardGroupDef,
 } from "./systemGroups";
 import { SYSTEM_CARD_RULE } from "./systemRules";
@@ -118,18 +119,6 @@ function dayStatusFor(
   if (!days || !statuses) return undefined;
   const index = days.indexOf(todayKey);
   return index >= 0 ? statuses[index] : undefined;
-}
-
-/**
- * Columnas del grid según cuántas tarjetas tiene el grupo. Así las filas
- * siempre se llenan: 3 tarjetas ocupan 3 columnas y 1 ocupa toda la fila.
- */
-function cardGridClass(count: number): string {
-  if (count <= 1) return "grid-cols-1";
-  if (count === 2) return "grid-cols-2";
-  if (count === 3) return "grid-cols-1 sm:grid-cols-3";
-  if (count === 4) return "grid-cols-2 lg:grid-cols-4";
-  return "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5";
 }
 
 function SystemCardsContent({
