@@ -293,7 +293,7 @@ export default function LanguagesDashboard() {
             <LanguageResourcesCard language={currentLanguage} />
           </TabsContent>
 
-          <TabsContent value="tutor" className="space-y-4" forceMount>
+          <TabsContent value="tutor" className="space-y-4 data-[state=inactive]:hidden" forceMount>
             <LanguageTutorPanel
               language={currentLanguage}
               level={currentLevel}

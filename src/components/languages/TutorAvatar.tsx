@@ -47,14 +47,28 @@ export function TutorAvatar({
   // directamente para no re-renderizar React a 60 fps.
   useEffect(() => {
     const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+    // Boca estática: cerrada en reposo, abierta si hay que mostrar habla sin animación.
+    const applyStatic = (openAmount: number) => {
+      const rx = 9 + openAmount * 9;
+      const ry = 1.2 + openAmount * 11;
+      const visible = Math.min(1, openAmount * 4);
+      mouthRef.current?.setAttribute('rx', rx.toFixed(2));
+      mouthRef.current?.setAttribute('ry', ry.toFixed(2));
+      mouthRef.current?.setAttribute('opacity', visible.toFixed(2));
+      smileRef.current?.setAttribute('opacity', Math.max(0, 1 - visible).toFixed(2));
+      tongueRef.current?.setAttribute('cy', (131 + ry * 0.62).toFixed(2));
+      tongueRef.current?.setAttribute('opacity', visible.toFixed(2));
+    };
+
     if (reduce) {
-      const rx = speaking ? 16 : 9;
-      const ry = speaking ? 9 : 1.2;
-      mouthRef.current?.setAttribute('rx', String(rx));
-      mouthRef.current?.setAttribute('ry', String(ry));
-      mouthRef.current?.setAttribute('opacity', speaking ? '1' : '0');
-      smileRef.current?.setAttribute('opacity', speaking ? '0' : '1');
-      tongueRef.current?.setAttribute('opacity', speaking ? '1' : '0');
+      applyStatic(speaking ? 0.75 : 0);
+      return;
+    }
+
+    // En reposo no hace falta animar: evita un rAF permanente por cada avatar.
+    if (!speaking) {
+      applyStatic(0);
       return;
     }
 
@@ -67,19 +81,14 @@ export function TutorAvatar({
       last = now;
       const t = now / 1000;
 
-      let target: number;
-      if (speaking) {
-        // Varias frecuencias para que no parezca un metrónomo.
-        const wave =
-          0.5 +
-          0.28 * Math.sin(t * 11.7) +
-          0.17 * Math.sin(t * 18.3 + 1.4) +
-          0.13 * Math.sin(t * 6.1 + 0.6);
-        const gate = Math.sin(t * 2.3) > -0.35 ? 1 : 0.18;
-        target = Math.max(0, Math.min(1, (0.18 + wave * 0.82) * gate));
-      } else {
-        target = 0.05 + 0.025 * Math.sin(t * 2.2);
-      }
+      // Varias frecuencias para que no parezca un metrónomo.
+      const wave =
+        0.5 +
+        0.28 * Math.sin(t * 11.7) +
+        0.17 * Math.sin(t * 18.3 + 1.4) +
+        0.13 * Math.sin(t * 6.1 + 0.6);
+      const gate = Math.sin(t * 2.3) > -0.35 ? 1 : 0.18;
+      const target = Math.max(0, Math.min(1, (0.18 + wave * 0.82) * gate));
 
       open += (target - open) * Math.min(1, dt * 20);
       const rx = 9 + open * 9;
