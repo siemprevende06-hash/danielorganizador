@@ -7,10 +7,15 @@ interface WakeLockSentinelLike {
   removeEventListener: (type: 'release', listener: () => void) => void;
 }
 
-interface WakeLockCapableNavigator extends Navigator {
+interface WakeLockCapableNavigator {
   wakeLock?: {
     request: (type: 'screen') => Promise<WakeLockSentinelLike>;
   };
+}
+
+function getWakeLock(): WakeLockCapableNavigator['wakeLock'] {
+  if (typeof navigator === 'undefined') return undefined;
+  return (navigator as unknown as WakeLockCapableNavigator).wakeLock;
 }
 
 /**
@@ -18,11 +23,7 @@ interface WakeLockCapableNavigator extends Navigator {
  * Si el navegador no soporta la API, devuelve `supported: false` sin romper.
  */
 export function useWakeLock(active: boolean) {
-  const [supported] = useState(
-    () =>
-      typeof navigator !== 'undefined' &&
-      !!(navigator as WakeLockCapableNavigator).wakeLock,
-  );
+  const [supported] = useState(() => !!getWakeLock());
   const [engaged, setEngaged] = useState(false);
   const [failed, setFailed] = useState(false);
   const sentinelRef = useRef<WakeLockSentinelLike | null>(null);
@@ -43,7 +44,7 @@ export function useWakeLock(active: boolean) {
   }, []);
 
   const request = useCallback(async () => {
-    const wakeLock = (navigator as WakeLockCapableNavigator).wakeLock;
+    const wakeLock = getWakeLock();
     if (!wakeLock || !activeRef.current) return;
     if (document.visibilityState !== 'visible') return;
     if (sentinelRef.current && !sentinelRef.current.released) return;

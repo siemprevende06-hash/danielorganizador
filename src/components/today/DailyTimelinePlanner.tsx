@@ -11,7 +11,6 @@ import {
   Languages, Target, Music, Book, ChevronDown, GripVertical, X, Crown, Gamepad2
 } from 'lucide-react';
 import { parseTime } from '@/hooks/useRoutineBlocksDB';
-import type { RoutineBlock } from '@/hooks/useRoutineBlocksDB';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
 import { useWorkoutTracking } from '@/hooks/useWorkoutTracking';
 import { useReadingLibrary } from '@/hooks/useReadingLibrary';
@@ -28,8 +27,22 @@ interface CalendarEvent {
   end_time: string | null;
 }
 
+/**
+ * Forma mínima que necesita el timeline. Tanto los bloques de
+ * `useRoutineBlocks` como los de `useRoutineBlocksDB` encajan aquí.
+ */
+export interface TimelineBlock {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  currentFocus?: string;
+  defaultFocus?: string;
+  isFocusBlock?: boolean;
+}
+
 interface Props {
-  blocks: RoutineBlock[];
+  blocks: TimelineBlock[];
   tasksByBlock: Record<string, TaskItem[]>;
   onToggleBlock: (blockId: string) => void;
   isBlockCompleted: (blockId: string) => boolean;
@@ -134,7 +147,7 @@ function identifyBlockType(title: string): string {
   return 'other';
 }
 
-function getBlockFocus(block: RoutineBlock): string {
+function getBlockFocus(block: TimelineBlock): string {
   const focus = block.currentFocus || block.defaultFocus;
   if (focus && focus !== 'none') return focus;
   const title = block.title.toLowerCase();
@@ -149,7 +162,7 @@ function getBlockFocus(block: RoutineBlock): string {
   return 'default';
 }
 
-function getBlockIcon(block: RoutineBlock) {
+function getBlockIcon(block: TimelineBlock) {
   const focus = getBlockFocus(block);
   switch (focus) {
     case 'universidad': return <BookOpen className="h-4 w-4 text-blue-500" />;
