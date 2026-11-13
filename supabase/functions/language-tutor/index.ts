@@ -1196,7 +1196,7 @@ Deno.serve(async (req) => {
             { role: "system", content: promptFeedback(info, nivel, message, contexto) },
             { role: "user", content: "Evalúa la intervención y devuelve solo el JSON." },
           ],
-          { maxTokens: 700, temperature: 0.2, validar: (t) => parseJsonLoose(t) !== null },
+          { maxTokens: 700, temperature: 0.2, validar: (t: string) => parseJsonLoose(t) !== null },
           proveedor,
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
@@ -1301,7 +1301,7 @@ Deno.serve(async (req) => {
             },
             { role: "user", content: "Devuelve la revisión en JSON." },
           ],
-          { maxTokens: 800, temperature: 0.2, validar: (t) => parseJsonLoose(t) !== null },
+          { maxTokens: 800, temperature: 0.2, validar: (t: string) => parseJsonLoose(t) !== null },
           proveedor,
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
@@ -1332,7 +1332,11 @@ Deno.serve(async (req) => {
       }
 
       const raw = await completar(
-        { maxTokens: 600, temperature: 0.6, validar: (t) => parseJsonLoose(t) !== null },
+        [
+          { role: "system", content: promptSuggest(info, nivel, message, history) },
+          { role: "user", content: "Devuelve la sugerencia en JSON." },
+        ],
+        { maxTokens: 600, temperature: 0.6, validar: (t: string) => parseJsonLoose(t) !== null },
         proveedor,
       );
       const parsed = raw ? parseJsonLoose(raw) : null;

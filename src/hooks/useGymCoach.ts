@@ -89,7 +89,7 @@ export function useGymCoach(options: GymCoachOptions = {}) {
 
   const listConversations = useCallback(async () => {
     try {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("ai_conversations")
         .select("id,title,updated_at")
         .eq("scope", SCOPE)
