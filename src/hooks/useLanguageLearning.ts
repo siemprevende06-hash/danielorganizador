@@ -200,12 +200,12 @@ export const useLanguageLearning = () => {
     }
   }, [todaySession, settings?.currentLanguage]);
 
-  const logPracticeMinutes = useCallback(async (taskId: string, minutes: number, blockType: BlockType) => {
+  const logPracticeMinutes = useCallback(async (taskId: string, minutes: number, blockType: BlockType, languageOverride?: Language) => {
     try {
       if (minutes <= 0) return;
 
       const today = getCubaDate();
-      const language = settings?.currentLanguage ?? 'english';
+      const language = languageOverride ?? settings?.currentLanguage ?? 'english';
 
       // 1) Asegurar sesión (para el idioma actual)
       let sessionId: string | null = null;

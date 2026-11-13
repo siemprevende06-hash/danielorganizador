@@ -138,10 +138,16 @@ export default function LanguagesDashboard() {
    * paso, mantiene sincronizada la tabla heredada `language_sessions` para el
    * bloque de idiomas del día.
    */
-  const registerPractice = async (rawSkillId: string, minutes: number) => {
+  const registerPractice = async (
+    rawSkillId: string,
+    minutes: number,
+    blockType: 'morning' | 'afternoon' = 'morning',
+    languageOverride?: 'english' | 'italian'
+  ) => {
     if (minutes <= 0) return;
     const skill = normalizeSkillId(rawSkillId);
-    const area = currentArea;
+    const area: LanguageId =
+      languageOverride === 'italian' ? 'italiano' : languageOverride === 'english' ? 'ingles' : currentArea;
     const snapshot = trackingRef.current;
     const current = Number(snapshot.timeData[area]) || 0;
     const key = skillCompletionKey(area, skill);
@@ -150,7 +156,7 @@ export default function LanguagesDashboard() {
     if (!snapshot.completions[key]) toggleCompletion(key);
 
     try {
-      await logPracticeMinutes(LEGACY_SKILL[skill], minutes, 'morning');
+      await logPracticeMinutes(LEGACY_SKILL[skill], minutes, blockType, languageOverride);
     } catch {
       // La fuente canónica ya se guardó; el espejo heredado es best-effort.
     }
@@ -288,7 +294,12 @@ export default function LanguagesDashboard() {
           </TabsContent>
 
           <TabsContent value="tutor" className="space-y-4" forceMount>
-            <LanguageTutorPanel language={currentLanguage} level={currentLevel} onLogPractice={registerPractice} />
+            <LanguageTutorPanel
+              language={currentLanguage}
+              level={currentLevel}
+              active={activeTab === 'tutor'}
+              onLogPractice={registerPractice}
+            />
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-4">

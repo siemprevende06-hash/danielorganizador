@@ -27,6 +27,8 @@ interface Props {
   onToggleTask: (taskId: string) => void;
   onUpdateCover: (blockId: string, url: string) => void;
   onUpdateFocus?: (blockId: string, focus: string) => void;
+  /** Arrastrar una tarea desde el pool y soltarla sobre una tarjeta. */
+  onDropTask?: (taskId: string, blockId: string) => void;
   covers?: Record<string, string>;
   isFutureView?: boolean;
   speedPlan?: SpeedPlan;
@@ -123,12 +125,16 @@ interface CardProps {
   onUpdateFocus?: (blockId: string, focus: string) => void;
   speedPlan?: SpeedPlan;
   onSpeedPlanChange?: (next: SpeedPlan) => void;
+  isDragOver?: boolean;
+  onDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragLeave?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
 }
 
 function RoutineCard({
   block, nextBlock, tasks, completed, isActive, isPast, progress, cover,
   onToggleBlock, onRemoveTask, onToggleTask, onUpdateCover, onUpdateFocus,
-  speedPlan, onSpeedPlanChange,
+  speedPlan, onSpeedPlanChange, isDragOver, onDragOver, onDragLeave, onDrop,
 }: CardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, uploading } = useImageUpload();
@@ -151,12 +157,16 @@ function RoutineCard({
 
   return (
     <Card
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
       className={cn(
         'relative overflow-hidden border-l-[3px] transition-all duration-300',
         colors.border,
         completed && !isActive && 'opacity-60',
         isPast && !completed && !isActive && 'opacity-45',
         isActive && 'ring-2 ring-primary shadow-[0_0_28px_-6px] shadow-primary/60 scale-[1.01]',
+        isDragOver && 'ring-2 ring-primary/60 bg-primary/10 scale-[1.01]',
       )}
     >
       <input
@@ -357,6 +367,7 @@ export function RoutineCardsView({
   onToggleTask,
   onUpdateCover,
   onUpdateFocus,
+  onDropTask,
   covers = {},
   isFutureView = false,
   speedPlan,
@@ -366,6 +377,24 @@ export function RoutineCardsView({
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
   });
+  const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>, blockId: string) => {
+    if (!onDropTask) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDragOverBlockId(blockId);
+  };
+
+  const handleDragLeave = () => setDragOverBlockId(null);
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>, blockId: string) => {
+    if (!onDropTask) return;
+    event.preventDefault();
+    const taskId = event.dataTransfer.getData('text/plain');
+    if (taskId) onDropTask(taskId, blockId);
+    setDragOverBlockId(null);
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -426,9 +455,18 @@ export function RoutineCardsView({
             onUpdateFocus={onUpdateFocus}
             speedPlan={speedPlan}
             onSpeedPlanChange={onSpeedPlanChange}
+            isDragOver={dragOverBlockId === block.id}
+            onDragOver={onDropTask ? (event) => handleDragOver(event, block.id) : undefined}
+            onDragLeave={onDropTask ? handleDragLeave : undefined}
+            onDrop={onDropTask ? (event) => handleDrop(event, block.id) : undefined}
           />
         );
       })}
+      {onDropTask && (
+        <p className="col-span-full text-center text-[10px] text-muted-foreground">
+          Arrastra tareas desde el pool y suéltalas sobre una tarjeta para asignarlas.
+        </p>
+      )}
     </div>
   );
 }

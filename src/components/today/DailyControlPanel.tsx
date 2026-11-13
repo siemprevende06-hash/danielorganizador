@@ -3,7 +3,6 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Clock3, Layers, LayoutDashboard, ListTodo, Timer } from "lucide-react";
 import { DailyGoalsCard } from "@/components/inicio2/DailyGoalsCard";
-import { TodayRoutineCard } from "@/components/inicio2/TodayRoutineCard";
 import { SectionHeader, StatCard, formatMinutes } from "@/components/inicio2/shared";
 import {
   SYSTEM_GROUPS,
@@ -18,11 +17,18 @@ import {
 } from "@/components/planificacion/PlanAreaCard";
 import { coverKey, useAreaCovers } from "@/hooks/useAreaCovers";
 import type { TaskItem } from "@/hooks/useDailyPlanData";
-import type { RoutineBlock } from "@/hooks/useRoutineBlocksDB";
+import type { RoutineBlock, RoutineInfo } from "@/hooks/useRoutineBlocks";
 import type { SystemsData } from "@/hooks/useSystemsTracking";
 import { habitTrackingIds } from "@/lib/areaSystemsMap";
+import type { ChessResultKey } from "@/lib/daySystems";
 import { PLAN_AREA_BY_ID, PLAN_SYSTEM_META } from "@/lib/planSystems";
+import type { SpeedPlan } from "@/lib/speedPlan";
 import { cn } from "@/lib/utils";
+import {
+  RoutineControlBoard,
+  type RoutineCalendarEvent,
+} from "@/components/today/RoutineControlBoard";
+import { SystemInlineData } from "@/components/today/SystemInlineData";
 
 /** Fuentes de tareas que no pertenecen a la tarjeta "Tareas generales". */
 const NON_GENERAL_TASK_SOURCES = new Set([
@@ -72,6 +78,41 @@ export interface DailyControlPanelProps {
   tasksLoading?: boolean;
   systems: SystemsData;
   onToggleSystem: (id: string) => void;
+  /* Tracking del día (mismos campos que la pestaña Sistemas). */
+  onTimeChange: (id: string, minutes: number) => void;
+  onCountChange?: (id: string, count: number) => void;
+  onChessResultChange?: (result: ChessResultKey, value: number) => void;
+  onWaterToggle?: (id: string) => void;
+  onMealPhotoUpload?: (id: string, url: string) => void;
+  onSkipToggle?: (id: string) => void;
+  onRestToggle?: (id: string) => void;
+  onWorkoutDurationChange?: (v: number) => void;
+  onWorkoutIntensityChange?: (v: string) => void;
+  onWakeTimeChange?: (v: string) => void;
+  onSleepTimeChange?: (v: string) => void;
+  /* Rutina y tareas. */
+  unassignedTasks: TaskItem[];
+  onTaskCreated: () => void;
+  abcMap?: Record<string, string>;
+  onDropTask: (taskId: string, blockId: string) => void;
+  onRemoveTask: (taskId: string) => void;
+  onUpdateFocus?: (blockId: string, focus: string) => void;
+  onUpdateCover: (blockId: string, url: string) => void;
+  covers?: Record<string, string>;
+  onAddBlock: (data: {
+    title: string;
+    startTime: string;
+    endTime: string;
+    isFocusBlock: boolean;
+  }) => void;
+  onRemoveBlock: (blockId: string) => void;
+  routineInfo?: RoutineInfo;
+  events?: RoutineCalendarEvent[];
+  musicInstrument?: "piano" | "guitar";
+  languageChoice?: "ingles" | "italiano";
+  isFutureView?: boolean;
+  speedPlan?: SpeedPlan;
+  onSpeedPlanChange?: (next: SpeedPlan) => void;
 }
 
 /**
@@ -93,8 +134,36 @@ export function DailyControlPanel({
   tasksLoading,
   systems,
   onToggleSystem,
+  onTimeChange,
+  onCountChange,
+  onChessResultChange,
+  onWaterToggle,
+  onMealPhotoUpload,
+  onSkipToggle,
+  onRestToggle,
+  onWorkoutDurationChange,
+  onWorkoutIntensityChange,
+  onWakeTimeChange,
+  onSleepTimeChange,
+  unassignedTasks,
+  onTaskCreated,
+  abcMap,
+  onDropTask,
+  onRemoveTask,
+  onUpdateFocus,
+  onUpdateCover,
+  covers: routineCovers,
+  onAddBlock,
+  onRemoveBlock,
+  routineInfo,
+  events,
+  musicInstrument,
+  languageChoice,
+  isFutureView,
+  speedPlan,
+  onSpeedPlanChange,
 }: DailyControlPanelProps) {
-  const { covers } = useAreaCovers();
+  const { covers: areaCovers } = useAreaCovers();
   const dayLabel = format(date, "EEEE d 'de' MMMM", { locale: es });
 
   const groups = useMemo(() => {
@@ -104,6 +173,25 @@ export function DailyControlPanel({
       );
       onToggleSystem(active ?? trackingKeyFor(id));
     };
+
+    const inlineDetails = (id: string, showMinutes?: boolean) => (
+      <SystemInlineData
+        systemId={id}
+        systems={systems}
+        onTimeChange={onTimeChange}
+        onCountChange={onCountChange}
+        onChessResultChange={onChessResultChange}
+        onWaterToggle={onWaterToggle}
+        onMealPhotoUpload={onMealPhotoUpload}
+        onSkipToggle={onSkipToggle}
+        onRestToggle={onRestToggle}
+        onWorkoutDurationChange={onWorkoutDurationChange}
+        onWorkoutIntensityChange={onWorkoutIntensityChange}
+        onWakeTimeChange={onWakeTimeChange}
+        onSleepTimeChange={onSleepTimeChange}
+        showMinutes={showMinutes}
+      />
+    );
 
     const systemRow = (id: string): PlanObjectiveRow => {
       const meta = PLAN_SYSTEM_META[id];
@@ -134,6 +222,7 @@ export function DailyControlPanel({
         onToggle: () => toggleSystem(id),
         meta: detail,
         tag: rest ? "Descanso" : skipped ? "Saltado" : undefined,
+        details: inlineDetails(id),
       };
     };
 
@@ -152,6 +241,7 @@ export function DailyControlPanel({
             : systems.skipped?.[id]
               ? "Saltado"
               : undefined,
+          details: inlineDetails(id, true),
         };
       },
     );
@@ -205,9 +295,9 @@ export function DailyControlPanel({
         note: def.note,
         systemRule: SYSTEM_CARD_RULE[def.id],
         cover:
-          covers[coverKey("sub", def.id)]
-          ?? covers[coverKey("sub", def.systemIds[0])]
-          ?? covers[coverKey("area", areaId)]
+          areaCovers[coverKey("sub", def.id)]
+          ?? areaCovers[coverKey("sub", def.systemIds[0])]
+          ?? areaCovers[coverKey("area", areaId)]
           ?? null,
         statusOverride: {
           state,
@@ -246,7 +336,24 @@ export function DailyControlPanel({
         cards: defs.map((def) => buildCard(group.areaId, def)),
       }];
     });
-  }, [covers, systems, tasks, toggleTaskDone, onToggleSystem]);
+  }, [
+    areaCovers,
+    systems,
+    tasks,
+    toggleTaskDone,
+    onToggleSystem,
+    onTimeChange,
+    onCountChange,
+    onChessResultChange,
+    onWaterToggle,
+    onMealPhotoUpload,
+    onSkipToggle,
+    onRestToggle,
+    onWorkoutDurationChange,
+    onWorkoutIntensityChange,
+    onWakeTimeChange,
+    onSleepTimeChange,
+  ]);
 
   const summary = useMemo(() => {
     const rows = groups
@@ -324,25 +431,42 @@ export function DailyControlPanel({
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <TodayRoutineCard
-          blocks={blocks}
-          tasksByBlock={tasksByBlock}
-          isBlockCompleted={isBlockCompleted}
-          toggleBlockComplete={toggleBlockComplete}
-          loading={routineLoading}
-        />
-        <DailyGoalsCard
-          tasks={tasks}
-          completedTasks={completedTasks}
-          blocks={blocks}
-          completedBlocks={completedBlocks}
-          dayScore={dayScore}
-          toggleTaskDone={toggleTaskDone}
-          loading={tasksLoading}
-          maxTasks={tasks.length}
-        />
-      </div>
+      <RoutineControlBoard
+        blocks={blocks}
+        tasksByBlock={tasksByBlock}
+        unassignedTasks={unassignedTasks}
+        onTaskCreated={onTaskCreated}
+        abcMap={abcMap}
+        onToggleBlock={toggleBlockComplete}
+        isBlockCompleted={isBlockCompleted}
+        onDropTask={onDropTask}
+        onRemoveTask={onRemoveTask}
+        onToggleTask={toggleTaskDone}
+        onUpdateFocus={onUpdateFocus}
+        onUpdateCover={onUpdateCover}
+        covers={routineCovers}
+        onAddBlock={onAddBlock}
+        onRemoveBlock={onRemoveBlock}
+        routineInfo={routineInfo}
+        events={events}
+        musicInstrument={musicInstrument}
+        languageChoice={languageChoice}
+        isFutureView={isFutureView}
+        speedPlan={speedPlan}
+        onSpeedPlanChange={onSpeedPlanChange}
+        loading={routineLoading}
+      />
+
+      <DailyGoalsCard
+        tasks={tasks}
+        completedTasks={completedTasks}
+        blocks={blocks}
+        completedBlocks={completedBlocks}
+        dayScore={dayScore}
+        toggleTaskDone={toggleTaskDone}
+        loading={tasksLoading}
+        maxTasks={tasks.length}
+      />
 
       <div className="space-y-5">
         {groups.map((group) => {

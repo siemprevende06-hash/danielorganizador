@@ -1,4 +1,4 @@
-import { Briefcase, Coffee, PlaneTakeoff, ShoppingBag, Stethoscope, Users } from 'lucide-react';
+import { Briefcase, Coffee, PlaneTakeoff, Scale, ShoppingBag, Stethoscope, UserRound, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Language } from '@/hooks/useLanguageLearning';
 
@@ -10,6 +10,15 @@ export interface SpeakingScenario {
 }
 
 export const SPEAKING_SCENARIOS: SpeakingScenario[] = [
+  {
+    id: 'intro',
+    Icon: UserRound,
+    label: { english: 'Preséntate', italian: 'Presentati' },
+    goal: {
+      english: 'Introduce yourself, your work and your goals in 60 seconds',
+      italian: 'Presentati, parla del tuo lavoro e dei tuoi obiettivi in 60 secondi',
+    },
+  },
   {
     id: 'cafe',
     Icon: Coffee,
@@ -64,6 +73,15 @@ export const SPEAKING_SCENARIOS: SpeakingScenario[] = [
       italian: 'Conosci qualcuno, parla di te e mantieni la conversazione',
     },
   },
+  {
+    id: 'opinion',
+    Icon: Scale,
+    label: { english: 'Debate & opinión', italian: 'Dibattito & opinione' },
+    goal: {
+      english: 'Give your opinion, defend it with reasons and examples',
+      italian: 'Dai la tua opinione, difendila con ragioni ed esempi',
+    },
+  },
 ];
 
 /**
@@ -77,3 +95,11 @@ export const SCENARIO_START_MSG: Record<Language, string> = {
 
 export const SCENARIO_END_MSG =
   'Termina la simulación y dame el resumen final: errores clave, lo que hice bien y 3 frases nuevas que deba reutilizar.';
+
+/**
+ * Cierre de una sesión libre de speaking. El tutor sale del rol, responde en
+ * español y deja un plan corto para la próxima vez.
+ */
+export const SESSION_END_MSG =
+  'Termina la sesión de conversación y dame el resumen final en español: 1) qué hice bien, 2) mis 3 errores clave con la corrección, 3) 3 frases nuevas que deba reutilizar y 4) una recomendación concreta para la próxima sesión. No me hagas más preguntas.';
+

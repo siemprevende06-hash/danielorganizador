@@ -247,14 +247,19 @@ function promptSpeaking(
   nivel: string,
   escenarioId: string,
   startTurno: boolean,
+  longTalk: boolean,
+  structureQuestion: string,
 ) {
   const escenario = SCENARIOS[escenarioId];
+  const longitud = longTalk
+    ? `2. LONG TALK: puedes usar 3-5 frases y hasta 80 palabras. Añade un detalle personal, una mini-anécdota o una opinión breve, y termina con UNA sola pregunta. No conviertas la charla en un monólogo: deja espacio para que Daniel hable.`
+    : `2. Máximo 2 frases y 30 palabras en total. UNA sola pregunta por turno.`;
   return `MODO SPEAKING — CONVERSACIÓN ORAL EN TIEMPO REAL
 Tu respuesta se escucha por voz y Daniel te contesta hablando. Todo debe sonar a charla, nunca a clase.
 
 REGLAS DURAS (tienen prioridad sobre cualquier otra instrucción):
 1. Escribe SOLO en ${info.nombre}. Nada de español en el chat. La única excepción es el resumen final si Daniel pide terminar la simulación.
-2. Máximo 2 frases y 30 palabras en total. UNA sola pregunta por turno.
+${longitud}
 3. PROHIBIDO: markdown, listas, tablas, títulos, negritas, emojis, paréntesis con traducción, despedidas, "ejercicio", "lección", "repitamos", resúmenes y explicaciones de gramática.
 4. NO corrijas sus errores en el chat. Hay un sistema de feedback aparte que se encarga de eso. Aunque haya errores, responde a la idea y sigue la conversación con naturalidad. No incluyas ✗, ✓, "corrección" ni explicaciones.
 5. Tú llevas la iniciativa: cada respuesta debe terminar con una pregunta abierta o una propuesta concreta. Si Daniel responde con una palabra o se queda corto, no lo dejes en silencio: comenta algo breve, ofrece dos opciones o cambia de tema.
@@ -263,8 +268,115 @@ REGLAS DURAS (tienen prioridad sobre cualquier otra instrucción):
 8. Nivel de Daniel: ${nivel}. Adapta el vocabulario, sin simplificar de más.
 9. El historial puede traer respuestas antiguas con explicaciones en español: ignóralas y sigue estas reglas.
 ${escenario ? `\nESCENARIO ACTIVO: ${escenario}\nMantente en el rol en todo momento.` : ""}
+${structureQuestion ? `\nESTRUCTURA DE RESPUESTA: Daniel está practicando cómo responder a esta pregunta: """${structureQuestion}""". En tu primer turno haz esa pregunta (o una versión natural equivalente) y espera su respuesta. Después sigue la conversación con preguntas de seguimiento relacionadas, sin recitar la estructura ni corregirla en el chat.` : ""}
 ${startTurno ? `\nPRIMER TURNO: abre tú la conversación ahora. Preséntate o da la primera línea del rol y haz la primera pregunta. No pidas a Daniel que empiece ni le preguntes de qué quiere hablar.` : ""}
 ${escenarioId === "smalltalk" ? `\nSMALL TALK: eres tú quien mantiene la charla viva. Preséntate, comparte algo tuyo y encadena preguntas cotidianas. No dejes que la conversación se quede en monosílabos.` : ""}`;
+}
+
+/**
+ * Resumen de cierre de una sesión de speaking. Aquí sí se permite el español:
+ * el objetivo es que Daniel entienda sus errores y se lleve frases reutilizables.
+ */
+function promptSessionEnd(
+  info: (typeof IDIOMA_INFO)[Idioma],
+  nivel: string,
+  historial: { role: string; content: string }[],
+) {
+  const contexto = historial
+    .slice(-24)
+    .map((m) => `${m.role === "assistant" ? "Tutor" : "Daniel"}: ${m.content}`)
+    .join("\n");
+
+  return `Eres el Tutor IA de ${info.nombre} de Daniel, nivel ${nivel}. La sesión de conversación ha terminado.
+
+HISTORIAL DE LA SESIÓN:
+${contexto || "(sin historial)"}
+
+Devuelve el resumen final EN ESPAÑOL, en markdown claro y breve (máximo 260 palabras), con estas secciones exactas:
+## Lo que hiciste bien
+- 2 o 3 puntos concretos y reales, sin elogios vacíos.
+## Errores clave
+- Exactamente 3 errores del historial, con este formato: ✗ frase original → ✓ corrección en ${info.nombre} → por qué (en español).
+## Frases para reutilizar
+- 3 frases nuevas en ${info.nombre} con su traducción al español.
+## Próxima sesión
+- 1 recomendación concreta y accionable para la próxima vez.
+
+Reglas: no inventes errores que no aparezcan en el historial; si no hay errores claros, dilo y propón mejoras. No hagas preguntas al final. No uses tablas.`;
+}
+
+/** Genera una estructura de respuesta para una pregunta concreta. */
+function promptStructure(
+  info: (typeof IDIOMA_INFO)[Idioma],
+  nivel: string,
+  pregunta: string,
+) {
+  return `Eres un profesor de ${info.nombre} preparando a un estudiante hispanohablante de nivel ${nivel} para responder una pregunta oral.
+
+PREGUNTA QUE QUIERE PRACTICAR:
+"""${pregunta}"""
+
+Diseña una estructura fácil de recordar para responderla. Devuelve SOLO un objeto JSON válido, sin markdown y sin texto fuera del JSON:
+{
+  "question": "la pregunta reformulada en ${info.nombre}",
+  "questionEs": "traducción de la pregunta al español",
+  "goal": "objetivo de la respuesta en español, en una frase",
+  "steps": [
+    { "label": "nombre del paso en español (2-4 palabras)", "template": "plantilla en ${info.nombre} con ... para completar", "tip": "consejo breve en español" }
+  ],
+  "phrases": ["4 expresiones útiles en ${info.nombre}"],
+  "example": "respuesta modelo en ${info.nombre}, 50-90 palabras",
+  "exampleEs": "traducción de la respuesta modelo al español"
+}
+
+Reglas:
+- Entre 3 y 5 pasos, ordenados como se diría la respuesta.
+- Los templates deben ser frases naturales que el estudiante pueda completar, no instrucciones.
+- El ejemplo debe sonar a una persona real y cubrir todos los pasos.
+- Nada de tablas, listas dentro de strings ni explicaciones gramaticales largas.`;
+}
+
+/** Revisa si una respuesta cubre los pasos de una estructura. */
+function promptStructureReview(
+  info: (typeof IDIOMA_INFO)[Idioma],
+  nivel: string,
+  estructura: any,
+  respuesta: string,
+  historial: { role: string; content: string }[],
+) {
+  const pasos = Array.isArray(estructura?.steps)
+    ? estructura.steps
+        .map(
+          (s: any, i: number) =>
+            `${i + 1}. ${cleanText(s?.label, 80) || `Paso ${i + 1}`} — ${cleanText(s?.template, 240)}`,
+        )
+        .join("\n")
+    : "(sin pasos)";
+  const contexto = historial
+    .slice(-8)
+    .map((m) => `${m.role === "assistant" ? "Tutor" : "Estudiante"}: ${m.content}`)
+    .join("\n");
+
+  return `Eres un profesor de ${info.nombre} revisando la respuesta oral de un estudiante hispanohablante de nivel ${nivel}.
+
+PREGUNTA: """${cleanText(estructura?.question, 300) || "(sin pregunta)"}"""
+ESTRUCTURA QUE ESTÁ PRACTICANDO:
+${pasos}
+
+RESPUESTA DEL ESTUDIANTE:
+"""${respuesta}"""
+
+HISTORIAL RECIENTE:
+${contexto || "(sin historial)"}
+
+Comprueba si la respuesta cubre cada paso POR SU INTENCIÓN, no por las palabras exactas. Devuelve SOLO JSON válido, sin markdown:
+{
+  "covered": [{ "label": "label exacto del paso", "ok": true|false, "note": "comentario breve en español o vacío" }],
+  "verdict": "valoración general en español, máximo 2 frases, cercana y concreta",
+  "missing": ["pasos o ideas que faltan, en español"]
+}
+
+Reglas: incluye un objeto por cada paso, en el mismo orden y con el mismo label; no inventes pasos; si la respuesta es muy corta, dilo sin dramatizar.`;
 }
 
 function promptGeneral(
@@ -868,8 +980,8 @@ function sanitizeHistory(raw: unknown) {
       (m: any) =>
         (m?.role === "user" || m?.role === "assistant") && typeof m?.content === "string",
     )
-    .slice(-10)
-    .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 1000) }));
+    .slice(-24)
+    .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 1200) }));
 }
 
 function parseJsonLoose(text: string): any | null {
@@ -1065,7 +1177,13 @@ Deno.serve(async (req) => {
     const proveedor: AIProvider = body?.provider === "deepseek" ? "deepseek" : "openrouter";
 
     // Acciones auxiliares del coach: no hacen streaming y devuelven JSON corto.
-    if (action === "feedback" || action === "explain" || action === "suggest") {
+    if (
+      action === "feedback" ||
+      action === "explain" ||
+      action === "suggest" ||
+      action === "structure" ||
+      action === "structureReview"
+    ) {
       const ctxLigero = await buildContext(sb, idioma, true);
       const nivel = String(ctxLigero.nivel);
       const history = sanitizeHistory(body?.history);
@@ -1122,11 +1240,98 @@ Deno.serve(async (req) => {
         return json({ explanation: text });
       }
 
+      if (action === "structure") {
+        const raw = await completar(
+          [
+            { role: "system", content: promptStructure(info, nivel, message) },
+            { role: "user", content: "Devuelve la estructura en JSON." },
+          ],
+          {
+            maxTokens: 1300,
+            temperature: 0.5,
+            validar: (t) => {
+              const parsed = parseJsonLoose(t);
+              return !!parsed && Array.isArray(parsed.steps) && parsed.steps.length >= 2;
+            },
+          },
+          proveedor,
+        );
+        const parsed = raw ? parseJsonLoose(raw) : null;
+        if (!parsed) {
+          const diario = esLimiteDiario(ULTIMO_ERROR);
+          return json(
+            { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude crear la estructura", detalle: ULTIMO_ERROR.slice(0, 300) },
+            diario ? 429 : 502,
+          );
+        }
+        const steps = (Array.isArray(parsed.steps) ? parsed.steps : [])
+          .map((s: any) => ({
+            label: cleanText(s?.label, 80),
+            template: cleanText(s?.template, 300),
+            tip: cleanText(s?.tip, 240),
+          }))
+          .filter((s: any) => s.label && s.template)
+          .slice(0, 5);
+        return json({
+          structure: {
+            question: cleanText(parsed.question, 300) || message,
+            questionEs: cleanText(parsed.questionEs, 300) || message,
+            goal: cleanText(parsed.goal, 400),
+            steps,
+            phrases: (Array.isArray(parsed.phrases) ? parsed.phrases : [])
+              .map((p: any) => cleanText(p, 160))
+              .filter(Boolean)
+              .slice(0, 6),
+            example: cleanText(parsed.example, 1200),
+            exampleEs: cleanText(parsed.exampleEs, 1200),
+          },
+        });
+      }
+
+      if (action === "structureReview") {
+        const estructura = body?.structure;
+        if (!estructura || typeof estructura !== "object") {
+          return json({ error: "Falta la estructura a revisar" }, 400);
+        }
+        const raw = await completar(
+          [
+            {
+              role: "system",
+              content: promptStructureReview(info, nivel, estructura, message, history),
+            },
+            { role: "user", content: "Devuelve la revisión en JSON." },
+          ],
+          { maxTokens: 800, temperature: 0.2, validar: (t) => parseJsonLoose(t) !== null },
+          proveedor,
+        );
+        const parsed = raw ? parseJsonLoose(raw) : null;
+        if (!parsed) {
+          const diario = esLimiteDiario(ULTIMO_ERROR);
+          return json(
+            { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude revisar la estructura", detalle: ULTIMO_ERROR.slice(0, 300) },
+            diario ? 429 : 502,
+          );
+        }
+        return json({
+          review: {
+            covered: (Array.isArray(parsed.covered) ? parsed.covered : [])
+              .map((c: any) => ({
+                label: cleanText(c?.label, 80),
+                ok: c?.ok === true,
+                note: cleanText(c?.note, 240),
+              }))
+              .filter((c: any) => c.label)
+              .slice(0, 8),
+            verdict: cleanText(parsed.verdict, 500),
+            missing: (Array.isArray(parsed.missing) ? parsed.missing : [])
+              .map((m: any) => cleanText(m, 160))
+              .filter(Boolean)
+              .slice(0, 6),
+          },
+        });
+      }
+
       const raw = await completar(
-        [
-          { role: "system", content: promptSuggest(info, nivel, message, history) },
-          { role: "user", content: "Dame la sugerencia en JSON." },
-        ],
         { maxTokens: 600, temperature: 0.6, validar: (t) => parseJsonLoose(t) !== null },
         proveedor,
       );
@@ -1149,23 +1354,30 @@ Deno.serve(async (req) => {
     const modo = MODOS[skill] ? skill : "libre";
     const escenarioId = modo === "speaking" && typeof body?.scenario === "string" ? body.scenario : "";
     const esSpeaking = modo === "speaking";
+    const esSessionEnd = body?.sessionEnd === true;
+    const longTalk = body?.longTalk === true;
+    const structureQuestion =
+      typeof body?.structureQuestion === "string" ? body.structureQuestion.trim().slice(0, 300) : "";
 
-    // El historial se recorta: menos tokens = respuesta más rápida.
+    // El historial se recorta: menos tokens = respuesta más rápida. En speaking
+    // largo y en los resúmenes se conserva más contexto para no perder el hilo.
     const history = sanitizeHistory(body?.history);
 
-    const ctx = await buildContext(sb, idioma, esSpeaking);
+    const ctx = await buildContext(sb, idioma, esSpeaking || esSessionEnd);
     const nivel = String(ctx.nivel);
 
-    const systemPrompt = esSpeaking
-      ? promptSpeaking(info, nivel, escenarioId, body?.start === true)
-      : promptGeneral(
-          info,
-          nivel,
-          modo === "libre"
-            ? `MODO: conversación libre. No hay habilidad fija activa. Si su petición es de una habilidad concreta, aplícale esas directrices; si no, ofrécele una práctica corta y pregúntale cuál quiere.`
-            : `MODO ACTIVO: ${modo.toUpperCase()}\n${MODOS[modo]}`,
-          escenarioId,
-        );
+    const systemPrompt = esSessionEnd
+      ? promptSessionEnd(info, nivel, history)
+      : esSpeaking
+        ? promptSpeaking(info, nivel, escenarioId, body?.start === true, longTalk, structureQuestion)
+        : promptGeneral(
+            info,
+            nivel,
+            modo === "libre"
+              ? `MODO: conversación libre. No hay habilidad fija activa. Si su petición es de una habilidad concreta, aplícale esas directrices; si no, ofrécele una práctica corta y pregúntale cuál quiere.`
+              : `MODO ACTIVO: ${modo.toUpperCase()}\n${MODOS[modo]}`,
+            escenarioId,
+          );
 
     const messages: any[] = [
       {
@@ -1181,10 +1393,18 @@ Deno.serve(async (req) => {
     // En speaking NO se usan herramientas: cada ronda de tool-calling es otra
     // llamada completa al modelo y multiplicaba la espera. El panel ya permite
     // registrar los minutos con un botón.
-    const herramientas = esSpeaking ? [] : tools;
-    const maxRondas = esSpeaking ? 1 : 3;
-    const maxTokens = esSpeaking ? 700 : modo === "listening" ? 1000 : 1500;
-    const temperature = esSpeaking ? 0.7 : 0.5;
+    const herramientas = esSpeaking || esSessionEnd ? [] : tools;
+    const maxRondas = esSpeaking || esSessionEnd ? 1 : 3;
+    const maxTokens = esSessionEnd
+      ? 1800
+      : esSpeaking
+        ? longTalk
+          ? 950
+          : 700
+        : modo === "listening"
+          ? 1000
+          : 1500;
+    const temperature = esSessionEnd ? 0.4 : esSpeaking ? 0.7 : 0.5;
 
     const upstream = new AbortController();
     req.signal.addEventListener("abort", () => upstream.abort(), { once: true });

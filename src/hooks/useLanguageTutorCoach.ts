@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/env';
 import { getAIProvider } from '@/lib/aiProvider';
 import type { Language } from './useLanguageLearning';
+import type { SpeakingStructure } from '@/components/languages/speakingStructures';
 
 const FN_URL = edgeFunctionUrl('language-tutor');
 const REQUEST_TIMEOUT_MS = 45000;
@@ -27,6 +28,18 @@ export interface TutorSuggestion {
   translation?: string;
   hint?: string;
   forAssistantId: string;
+}
+
+export interface StructureReviewStep {
+  label: string;
+  ok: boolean;
+  note?: string;
+}
+
+export interface StructureReview {
+  covered: StructureReviewStep[];
+  verdict: string;
+  missing: string[];
 }
 
 function clean(value: unknown, max = 1200): string {
@@ -86,20 +99,34 @@ export function useLanguageTutorCoach(language: Language, level: string) {
   const [suggestion, setSuggestion] = useState<TutorSuggestion | null>(null);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const [structureLoading, setStructureLoading] = useState(false);
+  const [structureError, setStructureError] = useState<string | null>(null);
+  const [structureReviews, setStructureReviews] = useState<Record<string, StructureReview>>({});
+  const [structureReviewing, setStructureReviewing] = useState<Record<string, boolean>>({});
+  const [structureReviewErrors, setStructureReviewErrors] = useState<Record<string, string>>({});
   const tokenRef = useRef(0);
   const explainTokenRef = useRef(0);
   const suggestTokenRef = useRef(0);
+  const structureTokenRef = useRef(0);
+  const reviewTokenRef = useRef(0);
 
   const reset = useCallback(() => {
     tokenRef.current += 1;
     explainTokenRef.current += 1;
     suggestTokenRef.current += 1;
+    structureTokenRef.current += 1;
+    reviewTokenRef.current += 1;
     setFeedback({});
     setEvaluating({});
     setExplainingId(null);
     setSuggestion(null);
     setSuggestionLoading(false);
     setSuggestionError(null);
+    setStructureLoading(false);
+    setStructureError(null);
+    setStructureReviews({});
+    setStructureReviewing({});
+    setStructureReviewErrors({});
   }, []);
 
   useEffect(() => {
@@ -252,6 +279,160 @@ export function useLanguageTutorCoach(language: Language, level: string) {
     setSuggestionLoading(false);
   }, []);
 
+  /** Genera una estructura personalizada para una pregunta concreta. */
+  const generateStructure = useCallback(
+    async (question: string): Promise<SpeakingStructure | null> => {
+      const limpio = question.trim();
+      if (!limpio) return null;
+      const token = ++structureTokenRef.current;
+      setStructureLoading(true);
+      setStructureError(null);
+      try {
+        const data = await callCoach({
+          action: 'structure',
+          language,
+          level,
+          message: limpio,
+        });
+        if (token !== structureTokenRef.current) return null;
+
+        const raw = (data.structure ?? {}) as Record<string, unknown>;
+        const rawSteps = (Array.isArray(raw.steps) ? raw.steps : [])
+          .map((s: any) => ({
+            label: clean(s?.label, 80),
+            template: clean(s?.template, 300),
+            tip: clean(s?.tip, 240),
+          }))
+          .filter((s: any) => s.label && s.template)
+          .slice(0, 5);
+        if (rawSteps.length < 2) throw new Error('La estructura no llegó completa');
+
+        const steps = rawSteps.map(step => ({
+          label: step.label,
+          template:
+            language === 'italian'
+              ? { english: '', italian: step.template }
+              : { english: step.template, italian: '' },
+          tip: step.tip,
+        }));
+
+        const targetQuestion = clean(raw.question, 300) || limpio;
+        const questionEs = clean(raw.questionEs, 300) || limpio;
+        const phrases = (Array.isArray(raw.phrases) ? raw.phrases : [])
+          .map((p: any) => clean(p, 160))
+          .filter(Boolean)
+          .slice(0, 6);
+        const example = clean(raw.example, 1200);
+        const exampleEs = clean(raw.exampleEs, 1200);
+
+        return {
+          id: `custom-${Date.now()}`,
+          category: 'personalizada',
+          question: { english: targetQuestion, italian: targetQuestion },
+          questionEs,
+          goal: clean(raw.goal, 400) || 'Responde con una idea clara, una razón y un ejemplo.',
+          steps,
+          phrases:
+            language === 'italian'
+              ? { english: [], italian: phrases }
+              : { english: phrases, italian: [] },
+          example:
+            language === 'italian'
+              ? { english: '', italian: example }
+              : { english: example, italian: '' },
+          exampleEs,
+          custom: true,
+        };
+      } catch (e) {
+        if (token !== structureTokenRef.current) return null;
+        setStructureError((e as Error).message || 'No pude crear la estructura');
+        return null;
+      } finally {
+        if (token === structureTokenRef.current) setStructureLoading(false);
+      }
+    },
+    [language, level]
+  );
+
+  /** Comprueba si la última respuesta cubre los pasos de la estructura. */
+  const reviewStructure = useCallback(
+    async (
+      messageId: string,
+      utterance: string,
+      structure: SpeakingStructure,
+      history: TutorHistoryEntry[]
+    ): Promise<StructureReview | null> => {
+      const token = ++reviewTokenRef.current;
+      setStructureReviewing(prev => ({ ...prev, [messageId]: true }));
+      setStructureReviewErrors(prev => {
+        if (!prev[messageId]) return prev;
+        const next = { ...prev };
+        delete next[messageId];
+        return next;
+      });
+      try {
+        const data = await callCoach({
+          action: 'structureReview',
+          language,
+          level,
+          message: utterance,
+          history: normalizeHistory(history),
+          structure: {
+            question: structure.question[language],
+            steps: structure.steps.map(step => ({
+              label: step.label,
+              template: step.template[language],
+            })),
+          },
+        });
+        if (token !== reviewTokenRef.current) return null;
+
+        const raw = (data.review ?? {}) as Record<string, unknown>;
+        const review: StructureReview = {
+          covered: (Array.isArray(raw.covered) ? raw.covered : [])
+            .map((c: any) => ({
+              label: clean(c?.label, 80),
+              ok: c?.ok === true,
+              note: clean(c?.note, 240) || undefined,
+            }))
+            .filter((c: any) => c.label)
+            .slice(0, 8),
+          verdict: clean(raw.verdict, 500),
+          missing: (Array.isArray(raw.missing) ? raw.missing : [])
+            .map((m: any) => clean(m, 160))
+            .filter(Boolean)
+            .slice(0, 6),
+        };
+        setStructureReviews(prev => ({ ...prev, [messageId]: review }));
+        return review;
+      } catch (e) {
+        if (token !== reviewTokenRef.current) return null;
+        setStructureReviewErrors(prev => ({
+          ...prev,
+          [messageId]: (e as Error).message || 'No pude revisar la estructura',
+        }));
+        return null;
+      } finally {
+        if (token === reviewTokenRef.current) {
+          setStructureReviewing(prev => {
+            if (!prev[messageId]) return prev;
+            const next = { ...prev };
+            delete next[messageId];
+            return next;
+          });
+        }
+      }
+    },
+    [language, level]
+  );
+
+  const clearStructureReviews = useCallback(() => {
+    reviewTokenRef.current += 1;
+    setStructureReviews({});
+    setStructureReviewing({});
+    setStructureReviewErrors({});
+  }, []);
+
   return {
     feedback,
     evaluating,
@@ -263,6 +444,14 @@ export function useLanguageTutorCoach(language: Language, level: string) {
     suggestionError,
     suggest,
     clearSuggestion,
+    structureLoading,
+    structureError,
+    generateStructure,
+    structureReviews,
+    structureReviewing,
+    structureReviewErrors,
+    reviewStructure,
+    clearStructureReviews,
     reset,
   };
 }

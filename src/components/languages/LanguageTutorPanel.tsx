@@ -1,46 +1,69 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  ArrowDown,
   CheckCircle2,
   CornerDownLeft,
-  GraduationCap,
   Hand,
   History,
   Lightbulb,
   Loader2,
   Maximize2,
+  MessageCircle,
   Mic,
   MicOff,
+  Pause,
+  Play,
   Plus,
+  Save,
   Send,
   Sparkles,
   Square,
   SquarePen,
+  Timer,
   Trash2,
   Volume2,
   VolumeX,
+  Wand2,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { VisualBlock, VisualCanvas } from '@/components/coach/VisualCanvas';
 import { useLanguageTutor, type SendMessageOptions } from '@/hooks/useLanguageTutor';
 import { useLanguageTutorCoach } from '@/hooks/useLanguageTutorCoach';
+import { usePracticeSession } from '@/hooks/usePracticeSession';
 import { limpiarRepeticiones, useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import type { Language } from '@/hooks/useLanguageLearning';
 import { TUTOR_EMPTY, TUTOR_GENERAL, TUTOR_HEADER, TUTOR_MODES, type TutorModeDef, type TutorSkill } from './tutorModes';
-import { SCENARIO_END_MSG, SCENARIO_START_MSG, SPEAKING_SCENARIOS } from './speakingScenarios';
+import { SCENARIO_END_MSG, SCENARIO_START_MSG, SESSION_END_MSG, SPEAKING_SCENARIOS } from './speakingScenarios';
+import { SPEAKING_STRUCTURES, type SpeakingStructure } from './speakingStructures';
 import { TutorFeedbackBubble } from './TutorFeedbackBubble';
 import { TutorSuggestionCard } from './TutorSuggestionCard';
 import { TutorVoiceFullscreen } from './TutorVoiceFullscreen';
+import { TutorAvatar } from './TutorAvatar';
+import { SpeakingStructuresPanel } from './SpeakingStructuresPanel';
+import { ActiveStructurePanel } from './ActiveStructurePanel';
+import { StructureReviewCard } from './StructureReviewCard';
 
 const md: Components = {
   h2: ({ children }) => <h2 className="mt-4 mb-1.5 text-base font-bold first:mt-0">{children}</h2>,
@@ -75,13 +98,45 @@ const ACCION_LABEL: Record<string, string> = {
   memoria_guardada: 'Anotado en la memoria del Tutor',
 };
 
+const SESSION_GOALS = [5, 10, 15, 20];
+
+function formatClock(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  const mm = minutes.toString().padStart(2, '0');
+  const ss = seconds.toString().padStart(2, '0');
+  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function formatDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
 interface Props {
   language: Language;
   level: string;
-  onLogPractice?: (skillId: string, minutes: number, blockType: 'morning' | 'afternoon') => Promise<void>;
+  /** false cuando la pestaña del tutor no está visible: corta voz y micro. */
+  active?: boolean;
+  onLogPractice?: (
+    skillId: string,
+    minutes: number,
+    blockType: 'morning' | 'afternoon',
+    language?: Language
+  ) => Promise<void>;
 }
 
-export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
+export function LanguageTutorPanel({ language, level, active = true, onLogPractice }: Props) {
   const [mode, setMode] = useState<TutorSkill | null>(null);
   const [input, setInput] = useState('');
   const [logged, setLogged] = useState<string[]>([]);
@@ -92,15 +147,30 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const [fullScreen, setFullScreen] = useState(false);
   const [feedbackOn, setFeedbackOn] = useState(false);
   const [suggestOn, setSuggestOn] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const [longTalk, setLongTalk] = useState(true);
+  const [structuresOpen, setStructuresOpen] = useState(false);
+  const [activeStructure, setActiveStructure] = useState<SpeakingStructure | null>(null);
+  const [customStructures, setCustomStructures] = useState<SpeakingStructure[]>([]);
+  const [sessionGoal, setSessionGoal] = useState(10);
+  const [confirmNewOpen, setConfirmNewOpen] = useState(false);
+  const [showJump, setShowJump] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const nearBottomRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastSendRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   /** true cuando la grabación viene del botón de pantalla completa (siempre envía al soltar) */
   const fullSendRef = useRef(false);
   /** Mensajes ya evaluados: evita repetir la llamada de feedback. */
   const evaluatedRef = useRef<Set<string>>(new Set());
+  /** Mensajes ya revisados contra la estructura activa. */
+  const reviewedRef = useRef<Set<string>>(new Set());
   /** Última respuesta del tutor para la que ya se pidió sugerencia. */
   const suggestionForRef = useRef<string | null>(null);
+  const goalReachedRef = useRef(false);
+  const sessionElapsedRef = useRef(0);
+  /** Idioma al que pertenece la sesión en curso (no cambia al cambiar de idioma). */
+  const sessionLanguageRef = useRef<Language>(language);
 
   const {
     conversations,
@@ -113,6 +183,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     stop,
     openConversation,
     newConversation,
+    deleteConversation,
     deleteMemory,
   } = useLanguageTutor(language, level, mode);
 
@@ -127,6 +198,14 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     suggestionError,
     suggest,
     clearSuggestion,
+    structureLoading,
+    structureError,
+    generateStructure,
+    structureReviews,
+    structureReviewing,
+    structureReviewErrors,
+    reviewStructure,
+    clearStructureReviews,
     reset: resetCoach,
   } = useLanguageTutorCoach(language, level);
 
@@ -152,18 +231,43 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     speaking: explanationSpeaking,
   } = useSpeechSynthesis('es-ES', 1);
 
+  const { supported: sttSupported, listening: sttListening, interim: sttInterim, start: sttStart, stop: sttStop, abort: sttAbort } =
+    useSpeechRecognition({
+      lang: speechLang,
+      onFinal: text => handleFinal(text),
+      onError: () => {
+        // Cualquier error corta el modo manos libres para no reabrir el micro en bucle.
+        setMicArmed(false);
+      },
+    });
+
+  const {
+    running: sessionRunning,
+    elapsedMs: sessionElapsedMs,
+    start: startSession,
+    pause: pauseSession,
+    finish: finishTimer,
+    reset: resetSession,
+  } = usePracticeSession(minutes => {
+    if (minutes > 0) void onLogPractice?.('speaking', minutes, 'morning', sessionLanguageRef.current);
+  });
+
+  sessionElapsedRef.current = sessionElapsedMs;
+
   const header = TUTOR_HEADER[language];
   const activeMode: TutorModeDef | null = TUTOR_MODES.find(m => m.id === mode) ?? null;
   const activeScenario = scenario ? SPEAKING_SCENARIOS.find(s => s.id === scenario) ?? null : null;
   const quick = activeMode ? activeMode.quick[language] : TUTOR_GENERAL[language];
   const esSpeaking = mode === 'speaking';
-  const placeholder = activeScenario
-    ? 'Habla con el micro (se envía solo) o escribe tu respuesta...'
-    : esSpeaking
-      ? 'Pulsa el micro y habla, o escribe lo que quieras decir...'
-      : activeMode
-        ? activeMode.placeholder
-        : 'Escribe tu pregunta o tu texto para corregirlo...';
+  const placeholder = activeStructure
+    ? 'Responde siguiendo los pasos de la estructura...'
+    : activeScenario
+      ? 'Habla con el micro (se envía solo) o escribe tu respuesta...'
+      : esSpeaking
+        ? 'Pulsa el micro y habla, o escribe lo que quieras decir...'
+        : activeMode
+          ? activeMode.placeholder
+          : 'Escribe tu pregunta o tu texto para corregirlo...';
   const allVisuals = messages.flatMap(m => m.visuals);
 
   const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant') ?? null;
@@ -171,15 +275,22 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   const lastAssistantId = lastAssistant?.id;
   const lastAssistantIndex = lastAssistant ? messages.findIndex(m => m.id === lastAssistant.id) : -1;
   const showLogButton = !loading && messages.length > 0 && lastAssistantId && !logged.includes(lastAssistantId);
+  const lastUserReview = lastUser ? structureReviews[lastUser.id] ?? null : null;
+  const structures = useMemo(() => [...customStructures, ...SPEAKING_STRUCTURES], [customStructures]);
 
-  /** Marca los mensajes actuales como ya vistos al activar el feedback. */
+  const sessionGoalMs = sessionGoal * 60_000;
+  const sessionProgress = sessionGoalMs > 0 ? Math.min(1, sessionElapsedMs / sessionGoalMs) : 0;
+  const goalReached = sessionElapsedMs >= sessionGoalMs;
+
   const markCurrentAsEvaluated = () => {
     messages.forEach(m => {
-      if (m.role === 'user') evaluatedRef.current.add(m.id);
+      if (m.role === 'user') {
+        evaluatedRef.current.add(m.id);
+        reviewedRef.current.add(m.id);
+      }
     });
   };
 
-  /** Historial previo a un mensaje, para dar contexto al coach. */
   const historyBefore = (index: number) =>
     messages
       .slice(0, Math.max(index, 0))
@@ -188,24 +299,57 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
 
   const resetCoachTracking = () => {
     evaluatedRef.current.clear();
+    reviewedRef.current.clear();
     // Los mensajes que ya están en pantalla no se reevalúan al cambiar de hilo.
     messages.forEach(m => {
-      if (m.role === 'user') evaluatedRef.current.add(m.id);
+      if (m.role === 'user') {
+        evaluatedRef.current.add(m.id);
+        reviewedRef.current.add(m.id);
+      }
     });
     suggestionForRef.current = lastAssistantId ?? null;
     resetCoach();
   };
 
+  const ensureSession = () => {
+    if (!sessionRunning && sessionElapsedMs === 0) {
+      sessionLanguageRef.current = language;
+      startSession();
+    }
+  };
+
+  const jumpToBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    nearBottomRef.current = true;
+    setShowJump(false);
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  };
+
+  const handleChatScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+    nearBottomRef.current = near;
+    setShowJump(!near);
+  };
+
+  // Scroll inteligente: solo sigue la conversación si el usuario ya está abajo.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!nearBottomRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: loading ? 'auto' : 'smooth' });
   }, [messages, loading]);
 
   useEffect(() => {
     if (!loading && !handsFree) inputRef.current?.focus();
   }, [loading, conversationId, handsFree]);
 
-  // Al cambiar de pestaña/idioma el registro de práctica ya no aplica
+  // Al cambiar de idioma se cierra la sesión anterior y se guardan sus minutos.
   useEffect(() => {
+    if (sessionElapsedRef.current > 0) finishTimer();
+    else resetSession();
     setLogged([]);
     setMode(null);
     setInput('');
@@ -214,18 +358,43 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     setMicArmed(false);
     setFeedbackOn(false);
     setSuggestOn(false);
+    setLongTalk(true);
+    setActiveStructure(null);
+    setCustomStructures([]);
+    setStructuresOpen(false);
+    setFullScreen(false);
+    setSessionGoal(10);
+    setShowJump(false);
+    goalReachedRef.current = false;
+    clearStructureReviews();
     stopSpeak();
     stopExplanation();
     evaluatedRef.current.clear();
+    reviewedRef.current.clear();
     messages.forEach(m => {
-      if (m.role === 'user') evaluatedRef.current.add(m.id);
+      if (m.role === 'user') {
+        evaluatedRef.current.add(m.id);
+        reviewedRef.current.add(m.id);
+      }
     });
     suggestionForRef.current = lastAssistantId ?? null;
     resetCoach();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, stopSpeak, stopExplanation, resetCoach]);
+  }, [language, stopSpeak, stopExplanation, resetCoach, resetSession, finishTimer, clearStructureReviews]);
 
-  // La voz empieza a sonar en cuanto hay una frase, sin esperar la respuesta completa
+  // Al salir de la pestaña se corta todo: la voz no debe seguir sonando.
+  useEffect(() => {
+    if (active) return;
+    stopSpeak();
+    stopExplanation();
+    if (sttListening) sttAbort();
+    setMicArmed(false);
+    setFullScreen(false);
+    if (sessionRunning) pauseSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, sessionRunning, sttListening, stopSpeak, stopExplanation, pauseSession]);
+
+  // La voz empieza a sonar en cuanto hay una frase, sin esperar la respuesta completa.
   useEffect(() => {
     if (!autoSpeak) return;
     const last = [...messages].reverse().find(m => m.role === 'assistant');
@@ -247,6 +416,18 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, feedbackOn, evaluate]);
 
+  // Revisión de estructura: solo para respuestas nuevas mientras hay una activa.
+  useEffect(() => {
+    if (!feedbackOn || !activeStructure) return;
+    messages.forEach((m, index) => {
+      if (m.role !== 'user' || !m.id.startsWith('tmp-u-')) return;
+      if (reviewedRef.current.has(m.id)) return;
+      reviewedRef.current.add(m.id);
+      void reviewStructure(m.id, m.content, activeStructure, historyBefore(index));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, feedbackOn, activeStructure, reviewStructure]);
+
   // Sugerencia bajo demanda: una por cada respuesta nueva del tutor.
   useEffect(() => {
     if (!suggestOn || !lastAssistant || !lastAssistant.content || lastAssistant.streaming || loading) return;
@@ -256,15 +437,13 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestOn, lastAssistant?.id, lastAssistant?.content, lastAssistant?.streaming, loading, suggest]);
 
-  const { supported: sttSupported, listening: sttListening, interim: sttInterim, start: sttStart, stop: sttStop, abort: sttAbort } =
-    useSpeechRecognition({
-      lang: speechLang,
-      onFinal: text => handleFinal(text),
-      onError: () => {
-        // Cualquier error corta el modo manos libres para no reabrir el micro en bucle.
-        setMicArmed(false);
-      },
-    });
+  useEffect(() => {
+    if (goalReached && !goalReachedRef.current) {
+      goalReachedRef.current = true;
+      toast.success(`Objetivo de ${sessionGoal} min alcanzado. Puedes seguir o terminar y guardar.`);
+    }
+    if (!goalReached) goalReachedRef.current = false;
+  }, [goalReached, sessionGoal]);
 
   const startListening = () => {
     if (!sttSupported || loading) return;
@@ -286,8 +465,14 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
       setFeedbackOn(true);
     } else {
       setFeedbackOn(false);
+      setLongTalk(true);
     }
-    if (next !== 'speaking') setScenario(null);
+    if (next !== 'speaking') {
+      setScenario(null);
+      setActiveStructure(null);
+      clearStructureReviews();
+      if (sessionRunning) pauseSession();
+    }
     if (sttListening) sttAbort();
     clearSuggestion();
     suggestionForRef.current = lastAssistantId ?? null;
@@ -317,9 +502,19 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
 
     stopSpeak();
     stopExplanation();
-    sendMessage(limpio, scenarioId ?? scenario ?? undefined, options);
+    if (esSpeaking && !options?.sessionEnd) ensureSession();
+    const effectiveScenario = scenarioId === null ? undefined : scenarioId ?? scenario ?? undefined;
+    sendMessage(limpio, effectiveScenario, {
+      longTalk: esSpeaking ? longTalk : undefined,
+      ...options,
+    });
     setInput('');
+    nearBottomRef.current = true;
     if (sttListening) sttAbort();
+    window.setTimeout(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }, 0);
   }
 
   function handleFinal(text: string) {
@@ -336,7 +531,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     }
   }
 
-  // Manos libres: tras la respuesta (y su voz) el micro se reactiva solo
+  // Manos libres: tras la respuesta (y su voz) el micro se reactiva solo.
   useEffect(() => {
     if (!handsFree || !micArmed || !esSpeaking) return;
     if (loading || speaking || explanationSpeaking || sttListening || !sttSupported) return;
@@ -355,10 +550,14 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     if (loading) return;
     const def = SPEAKING_SCENARIOS.find(s => s.id === id);
     setScenario(id);
+    setActiveStructure(null);
+    clearStructureReviews();
     setHandsFree(true);
     setAutoSpeak(true);
+    setLongTalk(true);
     markCurrentAsEvaluated();
     setFeedbackOn(true);
+    ensureSession();
     submit(SCENARIO_START_MSG[language], id, {
       hidden: true,
       start: true,
@@ -370,6 +569,112 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
     if (!scenario || loading) return;
     submit(SCENARIO_END_MSG, scenario);
     setScenario(null);
+  };
+
+  const practiceStructure = (structure: SpeakingStructure) => {
+    if (loading) return;
+    setActiveStructure(structure);
+    setStructuresOpen(false);
+    clearStructureReviews();
+    setScenario(null);
+    setMode('speaking');
+    setAutoSpeak(true);
+    setAutoSend(true);
+    setHandsFree(true);
+    setFeedbackOn(true);
+    setLongTalk(true);
+    setMicArmed(false);
+    markCurrentAsEvaluated();
+    ensureSession();
+    submit(`Ask me this question and wait for my answer: "${structure.question[language]}"`, null, {
+      hidden: true,
+      start: true,
+      title: `Speaking · ${structure.questionEs}`,
+      structureQuestion: structure.question[language],
+    });
+  };
+
+  const generateCustomStructure = async (question: string) => {
+    const structure = await generateStructure(question);
+    if (structure) {
+      setCustomStructures(prev => [structure, ...prev]);
+      toast.success('Estructura creada. Pulsa "Practicar" para usarla.');
+    }
+    return structure;
+  };
+
+  const clearActiveStructure = () => {
+    setActiveStructure(null);
+    clearStructureReviews();
+  };
+
+  const toggleSession = () => {
+    if (sessionRunning) {
+      pauseSession();
+    } else {
+      if (sessionElapsedMs === 0) sessionLanguageRef.current = language;
+      startSession();
+    }
+  };
+
+  const finishSession = () => {
+    const minutes = sessionElapsedMs > 0 ? finishTimer() : 0;
+    if (minutes > 0) toast.success(`${minutes} min de speaking guardados en tu día`);
+    setFullScreen(false);
+    if (messages.length > 0 && !loading) {
+      const scenarioId = scenario;
+      setScenario(null);
+      setActiveStructure(null);
+      clearStructureReviews();
+      submit(SESSION_END_MSG, scenarioId, { hidden: true, sessionEnd: true });
+      toast.info('Preparando el resumen de la sesión…');
+    }
+  };
+
+  const startNewThread = () => {
+    const minutes = sessionElapsedMs > 0 ? finishTimer() : 0;
+    if (minutes > 0) toast.success(`${minutes} min de speaking guardados en tu día`);
+    stopSpeak();
+    stopExplanation();
+    if (sttListening) sttAbort();
+    setScenario(null);
+    setActiveStructure(null);
+    clearStructureReviews();
+    setMicArmed(false);
+    setFeedbackOn(false);
+    setSuggestOn(false);
+    setLogged([]);
+    setInput('');
+    setShowJump(false);
+    nearBottomRef.current = true;
+    setConfirmNewOpen(false);
+    resetCoachTracking();
+    newConversation();
+  };
+
+  const openThread = (id: string) => {
+    stopSpeak();
+    stopExplanation();
+    setScenario(null);
+    setActiveStructure(null);
+    clearStructureReviews();
+    setMicArmed(false);
+    setFullScreen(false);
+    resetCoachTracking();
+    openConversation(id);
+  };
+
+  const handleDeleteConversation = async (id: string) => {
+    const wasCurrent = id === conversationId;
+    await deleteConversation(id);
+    if (wasCurrent) {
+      resetCoachTracking();
+      setScenario(null);
+      setActiveStructure(null);
+      clearStructureReviews();
+      setFullScreen(false);
+    }
+    toast.success('Conversación borrada');
   };
 
   const toggleFeedback = () => {
@@ -467,11 +772,11 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
   return (
     <div className="space-y-3">
       {/* Selector de habilidad */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <Button
           variant={mode === null ? 'default' : 'outline'}
           size="sm"
-          className="h-8 text-xs"
+          className="h-8 shrink-0 text-xs"
           onClick={() => applyMode(null)}
         >
           <Sparkles className="w-3.5 h-3.5 mr-1" />
@@ -482,7 +787,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             key={m.id}
             variant={mode === m.id ? 'default' : 'outline'}
             size="sm"
-            className="h-8 text-xs"
+            className="h-8 shrink-0 text-xs"
             onClick={() => applyMode(mode === m.id ? null : m.id)}
           >
             <m.Icon className="w-3.5 h-3.5 mr-1" />
@@ -492,37 +797,6 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             )}
           </Button>
         ))}
-
-        {speechSupported && (
-          <div className="ml-auto flex gap-1.5">
-            {esSpeaking && sttSupported && (
-              <Button
-                variant={handsFree ? 'default' : 'outline'}
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => (handsFree ? (setHandsFree(false), setMicArmed(false)) : setHandsFree(true))}
-                title={
-                  handsFree
-                    ? 'Manos libres: hablas, el tutor contesta en voz alta y el micro se reactiva solo'
-                    : 'Activar modo manos libres (conversación continua)'
-                }
-              >
-                <Hand className="w-3.5 h-3.5 mr-1" />
-                {handsFree ? 'Manos libres on' : 'Manos libres off'}
-              </Button>
-            )}
-            <Button
-              variant={autoSpeak ? 'default' : 'outline'}
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => (autoSpeak ? (setAutoSpeak(false), stopSpeak()) : setAutoSpeak(true))}
-              title={autoSpeak ? 'La IA lee sus respuestas en voz alta' : 'Activar lectura en voz alta'}
-            >
-              {autoSpeak ? <Volume2 className="w-3.5 h-3.5 mr-1 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5 mr-1" />}
-              {autoSpeak ? 'Voz on' : 'Voz off'}
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Herramientas de conversación */}
@@ -547,25 +821,93 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
           <Lightbulb className="w-3.5 h-3.5 mr-1" />
           Ayuda {suggestOn ? 'on' : 'off'}
         </Button>
-        <span className="text-[11px] leading-snug text-muted-foreground">
-          {feedbackOn
-            ? 'Cada frase tuya se corrige aparte: la conversación sigue sin cortes.'
-            : 'Activa Feedback para ver si tu frase es correcta y por qué.'}
-        </span>
+        {esSpeaking && (
+          <Button
+            variant={longTalk ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setLongTalk(value => !value)}
+            title={
+              longTalk
+                ? 'Charla larga: el tutor habla más en cada turno para que la conversación fluya'
+                : 'Turnos cortos: una pregunta breve por respuesta'
+            }
+          >
+            <MessageCircle className="w-3.5 h-3.5 mr-1" />
+            {longTalk ? 'Charla larga' : 'Turnos cortos'}
+          </Button>
+        )}
+        {esSpeaking && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setStructuresOpen(true)}
+            title="Aprende la estructura clave para responder una pregunta concreta"
+          >
+            <Wand2 className="w-3.5 h-3.5 mr-1" />
+            Estructuras
+          </Button>
+        )}
+
+        {speechSupported && (
+          <div className="ml-auto flex gap-1.5">
+            {esSpeaking && sttSupported && (
+              <Button
+                variant={handsFree ? 'default' : 'outline'}
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => {
+                  if (handsFree) {
+                    setHandsFree(false);
+                    setMicArmed(false);
+                  } else {
+                    setHandsFree(true);
+                  }
+                }}
+                title={
+                  handsFree
+                    ? 'Manos libres: hablas, el tutor contesta en voz alta y el micro se reactiva solo'
+                    : 'Activar modo manos libres (conversación continua)'
+                }
+              >
+                <Hand className="w-3.5 h-3.5 mr-1" />
+                {handsFree ? 'Manos libres on' : 'Manos libres off'}
+              </Button>
+            )}
+            <Button
+              variant={autoSpeak ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                if (autoSpeak) {
+                  setAutoSpeak(false);
+                  stopSpeak();
+                } else {
+                  setAutoSpeak(true);
+                }
+              }}
+              title={autoSpeak ? 'La IA lee sus respuestas en voz alta' : 'Activar lectura en voz alta'}
+            >
+              {autoSpeak ? <Volume2 className="w-3.5 h-3.5 mr-1 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5 mr-1" />}
+              {autoSpeak ? 'Voz on' : 'Voz off'}
+            </Button>
+          </div>
+        )}
       </div>
 
       {mode === 'speaking' && (
-        <div className="flex flex-wrap gap-1.5 items-center">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] text-muted-foreground mr-0.5">Simulaciones:</span>
           {SPEAKING_SCENARIOS.map(s => {
-            const active = scenario === s.id;
+            const isActive = scenario === s.id;
             return (
               <Button
                 key={s.id}
-                variant={active ? 'default' : 'outline'}
+                variant={isActive ? 'default' : 'outline'}
                 size="sm"
                 className="h-7 text-[11px]"
-                onClick={() => (active ? setScenario(null) : startScenario(s.id))}
+                onClick={() => (isActive ? setScenario(null) : startScenario(s.id))}
                 disabled={loading}
                 title={s.goal[language]}
               >
@@ -603,18 +945,89 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
         </div>
       )}
 
+      {/* Cronómetro de sesión */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <Timer className={cn('h-4 w-4', sessionRunning ? 'text-primary' : 'text-muted-foreground')} />
+          <span className="font-mono text-base font-semibold tabular-nums">{formatClock(sessionElapsedMs)}</span>
+          <span className="text-[11px] text-muted-foreground">/ {sessionGoal} min</span>
+        </div>
+
+        <div className="hidden h-1.5 min-w-24 flex-1 overflow-hidden rounded-full bg-muted sm:block">
+          <div
+            className={cn('h-full rounded-full transition-all duration-500', goalReached ? 'bg-success' : 'bg-primary')}
+            style={{ width: `${Math.round(sessionProgress * 100)}%` }}
+          />
+        </div>
+
+        <div className="flex items-center gap-1">
+          {SESSION_GOALS.map(goal => (
+            <button
+              key={goal}
+              type="button"
+              onClick={() => setSessionGoal(goal)}
+              className={cn(
+                'h-7 rounded-full border px-2 text-[11px] font-medium transition-colors',
+                sessionGoal === goal
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border bg-background text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={sessionGoal === goal}
+            >
+              {goal}′
+            </button>
+          ))}
+        </div>
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant={sessionRunning ? 'secondary' : 'outline'}
+            size="sm"
+            className="h-8 gap-1 px-2 text-[11px]"
+            onClick={toggleSession}
+          >
+            {sessionRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            {sessionRunning ? 'Pausar' : sessionElapsedMs > 0 ? 'Seguir' : 'Empezar'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1 px-2 text-[11px]"
+            onClick={finishSession}
+            disabled={sessionElapsedMs < 1000}
+            title="Guarda los minutos y pide el resumen final"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Terminar y guardar</span>
+            <span className="sm:hidden">Guardar</span>
+          </Button>
+        </div>
+        {goalReached && (
+          <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+            Objetivo alcanzado
+          </span>
+        )}
+      </div>
+
       <div className="grid lg:grid-cols-[1fr_340px] gap-3">
         {/* Chat */}
-        <Card className="flex flex-col h-[62vh] lg:h-[70vh]">
-          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-foreground text-background">
-              <GraduationCap className="w-3.5 h-3.5" />
-            </div>
+        <Card className="flex h-[62vh] flex-col lg:h-[70vh]">
+          <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+            <TutorAvatar
+              size={52}
+              speaking={speaking}
+              listening={sttListening}
+              thinking={loading && !lastAssistant?.content}
+              language={language}
+              progress={sessionElapsedMs > 0 ? sessionProgress : undefined}
+            />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium leading-tight">
+              <p className="truncate text-sm font-medium leading-tight">
                 Tutor IA · {header.flag} {header.name}
               </p>
-              <p className="text-[11px] text-muted-foreground leading-tight">
+              <p className="truncate text-[11px] leading-tight text-muted-foreground">
                 Nivel {level} · {activeMode ? activeMode.label : 'Chat libre'}
                 {status ? ` · ${status}` : speechSupported && autoSpeak ? ' · leyendo en voz alta' : ''}
               </p>
@@ -622,36 +1035,47 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => {
-                stopSpeak();
-                stopExplanation();
-                setScenario(null);
-                setMicArmed(false);
-                resetCoachTracking();
-                newConversation();
-              }}
+              className="h-7 w-7 shrink-0 p-0"
+              onClick={() => setStructuresOpen(true)}
+              aria-label="Estructuras para responder"
+              title="Estructuras para responder"
             >
-              <Plus className="w-3.5 h-3.5 mr-1" /> Nuevo
+              <Wand2 className="w-3.5 h-3.5" />
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="h-7 w-7 p-0"
+              className="h-7 w-7 shrink-0 p-0"
               onClick={() => setFullScreen(true)}
               aria-label="Ampliar a pantalla completa"
               title="Pantalla completa con voz"
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-7 shrink-0 p-0"
+              onClick={() => setConfirmNewOpen(true)}
+              aria-label="Nuevo hilo"
+              title="Empezar un hilo nuevo"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </Button>
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 w-7 p-0" aria-label="Historial y memoria">
+                <Button variant="outline" size="sm" className="h-7 w-7 shrink-0 p-0" aria-label="Historial y memoria">
                   <History className="w-3.5 h-3.5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-80">
-                <Tabs defaultValue="hilos" className="mt-6">
+              <SheetContent side="right" className="flex w-[min(22rem,92vw)] flex-col p-0">
+                <SheetHeader className="border-b px-4 pb-3 pr-12 pt-5 text-left">
+                  <SheetTitle className="text-base">Historial y memoria</SheetTitle>
+                  <SheetDescription className="text-xs leading-relaxed">
+                    Retoma una conversación anterior o revisa lo que el tutor recuerda de ti.
+                  </SheetDescription>
+                </SheetHeader>
+                <Tabs defaultValue="hilos" className="flex min-h-0 flex-1 flex-col px-3 pt-3">
                   <TabsList className="w-full">
                     <TabsTrigger value="hilos" className="flex-1 text-xs">
                       Historial
@@ -660,49 +1084,58 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                       Memoria
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="hilos">
-                    <ScrollArea className="h-[70vh] pr-2">
+                  <TabsContent value="hilos" className="mt-2 min-h-0 flex-1">
+                    <ScrollArea className="h-[calc(100dvh-12rem)] pr-2">
                       <div className="space-y-1">
                         {conversations.length === 0 && (
-                          <p className="text-xs text-muted-foreground p-2">Sin conversaciones de {header.name} aún.</p>
+                          <p className="p-2 text-xs text-muted-foreground">Sin conversaciones de {header.name} aún.</p>
                         )}
                         {conversations.map(c => (
-                          <button
+                          <div
                             key={c.id}
-                            onClick={() => {
-                              stopSpeak();
-                              stopExplanation();
-                              setScenario(null);
-                              setMicArmed(false);
-                              resetCoachTracking();
-                              openConversation(c.id);
-                            }}
                             className={cn(
-                              'w-full text-left text-sm px-2 py-2 rounded-md hover:bg-muted transition-colors',
-                              c.id === conversationId && 'bg-muted font-medium'
+                              'flex items-start gap-1 rounded-md transition-colors',
+                              c.id === conversationId && 'bg-muted'
                             )}
                           >
-                            <span className="line-clamp-2">{c.title || 'Conversación'}</span>
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => openThread(c.id)}
+                              className="min-w-0 flex-1 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted"
+                            >
+                              <span className="line-clamp-2">{c.title || 'Conversación'}</span>
+                              <span className="mt-0.5 block text-[10px] text-muted-foreground">{formatDate(c.updated_at)}</span>
+                            </button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mt-1 h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => void handleDeleteConversation(c.id)}
+                              aria-label={`Borrar ${c.title || 'conversación'}`}
+                              title="Borrar conversación"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         ))}
                       </div>
                     </ScrollArea>
                   </TabsContent>
-                  <TabsContent value="memoria">
-                    <ScrollArea className="h-[70vh] pr-2">
+                  <TabsContent value="memoria" className="mt-2 min-h-0 flex-1">
+                    <ScrollArea className="h-[calc(100dvh-12rem)] pr-2">
                       <div className="space-y-2">
                         {memories.length === 0 && (
-                          <p className="text-xs text-muted-foreground p-2">
+                          <p className="p-2 text-xs text-muted-foreground">
                             El Tutor todavía no ha guardado errores ni objetivos tuyos.
                           </p>
                         )}
                         {memories.map(m => (
-                          <div key={m.id} className="border border-border rounded-md p-2 flex gap-2 items-start">
+                          <div key={m.id} className="flex items-start gap-2 rounded-md border border-border p-2">
                             <div className="flex-1">
                               {m.kind && <p className="text-[10px] uppercase text-muted-foreground">{m.kind.replace(/_/g, ' ')}</p>}
                               <p className="text-xs">{m.content}</p>
                             </div>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => deleteMemory(m.id)}>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => void deleteMemory(m.id)}>
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>
@@ -715,12 +1148,97 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             </Sheet>
           </div>
 
-          <ScrollArea className="flex-1 p-3">
+          {activeStructure && (
+            <div className="border-b border-border px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <Wand2 className="h-3.5 w-3.5 shrink-0 text-focus" />
+                <p className="min-w-0 flex-1 truncate text-[11px] font-medium">{activeStructure.question[language]}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-[10px]"
+                  onClick={() => setStructuresOpen(true)}
+                >
+                  Ver
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={clearActiveStructure}
+                  aria-label="Quitar estructura"
+                  title="Quitar estructura"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="mt-1 flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {activeStructure.steps.map((step, index) => {
+                  const state = lastUserReview?.covered.find(item => item.label.toLowerCase() === step.label.toLowerCase())?.ok;
+                  return (
+                    <span
+                      key={`${activeStructure.id}-${index}`}
+                      className={cn(
+                        'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium',
+                        state === true
+                          ? 'border-success/40 bg-success/10 text-success'
+                          : state === false
+                            ? 'border-amber-500/40 bg-amber-500/10 text-amber-700'
+                            : 'border-focus/25 bg-focus/[0.04] text-foreground/80'
+                      )}
+                    >
+                      {index + 1}. {step.label}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div
+            ref={scrollRef}
+            onScroll={handleChatScroll}
+            className="relative min-h-0 flex-1 overflow-y-auto p-3"
+          >
             <div className="space-y-4">
               {messages.length === 0 && (
-                <div className="py-6 text-center space-y-4">
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto">{TUTOR_EMPTY[language]}</p>
-                  <div className="flex flex-wrap gap-2 justify-center">
+                <div className="flex flex-col items-center gap-4 py-6 text-center">
+                  <div className="w-[min(38vw,150px)]">
+                    <TutorAvatar language={language} listening={sttListening} thinking={loading} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Tu tutor te escucha</p>
+                    <p className="mx-auto max-w-md text-xs leading-relaxed text-muted-foreground">{TUTOR_EMPTY[language]}</p>
+                  </div>
+                  <div className="grid w-full max-w-md gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => applyMode('speaking')}
+                      className="flex items-start gap-2 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+                    >
+                      <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <span>
+                        <span className="block text-xs font-semibold">Conversación libre</span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                          Habla con el tutor y practica sin guion
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStructuresOpen(true)}
+                      className="flex items-start gap-2 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-focus/40 hover:bg-focus/[0.03]"
+                    >
+                      <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-focus" />
+                      <span>
+                        <span className="block text-xs font-semibold">Estructuras para responder</span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                          Aprende el esqueleto de una buena respuesta
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2">
                     {quick.map(q => (
                       <Button key={q} variant="outline" size="sm" className="text-xs" onClick={() => submit(q)} disabled={loading}>
                         {q}
@@ -734,7 +1252,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                 <div key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
                   {m.role === 'user' ? (
                     <div className="max-w-[85%] space-y-1">
-                      <div className="rounded-lg px-3 py-2 text-sm bg-primary text-primary-foreground whitespace-pre-wrap">
+                      <div className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap">
                         {m.content}
                       </div>
                       {feedbackOn && (
@@ -748,23 +1266,30 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                           onRetry={() => retryFeedback(m.id, m.content)}
                         />
                       )}
+                      {feedbackOn && activeStructure && (
+                        <StructureReviewCard
+                          review={structureReviews[m.id] ?? null}
+                          reviewing={!!structureReviewing[m.id]}
+                          error={structureReviewErrors[m.id] ?? null}
+                        />
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <div className="flex items-start gap-2">
-                        <div className="text-sm flex-1">
+                        <div className="flex-1 text-sm">
                           {m.content ? (
                             <>
                               <ReactMarkdown remarkPlugins={[remarkGfm]} components={md}>
                                 {m.content}
                               </ReactMarkdown>
                               {m.streaming && (
-                                <span className="inline-block w-1.5 h-4 align-middle bg-primary/60 animate-pulse rounded-sm" />
+                                <span className="inline-block h-4 w-1.5 animate-pulse rounded-sm bg-primary/60 align-middle" />
                               )}
                             </>
                           ) : (
                             <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                              <Loader2 className="w-4 h-4 animate-spin" /> Pensando...
+                              <Loader2 className="h-4 w-4 animate-spin" /> Pensando...
                             </span>
                           )}
                         </div>
@@ -772,12 +1297,12 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={cn('h-7 w-7 p-0 flex-shrink-0 mt-0.5', isSpeaking(m.id) && 'text-primary animate-pulse')}
+                            className={cn('mt-0.5 h-7 w-7 flex-shrink-0 p-0', isSpeaking(m.id) && 'animate-pulse text-primary')}
                             onClick={() => toggleSpeak(m.id, m.content)}
                             aria-label={isSpeaking(m.id) ? 'Detener lectura' : 'Escuchar en voz alta'}
                             title={isSpeaking(m.id) ? 'Detener lectura' : `Escuchar en ${speechLang}`}
                           >
-                            {isSpeaking(m.id) ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                            {isSpeaking(m.id) ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                           </Button>
                         )}
                       </div>
@@ -786,7 +1311,7 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                         <div className="space-y-1">
                           {m.acciones.map((a, i) => (
                             <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                              <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
                               <span>
                                 {ACCION_LABEL[a.tipo] ??
                                   `${a.tipo}${a.titulo ? `: ${a.titulo}` : ''}${a.minutos ? ` (${a.minutos} min)` : ''}`}
@@ -804,16 +1329,16 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                               variant="ghost"
                               size="sm"
                               className="h-7 px-2 text-[11px]"
-                              onClick={() => logPractice(m.id, min)}
+                              onClick={() => void logPractice(m.id, min)}
                             >
-                              <SquarePen className="w-3 h-3 mr-1" />
+                              <SquarePen className="h-3 w-3 mr-1" />
                               Registrar {min} min
                             </Button>
                           ))}
                         </div>
                       )}
 
-                      <div className="lg:hidden space-y-2">
+                      <div className="space-y-2 lg:hidden">
                         {m.visuals.map((v, i) => (
                           <VisualBlock key={i} visual={v} />
                         ))}
@@ -823,19 +1348,30 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
                 </div>
               ))}
 
-              {error && <div className="text-sm text-destructive border border-destructive/30 rounded-md p-2">{error}</div>}
-              <div ref={endRef} />
+              {error && <div className="rounded-md border border-destructive/30 p-2 text-sm text-destructive">{error}</div>}
             </div>
-          </ScrollArea>
+
+            {showJump && (
+              <button
+                type="button"
+                onClick={jumpToBottom}
+                className="sticky bottom-2 ml-auto flex h-8 items-center gap-1 rounded-full border border-border bg-background px-2.5 text-[11px] shadow-sm transition-colors hover:bg-muted"
+                aria-label="Ir al final de la conversación"
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+                Ir al final
+              </button>
+            )}
+          </div>
 
           {messages.length > 0 && (
-            <div className="px-3 pb-1 flex gap-1 flex-wrap">
+            <div className="flex gap-1 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {quick.map(q => (
                 <Button
                   key={q}
                   variant="ghost"
                   size="sm"
-                  className="text-[10px] h-6 px-2"
+                  className="h-6 shrink-0 px-2 text-[10px]"
                   onClick={() => submit(q)}
                   disabled={loading}
                 >
@@ -846,8 +1382,8 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
           )}
 
           {sttListening && (
-            <div className="px-3 pb-1 text-[11px] italic text-muted-foreground flex items-center gap-1.5">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive animate-pulse flex-shrink-0" />
+            <div className="flex items-center gap-1.5 px-3 pb-1 text-[11px] italic text-muted-foreground">
+              <span className="inline-block h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full bg-destructive" />
               <span className="truncate">{sttInterim || 'Escuchando... habla con normalidad'}</span>
             </div>
           )}
@@ -865,103 +1401,128 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
             />
           )}
 
-          <form onSubmit={handleSubmit} className="p-3 pt-2 border-t border-border flex gap-2 items-end">
-            <Textarea
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  submit(input);
-                }
-              }}
-              placeholder={placeholder}
-              disabled={loading}
-              rows={2}
-              className="text-sm resize-none min-h-[2.5rem] max-h-32"
-            />
-            <div className="flex flex-col gap-1">
-              {sttSupported && (
-                <Button
-                  type="button"
-                  variant={autoSend ? 'default' : 'outline'}
-                  size="sm"
-                  className="w-9 h-9 p-0"
-                  onClick={() => setAutoSend(v => !v)}
-                  disabled={loading}
-                  aria-label={autoSend ? 'Auto-envío al parar el micro: activado' : 'Auto-envío al parar el micro: desactivado'}
-                  title={
-                    autoSend
-                      ? 'Auto-envío: al parar el micro, el texto reconocido se envía solo'
-                      : 'Sin auto-envío: el texto del micro se añade al campo para que lo edites'
-                  }
-                >
-                  <CornerDownLeft className={cn('w-4 h-4', autoSend && 'animate-pulse')} />
-                </Button>
-              )}
-              <Button
-                type="button"
-                variant={sttListening ? 'default' : 'outline'}
-                size="sm"
-                className={cn('w-9 h-9 p-0', sttListening && 'animate-pulse')}
-                onClick={() => {
-                  if (sttListening) {
-                    setMicArmed(false);
-                    sttStop();
-                  } else {
-                    setMicArmed(handsFree && esSpeaking);
-                    startListening();
+          <form onSubmit={handleSubmit} className="border-t border-border p-3 pt-2">
+            <div className="flex items-end gap-2">
+              <Textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    submit(input);
                   }
                 }}
-                disabled={loading || !sttSupported}
-                aria-label={sttListening ? 'Parar y enviar' : 'Hablar con el Tutor'}
-                title={
-                  !sttSupported
-                    ? 'Reconocimiento de voz no disponible: usa Chrome o Edge'
-                    : sttListening
-                      ? 'Parar y enviar lo que has dicho'
-                      : 'Hablar con el Tutor'
-                }
-              >
-                {sttListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </Button>
-              {loading ? (
+                placeholder={placeholder}
+                disabled={loading}
+                rows={2}
+                className="max-h-32 min-h-[2.75rem] flex-1 resize-none text-sm"
+              />
+              <div className="flex flex-col gap-1">
+                {sttSupported && (
+                  <Button
+                    type="button"
+                    variant={autoSend ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-9 w-9 p-0"
+                    onClick={() => setAutoSend(value => !value)}
+                    disabled={loading}
+                    aria-label={autoSend ? 'Auto-envío al parar el micro: activado' : 'Auto-envío al parar el micro: desactivado'}
+                    title={
+                      autoSend
+                        ? 'Auto-envío: al parar el micro, el texto reconocido se envía solo'
+                        : 'Sin auto-envío: el texto del micro se añade al campo para que lo edites'
+                    }
+                  >
+                    <CornerDownLeft className={cn('h-4 w-4', autoSend && 'animate-pulse')} />
+                  </Button>
+                )}
                 <Button
                   type="button"
+                  variant={sttListening ? 'default' : 'outline'}
                   size="sm"
-                  variant="outline"
-                  className="w-9 h-9 p-0"
+                  className={cn('h-9 w-9 p-0', sttListening && 'animate-pulse')}
                   onClick={() => {
-                    setMicArmed(false);
-                    stopSpeak();
-                    stop();
+                    if (sttListening) {
+                      setMicArmed(false);
+                      sttStop();
+                    } else {
+                      setMicArmed(handsFree && esSpeaking);
+                      startListening();
+                    }
                   }}
-                  aria-label="Detener respuesta"
-                  title="Detener la respuesta del tutor"
+                  disabled={loading || !sttSupported}
+                  aria-label={sttListening ? 'Parar y enviar' : 'Hablar con el Tutor'}
+                  title={
+                    !sttSupported
+                      ? 'Reconocimiento de voz no disponible: usa Chrome o Edge'
+                      : sttListening
+                        ? 'Parar y enviar lo que has dicho'
+                        : 'Hablar con el Tutor'
+                  }
                 >
-                  <Square className="w-4 h-4" />
+                  {sttListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 </Button>
-              ) : (
-                <Button type="submit" size="sm" className="w-9 h-9 p-0" disabled={!input.trim()} aria-label="Enviar">
-                  <Send className="w-4 h-4" />
-                </Button>
-              )}
+                {loading ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-9 w-9 p-0"
+                    onClick={() => {
+                      setMicArmed(false);
+                      stopSpeak();
+                      stop();
+                    }}
+                    aria-label="Detener respuesta"
+                    title="Detener la respuesta del tutor"
+                  >
+                    <Square className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button type="submit" size="sm" className="h-9 w-9 p-0" disabled={!input.trim()} aria-label="Enviar">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                {esSpeaking ? 'Habla o escribe: el feedback va aparte para no cortar la conversación.' : 'Enter para enviar · Shift+Enter para nueva línea'}
+              </p>
+              <span className="text-[10px] tabular-nums text-muted-foreground">{input.length > 0 ? `${input.length}` : ''}</span>
             </div>
           </form>
         </Card>
 
-        {/* Lienzo visual */}
-        <Card className="hidden lg:block h-[70vh] overflow-hidden">
-          <div className="px-3 py-2 border-b border-border">
-            <h2 className="text-sm font-medium">Apoyo visual</h2>
-          </div>
-          <ScrollArea className="h-[calc(70vh-37px)]">
-            <VisualCanvas
-              visuals={allVisuals}
-              emptyText="Aquí el Tutor dibujará tablas de conjugación, comparaciones de tus errores, listas de vocabulario y tu progreso."
+        {/* Columna lateral: estructura activa o apoyo visual */}
+        <Card className="hidden h-[70vh] flex-col overflow-hidden lg:flex">
+          {activeStructure ? (
+            <ActiveStructurePanel
+              structure={activeStructure}
+              language={language}
+              review={lastUserReview}
+              onSpeak={text => {
+                stopSpeak();
+                stopExplanation();
+                speak('structure-panel', text);
+              }}
+              onClear={clearActiveStructure}
+              onOpenAll={() => setStructuresOpen(true)}
             />
-          </ScrollArea>
+          ) : (
+            <>
+              <div className="border-b border-border px-3 py-2">
+                <h2 className="text-sm font-medium">Apoyo visual</h2>
+              </div>
+              <ScrollArea className="flex-1">
+                <VisualCanvas
+                  visuals={allVisuals}
+                  emptyText="Aquí el Tutor dibujará tablas de conjugación, comparaciones de tus errores, listas de vocabulario y tu progreso."
+                />
+              </ScrollArea>
+            </>
+          )}
         </Card>
       </div>
 
@@ -976,10 +1537,12 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
         flag={header.flag}
         name={header.name}
         level={level}
-        modeLabel={activeScenario ? `🎭 ${activeScenario.label[language]}` : activeMode ? activeMode.label : 'Chat libre'}
+        modeLabel={activeStructure ? `Estructura · ${activeStructure.questionEs}` : activeScenario ? `🎭 ${activeScenario.label[language]}` : activeMode ? activeMode.label : 'Chat libre'}
+        language={language}
         aiText={lastAssistant?.content ?? ''}
         aiSpeaking={speakingId !== null || explanationSpeaking}
         loading={loading}
+        thinking={loading && !lastAssistant?.content}
         stopSpeak={stopSpeak}
         sttSupported={sttSupported}
         sttListening={sttListening}
@@ -1027,7 +1590,51 @@ export function LanguageTutorPanel({ language, level, onLogPractice }: Props) {
           setMicArmed(false);
           sttAbort();
         }}
+        sessionElapsedMs={sessionElapsedMs}
+        sessionRunning={sessionRunning}
+        sessionGoalMinutes={sessionGoal}
+        onSetSessionGoal={setSessionGoal}
+        onToggleSession={toggleSession}
+        onFinishSession={finishSession}
+        longTalk={longTalk}
+        onToggleLongTalk={() => setLongTalk(value => !value)}
+        structure={activeStructure}
+        onOpenStructures={() => {
+          setFullScreen(false);
+          setStructuresOpen(true);
+        }}
       />
+
+      <SpeakingStructuresPanel
+        open={structuresOpen}
+        onOpenChange={setStructuresOpen}
+        language={language}
+        structures={structures}
+        onPractice={practiceStructure}
+        onSpeak={text => {
+          stopSpeak();
+          stopExplanation();
+          speak('structures', text);
+        }}
+        onGenerate={generateCustomStructure}
+        generating={structureLoading}
+        generateError={structureError}
+      />
+
+      <AlertDialog open={confirmNewOpen} onOpenChange={setConfirmNewOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Empezar un hilo nuevo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La conversación actual se queda en el historial. Si hay una sesión de speaking en marcha, se guardarán sus minutos antes de empezar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={startNewThread}>Empezar de nuevo</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

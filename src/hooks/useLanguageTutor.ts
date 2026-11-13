@@ -60,12 +60,18 @@ export interface SendMessageOptions {
   start?: boolean;
   /** Título para la conversación nueva. */
   title?: string;
+  /** Conversación larga: respuestas más ricas y más historial. */
+  longTalk?: boolean;
+  /** Pide el resumen final de la sesión en español. */
+  sessionEnd?: boolean;
+  /** Pregunta concreta cuya estructura está practicando. */
+  structureQuestion?: string;
 }
 
 const scopeFor = (language: Language) => `tutor-${language}`;
 
 /** Recorta el historial: prompts más cortos = primera palabra mucho antes. */
-const buildHistory = (messages: TutorMessage[], limit = 10) =>
+const buildHistory = (messages: TutorMessage[], limit = 12) =>
   messages
     .filter(m => m.content.trim())
     .slice(-limit)
@@ -245,6 +251,17 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     setMemories(prev => prev.filter(m => m.id !== id));
   }, []);
 
+  /** Borra un hilo completo. Si era el abierto, deja el panel limpio. */
+  const deleteConversation = useCallback(
+    async (id: string) => {
+      await db.from('ai_messages').delete().eq('conversation_id', id);
+      await db.from('ai_conversations').delete().eq('id', id);
+      setConversations(prev => prev.filter(c => c.id !== id));
+      if (convRef.current === id) newConversation();
+    },
+    [newConversation]
+  );
+
   /** Corta la respuesta en curso conservando lo ya escrito. */
   const stop = useCallback(() => {
     canceladoRef.current = true;
@@ -269,7 +286,14 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
       const stamp = Date.now();
       const userId = `tmp-u-${stamp}`;
       const assistantId = `tmp-a-${stamp}`;
-      const history = buildHistory(messagesRef.current, skillRef.current === 'speaking' ? 6 : 10);
+      const historyLimit = options?.sessionEnd
+        ? 24
+        : skillRef.current === 'speaking'
+          ? options?.longTalk
+            ? 20
+            : 12
+          : 16;
+      const history = buildHistory(messagesRef.current, historyLimit);
 
       setMessages(prev => [
         ...prev,
@@ -341,6 +365,9 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
             skill: skillRef.current,
             scenario: scenario || undefined,
             start: options?.start === true,
+            longTalk: options?.longTalk === true,
+            sessionEnd: options?.sessionEnd === true,
+            structureQuestion: options?.structureQuestion || undefined,
             stream: true,
             provider: getAIProvider(),
           }),
@@ -450,6 +477,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     stop,
     openConversation,
     newConversation,
+    deleteConversation,
     deleteMemory,
   };
 }

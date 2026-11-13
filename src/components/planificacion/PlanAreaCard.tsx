@@ -48,6 +48,11 @@ export interface PlanObjectiveRow {
   /** Acciones opcionales para metas creadas desde Metas Sistemas. */
   onEdit?: () => void;
   onDelete?: () => void;
+  /**
+   * Controles extra bajo la fila (ej. minutos, agua, foto, horas de sueño).
+   * Se renderizan fuera del botón de marcado para no anidar interactivos.
+   */
+  details?: React.ReactNode;
 }
 
 export interface PlanAreaCardData {
@@ -1727,13 +1732,9 @@ export function ObjectiveRow({ item }: { item: PlanObjectiveRow }) {
 
   const hasActions = !!(item.onEdit || item.onDelete);
 
-  if (!item.onToggle && !hasActions) {
-    return (
-      <div className="flex items-center gap-1.5 rounded-lg bg-foreground/5 px-1.5 py-1">{body}</div>
-    );
-  }
-
-  return (
+  const row = !item.onToggle && !hasActions ? (
+    <div className="flex items-center gap-1.5 rounded-lg bg-foreground/5 px-1.5 py-1">{body}</div>
+  ) : (
     <div className="flex min-w-0 items-center gap-0.5">
       {item.onToggle ? (
         <button
@@ -1778,6 +1779,15 @@ export function ObjectiveRow({ item }: { item: PlanObjectiveRow }) {
           )}
         </span>
       )}
+    </div>
+  );
+
+  if (!item.details) return row;
+
+  return (
+    <div className="min-w-0 space-y-0.5">
+      {row}
+      <div className="pl-1.5 pr-1">{item.details}</div>
     </div>
   );
 }

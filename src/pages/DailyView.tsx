@@ -29,6 +29,8 @@ import { RoutineConfigBar } from '@/components/today/RoutineConfigBar';
 import { CurrentBlockCard } from '@/components/today/CurrentBlockCard';
 import { DailyTimelinePlanner } from '@/components/today/DailyTimelinePlanner';
 import { RoutineCardsView } from '@/components/today/RoutineCardsView';
+import { RoutineFullscreenView } from '@/components/today/RoutineFullscreenView';
+import { findCurrentBlockIndex, findNextBlockIndex, sortRoutineBlocks } from '@/lib/routineTime';
 import { TaskPoolPanel } from '@/components/today/TaskPoolPanel';
 import { TaskChecklist } from '@/components/today/TaskChecklist';
 import { EisenhowerMatrix } from '@/components/today/EisenhowerMatrix';
@@ -57,10 +59,10 @@ import { useRoutineConfig } from '@/hooks/useRoutineConfig';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useRoutineBlocks, type RoutineType, ROUTINES } from '@/hooks/useRoutineBlocks';
 import { useSystemCardCovers } from '@/hooks/useSystemCardCovers';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Moon, ChevronDown, ChevronUp } from 'lucide-react';
+import { CalendarDays, Zap, Shield, TrendingUp, BookOpen, LayoutGrid, Sparkles, Utensils, Focus, GraduationCap, Briefcase, FolderKanban, Globe, ListTodo, Calendar, Clock, Gamepad2, ChevronLeft, ChevronRight, Flame, Scale, Leaf, Moon, ChevronDown, ChevronUp, MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { addDays, subDays } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -136,8 +138,28 @@ export default function DailyView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<PeriodViewMode>('esfuerzo');
   const formattedDate = format(selectedDate, "EEEE, d 'de' MMMM", { locale: es });
+  const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   const dayOfYear = Math.ceil((selectedDate.getTime() - new Date(selectedDate.getFullYear(), 0, 1).getTime()) / 86400000);
   const yearProgress = Math.round((dayOfYear / 365) * 100);
+
+  // Si la pantalla se queda abierta pasada la medianoche, avanza al día nuevo.
+  useEffect(() => {
+    let timer: number;
+    const arm = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+      timer = window.setTimeout(() => {
+        setSelectedDate(previous =>
+          format(previous, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+            ? new Date()
+            : previous
+        );
+        arm();
+      }, Math.max(1000, nextMidnight.getTime() - now.getTime()));
+    };
+    arm();
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const { data, loading, toggleCompletion, setTimeValue, setCountValue, setChessResultValue, toggleWater, setWorkAssignment, setMealPhoto, update, toggleSkip, toggleRest, toggleActiveFocusArea } = useSystemsTracking(selectedDate);
 
@@ -228,6 +250,8 @@ export default function DailyView() {
   const [activeSection, setActiveSection] = useState<'tasks' | 'enfoque' | 'mejora' | 'sosten'>('tasks');
   const [planEnfoqueOpen, setPlanEnfoqueOpen] = useState(false);
   const [planViewMode, setPlanViewMode] = useState<'timeline' | 'cards'>('timeline');
+  const [tabletMode, setTabletMode] = useState<{ blockId: string; follow: boolean } | null>(null);
+  const closeTabletMode = useCallback(() => setTabletMode(null), []);
 
   const SOSTEN_HABIT_IDS = SOSTEN_GROUPS.flatMap(g => g.habits.map(h => h.id));
   const MEJORA_HABIT_IDS = ['lectura', 'musica', 'ajedrez', 'entrenamiento-fisico', 'italiano', 'ingles'];
@@ -267,6 +291,18 @@ export default function DailyView() {
     routineType,
     blocks: planBlocks,
   });
+
+  const openTabletMode = () => {
+    if (!isToday) return;
+    const sorted = sortRoutineBlocks(planBlocks);
+    if (sorted.length === 0) return;
+    const now = new Date();
+    const currentIndex = findCurrentBlockIndex(sorted, now);
+    const targetIndex = currentIndex >= 0 ? currentIndex : findNextBlockIndex(sorted, now);
+    const target = sorted[targetIndex] ?? sorted[0];
+    if (!target) return;
+    setTabletMode({ blockId: target.id, follow: true });
+  };
 
   const activeFocusAreas = useMemo(
     () => (Array.isArray(data.activeFocusAreas) ? data.activeFocusAreas : []),
@@ -354,6 +390,37 @@ export default function DailyView() {
             tasksLoading={dailyPlanData.tasksLoading}
             systems={data}
             onToggleSystem={toggleCompletion}
+            onTimeChange={setTimeValue}
+            onCountChange={setCountValue}
+            onChessResultChange={setChessResultValue}
+            onWaterToggle={toggleWater}
+            onMealPhotoUpload={setMealPhoto}
+            onSkipToggle={toggleSkip}
+            onRestToggle={toggleRest}
+            onWorkoutDurationChange={(v) => update('workoutDuration', v)}
+            onWorkoutIntensityChange={(v) => update('workoutIntensity', v)}
+            onWakeTimeChange={(v) => update('wakeTime', v)}
+            onSleepTimeChange={(v) => update('sleepTime', v)}
+            unassignedTasks={unassignedTasks}
+            onTaskCreated={refreshTasks}
+            abcMap={abc.map}
+            onDropTask={assignTaskToBlock}
+            onRemoveTask={removeTaskFromBlock}
+            onUpdateFocus={updateRoutineBlockFocus}
+            onUpdateCover={handleBlockCover}
+            covers={covers}
+            onAddBlock={addRoutineBlock}
+            onRemoveBlock={removeRoutineBlock}
+            routineInfo={routineInfo}
+            events={todayEvents}
+            musicInstrument={musicInstrument}
+            languageChoice={planLanguage || undefined}
+            isFutureView={
+              format(selectedDate, 'yyyy-MM-dd') !==
+              format(new Date(), 'yyyy-MM-dd')
+            }
+            speedPlan={speedPlan}
+            onSpeedPlanChange={setSpeedPlan}
           />
         ) : viewMode === 'plan' ? (
           <>
@@ -423,27 +490,45 @@ export default function DailyView() {
                 {planViewMode === 'cards' ? <LayoutGrid className="h-4 w-4 text-primary" /> : <Clock className="h-4 w-4 text-primary" />}
                 Rutina del Día
               </div>
-              <div className="flex gap-1 p-0.5 rounded-xl bg-muted">
-                <button
-                  onClick={() => setPlanViewMode('timeline')}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                    planViewMode === 'timeline' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  )}
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1 p-0.5 rounded-xl bg-muted">
+                  <button
+                    onClick={() => setPlanViewMode('timeline')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                      planViewMode === 'timeline' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    Horario
+                  </button>
+                  <button
+                    onClick={() => setPlanViewMode('cards')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                      planViewMode === 'cards' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    Tarjetas
+                  </button>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-xl px-3 text-xs font-semibold"
+                  onClick={openTabletMode}
+                  disabled={!isToday || planBlocks.length === 0}
+                  title={
+                    !isToday
+                      ? 'El modo tablet está disponible para el día de hoy'
+                      : 'Abrir la rutina actual en pantalla completa'
+                  }
                 >
-                  <Clock className="h-3.5 w-3.5" />
-                  Horario
-                </button>
-                <button
-                  onClick={() => setPlanViewMode('cards')}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-                    planViewMode === 'cards' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  Tarjetas
-                </button>
+                  <MonitorPlay className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Modo tablet</span>
+                  <span className="sm:hidden">Tablet</span>
+                </Button>
               </div>
             </div>
 
@@ -831,6 +916,26 @@ export default function DailyView() {
           <DireccionSection />
         ) : (
           <ResultadosDia date={selectedDate} />
+        )}
+
+        {tabletMode && (
+          <RoutineFullscreenView
+            blocks={planBlocks}
+            initialBlockId={tabletMode.blockId}
+            startFollowing={tabletMode.follow}
+            tasksByBlock={tasksByBlock || {}}
+            tasks={tasks}
+            covers={covers}
+            isBlockCompleted={isBlockCompleted}
+            onToggleBlock={toggleBlockComplete}
+            onToggleTask={toggleTaskDone}
+            speedPlan={speedPlan}
+            isToday={isToday}
+            selectedDateLabel={formattedDate}
+            routineLabel={routineInfo.label}
+            languageChoice={planLanguage || undefined}
+            onClose={closeTabletMode}
+          />
         )}
       </div>
     </div>
