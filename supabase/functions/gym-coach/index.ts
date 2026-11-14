@@ -15,6 +15,13 @@
  *   npx supabase functions deploy gym-coach --project-ref fuqmrtenzlslkeqgdjwy
  */
 
+import {
+  cabecerasGratis,
+  candidatosGratis,
+  marcarProveedorCaido,
+  type FreeCandidate,
+} from "../_shared/freeProviders.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -893,6 +900,64 @@ async function callOpenRouter(
   }
 }
 
+/**
+ * Llamada a los proveedores gratuitos con API real (Gemini, Groq, Mistral).
+ * Hablan el mismo formato OpenAI, así que solo cambian URL, clave y modelo.
+ */
+async function callFreeProvider(
+  p: FreeCandidate,
+  messages: ChatMessage[],
+  timeoutMs: number,
+  useTools: boolean,
+  toolChoice?: unknown,
+): Promise<ModelReply> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(4_000, timeoutMs));
+  try {
+    const res = await fetch(p.url, {
+      method: "POST",
+      headers: cabecerasGratis(p),
+      body: JSON.stringify({
+        model: p.modelo,
+        messages,
+        ...(useTools ? { tools } : {}),
+        ...(useTools && toolChoice ? { tool_choice: toolChoice } : {}),
+        temperature: 0.35,
+        max_tokens: 4096,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      let detail = text;
+      try {
+        const parsed = JSON.parse(text);
+        detail = parsed?.error?.message || parsed?.message || text;
+      } catch {
+        /* texto plano */
+      }
+      throw new ModelHttpError(
+        res.status,
+        `${p.nombre} ${res.status}: ${String(detail || "sin detalle").slice(0, 400)}`,
+        // Un proveedor gratuito caído nunca debe cortar la cadena.
+        false,
+      );
+    }
+
+    const data = await res.json();
+    const msg = data?.choices?.[0]?.message;
+    if (!msg) throw new ModelHttpError(502, "El modelo devolvió una respuesta vacía.", false);
+
+    return {
+      content: typeof msg.content === "string" ? msg.content : "",
+      toolCalls: Array.isArray(msg.tool_calls) ? msg.tool_calls : [],
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---------------------------------------------------------------- model discovery
 
 /**
@@ -1388,11 +1453,20 @@ Deno.serve(async (req) => {
     let activeModel: string | null = intent ? null : activeSeed;
     let toolModels = pickModels(allModels, true, activeSeed);
     if (!allModels.length || !toolModels.length) toolModels = STATIC_TOOL_MODELS.slice(0, 6);
-    // DeepSeek va primero solo si el usuario lo eligió. Si falla, la cadena
-    // continúa con los modelos de OpenRouter (fallback automático).
-    if (usarOpenCode) {
-      toolModels = [OPENCODE_MODEL, ...toolModels.filter((m) => m !== OPENCODE_MODEL)];
+
+    // Orden de intentos: OpenCode (si se eligió), proveedores gratuitos con API
+    // real (Gemini, Groq, Mistral) y por último los modelos de OpenRouter.
+    type Objetivo = {
+      provider: "openrouter" | "opencode" | "gemini" | "groq" | "mistral";
+      model: string;
+      libre?: FreeCandidate;
+    };
+    const objetivos: Objetivo[] = [];
+    if (usarOpenCode) objetivos.push({ provider: "opencode", model: OPENCODE_MODEL });
+    for (const p of await candidatosGratis()) {
+      objetivos.push({ provider: p.nombre, model: p.modelo, libre: p });
     }
+    for (const m of toolModels) objetivos.push({ provider: "openrouter", model: m });
 
     let lastError = "";
     let partialActions: any[] = [];
@@ -1427,7 +1501,8 @@ Deno.serve(async (req) => {
     const runToolLoop = async (
       model: string,
       forcedTool: string | null,
-      provider: "openrouter" | "opencode",
+      provider: "openrouter" | "opencode" | "gemini" | "groq" | "mistral",
+      libre?: FreeCandidate,
     ) => {
       const messages = [...baseMessages];
       const actions: any[] = [];
@@ -1446,21 +1521,25 @@ Deno.serve(async (req) => {
         const timeout = () => Math.min(ATTEMPT_TIMEOUT_MS, Math.max(4_000, remaining() - 3_000));
         let reply: ModelReply;
         try {
-          reply = await callOpenRouter(
-            apiKey,
-            model,
-            messages,
-            timeout(),
-            true,
-            toolChoice,
-            provider,
-          );
+          reply = libre
+            ? await callFreeProvider(libre, messages, timeout(), true, toolChoice)
+            : await callOpenRouter(
+                apiKey,
+                model,
+                messages,
+                timeout(),
+                true,
+                toolChoice,
+                provider,
+              );
         } catch (e) {
           const err = e as ModelHttpError;
           // Algunos modelos gratuitos no aceptan tool_choice forzado: reintenta
           // sin forzarlo en vez de descartar el modelo.
           if (toolChoice && (err.status === 400 || err.status === 422)) {
-            reply = await callOpenRouter(apiKey, model, messages, timeout(), true, undefined, provider);
+            reply = libre
+              ? await callFreeProvider(libre, messages, timeout(), true, undefined)
+              : await callOpenRouter(apiKey, model, messages, timeout(), true, undefined, provider);
           } else {
             throw e;
           }
@@ -1532,20 +1611,20 @@ Deno.serve(async (req) => {
       return { content: lastContent, actions, sawAction };
     };
 
-    for (const model of toolModels) {
+    for (const objetivo of objetivos) {
       if (remaining() < 8_000) break;
-      const proveedorModelo =
-        usarOpenCode && model === OPENCODE_MODEL ? "opencode" : "openrouter";
+      const { provider: proveedorModelo, model, libre } = objetivo;
       try {
-        const result = await runToolLoop(model, forcedIntentTool, proveedorModelo);
-        activeModel = model;
+        const result = await runToolLoop(model, forcedIntentTool, proveedorModelo, libre);
+        // Un modelo de un proveedor gratuito no sirve como semilla de OpenRouter.
+        activeModel = libre ? null : model;
         if (result.sawAction || result.actions.length) {
-          lastGoodModel = model;
+          if (!libre) lastGoodModel = model;
           // Hay cambios reales: no probamos otro modelo (evita duplicados).
           return json({
             content: result.content || fallbackActionText(result.actions),
             acciones: mergeActions(partialActions, result.actions),
-            modelo: model,
+            modelo: libre ? `${libre.nombre}/${libre.modelo}` : model,
           });
         }
         if (result.content) {
@@ -1555,20 +1634,26 @@ Deno.serve(async (req) => {
             lastError = "El modelo respondió sin ejecutar la acción solicitada.";
             continue;
           }
-          lastGoodModel = model;
-          return json({ content: result.content, acciones: [], modelo: model });
+          if (!libre) lastGoodModel = model;
+          return json({
+            content: result.content,
+            acciones: [],
+            modelo: libre ? `${libre.nombre}/${libre.modelo}` : model,
+          });
         }
         lastError = "El modelo devolvió una respuesta vacía.";
       } catch (e) {
         const err = e as Error & { fatal?: boolean; status?: number };
         lastError = err.message || String(e);
         if (lastGoodModel === model) lastGoodModel = null;
+        if (libre && (err.status === 401 || err.status === 403)) marcarProveedorCaido(libre.nombre);
         if (err.fatal) {
           return json({ error: `La clave de OpenRouter no es válida o no tiene permisos. ${lastError}` }, 500);
         }
         // Modelo caído, restringido, retirado o sin soporte de herramientas:
         // lo vetamos y seguimos con el siguiente. Nunca devolvemos su error.
-        if (esErrorDeModelo(lastError, Number(err.status) || 0)) marcarModeloInvalido(model);
+        // Los proveedores gratuitos no entran en la lista de vetados de OpenRouter.
+        if (!libre && esErrorDeModelo(lastError, Number(err.status) || 0)) marcarModeloInvalido(model);
         // Límite diario de la cuenta: probar más modelos solo añade espera.
         if (err.status === 429 && esLimiteDiario(lastError)) break;
         // 429 / timeout: probamos el siguiente.

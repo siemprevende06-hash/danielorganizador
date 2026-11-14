@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { cabecerasGratis, candidatosGratis, marcarProveedorCaido } from "../_shared/freeProviders.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -916,6 +917,8 @@ Reglas:
 
     const out = { visuals: [] as any[], acciones: [] as any[], fuentes: [] as any[] };
     let finalText = "";
+    /** Proveedor y modelo que respondieron de verdad (no la preferencia del usuario). */
+    let proveedorUsado: { proveedor: string; modelo: string } | null = null;
 
     const chat = (modelo: string) =>
       fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -953,6 +956,7 @@ Reglas:
         try {
           const intento = await chatOpenCode();
           if (intento.ok) {
+            proveedorUsado = { proveedor: "opencode", modelo: OPENCODE_MODEL };
             res = intento;
           } else {
             ultimoEstado = intento.status;
@@ -968,6 +972,33 @@ Reglas:
         }
       }
 
+      // Proveedores gratuitos con API real (Gemini, Groq, Mistral). Van antes
+      // que OpenRouter: sus cuotas son más amplias y estables.
+      if (!res) {
+        for (const p of await candidatosGratis()) {
+          try {
+            const intento = await fetch(p.url, {
+              method: "POST",
+              headers: cabecerasGratis(p),
+              body: JSON.stringify({ model: p.modelo, messages, tools }),
+              signal: AbortSignal.timeout(25_000),
+            });
+            if (intento.ok) {
+              proveedorUsado = { proveedor: p.nombre, modelo: p.modelo };
+              res = intento;
+              break;
+            }
+            const detalle = await intento.text().catch(() => "");
+            if (intento.status === 401 || intento.status === 403) marcarProveedorCaido(p.nombre);
+            console.warn(
+              `[life-coach] ${p.nombre}/${p.modelo} -> ${intento.status} ${detalle.slice(0, 160)}`,
+            );
+          } catch (e) {
+            console.warn(`[life-coach] ${p.nombre}/${p.modelo} falló: ${(e as Error).message}`);
+          }
+        }
+      }
+
       if (!res) {
         for (const modelo of await candidatosModelo(OPENROUTER_API_KEY)) {
           let intento: Response;
@@ -978,6 +1009,7 @@ Reglas:
           }
           if (intento.ok) {
             MODELO_ACTIVO = modelo;
+            proveedorUsado = { proveedor: "openrouter", modelo };
             res = intento;
             break;
           }
@@ -1031,6 +1063,12 @@ Reglas:
         );
       }
 
+      // Log de éxito: sin esto los logs solo mostraban los fallos y era
+      // imposible saber qué modelo había respondido.
+      console.log(
+        `[life-coach] ok provider=${proveedorUsado?.proveedor ?? "?"} model=${proveedorUsado?.modelo ?? "?"}`,
+      );
+
       const data = await res.json();
       const choice = data.choices?.[0];
       const msg = choice?.message;
@@ -1065,6 +1103,9 @@ Reglas:
       visuals: out.visuals,
       acciones: out.acciones,
       fuentes: out.fuentes,
+      // Transparencia: qué motor respondió realmente, no lo que pidió el usuario.
+      provider: proveedorUsado?.proveedor ?? null,
+      model: proveedorUsado?.modelo ?? null,
     });
   } catch (e) {
     return json({ error: (e as Error).message || "Error inesperado" }, 500);

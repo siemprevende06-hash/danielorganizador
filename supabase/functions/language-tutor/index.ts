@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { candidatosGratis, marcarProveedorCaido } from "../_shared/freeProviders.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -112,7 +113,7 @@ async function descubrirModelos(): Promise<string[]> {
 }
 
 type Proveedor = {
-  nombre: "gateway" | "openrouter" | "opencode";
+  nombre: "gateway" | "openrouter" | "opencode" | "gemini" | "groq" | "mistral";
   modelo: string;
   url: string;
   key: string;
@@ -897,7 +898,22 @@ interface StreamOpts {
  */
 async function abrirStream(messages: any[], opts: StreamOpts, provider: AIProvider = "openrouter"): Promise<Response | null> {
   const descubiertos = await descubrirModelos();
-  for (const p of candidatos(descubiertos, provider)) {
+  const lista = candidatos(descubiertos, provider);
+
+  // Proveedores gratuitos con API real (Gemini, Groq, Mistral): entran justo
+  // después de OpenCode y antes de la pasarela/OpenRouter.
+  const gratis: Proveedor[] = (await candidatosGratis()).map((p) => ({
+    nombre: p.nombre,
+    modelo: p.modelo,
+    url: p.url,
+    key: p.key,
+  }));
+  if (gratis.length) {
+    const corte = lista.findIndex((p) => p.nombre !== "opencode");
+    lista.splice(corte < 0 ? lista.length : corte, 0, ...gratis);
+  }
+
+  for (const p of lista) {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 45000);
     const onAbort = () => ctrl.abort();
@@ -935,6 +951,12 @@ async function abrirStream(messages: any[], opts: StreamOpts, provider: AIProvid
       }
 
       const errText = await res.text().catch(() => "");
+      if (
+        (res.status === 401 || res.status === 403) &&
+        (p.nombre === "gemini" || p.nombre === "groq" || p.nombre === "mistral")
+      ) {
+        marcarProveedorCaido(p.nombre);
+      }
       console.warn(`[language-tutor] ${p.nombre}/${p.modelo} -> ${res.status} ${errText.slice(0, 180)}`);
       if (esFalloDelModelo(res.status)) {
         MODELOS_INVALIDOS.add(p.modelo);

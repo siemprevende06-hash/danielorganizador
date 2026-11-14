@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { cabecerasGratis, candidatosGratis, marcarProveedorCaido } from "../_shared/freeProviders.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -284,6 +285,39 @@ B) Faltan datos:
         console.warn(
           `[finance-ai] opencode/${OPENCODE_MODEL} falló: ${(e as Error).message}`,
         );
+      }
+    }
+
+    // Proveedores gratuitos con API real (Gemini, Groq, Mistral) antes de la
+    // cadena de OpenRouter: más cuota y respuestas más predecibles en JSON.
+    if (!parsed) {
+      for (const p of await candidatosGratis()) {
+        try {
+          const intento = await fetch(p.url, {
+            method: "POST",
+            headers: cabecerasGratis(p),
+            body: JSON.stringify({ model: p.modelo, messages, temperature: 0.2 }),
+            signal: AbortSignal.timeout(30_000),
+          });
+
+          if (!intento.ok) {
+            if (intento.status === 401 || intento.status === 403) marcarProveedorCaido(p.nombre);
+            console.warn(`[finance-ai] ${p.nombre}/${p.modelo} -> ${intento.status}`);
+            continue;
+          }
+
+          const data = await intento.json().catch(() => null);
+          const content = data?.choices?.[0]?.message?.content || "";
+          const intentoParsed = extractJson(content);
+          if (intentoParsed) {
+            modeloUsado = `${p.nombre}/${p.modelo}`;
+            parsed = intentoParsed;
+            break;
+          }
+          console.warn(`[finance-ai] ${p.nombre}/${p.modelo} -> respuesta sin JSON`);
+        } catch (e) {
+          console.warn(`[finance-ai] ${p.nombre}/${p.modelo} falló: ${(e as Error).message}`);
+        }
       }
     }
 
