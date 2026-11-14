@@ -7,6 +7,7 @@ import { Bot, Loader2, Mic, MicOff, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/env";
 import { getAIProvider } from "@/lib/aiProvider";
+import { AiModelBadge, engineDesdeModelo, type AiEngine } from "@/components/ai/AiModelBadge";
 
 interface AIMessage {
   role: "user" | "assistant";
@@ -59,6 +60,8 @@ export function FinanceAIAssistant({ wallets, categories, onCreateTransaction }:
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  /** Proveedor y modelo reales que respondieron la última vez. */
+  const [engine, setEngine] = useState<AiEngine | null>(null);
   const recRef = useRef<any>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -113,6 +116,7 @@ export function FinanceAIAssistant({ wallets, categories, onCreateTransaction }:
       if (!res.ok || !data || data.error) {
         throw new Error(data?.error || `Error del servidor (${res.status})`);
       }
+      setEngine(engineDesdeModelo(data.modelo));
       if (data.completado && data.transaccion) {
         const t: AITransaction = data.transaccion;
         const date = typeof t.date === "string" ? new Date(`${t.date}T12:00:00`) : new Date();
@@ -161,6 +165,7 @@ export function FinanceAIAssistant({ wallets, categories, onCreateTransaction }:
             <SheetTitle className="flex items-center gap-2 text-sm">
               <Sparkles className="h-4 w-4 text-blue-600" />
               Asistente de Finanzas IA
+              <AiModelBadge engine={engine} loading={loading} className="ml-auto" />
             </SheetTitle>
           </SheetHeader>
 

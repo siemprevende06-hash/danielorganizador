@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 import { useCoachChat } from "@/hooks/useCoachChat";
 import { VisualBlock } from "@/components/coach/VisualCanvas";
+import { AiModelBadge } from "@/components/ai/AiModelBadge";
 
 export interface PendingPrompt {
   id: number;
@@ -28,7 +29,7 @@ export function CoachChat({
   quickPrompts = [],
   context,
 }: CoachChatProps) {
-  const { messages, loading, error, sendMessage } = useCoachChat();
+  const { messages, loading, error, engine, sendMessage } = useCoachChat();
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -138,19 +139,26 @@ export function CoachChat({
         </div>
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="pt-3 border-t border-border mt-3 flex gap-2">
-        <Input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={placeholder}
-          disabled={loading}
-          className="text-sm"
-        />
-        <Button type="submit" size="sm" disabled={loading || !input.trim()} className="px-3">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        </Button>
-      </form>
+      <div className="pt-3 border-t border-border mt-3 space-y-2">
+        {(engine || loading) && (
+          <div className="flex justify-end">
+            <AiModelBadge engine={engine} loading={loading} />
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={placeholder}
+            disabled={loading}
+            className="text-sm"
+          />
+          <Button type="submit" size="sm" disabled={loading || !input.trim()} className="px-3">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

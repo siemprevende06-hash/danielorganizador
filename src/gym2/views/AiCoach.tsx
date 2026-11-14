@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useGym } from "../store";
 import { useGymCoach } from "@/hooks/useGymCoach";
+import { AiModelBadge } from "@/components/ai/AiModelBadge";
 import { lastBW, streakDays } from "../lib/history";
 import { fmtNum, todayISO, weekKey } from "../lib/format";
 import { cn } from "@/lib/utils";
@@ -91,7 +92,7 @@ const PROMPTS: { label: string; text: string }[] = [
 
 export default function AiCoach({ onGo }: { onGo?: (tab: string) => void }) {
   const { S } = useGym();
-  const { meta, convId, messages, loading, error, sendMessage, openConversation, newConversation, clearError } =
+  const { meta, convId, messages, loading, error, engine, sendMessage, openConversation, newConversation, clearError } =
     useGymCoach({ onNavigate: onGo });
   const [input, setInput] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -120,6 +121,7 @@ export default function AiCoach({ onGo }: { onGo?: (tab: string) => void }) {
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
               Solo Gym 2.0
             </span>
+            <AiModelBadge engine={engine} loading={loading} />
           </div>
           <div className="text-sm text-muted-foreground">
             Entrenador de fuerza e hipertrofia con acceso real a tus rutinas, plan, historial y pesos.

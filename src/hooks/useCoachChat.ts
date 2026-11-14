@@ -4,6 +4,7 @@ import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supaba
 import { getAIProvider } from "@/lib/aiProvider";
 import type { Json } from "@/integrations/supabase/types";
 import type { CoachVisual } from "@/components/coach/VisualCanvas";
+import { engineDesdeRespuesta, type AiEngine } from "@/components/ai/AiModelBadge";
 
 export interface CoachAccion {
   tipo: string;
@@ -49,6 +50,8 @@ export function useCoachChat() {
   const [memories, setMemories] = useState<CoachMemory[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Proveedor y modelo reales que respondieron la última vez. */
+  const [engine, setEngine] = useState<AiEngine | null>(null);
 
   const loadConversations = useCallback(async () => {
     const { data } = await supabase
@@ -94,6 +97,7 @@ export function useCoachChat() {
     setConversationId(null);
     setMessages([]);
     setError(null);
+    setEngine(null);
   }, []);
 
   useEffect(() => {
@@ -156,6 +160,8 @@ export function useCoachChat() {
           throw new Error(data?.error || `Error del servidor (${res.status})`);
         }
 
+        setEngine(engineDesdeRespuesta(data));
+
         const assistant: CoachMessage = {
           id: `local-a-${Date.now()}`,
           role: "assistant",
@@ -194,6 +200,7 @@ export function useCoachChat() {
     memories,
     loading,
     error,
+    engine,
     sendMessage,
     openConversation,
     newConversation,

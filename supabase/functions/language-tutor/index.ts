@@ -1540,6 +1540,7 @@ Deno.serve(async (req) => {
           enviar({
             t: "m",
             modelo: modeloUsado,
+            provider: PROVEEDOR_OK?.nombre || "",
             visuals: out.visuals,
             acciones: out.acciones,
             fuentes: out.fuentes,

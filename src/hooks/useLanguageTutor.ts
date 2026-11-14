@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/env';
 import { getAIProvider } from '@/lib/aiProvider';
 import type { CoachVisual } from '@/components/coach/VisualCanvas';
+import { engineDesdeRespuesta, type AiEngine } from '@/components/ai/AiModelBadge';
 import type { Language } from './useLanguageLearning';
 import type { TutorSkill } from '@/components/languages/tutorModes';
 
@@ -117,6 +118,8 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
   const [memories, setMemories] = useState<TutorMemory[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Proveedor y modelo reales que respondieron la última vez. */
+  const [engine, setEngine] = useState<AiEngine | null>(null);
 
   const scope = scopeFor(language);
   const skillRef = useRef<TutorSkill | null>(skill);
@@ -186,6 +189,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     setConversationId(null);
     setMessages([]);
     setError(null);
+    setEngine(null);
   }, []);
 
   const applyPatch = useCallback((id: string, patch: Partial<TutorMessage>) => {
@@ -347,7 +351,14 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
       };
 
       let content = '';
-      let meta: { visuals?: any[]; acciones?: any[]; fuentes?: any[] } = {};
+      let meta: {
+        visuals?: any[];
+        acciones?: any[];
+        fuentes?: any[];
+        provider?: string;
+        model?: string;
+        modelo?: string;
+      } = {};
 
       try {
         const res = await fetch(FN_URL, {
@@ -400,6 +411,8 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
           content = data.content || '';
           meta = data;
         }
+
+        setEngine(engineDesdeRespuesta(meta));
 
         flushDelta(assistantId, content);
         applyPatch(assistantId, {
@@ -473,6 +486,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     memories,
     loading,
     error,
+    engine,
     sendMessage,
     stop,
     openConversation,

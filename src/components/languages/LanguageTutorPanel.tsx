@@ -50,6 +50,7 @@ import { cn } from '@/lib/utils';
 import { VisualBlock, VisualCanvas } from '@/components/coach/VisualCanvas';
 import { useLanguageTutor, type SendMessageOptions } from '@/hooks/useLanguageTutor';
 import { useLanguageTutorCoach } from '@/hooks/useLanguageTutorCoach';
+import { AiModelBadge } from '@/components/ai/AiModelBadge';
 import { usePracticeSession } from '@/hooks/usePracticeSession';
 import { limpiarRepeticiones, useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
@@ -179,6 +180,7 @@ export function LanguageTutorPanel({ language, level, active = true, onLogPracti
     memories,
     loading,
     error,
+    engine,
     sendMessage,
     stop,
     openConversation,
@@ -1032,6 +1034,7 @@ export function LanguageTutorPanel({ language, level, active = true, onLogPracti
                 {status ? ` · ${status}` : speechSupported && autoSpeak ? ' · leyendo en voz alta' : ''}
               </p>
             </div>
+            <AiModelBadge engine={engine} loading={loading} className="shrink-0" />
             <Button
               variant="outline"
               size="sm"

@@ -5,6 +5,7 @@ import { getAIProvider } from "@/lib/aiProvider";
 import { getGym } from "@/gym2/store";
 import { buildGymSnapshot } from "@/gym2/lib/coachContext";
 import { applyCoachActions, type CoachActionResult } from "@/gym2/lib/coachActions";
+import { engineDesdeModelo, type AiEngine } from "@/components/ai/AiModelBadge";
 
 export interface GymCoachMessage {
   id: string;
@@ -72,6 +73,8 @@ export function useGymCoach(options: GymCoachOptions = {}) {
   const [messages, setMessages] = useState<GymCoachMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Proveedor y modelo reales que respondieron la última vez. */
+  const [engine, setEngine] = useState<AiEngine | null>(null);
 
   const messagesRef = useRef<GymCoachMessage[]>([]);
   const convRef = useRef<string | null>(null);
@@ -138,6 +141,7 @@ export function useGymCoach(options: GymCoachOptions = {}) {
     convRef.current = null;
     setMessages([]);
     setError(null);
+    setEngine(null);
   }, []);
 
   useEffect(() => {
@@ -230,6 +234,8 @@ export function useGymCoach(options: GymCoachOptions = {}) {
           throw new Error(friendlyError(res.status, data));
         }
 
+        setEngine(engineDesdeModelo(data.modelo));
+
         const actions = Array.isArray(data.acciones) ? data.acciones : [];
         let results: CoachActionResult[] = [];
         if (actions.length) {
@@ -316,6 +322,7 @@ export function useGymCoach(options: GymCoachOptions = {}) {
     messages,
     loading,
     error,
+    engine,
     sendMessage,
     openConversation,
     newConversation,
