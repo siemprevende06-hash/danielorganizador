@@ -124,11 +124,26 @@ function formatDate(iso: string) {
   }
 }
 
+/**
+ * Arranque externo del tutor: el dashboard manda la habilidad y el prompt de la
+ * táctica para que la sesión empiece sola, sin que el usuario copie nada.
+ */
+export interface TutorRequest {
+  skill: TutorSkill;
+  prompt: string;
+  /** Cambia en cada petición; es lo que dispara el efecto. */
+  nonce: number;
+  title?: string;
+}
+
 interface Props {
   language: Language;
   level: string;
   /** false cuando la pestaña del tutor no está visible: corta voz y micro. */
   active?: boolean;
+  /** Petición de arranque lanzada desde la sesión guiada o el mapa de habilidades. */
+  request?: TutorRequest | null;
+  onRequestHandled?: () => void;
   onLogPractice?: (
     skillId: string,
     minutes: number,
@@ -137,7 +152,14 @@ interface Props {
   ) => Promise<void>;
 }
 
-export function LanguageTutorPanel({ language, level, active = true, onLogPractice }: Props) {
+export function LanguageTutorPanel({
+  language,
+  level,
+  active = true,
+  request = null,
+  onRequestHandled,
+  onLogPractice,
+}: Props) {
   const [mode, setMode] = useState<TutorSkill | null>(null);
   const [input, setInput] = useState('');
   const [logged, setLogged] = useState<string[]>([]);
@@ -153,6 +175,7 @@ export function LanguageTutorPanel({ language, level, active = true, onLogPracti
   const [activeStructure, setActiveStructure] = useState<SpeakingStructure | null>(null);
   const [customStructures, setCustomStructures] = useState<SpeakingStructure[]>([]);
   const [sessionGoal, setSessionGoal] = useState(10);
+  const [pendingLaunch, setPendingLaunch] = useState<TutorRequest | null>(null);
   const [confirmNewOpen, setConfirmNewOpen] = useState(false);
   const [showJump, setShowJump] = useState(false);
 
@@ -170,6 +193,8 @@ export function LanguageTutorPanel({ language, level, active = true, onLogPracti
   const suggestionForRef = useRef<string | null>(null);
   const goalReachedRef = useRef(false);
   const sessionElapsedRef = useRef(0);
+  /** Última petición de arranque ya ejecutada (evita dobles en StrictMode). */
+  const handledRequestRef = useRef<number | null>(null);
   /** Idioma al que pertenece la sesión en curso (no cambia al cambiar de idioma). */
   const sessionLanguageRef = useRef<Language>(language);
 
@@ -653,6 +678,39 @@ export function LanguageTutorPanel({ language, level, active = true, onLogPracti
     resetCoachTracking();
     newConversation();
   };
+
+  // Arranque guiado, en dos tiempos: primero se limpia el hilo y se aplica el
+  // modo; cuando React ya asentó el modo (y no hay nada cargando), se envía el
+  // prompt. Así `sendMessage` lee la habilidad correcta desde su ref.
+  useEffect(() => {
+    if (!active || !request) return;
+    if (handledRequestRef.current === request.nonce) return;
+    startNewThread();
+    applyMode(request.skill);
+    setPendingLaunch(request);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, request?.nonce]);
+
+  useEffect(() => {
+    if (!active || !pendingLaunch || loading) return;
+    const t = window.setTimeout(() => {
+      submit(pendingLaunch.prompt, null, {
+        hidden: true,
+        start: true,
+        title: pendingLaunch.title ?? 'Sesión guiada',
+      });
+      handledRequestRef.current = pendingLaunch.nonce;
+      setPendingLaunch(null);
+      onRequestHandled?.();
+    }, 160);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, pendingLaunch, loading]);
+
+  // Un cambio de idioma invalida cualquier arranque que estuviera en cola.
+  useEffect(() => {
+    setPendingLaunch(null);
+  }, [language]);
 
   const openThread = (id: string) => {
     stopSpeak();

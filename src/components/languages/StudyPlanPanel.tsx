@@ -42,6 +42,7 @@ import {
   saveStudyPlanState,
   STUDY_ERROR_CATEGORIES,
   STUDY_PACE_OPTIONS,
+  STUDY_PLAN_CHANGED_EVENT,
   studyTaskKey,
   type StudyErrorCategory,
   type StudyErrorEntry,
@@ -70,6 +71,13 @@ export function StudyPlanPanel({ language, level }: Props) {
   useEffect(() => {
     setState(loadStudyPlanState(language));
     setSelectedWeek(null);
+  }, [language]);
+
+  // La sesión de Hoy marca tareas en el mismo plan: refresca al recibir el aviso.
+  useEffect(() => {
+    const refresh = () => setState(loadStudyPlanState(language));
+    window.addEventListener(STUDY_PLAN_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(STUDY_PLAN_CHANGED_EVENT, refresh);
   }, [language]);
 
   const cycle = useMemo(() => getStudyCycleInfo(state.startDate), [state.startDate]);

@@ -1121,6 +1121,9 @@ export function getStudyProfile(level: string): { band: StudyBand; label: string
 
 const STORAGE_PREFIX = 'language_study_plan_v1_';
 
+/** Avisa a otras vistas (p. ej. la sesión de Hoy) de que el plan cambió. */
+export const STUDY_PLAN_CHANGED_EVENT = 'language-study-plan:changed';
+
 function storageKey(language: StudyLanguage): string {
   return `${STORAGE_PREFIX}${language}`;
 }
@@ -1169,6 +1172,11 @@ export function saveStudyPlanState(language: StudyLanguage, state: StudyPlanStat
     // Sin almacenamiento: el estado seguirá vivo en memoria mientras dure la sesión.
   }
   pushSyncKey(key);
+  try {
+    window.dispatchEvent(new CustomEvent(STUDY_PLAN_CHANGED_EVENT, { detail: { language } }));
+  } catch {
+    // Sin DOM (tests): no hay otras vistas que refrescar.
+  }
 }
 
 export interface StudyCycleInfo {

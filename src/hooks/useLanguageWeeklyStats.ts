@@ -12,7 +12,19 @@ export type LanguageWeeklyDay = {
   date: string;
 };
 
+export type LanguageHistoryDay = {
+  date: string;
+  day: string;
+  minutes: number;
+  /** Habilidades canónicas practicadas ese día. */
+  skills: string[];
+};
+
 const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+/** 90 días: suficiente para racha, heatmap de 28 y tendencias sin peso extra. */
+const RANGE_DAYS = 90;
+const HEATMAP_DAYS = 28;
 
 function parseLocalDate(date: string) {
   return new Date(`${date}T12:00:00`);
@@ -23,13 +35,20 @@ function toDateStr(d: Date) {
 }
 
 /**
- * Estadísticas semanales del dashboard de idiomas.
+ * Estadísticas del dashboard de idiomas.
  * Fuente canónica: `daily_systems_tracking` (minutos + habilidades), no
  * `language_sessions` (que puede tener filas duplicadas).
+ *
+ * `weeklyData` se mantiene con la forma de siempre (7 días) y se añade
+ * `history` (28 días), `skillDays` (días practicados por habilidad esta
+ * semana) y una racha real, sin el tope de 7 que tenía la versión anterior.
  */
 export function useLanguageWeeklyStats(language: Language) {
   const [weeklyData, setWeeklyData] = useState<LanguageWeeklyDay[]>([]);
+  const [history, setHistory] = useState<LanguageHistoryDay[]>([]);
   const [streak, setStreak] = useState(0);
+  const [skillDays, setSkillDays] = useState<Record<string, number>>({});
+  const [skillLastDate, setSkillLastDate] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const languageKey: LanguageId = language === 'italian' ? 'italiano' : 'ingles';
@@ -37,7 +56,7 @@ export function useLanguageWeeklyStats(language: Language) {
   const dateRange = useMemo(() => {
     // La app usa la fecha de Cuba para el corte diario; no mezclar con UTC.
     const end = parseLocalDate(getCubaDate());
-    const start = subDays(end, 6);
+    const start = subDays(end, RANGE_DAYS - 1);
     return { startStr: toDateStr(start), endStr: toDateStr(end), end };
   }, []);
 
@@ -55,48 +74,78 @@ export function useLanguageWeeklyStats(language: Language) {
 
         if (error) throw error;
 
-        const byDate = new Map<string, { minutes: number; skills: number }>();
-        (data ?? []).forEach((row: any) => {
+        const byDate = new Map<string, { minutes: number; skills: string[] }>();
+        (data ?? []).forEach((row: { tracking_date: string | null; time_data: unknown; completions: unknown }) => {
           const date = String(row.tracking_date ?? '').slice(0, 10);
           if (!date) return;
-          const minutes = Number(row.time_data?.[languageKey]) || 0;
-          const completions = row.completions || {};
-          const skills = LANGUAGE_SKILLS.filter(skill => completions[skillCompletionKey(languageKey, skill.id)] === true).length;
+          const timeData = (row.time_data && typeof row.time_data === 'object' ? row.time_data : {}) as Record<
+            string,
+            unknown
+          >;
+          const completions = (row.completions && typeof row.completions === 'object' ? row.completions : {}) as Record<
+            string,
+            boolean
+          >;
+          const minutes = Number(timeData[languageKey]) || 0;
+          const skills = LANGUAGE_SKILLS
+            .filter(skill => completions[skillCompletionKey(languageKey, skill.id)] === true)
+            .map(skill => skill.id);
           byDate.set(date, { minutes, skills });
         });
 
-        const days: LanguageWeeklyDay[] = [];
-        for (let i = 6; i >= 0; i--) {
+        const days: LanguageHistoryDay[] = [];
+        for (let i = RANGE_DAYS - 1; i >= 0; i--) {
           const date = subDays(dateRange.end, i);
           const dateStr = toDateStr(date);
           const row = byDate.get(dateStr);
           days.push({
+            date: dateStr,
             day: dayNames[date.getDay()],
             minutes: row?.minutes ?? 0,
-            skills: row?.skills ?? 0,
-            date: dateStr,
+            skills: row?.skills ?? [],
           });
         }
 
+        const week = days.slice(-7).map(day => ({
+          day: day.day,
+          minutes: day.minutes,
+          skills: day.skills.length,
+          date: day.date,
+        }));
+
         // Racha: días consecutivos hacia atrás. Si hoy aún no hay práctica,
         // se conserva la racha de ayer para no castigar el día en curso.
-        let startIndex = 6;
-        const todayActive = (days[6]?.minutes ?? 0) > 0 || (days[6]?.skills ?? 0) > 0;
-        if (!todayActive) startIndex = 5;
-
+        const todayActive = isActive(days[days.length - 1]);
+        let index = todayActive ? days.length - 1 : days.length - 2;
         let streakDays = 0;
-        for (let i = startIndex; i >= 0; i--) {
-          const day = days[i];
-          if ((day?.minutes ?? 0) > 0 || (day?.skills ?? 0) > 0) streakDays += 1;
-          else break;
+        while (index >= 0 && isActive(days[index])) {
+          streakDays += 1;
+          index -= 1;
         }
 
-        setWeeklyData(days);
+        const weekDays = days.slice(-7);
+        const daysBySkill: Record<string, number> = {};
+        LANGUAGE_SKILLS.forEach(skill => {
+          daysBySkill[skill.id] = weekDays.filter(day => day.skills.includes(skill.id)).length;
+        });
+
+        const lastBySkill: Record<string, string> = {};
+        for (const day of days) {
+          for (const skill of day.skills) lastBySkill[skill] = day.date;
+        }
+
+        setWeeklyData(week);
+        setHistory(days.slice(-HEATMAP_DAYS));
         setStreak(streakDays);
+        setSkillDays(daysBySkill);
+        setSkillLastDate(lastBySkill);
       } catch (e) {
         console.error('Error loading weekly language stats:', e);
         setWeeklyData([]);
+        setHistory([]);
         setStreak(0);
+        setSkillDays({});
+        setSkillLastDate({});
       } finally {
         setLoading(false);
       }
@@ -105,5 +154,10 @@ export function useLanguageWeeklyStats(language: Language) {
     load();
   }, [languageKey, dateRange]);
 
-  return { weeklyData, streak, loading };
+  return { weeklyData, history, streak, skillDays, skillLastDate, loading };
+}
+
+function isActive(day: LanguageHistoryDay | undefined): boolean {
+  if (!day) return false;
+  return day.minutes > 0 || day.skills.length > 0;
 }
