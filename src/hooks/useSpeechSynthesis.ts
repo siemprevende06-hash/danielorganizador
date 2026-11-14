@@ -1,6 +1,104 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const isSupported = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+const VOICE_STORAGE_PREFIX = 'tutor-voz';
+
+const normLang = (s: string) => s.replace('_', '-').toLowerCase();
+
+/** Clave de localStorage por idioma base: tutor-voz:en, tutor-voz:it, tutor-voz:es. */
+function claveVoz(lang: string): string {
+  return `${VOICE_STORAGE_PREFIX}:${normLang(lang).split('-')[0]}`;
+}
+
+function leerVozGuardada(lang: string): string | null {
+  try {
+    return window.localStorage.getItem(claveVoz(lang));
+  } catch {
+    // Modo privado o almacenamiento bloqueado: se queda solo en memoria.
+    return null;
+  }
+}
+
+/** Edge es el único navegador que expone voces Natural/Neural gratis. */
+export function esEdge(): boolean {
+  return typeof navigator !== 'undefined' && /Edg\//.test(navigator.userAgent);
+}
+
+export function esVozNatural(v: SpeechSynthesisVoice): boolean {
+  return /(natural|neural)/i.test(v.name);
+}
+
+export function mismoIdioma(v: SpeechSynthesisVoice, lang: string): boolean {
+  const objetivo = normLang(lang);
+  const base = objetivo.split('-')[0];
+  const l = normLang(v.lang);
+  return l === objetivo || l === base || l.startsWith(`${base}-`);
+}
+
+/** "Microsoft Aria Online (Natural) - English (United States)" -> "Aria" */
+export function etiquetaVoz(v: SpeechSynthesisVoice): string {
+  const limpio = v.name
+    .replace(/^Microsoft\s+/i, '')
+    .replace(/\s*\((natural|neural|online|premium|enhanced)\)\s*/gi, ' ')
+    .replace(/\s+online\b/gi, '')
+    .replace(/\s+-\s+.*$/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return limpio || v.name;
+}
+
+/** Voces del idioma, primero las Natural/Neural y luego por nombre. */
+export function vocesDelIdioma(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice[] {
+  return voices
+    .filter(v => mismoIdioma(v, lang))
+    .sort((a, b) => {
+      const natural = Number(esVozNatural(b)) - Number(esVozNatural(a));
+      if (natural) return natural;
+      return etiquetaVoz(a).localeCompare(etiquetaVoz(b));
+    });
+}
+
+export function vozNaturalDisponible(voices: SpeechSynthesisVoice[], lang: string): boolean {
+  return voices.some(v => mismoIdioma(v, lang) && esVozNatural(v));
+}
+
+/**
+ * Voz elegida a mano si sigue existiendo; si no, la mejor del sistema.
+ * Las voces Natural/Neural mandan: son las que suenan humanas.
+ */
+export function elegirVoz(
+  voices: SpeechSynthesisVoice[],
+  lang: string,
+  preferida: string | null
+): SpeechSynthesisVoice | null {
+  const candidatas = voices.filter(v => mismoIdioma(v, lang));
+  if (!candidatas.length) return null;
+
+  if (preferida) {
+    const guardada = candidatas.find(v => v.voiceURI === preferida);
+    if (guardada) return guardada;
+  }
+
+  const objetivo = normLang(lang);
+  const puntuar = (v: SpeechSynthesisVoice) => {
+    const n = v.name.toLowerCase();
+    let p = 0;
+    if (normLang(v.lang) === objetivo) p += 40;
+    if (esVozNatural(v)) p += 40;
+    else if (n.includes('online')) p += 15;
+    if (n.includes('google')) p += 25;
+    // Voces SAPI antiguas: es lo que suena robótico en Windows.
+    if (/(desktop|espeak)/.test(n)) p -= 25;
+    if (/microsoft (david|mark|zira|hazel|george|catherine|pablo|helena|laura)/.test(n)) p -= 12;
+    if (/(female|mujer|zira|samantha|aria|elsa|alice|luciana|jenny|sofia|emma|ava)/.test(n)) p += 5;
+    if (v.localService) p += 4;
+    if (v.default) p += 3;
+    return p;
+  };
+
+  return [...candidatas].sort((a, b) => puntuar(b) - puntuar(a))[0];
+}
 
 /**
  * Limpia el markdown para que no se lea en voz alta.
@@ -91,6 +189,13 @@ export interface SpeechControls {
   /** false si el sistema no tiene ninguna voz del idioma objetivo instalada */
   voiceOk: boolean;
   voices: SpeechSynthesisVoice[];
+  /** Voz que se usará ahora mismo (incluye la elegida a mano). */
+  voice: SpeechSynthesisVoice | null;
+  /** voiceURI elegido por el usuario; null = automático */
+  voiceURI: string | null;
+  setVoiceURI: (uri: string | null) => void;
+  /** true si el idioma tiene voces Natural/Neural instaladas */
+  naturalVoices: boolean;
 }
 
 /**
@@ -103,12 +208,13 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
   const [supported, setSupported] = useState(true);
   const [voiceOk, setVoiceOk] = useState(true);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [voiceURI, setVoiceURIState] = useState<string | null>(() => (isSupported() ? leerVozGuardada(lang) : null));
 
   const idRef = useRef<string | null>(null);
   const activoRef = useRef<string | null>(null);
   const sonandoRef = useRef(false);
   const colaRef = useRef<string[]>([]);
-  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+  const vozRef = useRef<SpeechSynthesisVoice | null>(null);
   const streamRef = useRef<{ id: string; consumed: number }>({ id: '', consumed: 0 });
   const canceladoEnRef = useRef(0);
   const latidoRef = useRef(0);
@@ -136,15 +242,13 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
   }, [loadVoices]);
 
   useEffect(() => {
-    voicesRef.current = voices;
-    const norm = (s: string) => s.replace('_', '-').toLowerCase();
-    const target = norm(lang);
-    const base = target.split('-')[0];
-    setVoiceOk(voices.some(v => {
-      const l = norm(v.lang);
-      return l === target || l === base || l.startsWith(`${base}-`);
-    }));
+    setVoiceOk(voices.some(v => mismoIdioma(v, lang)));
   }, [voices, lang]);
+
+  // Cada idioma recuerda su propia voz elegida.
+  useEffect(() => {
+    setVoiceURIState(leerVozGuardada(lang));
+  }, [lang]);
 
   // Si cambia el idioma objetivo, cancela lo que estuviera sonando
   useEffect(() => {
@@ -158,38 +262,24 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
     setSpeakingId(null);
   }, [lang]);
 
+  const voice = useMemo(() => elegirVoz(voices, lang, voiceURI), [voices, lang, voiceURI]);
+  const naturalVoices = useMemo(() => vozNaturalDisponible(voices, lang), [voices, lang]);
+  // pump() sobrevive al cambio de voz: el ref evita que la frase siguiente use la anterior.
+  vozRef.current = voice;
 
-
-  const pickVoice = useCallback((): SpeechSynthesisVoice | null => {
-    if (!isSupported()) return null;
-    const lista = voicesRef.current.length ? voicesRef.current : window.speechSynthesis.getVoices();
-    if (!lista.length) return null;
-
-    const norm = (s: string) => s.replace('_', '-').toLowerCase();
-    const target = norm(lang);
-    const base = target.split('-')[0];
-
-    // Nunca una voz de otro idioma: una voz española leyendo inglés suena terrible.
-    const candidatas = lista.filter(v => {
-      const l = norm(v.lang);
-      return l === target || l === base || l.startsWith(`${base}-`);
-    });
-    if (!candidatas.length) return null;
-
-    const puntuar = (v: SpeechSynthesisVoice) => {
-      const n = v.name.toLowerCase();
-      let p = 0;
-      if (norm(v.lang) === target) p += 40;
-      if (n.includes('google')) p += 30;
-      if (/(natural|neural|online|premium|enhanced)/.test(n)) p += 25;
-      if (/(female|mujer|zira|samantha|aria|elsa|alice|luciana)/.test(n)) p += 5;
-      if (v.localService) p += 8;
-      if (v.default) p += 3;
-      return p;
-    };
-
-    return [...candidatas].sort((a, b) => puntuar(b) - puntuar(a))[0];
-  }, [lang]);
+  const setVoiceURI = useCallback(
+    (uri: string | null) => {
+      setVoiceURIState(uri);
+      if (!isSupported()) return;
+      try {
+        if (uri) window.localStorage.setItem(claveVoz(lang), uri);
+        else window.localStorage.removeItem(claveVoz(lang));
+      } catch {
+        // Sin almacenamiento: la elección dura lo que la sesión.
+      }
+    },
+    [lang]
+  );
 
   const pump = useCallback(() => {
     if (!isSupported()) return;
@@ -213,9 +303,9 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
     }
 
     const u = new SpeechSynthesisUtterance(siguiente);
-    u.lang = lang;
-    const voice = pickVoice();
-    if (voice) u.voice = voice;
+    const voz = vozRef.current;
+    u.lang = (voz?.lang ?? lang).replace('_', '-');
+    if (voz) u.voice = voz;
     u.rate = rate;
     u.pitch = 1;
     u.volume = 1;
@@ -238,7 +328,7 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
     } catch {
       avanzar();
     }
-  }, [lang, pickVoice, rate]);
+  }, [lang, rate]);
 
   // Bug de Chrome: la síntesis se para sola a los ~15 s. Un resume periódico lo evita.
   // Además se detecta una utterance descartada (cancel + speak inmediato) y se relanza.
@@ -351,5 +441,9 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
     setAutoSpeak,
     voiceOk,
     voices,
+    voice,
+    voiceURI,
+    setVoiceURI,
+    naturalVoices,
   };
 }

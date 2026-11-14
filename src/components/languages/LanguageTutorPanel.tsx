@@ -53,7 +53,7 @@ import { useLanguageTutorCoach } from '@/hooks/useLanguageTutorCoach';
 import { AiModelBadge } from '@/components/ai/AiModelBadge';
 import { usePracticeSession } from '@/hooks/usePracticeSession';
 import { limpiarRepeticiones, useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
+import { esEdge, useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import type { Language } from '@/hooks/useLanguageLearning';
 import { TUTOR_EMPTY, TUTOR_GENERAL, TUTOR_HEADER, TUTOR_MODES, type TutorModeDef, type TutorSkill } from './tutorModes';
 import { SCENARIO_END_MSG, SCENARIO_START_MSG, SESSION_END_MSG, SPEAKING_SCENARIOS } from './speakingScenarios';
@@ -61,6 +61,7 @@ import { SPEAKING_STRUCTURES, type SpeakingStructure } from './speakingStructure
 import { TutorFeedbackBubble } from './TutorFeedbackBubble';
 import { TutorSuggestionCard } from './TutorSuggestionCard';
 import { TutorVoiceFullscreen } from './TutorVoiceFullscreen';
+import { VoicePicker, type VoiceSection } from './VoicePicker';
 import { TutorAvatar } from './TutorAvatar';
 import { SpeakingStructuresPanel } from './SpeakingStructuresPanel';
 import { ActiveStructurePanel } from './ActiveStructurePanel';
@@ -249,6 +250,11 @@ export function LanguageTutorPanel({
     autoSpeak,
     setAutoSpeak,
     voiceOk,
+    voices: tutorVoices,
+    voice: tutorVoice,
+    voiceURI: tutorVoiceURI,
+    setVoiceURI: setTutorVoiceURI,
+    naturalVoices: tutorNaturalVoices,
   } = useSpeechSynthesis(speechLang, rate);
 
   // Voz aparte en español: la explicación del error se lee en su idioma.
@@ -256,6 +262,11 @@ export function LanguageTutorPanel({
     speak: speakExplanation,
     stop: stopExplanation,
     speaking: explanationSpeaking,
+    voices: explanationVoices,
+    voice: explanationVoice,
+    voiceURI: explanationVoiceURI,
+    setVoiceURI: setExplanationVoiceURI,
+    speakingId: explanationSpeakingId,
   } = useSpeechSynthesis('es-ES', 1);
 
   const { supported: sttSupported, listening: sttListening, interim: sttInterim, start: sttStart, stop: sttStop, abort: sttAbort } =
@@ -829,6 +840,33 @@ export function LanguageTutorPanel({
           ? 'Hablando…'
           : '';
 
+  const voiceSections: VoiceSection[] = [
+    {
+      id: 'tutor',
+      label: language === 'italian' ? 'Italiano' : 'Inglés',
+      lang: speechLang,
+      voices: tutorVoices,
+      voiceURI: tutorVoiceURI,
+      voice: tutorVoice,
+      onChange: setTutorVoiceURI,
+      onPreview: text => speak(`voz-tutor-${Date.now()}`, text),
+      onStop: stopSpeak,
+      previewing: speakingId?.startsWith('voz-tutor-') ?? false,
+    },
+    {
+      id: 'explicaciones',
+      label: 'Explicaciones',
+      lang: 'es-ES',
+      voices: explanationVoices,
+      voiceURI: explanationVoiceURI,
+      voice: explanationVoice,
+      onChange: setExplanationVoiceURI,
+      onPreview: text => speakExplanation(`voz-explicacion-${Date.now()}`, text),
+      onStop: stopExplanation,
+      previewing: explanationSpeakingId?.startsWith('voz-explicacion-') ?? false,
+    },
+  ];
+
   return (
     <div className="space-y-3">
       {/* Selector de habilidad */}
@@ -911,7 +949,8 @@ export function LanguageTutorPanel({
         )}
 
         {speechSupported && (
-          <div className="ml-auto flex gap-1.5">
+          <div className="ml-auto flex flex-wrap gap-1.5">
+            <VoicePicker sections={voiceSections} />
             {esSpeaking && sttSupported && (
               <Button
                 variant={handsFree ? 'default' : 'outline'}
@@ -986,6 +1025,7 @@ export function LanguageTutorPanel({
             : 'Toca el micro una vez: a partir de ahí tú hablas y el tutor responde en voz alta sin que toques nada más.'}
           {!sttSupported && ' (Este navegador no tiene reconocimiento de voz: usa Chrome o Edge.)'}
           {speechSupported && !voiceOk && ' Instala una voz de inglés/italiano en tu sistema para que la pronunciación sea correcta.'}
+          {speechSupported && voiceOk && !tutorNaturalVoices && !esEdge() && ' Para una voz más natural, abre esta página en Microsoft Edge: tiene voces Natural gratis.'}
         </p>
       )}
 
@@ -1605,6 +1645,7 @@ export function LanguageTutorPanel({
         loading={loading}
         thinking={loading && !lastAssistant?.content}
         stopSpeak={stopSpeak}
+        voicePicker={speechSupported ? <VoicePicker sections={voiceSections} /> : undefined}
         sttSupported={sttSupported}
         sttListening={sttListening}
         sttInterim={sttInterim}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
@@ -109,6 +109,8 @@ interface Props {
   onToggleLongTalk: () => void;
   structure?: SpeakingStructure | null;
   onOpenStructures?: () => void;
+  /** Selector de voz, para no salir de la pantalla completa al ajustarla. */
+  voicePicker?: ReactNode;
 }
 
 const CANCEL_THRESHOLD = 70;
@@ -162,6 +164,7 @@ export function TutorVoiceFullscreen({
   onToggleLongTalk,
   structure,
   onOpenStructures,
+  voicePicker,
 }: Props) {
   const [showCancel, setShowCancel] = useState(false);
   const holdingRef = useRef(false);
@@ -441,6 +444,7 @@ export function TutorVoiceFullscreen({
             <MessageCircle className="h-3.5 w-3.5" />
             {longTalk ? 'Charla larga' : 'Turnos cortos'}
           </Button>
+          {voicePicker}
           <Button
             type="button"
             variant={handsFree ? 'default' : 'outline'}
