@@ -385,3 +385,14 @@
     animation: none !important;
   }
 }
+
+/* Ocultar carteles de plataformas (Lovable / Blink) */
+#lovable-badge,
+[id^="lovable-badge"],
+#blink-badge-container,
+[id^="blink-badge"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
