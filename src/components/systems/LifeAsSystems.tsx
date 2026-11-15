@@ -39,6 +39,7 @@ import {
   type SystemRuleView,
 } from "@/lib/systemRules";
 import { cn } from "@/lib/utils";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 
 const SYSTEM_BY_ID = new Map<string, DaySystem>(
   DAY_SYSTEMS.flatMap(area =>
@@ -576,6 +577,7 @@ export function LifeAsSystems({
                                 <span className="truncate text-[10px] font-semibold">
                                   {system.name}
                                 </span>
+                                <ActivityTagBadge systemId={system.id} className="shrink-0" />
                                 <span className="ml-auto font-mono text-[9px] tabular-nums text-muted-foreground">
                                   {system.actual}/{system.target || "—"}{" "}
                                   {system.unit}

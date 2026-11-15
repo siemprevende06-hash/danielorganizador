@@ -12,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 import { format } from "date-fns";
 import {
   Area,
@@ -496,6 +497,7 @@ export default function SistemaDetalle() {
                   <div key={d.chainId} className="space-y-1.5">
                     <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       <span>{chain.emoji}</span> {chain.name}
+                      <ActivityTagBadge systemId={d.chainId} />
                     </div>
                     <ResultChain chain={chain} minutes={d.minutes} comodidad={d.comodidad} />
                   </div>

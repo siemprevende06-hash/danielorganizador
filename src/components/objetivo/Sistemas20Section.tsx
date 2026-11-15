@@ -14,6 +14,7 @@ import { useSystemsTracking } from "@/hooks/useSystemsTracking";
 import { usePersonalLists, LIFE_AREAS } from "@/hooks/usePersonalLists";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { getCoverGradient } from "@/components/areas/AreaCover";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 
 interface SistemaConfig {
   id: string;
@@ -363,6 +364,7 @@ export function Sistemas20Section() {
                     <img src={coverUrl} alt={s.label} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-br from-black/30 to-transparent pointer-events-none" />
+                  <ActivityTagBadge systemId={s.id} className="absolute left-2 top-2" />
                   <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent px-3 pb-1 flex items-end justify-between">
                     <span className="text-sm font-bold text-white drop-shadow truncate">
                       {s.emoji} {s.label}

@@ -12,6 +12,7 @@ import { es } from 'date-fns/locale';
 import { useReadingLibrary } from '@/hooks/useReadingLibrary';
 import type { Book } from '@/hooks/useReadingLibrary';
 import { useReadingPagesDraft } from '@/hooks/useReadingPagesDraft';
+import { ActivityTagBadge } from '@/components/systems/ActivityTagBadge';
 import {
   useReadingSessions,
   type ReadingSession,
@@ -149,6 +150,7 @@ export function ReadingTracker({ minutes, onMinChange, sessions, saveSession, bo
                 {current ? current.title : 'sin libro activo'}
               </p>
             </div>
+            <ActivityTagBadge systemId="lectura" className="shrink-0" />
           </div>
           {current && (
             <Badge variant="outline" className="text-[10px] font-mono">

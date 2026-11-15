@@ -2,6 +2,7 @@ import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getCoverGradient } from '@/components/areas/AreaCover';
+import { ActivityTagBadge } from '@/components/systems/ActivityTagBadge';
 import {
   AREA_STATE_COLOR,
   DIAGNOSIS_TONE,
@@ -322,6 +323,7 @@ export function PlanAreaCard({
             {counter}
           </span>
         )}
+        <ActivityTagBadge systemId={card.id} className="absolute bottom-1.5 left-1.5" />
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-2.5">

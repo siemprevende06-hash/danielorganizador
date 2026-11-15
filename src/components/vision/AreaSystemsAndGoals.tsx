@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pencil, Trash2, Plus, Clock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ActivityTagBadge } from '@/components/systems/ActivityTagBadge';
 import type { PointBMetric } from '@/hooks/usePointBMetrics';
 
 interface HabitDef {
@@ -125,6 +126,8 @@ export function AreaSystemsAndGoals({
                   )}>
                     {habit.name}
                   </span>
+
+                  <ActivityTagBadge systemId={habit.id} className="shrink-0" />
 
                   {habit.hasTime && (
                     <div className="flex items-center gap-1 shrink-0">

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useGameTracking } from '@/hooks/useGameTracking';
 import { getDayGoalEffective } from '@/lib/hierarchy';
 import { GoalMeter } from '@/components/goals/GoalMeter';
+import { ActivityTagBadge } from '@/components/systems/ActivityTagBadge';
 import {
   gameDayXp,
   gameLevel,
@@ -112,6 +113,7 @@ export function GameCard({
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold flex items-center gap-1.5">
             Game · Seducción
+            <ActivityTagBadge systemId="game" />
             <Badge variant="outline" className="text-[9px] h-4 border-rose-500/40 text-rose-600 dark:text-rose-400">
               Nv {level.level}
             </Badge>

@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Gauge } from "lucide-react";
 import { DAY_SYSTEMS } from "@/lib/daySystems";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 import {
   doseLabel,
   summarizeSpeedPlan,
@@ -87,7 +88,10 @@ export function DaySpeedSection({ speedPlan, blocks }: Props) {
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-xs font-medium">{system.name}</p>
+                          <div className="flex min-w-0 items-center gap-1">
+                            <p className="truncate text-xs font-medium">{system.name}</p>
+                            <ActivityTagBadge systemId={system.id} className="shrink-0" />
+                          </div>
                           <span className="shrink-0 text-[10px] font-semibold tabular-nums">
                             {planned > 0 ? `${planned}′` : "—"}
                           </span>

@@ -8,9 +8,9 @@ import type { PlannerTask } from '@/lib/planMananaTasks';
 import {
   ACTIVITY_TAG_OPTIONS,
   ACTIVITY_TAG_STYLES,
-  activityTagMeta,
   type ActivityTag,
 } from '@/hooks/useSystemActivityTags';
+import { ActivityTagBadge } from '@/components/systems/ActivityTagBadge';
 import { cn } from '@/lib/utils';
 
 interface PlanSystemCardProps {
@@ -51,9 +51,6 @@ export function PlanSystemCard({
 }: PlanSystemCardProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-
-  const tagMeta = activityTag ? activityTagMeta(activityTag) : null;
-  const tagStyles = activityTag ? ACTIVITY_TAG_STYLES[activityTag] : null;
 
   const options = useMemo(() => systemSpeedOptions(system), [system]);
   const selected = options.find(option => option.id === speed) ?? options[0];
@@ -104,18 +101,7 @@ export function PlanSystemCard({
           {selected?.label ?? 'Máx'}
         </span>
         {/* Etiqueta Activo / Pasivo pegada a la portada */}
-        {tagMeta && tagStyles && (
-          <span
-            className={cn(
-              'absolute bottom-1.5 left-1.5 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white shadow-sm ring-1 ring-white/50 backdrop-blur-sm',
-              tagStyles.cover,
-            )}
-            title={`Etiqueta ${tagMeta.label}: ${tagMeta.hint}`}
-          >
-            <span aria-hidden>{tagMeta.icon}</span>
-            {tagMeta.label}
-          </span>
-        )}
+        <ActivityTagBadge tag={activityTag} className="absolute bottom-1.5 left-1.5" />
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-2.5">

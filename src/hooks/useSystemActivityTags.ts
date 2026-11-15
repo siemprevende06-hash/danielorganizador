@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { getSetting, setSetting } from "@/lib/settings";
 
 /**
@@ -8,6 +8,10 @@ import { getSetting, setSetting } from "@/lib/settings";
  *
  * Se guarda por sistema (no por fecha) porque describe la naturaleza de la
  * actividad. Se persiste en localStorage y se sincroniza con `app_settings`.
+ *
+ * El estado vive en un store de módulo: así todas las tarjetas de la app
+ * (Hoy, Sistemas, Semanal, Panel, Objetivo, Visión...) muestran la misma
+ * etiqueta al instante, sin importar cuántas tarjetas haya montadas.
  */
 export type ActivityTag = "activo" | "pasivo";
 
@@ -67,24 +71,58 @@ function persistLocal(map: TagMap) {
   }
 }
 
-export function useSystemActivityTags() {
-  const [map, setMap] = useState<TagMap>(() => loadSystemActivityTags());
+let snapshot: TagMap = typeof window === "undefined" ? {} : loadSystemActivityTags();
+const listeners = new Set<() => void>();
+let cloudRequested = false;
+let writeQueue: Promise<unknown> = Promise.resolve();
 
-  // Recupera la copia de la nube sin pisar lo que ya existe en este dispositivo.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const stored = sanitize(await getSetting<unknown>(SETTING_KEY));
-      if (cancelled || Object.keys(stored).length === 0) return;
-      setMap(prev => {
-        const next = { ...stored, ...prev };
-        if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
-        persistLocal(next);
-        return next;
-      });
-    })().catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+function emit() {
+  for (const listener of listeners) listener();
+}
+
+function getSnapshot(): TagMap {
+  return snapshot;
+}
+
+/**
+ * Recupera la copia de la nube una sola vez. Lo que haya en localStorage gana,
+ * porque es lo último que se tocó en este dispositivo.
+ */
+function hydrateFromCloud() {
+  if (cloudRequested) return;
+  cloudRequested = true;
+  (async () => {
+    const stored = sanitize(await getSetting<unknown>(SETTING_KEY));
+    if (Object.keys(stored).length === 0) return;
+    const merged = { ...stored, ...loadSystemActivityTags() };
+    if (JSON.stringify(merged) === JSON.stringify(snapshot)) return;
+    snapshot = merged;
+    persistLocal(snapshot);
+    emit();
+  })().catch(() => {});
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  hydrateFromCloud();
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+// Mantiene sincronizadas las pestañas abiertas.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", event => {
+    if (event.key !== STORAGE_KEY) return;
+    const next = loadSystemActivityTags();
+    if (JSON.stringify(next) === JSON.stringify(snapshot)) return;
+    snapshot = next;
+    emit();
+  });
+}
+
+export function useSystemActivityTags() {
+  const map = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   const getTag = useCallback(
     (systemId: string): ActivityTag | null => map[systemId] ?? null,
@@ -92,14 +130,18 @@ export function useSystemActivityTags() {
   );
 
   const setTag = useCallback((systemId: string, tag: ActivityTag | null) => {
-    if ((map[systemId] ?? null) === tag) return;
-    const next = { ...map };
+    if ((snapshot[systemId] ?? null) === tag) return;
+    const next = { ...snapshot };
     if (tag) next[systemId] = tag;
     else delete next[systemId];
-    setMap(next);
+    snapshot = next;
     persistLocal(next);
-    void setSetting(SETTING_KEY, next);
-  }, [map]);
+    emit();
+    // Serializa las escrituras para que dos clics seguidos no se pisen.
+    writeQueue = writeQueue
+      .then(() => setSetting(SETTING_KEY, next))
+      .catch(() => false);
+  }, []);
 
   return { map, getTag, setTag };
 }

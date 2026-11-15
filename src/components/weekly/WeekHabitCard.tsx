@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { cn } from "@/lib/utils";
 import { getCoverGradient } from "@/components/areas/AreaCover";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 import type { HabitMeta } from "@/lib/areaSystemsMap";
 import type { WeekDayStatus } from "@/hooks/useWeekSystemsData";
 import type { TodayStripItem } from "@/hooks/useTodayFocusItems";
@@ -227,6 +228,7 @@ export default function WeekHabitCard({
           </div>
         )}
         <span className={cn("absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", tier.dot)} />
+        <ActivityTagBadge systemId={meta.id} className="absolute bottom-1 left-1" />
       </div>
 
       <div className="p-2.5 space-y-2 flex-1 flex flex-col">

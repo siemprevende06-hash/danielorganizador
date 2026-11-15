@@ -14,6 +14,7 @@ import { useLanguageStats } from '@/hooks/useLanguageStats';
 import { getDayGoalEffective } from '@/lib/hierarchy';
 import { GoalMeter } from '@/components/goals/GoalMeter';
 import { SystemRuleBox } from './SystemRuleBox';
+import { ActivityTagBadge } from './ActivityTagBadge';
 import {
   LANGUAGE_SKILLS,
   LANGUAGE_LABELS,
@@ -188,6 +189,7 @@ export const LanguageSkillCards = ({
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent" />
+        <ActivityTagBadge systemId="idiomas" className="absolute bottom-1.5 left-2" />
       </div>
 
       <div className="flex items-center gap-2">

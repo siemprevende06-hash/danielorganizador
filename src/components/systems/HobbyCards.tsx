@@ -15,6 +15,7 @@ import { useWeekEloPlan } from "@/hooks/useWeekEloPlan";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { WeekStreakBar } from "./WeekStreakBar";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 import { toast } from "sonner";
 
 /** Color semáforo: rojo (0) · azul (>0 y <mín) · azul (≥mín y <máx) · verde (máx exacto) · dorado (>máx = extra) */
@@ -85,6 +86,7 @@ const ReadingCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-white/20"><BookOpen className="h-4 w-4 text-white" /></div>
           <span className="text-white font-semibold text-sm">Lectura</span>
+          <ActivityTagBadge systemId="lectura" />
         </div>
         <Link to="/reading-library"><ArrowRight className="h-4 w-4 text-white/80" /></Link>
       </div>
@@ -206,6 +208,7 @@ const MusicCard = ({ todayMin, onChange, onSkip, skipped }: { todayMin: number; 
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-white/20"><Music2 className="h-4 w-4 text-white" /></div>
           <span className="text-white font-semibold text-sm">Música</span>
+          <ActivityTagBadge systemId="musica" />
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-white/80">{instrument === "piano" ? "🎹" : "🎸"}</span>
@@ -331,6 +334,7 @@ const ChessCard = ({
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-white/20"><Crown className="h-4 w-4 text-white" /></div>
           <span className="text-white font-semibold text-sm">Ajedrez</span>
+          <ActivityTagBadge systemId="ajedrez" />
         </div>
         <div className="flex items-center gap-2">
           {weekTarget > 0 && (

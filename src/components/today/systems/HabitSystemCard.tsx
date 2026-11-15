@@ -18,6 +18,7 @@ import { ReadingPagesInline } from "./ReadingPagesInline";
 import { SystemChronoBox } from "./SystemChronoBox";
 import { SystemRuleBox, SystemRuleBoxView } from "@/components/systems/SystemRuleBox";
 import { GymSystemRuleBox } from "@/components/systems/GymSystemRuleBox";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 import type { SystemRuleView } from "@/lib/systemRules";
 import { WeekCheckStrip } from "./WeekCheckStrip";
 
@@ -337,6 +338,7 @@ export default function HabitSystemCard({
           </div>
         )}
         <span className={cn("absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", st.dot)} />
+        <ActivityTagBadge systemId={meta.id} className="absolute bottom-1 left-1" />
       </div>
 
       <div className="p-2.5 space-y-1.5 flex-1 flex flex-col">

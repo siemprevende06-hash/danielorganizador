@@ -25,6 +25,7 @@ import { useOverallSystemStreak } from "@/hooks/useOverallSystemStreak";
 import { HobbyCards } from "@/components/systems/HobbyCards";
 import { LanguageSkillCards } from "@/components/systems/LanguageSkillCards";
 import { GameCard } from "@/components/systems/GameCard";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 import { GAME_COUNT_KEYS } from "@/lib/game";
 import { getCubaDate } from "@/lib/cubaTime";
 import { WorkoutVisual } from "@/components/systems/WorkoutVisual";
@@ -411,15 +412,19 @@ export default function Systems() {
                 <Link key={area.id} to={area.link}>
                   <Card className={`p-3 hover:scale-[1.02] transition-all ${area.bg} border-2 hover:border-primary/40`}>
                     {coverUrl && (
-                      <img
-                        src={coverUrl}
-                        alt={area.name}
-                        className="w-full h-12 object-cover rounded-lg mb-2"
-                      />
+                      <div className="relative mb-2">
+                        <img
+                          src={coverUrl}
+                          alt={area.name}
+                          className="w-full h-12 object-cover rounded-lg"
+                        />
+                        <ActivityTagBadge systemId={area.id} className="absolute bottom-1 left-1" />
+                      </div>
                     )}
                     <div className="flex items-center gap-2 mb-1">
                       <Icon className={`h-5 w-5 ${area.color}`} />
                       <span className="font-semibold text-sm">{area.name}</span>
+                      {!coverUrl && <ActivityTagBadge systemId={area.id} />}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {blocksInArea > 0 ? `${blocksInArea} bloque(s) hoy` : "Sin asignar"}

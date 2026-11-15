@@ -12,6 +12,7 @@ import { WeekStreakBar } from "@/components/systems/WeekStreakBar";
 import { useMusicRepertoire } from "@/hooks/useMusicRepertoire";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { getCoverGradient } from "@/components/areas/AreaCover";
+import { ActivityTagBadge } from "@/components/systems/ActivityTagBadge";
 import { useSystemSpeed } from "@/hooks/useSystemSpeed";
 import { DAY_SYSTEMS, systemActualMinutes, type DaySystem } from "@/lib/daySystems";
 import { DEFAULT_GOALS } from "@/hooks/useDailyAreaStats";
@@ -134,6 +135,7 @@ function SystemCardView({ c, covers }: { c: SystemCard; covers: Record<string, s
                 <Icon className="h-5 w-5 text-white/80 drop-shadow-sm" />
               </div>
             )}
+            <ActivityTagBadge systemId={c.id} className="absolute bottom-1 left-1" />
           </div>
         )}
         <div className={cn("absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", sem.dot)} />
@@ -390,6 +392,7 @@ export function MySystemsSection({ date, blocks, speedPlan }: MySystemsSectionPr
                   <Music className="h-5 w-5 text-white/80 drop-shadow-sm" />
                 </div>
               )}
+              <ActivityTagBadge systemId="musica" className="absolute bottom-1 left-1" />
             </div>
             <div className={cn("absolute top-2 right-2 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900", musicaSem.dot)} />
             <div className="flex items-center justify-between mb-2">
