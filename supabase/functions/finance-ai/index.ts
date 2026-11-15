@@ -104,6 +104,7 @@ let catalogoCache: { at: number; modelos: string[] } | null = null;
 
 /** Lee el catálogo y devuelve modelos gratuitos de texto. */
 async function descubrirModelos(apiKey: string): Promise<string[]> {
+  if (!apiKey) return [];
   if (catalogoCache && Date.now() - catalogoCache.at < 10 * 60 * 1000) {
     return catalogoCache.modelos;
   }
@@ -162,7 +163,8 @@ async function leerErrorOpenRouter(res: Response): Promise<string> {
 const MENSAJE_LIMITE_DIARIO =
   "Se agotó el límite diario de modelos gratuitos de OpenRouter. Se renueva mañana; si necesitas más hoy, añade 10 créditos en OpenRouter para desbloquear 1000 peticiones gratuitas al día.";
 
-const esLimiteDiario = (detalle: string) => /free-models-per-day|per day|daily/i.test(detalle);
+const esLimiteDiario = (detalle: string) =>
+  /free-models-per-day|per day|daily|quota|insufficient/i.test(detalle);
 
 interface CategoryInfo { id: string; name: string; type: string }
 interface WalletInfo { id: string; name: string }
@@ -171,8 +173,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) return json({ error: "OPENROUTER_API_KEY no está configurada" }, 500);
+    // OpenRouter es opcional: si falta la clave, la cadena sigue solo con los
+    // proveedores gratuitos (Gemini, Groq, Mistral).
+    const OPENROUTER_API_KEY = (Deno.env.get("OPENROUTER_API_KEY") || "").trim();
 
     const body = await req.json().catch(() => null);
     const message = body?.message;
@@ -256,6 +259,7 @@ B) Faltan datos:
 
     let ultimoEstado = 0;
     let ultimoDetalle = "";
+    let ultimoProveedor = "";
     let parsed: any = null;
     let modeloUsado = "";
 
@@ -276,6 +280,7 @@ B) Faltan datos:
           }
         } else {
           ultimoEstado = intento.status;
+          ultimoProveedor = "opencode";
           ultimoDetalle = await leerErrorOpenRouter(intento);
           console.warn(
             `[finance-ai] opencode/${OPENCODE_MODEL} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`,
@@ -302,6 +307,9 @@ B) Faltan datos:
 
           if (!intento.ok) {
             if (intento.status === 401 || intento.status === 403) marcarProveedorCaido(p.nombre);
+            ultimoEstado = intento.status;
+            ultimoProveedor = p.nombre;
+            ultimoDetalle = `${p.nombre}/${p.modelo}: HTTP ${intento.status}`;
             console.warn(`[finance-ai] ${p.nombre}/${p.modelo} -> ${intento.status}`);
             continue;
           }
@@ -321,7 +329,7 @@ B) Faltan datos:
       }
     }
 
-    if (!parsed) {
+    if (!parsed && OPENROUTER_API_KEY) {
       for (const modelo of await candidatosModelo(OPENROUTER_API_KEY)) {
         let intento: Response;
         try {
@@ -348,6 +356,7 @@ B) Faltan datos:
         }
 
         ultimoEstado = intento.status;
+        ultimoProveedor = "openrouter";
         ultimoDetalle = await leerErrorOpenRouter(intento);
         console.warn(`[finance-ai] ${modelo} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`);
 
@@ -373,15 +382,30 @@ B) Faltan datos:
     }
 
     if (!parsed) {
+      if (!OPENROUTER_API_KEY) {
+        return json(
+          {
+            error: ultimoProveedor
+              ? `Ningún proveedor de IA pudo completar la transacción (último: ${ultimoProveedor}, HTTP ${ultimoEstado}). Inténtalo de nuevo en un minuto.`
+              : "No hay ningún proveedor de IA configurado. Añade GEMINI_API_KEY (gratis) u OPENROUTER_API_KEY en los secretos de Supabase.",
+            detalle: ultimoDetalle.slice(0, 300),
+          },
+          ultimoProveedor ? 429 : 500,
+        );
+      }
       if (ultimoEstado === 401) {
-        return json({ error: "La clave de OpenRouter no es válida o no tiene permisos." }, 500);
+        const nombre = ultimoProveedor === "openrouter" ? "OpenRouter" : ultimoProveedor || "OpenRouter";
+        return json({ error: `La clave de ${nombre} no es válida o no tiene permisos.` }, 500);
       }
       if (ultimoEstado === 429 || ultimoEstado === 402) {
+        const nombre = ultimoProveedor === "openrouter" ? "OpenRouter" : ultimoProveedor || "El proveedor";
         return json(
           {
             error: esLimiteDiario(ultimoDetalle)
-              ? MENSAJE_LIMITE_DIARIO
-              : "OpenRouter está limitando las peticiones gratuitas ahora mismo. Espera un minuto y vuelve a intentarlo.",
+              ? nombre === "OpenRouter"
+                ? MENSAJE_LIMITE_DIARIO
+                : `Se agotó la cuota gratuita de ${nombre} por hoy. Inténtalo de nuevo más tarde.`
+              : `${nombre} está limitando las peticiones ahora mismo. Espera un minuto y vuelve a intentarlo.`,
             detalle: ultimoDetalle.slice(0, 300),
           },
           429,

@@ -892,16 +892,26 @@ interface StreamOpts {
   signal?: AbortSignal;
 }
 
-/**
- * Intenta cada proveedor hasta encontrar uno que responda y emita texto.
- * Devuelve la respuesta HTTP abierta para leerla en streaming.
- */
-async function abrirStream(messages: any[], opts: StreamOpts, provider: AIProvider = "openrouter"): Promise<Response | null> {
-  const descubiertos = await descubrirModelos();
-  const lista = candidatos(descubiertos, provider);
+const esProveedorGratis = (
+  nombre: Proveedor["nombre"],
+): nombre is "gemini" | "groq" | "mistral" =>
+  nombre === "gemini" || nombre === "groq" || nombre === "mistral";
 
-  // Proveedores gratuitos con API real (Gemini, Groq, Mistral): entran justo
-  // después de OpenCode y antes de la pasarela/OpenRouter.
+/**
+ * Cadena completa de proveedores, en el orden en que se prueban:
+ * OpenCode (solo si el usuario eligió DeepSeek) → Gemini/Groq/Mistral →
+ * pasarela de Lovable → OpenRouter.
+ *
+ * La usan el chat y las tareas auxiliares (feedback, explicaciones,
+ * sugerencias y estructuras). Antes esas tareas se saltaban los proveedores
+ * gratuitos y acababan en OpenRouter aunque el chat ya funcionara con Gemini;
+ * de ahí el aviso de créditos con el indicador marcando Gemini.
+ */
+async function cadenaProveedores(
+  descubiertos: string[],
+  provider: AIProvider = "openrouter",
+): Promise<Proveedor[]> {
+  const lista = candidatos(descubiertos, provider);
   const gratis: Proveedor[] = (await candidatosGratis()).map((p) => ({
     nombre: p.nombre,
     modelo: p.modelo,
@@ -912,8 +922,38 @@ async function abrirStream(messages: any[], opts: StreamOpts, provider: AIProvid
     const corte = lista.findIndex((p) => p.nombre !== "opencode");
     lista.splice(corte < 0 ? lista.length : corte, 0, ...gratis);
   }
+  return lista;
+}
+
+/**
+ * 402/429 significan cuota agotada del proveedor entero, no de un modelo
+ * concreto: no tiene sentido seguir probando sus demás modelos. Se salta ese
+ * proveedor y la cadena continúa con el siguiente.
+ */
+function cuotaAgotada(status: number, detalle: string): boolean {
+  if (status === 402 || status === 429) return true;
+  return /insufficient|quota|credit|free-models-per-day|per day|daily/i.test(detalle);
+}
+
+/**
+ * Un límite diario deja al proveedor sin servicio el resto del día; un 429
+ * puntual solo afecta a esta petición. Solo el primero se recuerda 10 minutos.
+ */
+const esCuotaDelDia = (detalle: string) =>
+  /free-models-per-day|per day|daily|quota|insufficient/i.test(detalle);
+
+/**
+ * Intenta cada proveedor hasta encontrar uno que responda y emita texto.
+ * Devuelve la respuesta HTTP abierta para leerla en streaming.
+ */
+async function abrirStream(messages: any[], opts: StreamOpts, provider: AIProvider = "openrouter"): Promise<Response | null> {
+  const descubiertos = await descubrirModelos();
+  const lista = await cadenaProveedores(descubiertos, provider);
+  const saltados = new Set<Proveedor["nombre"]>();
+  ULTIMA_CUOTA = null;
 
   for (const p of lista) {
+    if (saltados.has(p.nombre)) continue;
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 45000);
     const onAbort = () => ctrl.abort();
@@ -953,7 +993,7 @@ async function abrirStream(messages: any[], opts: StreamOpts, provider: AIProvid
       const errText = await res.text().catch(() => "");
       if (
         (res.status === 401 || res.status === 403) &&
-        (p.nombre === "gemini" || p.nombre === "groq" || p.nombre === "mistral")
+        esProveedorGratis(p.nombre)
       ) {
         marcarProveedorCaido(p.nombre);
       }
@@ -962,7 +1002,12 @@ async function abrirStream(messages: any[], opts: StreamOpts, provider: AIProvid
         MODELOS_INVALIDOS.add(p.modelo);
         if (PROVEEDOR_OK?.modelo === p.modelo) PROVEEDOR_OK = null;
       }
-      if (res.status === 429 && esLimiteDiario(errText)) break;
+      if (cuotaAgotada(res.status, errText)) {
+        saltados.add(p.nombre);
+        ULTIMA_CUOTA = { nombre: p.nombre, diario: res.status === 402 || esCuotaDelDia(errText) };
+        ULTIMO_ERROR = `${p.nombre}/${p.modelo}: ${res.status} ${errText.slice(0, 160)}`;
+        if (esProveedorGratis(p.nombre) && esCuotaDelDia(errText)) marcarProveedorCaido(p.nombre);
+      }
     } catch (e) {
       console.warn(`[language-tutor] ${p.nombre}/${p.modelo} falló: ${(e as Error).message}`);
     } finally {
@@ -1021,10 +1066,43 @@ function parseJsonLoose(text: string): any | null {
 /** Último fallo de `completar`, para diagnosticar sin exponer detalles al usuario. */
 let ULTIMO_ERROR = "";
 
-const MENSAJE_LIMITE_DIARIO =
+/** Proveedor que de verdad falló en la última llamada y si fue cuota diaria. */
+let ULTIMA_CUOTA: { nombre: Proveedor["nombre"]; diario: boolean } | null = null;
+
+const NOMBRE_PROVEEDOR: Record<Proveedor["nombre"], string> = {
+  opencode: "OpenCode",
+  gemini: "Gemini",
+  groq: "Groq",
+  mistral: "Mistral",
+  gateway: "la pasarela de Lovable",
+  openrouter: "OpenRouter",
+};
+
+const MENSAJE_OPENROUTER =
   "Se agotó el límite diario de modelos gratuitos de OpenRouter. Se renueva mañana; si necesitas más hoy, añade 10 créditos en OpenRouter para desbloquear 1000 peticiones gratuitas al día.";
 
-const esLimiteDiario = (detalle: string) => /free-models-per-day|per day|daily/i.test(detalle);
+const MENSAJE_CUOTA: Record<Exclude<Proveedor["nombre"], "openrouter">, string> = {
+  gemini:
+    "Se agotó la cuota gratuita de Gemini por hoy. Se renueva a medianoche (hora del Pacífico); mientras tanto el tutor seguirá con Groq y Mistral.",
+  groq: "Se agotó la cuota gratuita de Groq por hoy. El tutor seguirá con los demás proveedores disponibles.",
+  mistral: "Se agotó la cuota gratuita de Mistral por hoy. El tutor seguirá con los demás proveedores disponibles.",
+  opencode: "La cuota de OpenCode no está disponible ahora mismo. El tutor seguirá con Gemini, Groq y Mistral.",
+  gateway: "La pasarela de Lovable no tiene saldo ahora mismo. El tutor seguirá con los proveedores gratuitos.",
+};
+
+/**
+ * Mensaje para el usuario según el proveedor que falló de verdad. Antes se
+ * culpaba siempre a OpenRouter aunque el fallo fuera de Gemini u otro.
+ */
+function mensajeError(accion: string): string {
+  const fallo = ULTIMA_CUOTA;
+  if (!fallo) return `No pude ${accion}. Inténtalo de nuevo en un momento.`;
+  if (!fallo.diario) {
+    return `${NOMBRE_PROVEEDOR[fallo.nombre]} está limitando las peticiones ahora mismo. Espera un minuto y vuelve a intentarlo.`;
+  }
+  if (fallo.nombre === "openrouter") return MENSAJE_OPENROUTER;
+  return MENSAJE_CUOTA[fallo.nombre];
+}
 
 async function completar(
   messages: any[],
@@ -1032,8 +1110,13 @@ async function completar(
   provider: AIProvider = "openrouter",
 ): Promise<string | null> {
   const descubiertos = await descubrirModelos();
+  const lista = await cadenaProveedores(descubiertos, provider);
   ULTIMO_ERROR = "";
-  for (const p of candidatos(descubiertos, provider)) {
+  ULTIMA_CUOTA = null;
+  const saltados = new Set<Proveedor["nombre"]>();
+
+  for (const p of lista) {
+    if (saltados.has(p.nombre)) continue;
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 20000);
     try {
@@ -1068,8 +1151,12 @@ async function completar(
           MODELOS_INVALIDOS.add(p.modelo);
           if (PROVEEDOR_OK?.modelo === p.modelo) PROVEEDOR_OK = null;
         }
-        ULTIMO_ERROR = `${p.modelo}: ${res.status} ${errText.slice(0, 160)}`;
-        if (res.status === 429 && esLimiteDiario(errText)) break;
+        ULTIMO_ERROR = `${p.nombre}/${p.modelo}: ${res.status} ${errText.slice(0, 160)}`;
+        if (cuotaAgotada(res.status, errText)) {
+          saltados.add(p.nombre);
+          ULTIMA_CUOTA = { nombre: p.nombre, diario: res.status === 402 || esCuotaDelDia(errText) };
+          if (esProveedorGratis(p.nombre) && esCuotaDelDia(errText)) marcarProveedorCaido(p.nombre);
+        }
         continue;
       }
 
@@ -1223,10 +1310,10 @@ Deno.serve(async (req) => {
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
         if (!parsed) {
-          const diario = esLimiteDiario(ULTIMO_ERROR);
+          const cuota = ULTIMA_CUOTA !== null;
           return json(
-            { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude evaluar la frase", detalle: ULTIMO_ERROR.slice(0, 300) },
-            diario ? 429 : 502,
+            { error: mensajeError("evaluar la frase"), detalle: ULTIMO_ERROR.slice(0, 300) },
+            cuota ? 429 : 502,
           );
         }
         return json({
@@ -1253,10 +1340,10 @@ Deno.serve(async (req) => {
         );
         const text = sinRepeticiones(cleanText(raw, 1800));
         if (!text) {
-          const diario = esLimiteDiario(ULTIMO_ERROR);
+          const cuota = ULTIMA_CUOTA !== null;
           return json(
-            { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude generar la explicación", detalle: ULTIMO_ERROR.slice(0, 300) },
-            diario ? 429 : 502,
+            { error: mensajeError("generar la explicación"), detalle: ULTIMO_ERROR.slice(0, 300) },
+            cuota ? 429 : 502,
           );
         }
         return json({ explanation: text });
@@ -1280,10 +1367,10 @@ Deno.serve(async (req) => {
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
         if (!parsed) {
-          const diario = esLimiteDiario(ULTIMO_ERROR);
+          const cuota = ULTIMA_CUOTA !== null;
           return json(
-            { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude crear la estructura", detalle: ULTIMO_ERROR.slice(0, 300) },
-            diario ? 429 : 502,
+            { error: mensajeError("crear la estructura"), detalle: ULTIMO_ERROR.slice(0, 300) },
+            cuota ? 429 : 502,
           );
         }
         const steps = (Array.isArray(parsed.steps) ? parsed.steps : [])
@@ -1328,10 +1415,10 @@ Deno.serve(async (req) => {
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
         if (!parsed) {
-          const diario = esLimiteDiario(ULTIMO_ERROR);
+          const cuota = ULTIMA_CUOTA !== null;
           return json(
-            { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude revisar la estructura", detalle: ULTIMO_ERROR.slice(0, 300) },
-            diario ? 429 : 502,
+            { error: mensajeError("revisar la estructura"), detalle: ULTIMO_ERROR.slice(0, 300) },
+            cuota ? 429 : 502,
           );
         }
         return json({
@@ -1363,10 +1450,10 @@ Deno.serve(async (req) => {
       );
       const parsed = raw ? parseJsonLoose(raw) : null;
       if (!parsed) {
-        const diario = esLimiteDiario(ULTIMO_ERROR);
+        const cuota = ULTIMA_CUOTA !== null;
         return json(
-          { error: diario ? MENSAJE_LIMITE_DIARIO : "No pude generar una sugerencia", detalle: ULTIMO_ERROR.slice(0, 300) },
-          diario ? 429 : 502,
+          { error: mensajeError("generar una sugerencia"), detalle: ULTIMO_ERROR.slice(0, 300) },
+          cuota ? 429 : 502,
         );
       }
       return json({
@@ -1471,7 +1558,9 @@ Deno.serve(async (req) => {
             if (!res) {
               enviar({
                 t: "e",
-                v: "No pude conectar con el modelo del tutor. Revisa tu conexión e inténtalo otra vez.",
+                v: ULTIMA_CUOTA
+                  ? mensajeError("responder")
+                  : "No pude conectar con el modelo del tutor. Revisa tu conexión e inténtalo otra vez.",
               });
               return;
             }

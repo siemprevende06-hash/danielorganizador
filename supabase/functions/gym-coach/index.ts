@@ -1000,6 +1000,7 @@ let modelsCache: { at: number; models: any[] } | null = null;
 let lastGoodModel: string | null = null;
 
 async function discoverModels(apiKey: string): Promise<any[]> {
+  if (!apiKey) return [];
   if (modelsCache && Date.now() - modelsCache.at < 30 * 60 * 1000) return modelsCache.models;
   try {
     const res = await fetch(MODELS_URL, {
@@ -1388,16 +1389,9 @@ Deno.serve(async (req) => {
   const remaining = () => GLOBAL_BUDGET_MS - (Date.now() - started);
 
   try {
-    const apiKey = Deno.env.get("OPENROUTER_API_KEY");
-    if (!apiKey) {
-      return json(
-        {
-          error:
-            "El Coach GYM no está configurado: falta OPENROUTER_API_KEY en los secretos de Supabase.",
-        },
-        500,
-      );
-    }
+    // OpenRouter es opcional: sin clave, la cadena usa solo los proveedores
+    // gratuitos (Gemini, Groq, Mistral) y OpenCode.
+    const apiKey = (Deno.env.get("OPENROUTER_API_KEY") || "").trim();
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") return json({ error: "Petición inválida." }, 400);
@@ -1466,7 +1460,19 @@ Deno.serve(async (req) => {
     for (const p of await candidatosGratis()) {
       objetivos.push({ provider: p.nombre, model: p.modelo, libre: p });
     }
-    for (const m of toolModels) objetivos.push({ provider: "openrouter", model: m });
+    if (apiKey) {
+      for (const m of toolModels) objetivos.push({ provider: "openrouter", model: m });
+    }
+
+    if (!objetivos.length) {
+      return json(
+        {
+          error:
+            "No hay ningún proveedor de IA configurado. Añade GEMINI_API_KEY (gratis) u OPENROUTER_API_KEY en los secretos de Supabase.",
+        },
+        500,
+      );
+    }
 
     let lastError = "";
     let partialActions: any[] = [];
@@ -1671,7 +1677,7 @@ Deno.serve(async (req) => {
     }
 
     // ------------------------- fallback sin herramientas -------------------------
-    if (remaining() > 18_000) {
+    if (apiKey && remaining() > 18_000) {
       let textModels = pickModels(
         allModels,
         false,
@@ -1743,7 +1749,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const limiteDiario = esLimiteDiario(lastError);
+    const limiteDiario = esLimiteDiario(lastError) && /openrouter/i.test(lastError);
     return json(
       {
         error: limiteDiario

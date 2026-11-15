@@ -129,7 +129,19 @@ async function leerErrorOpenRouter(res: Response): Promise<string> {
 const MENSAJE_LIMITE_DIARIO =
   "Se agotó el límite diario de modelos gratuitos de OpenRouter. Se renueva mañana; si necesitas más hoy, añade 10 créditos en OpenRouter para desbloquear 1000 peticiones gratuitas al día.";
 
-const esLimiteDiario = (detalle: string) => /free-models-per-day|per day|daily/i.test(detalle);
+const NOMBRE_PROVEEDOR: Record<
+  "openrouter" | "opencode" | "gemini" | "groq" | "mistral",
+  string
+> = {
+  openrouter: "OpenRouter",
+  opencode: "OpenCode",
+  gemini: "Gemini",
+  groq: "Groq",
+  mistral: "Mistral",
+};
+
+const esLimiteDiario = (detalle: string) =>
+  /free-models-per-day|per day|daily|quota|insufficient/i.test(detalle);
 
 const CUBA_OFFSET_MS = 4 * 60 * 60 * 1000;
 
@@ -850,8 +862,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) return json({ error: "OPENROUTER_API_KEY no está configurada" }, 500);
+    // OpenRouter es opcional: sin clave, la cadena sigue solo con Gemini/Groq/
+    // Mistral y OpenCode. Antes la función devolvía 500 aunque hubiera Gemini.
+    const OPENROUTER_API_KEY = (Deno.env.get("OPENROUTER_API_KEY") || "").trim();
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -949,6 +962,7 @@ Reglas:
       let res: Response | null = null;
       let ultimoEstado = 0;
       let ultimoDetalle = "";
+      let ultimoProveedor: "openrouter" | "opencode" | "gemini" | "groq" | "mistral" = "openrouter";
 
       // DeepSeek va primero solo si el usuario lo eligió. Cualquier fallo
       // (red, 401, 402, 429…) cae a la cadena normal de OpenRouter.
@@ -960,6 +974,7 @@ Reglas:
             res = intento;
           } else {
             ultimoEstado = intento.status;
+            ultimoProveedor = "opencode";
             ultimoDetalle = await leerErrorOpenRouter(intento);
             console.warn(
               `[life-coach] opencode/${OPENCODE_MODEL} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`,
@@ -989,6 +1004,9 @@ Reglas:
               break;
             }
             const detalle = await intento.text().catch(() => "");
+            ultimoEstado = intento.status;
+            ultimoProveedor = p.nombre;
+            ultimoDetalle = detalle || `HTTP ${intento.status}`;
             if (intento.status === 401 || intento.status === 403) marcarProveedorCaido(p.nombre);
             console.warn(
               `[life-coach] ${p.nombre}/${p.modelo} -> ${intento.status} ${detalle.slice(0, 160)}`,
@@ -999,7 +1017,7 @@ Reglas:
         }
       }
 
-      if (!res) {
+      if (!res && OPENROUTER_API_KEY) {
         for (const modelo of await candidatosModelo(OPENROUTER_API_KEY)) {
           let intento: Response;
           try {
@@ -1015,6 +1033,7 @@ Reglas:
           }
 
           ultimoEstado = intento.status;
+          ultimoProveedor = "openrouter";
           ultimoDetalle = await leerErrorOpenRouter(intento);
           console.warn(`[life-coach] ${modelo} -> ${intento.status} ${ultimoDetalle.slice(0, 180)}`);
 
@@ -1040,15 +1059,31 @@ Reglas:
       }
 
       if (!res || !res.ok) {
+        if (!OPENROUTER_API_KEY && ultimoEstado === 0) {
+          return json(
+            {
+              error:
+                "No hay ningún proveedor de IA configurado. Añade GEMINI_API_KEY (gratis) u OPENROUTER_API_KEY en los secretos de Supabase.",
+              detalle: ultimoDetalle.slice(0, 300),
+            },
+            500,
+          );
+        }
         if (ultimoEstado === 401) {
-          return json({ error: "La clave de OpenRouter no es válida o no tiene permisos." }, 500);
+          return json(
+            { error: `La clave de ${NOMBRE_PROVEEDOR[ultimoProveedor]} no es válida o no tiene permisos.` },
+            500,
+          );
         }
         if (ultimoEstado === 429 || ultimoEstado === 402) {
+          const esOpenRouter = ultimoProveedor === "openrouter";
           return json(
             {
               error: esLimiteDiario(ultimoDetalle)
-                ? MENSAJE_LIMITE_DIARIO
-                : "OpenRouter está limitando las peticiones gratuitas ahora mismo. Espera un minuto y vuelve a intentarlo.",
+                ? esOpenRouter
+                  ? MENSAJE_LIMITE_DIARIO
+                  : `Se agotó la cuota gratuita de ${NOMBRE_PROVEEDOR[ultimoProveedor]} por hoy. Inténtalo de nuevo más tarde.`
+                : `${NOMBRE_PROVEEDOR[ultimoProveedor]} está limitando las peticiones ahora mismo. Espera un minuto y vuelve a intentarlo.`,
               detalle: ultimoDetalle.slice(0, 300),
             },
             429,
