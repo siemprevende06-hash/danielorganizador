@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { loadBookMinutes } from '@/lib/readingBookTime';
 
 export interface Book {
   id: string;
@@ -20,6 +21,8 @@ export interface Book {
   genre: string | null;
   created_at: string;
   updated_at: string;
+  /** Minutos dedicados al libro (derivado de `reading_book_minutes`). */
+  minutes_read: number;
   /** Fechas derivadas de las sesiones de lectura (no se guardan en la tabla). */
   sessions_first_date?: string | null;
   sessions_last_date?: string | null;
@@ -63,7 +66,7 @@ export const useReadingLibrary = () => {
 
   const fetchBooks = async () => {
     try {
-      const [booksRes, sessionsRes] = await Promise.all([
+      const [booksRes, sessionsRes, bookMinutes] = await Promise.all([
         supabase
           .from('reading_library')
           .select('*')
@@ -72,6 +75,7 @@ export const useReadingLibrary = () => {
           .from('reading_sessions')
           .select('book_id, session_date')
           .order('session_date', { ascending: true }),
+        loadBookMinutes(),
       ]);
 
       const { data, error } = booksRes;
@@ -93,6 +97,7 @@ export const useReadingLibrary = () => {
 
       const rows = ((data || []) as Book[]).map(book => ({
         ...book,
+        minutes_read: bookMinutes[book.id] ?? 0,
         sessions_first_date: sessionRange[book.id]?.first ?? null,
         sessions_last_date: sessionRange[book.id]?.last ?? null,
       }));
@@ -107,6 +112,21 @@ export const useReadingLibrary = () => {
 
   useEffect(() => {
     fetchBooks();
+  }, []);
+
+  // El tiempo de lectura se suma desde el tracking de sistemas: refrescamos
+  // el libro afectado sin recargar toda la biblioteca.
+  useEffect(() => {
+    const onMinutesUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ bookId?: string; minutes?: number }>).detail;
+      if (!detail?.bookId) return;
+      const minutes = Math.max(0, Math.round(Number(detail.minutes) || 0));
+      setBooks(prev => prev.map(book =>
+        book.id === detail.bookId ? { ...book, minutes_read: minutes } : book
+      ));
+    };
+    window.addEventListener('reading-book-minutes-updated', onMinutesUpdated);
+    return () => window.removeEventListener('reading-book-minutes-updated', onMinutesUpdated);
   }, []);
 
   const addBook = async (book: Partial<Book>) => {
@@ -134,14 +154,15 @@ export const useReadingLibrary = () => {
         .single();
 
       if (error) throw error;
-      
-      setBooks(prev => [data as Book, ...prev]);
+
+      const created = { ...(data as Book), minutes_read: 0 };
+      setBooks(prev => [created, ...prev]);
       toast({
         title: "Libro agregado",
         description: book.title,
       });
       
-      return data;
+      return created;
     } catch (error) {
       console.error('Error adding book:', error);
       toast({

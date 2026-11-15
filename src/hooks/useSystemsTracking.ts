@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMidnightReset } from "@/hooks/useMidnightReset";
 import { getCubaDate } from "@/lib/cubaTime";
+import { addMinutesToCurrentBook } from "@/lib/readingBookTime";
 import { CHESS_COUNT_KEYS, type ChessResultKey } from "@/lib/daySystems";
 
 // Queries que reflejan datos de hábitos/sistemas y deben refrescarse al guardar.
@@ -107,6 +108,11 @@ export function useSystemsTracking(targetDate?: Date) {
   dataRef.current = data;
   const dateRef = useRef(currentDate);
   dateRef.current = currentDate;
+  /**
+   * Minutos de lectura del día que ya se atribuyeron al libro activo. Se fija
+   * al cargar el día para no contar como nuevas las horas ya registradas.
+   */
+  const readingBaselineRef = useRef<{ date: string; minutes: number } | null>(null);
 
   // Cambiar de día (navegación a días anteriores/posteriores)
   const targetKey = dateKeyOf(targetDate);
@@ -168,9 +174,15 @@ export function useSystemsTracking(targetDate?: Date) {
         row = data;
       } catch {}  // offline, row stays null
 
+      const loaded = row ? buildData(row) : DEFAULT_DATA;
       if (row) {
-        setData(buildData(row));
+        setData(loaded);
       }
+      // Base para atribuir al libro solo el tiempo que se sume desde ahora.
+      readingBaselineRef.current = {
+        date: dateKey,
+        minutes: Math.max(0, Number(loaded.timeData?.lectura) || 0),
+      };
       setLoading(false);
     };
     load();
@@ -289,12 +301,36 @@ export function useSystemsTracking(targetDate?: Date) {
     } catch {}  // sin QueryClient contexto no debería ocurrir
   }, [syncToAreaStats, queryClient]);
 
+  /**
+   * Suma al libro que se está leyendo el tiempo que se agregue al sistema de
+   * lectura (`time_data.lectura`). Solo aplica al día de hoy: los ajustes de
+   * días anteriores no deben mover el tiempo del libro actual.
+   */
+  const trackBookReadingTime = useCallback((newData: SystemsData, forDate: string) => {
+    if (forDate !== todayKey()) return;
+    const minutes = Math.max(0, Number(newData.timeData?.lectura) || 0);
+    const baseline = readingBaselineRef.current;
+
+    if (baseline?.date !== forDate) {
+      readingBaselineRef.current = { date: forDate, minutes };
+      return;
+    }
+
+    const delta = minutes - baseline.minutes;
+    if (delta === 0) return;
+    readingBaselineRef.current = { date: forDate, minutes };
+    void addMinutesToCurrentBook(delta);
+  }, []);
+
   // Debounced save
   useEffect(() => {
     if (loading) return;
-    const t = setTimeout(() => save(data, currentDate), 100);
+    const t = setTimeout(() => {
+      save(data, currentDate);
+      trackBookReadingTime(data, currentDate);
+    }, 100);
     return () => clearTimeout(t);
-  }, [data, loading, save, currentDate]);
+  }, [data, loading, save, currentDate, trackBookReadingTime]);
 
   const update = useCallback(<K extends keyof SystemsData>(key: K, value: SystemsData[K]) => {
     setData(prev => ({ ...prev, [key]: value }));

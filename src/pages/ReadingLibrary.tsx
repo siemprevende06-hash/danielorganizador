@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useReadingLibrary, Book, effectiveStartDate, effectiveFinishDate, trackedStartDate } from '@/hooks/useReadingLibrary';
+import { formatBookMinutes } from '@/lib/readingBookTime';
 import { supabase } from '@/integrations/supabase/client';
 import { BookOpen, Plus, Star, BookMarked, Library, Trash2, Upload, Calendar, ChevronRight, Clock, TrendingUp, TrendingDown, Edit2, LayoutGrid, List, GalleryHorizontal, StickyNote, X, PencilLine, FileText, BookOpenCheck, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -334,6 +335,11 @@ export default function ReadingLibrary() {
               <p className="text-xs text-muted-foreground">{book.pages_read}/{book.pages_total} págs</p>
             </div>
           )}
+          {book.minutes_read > 0 && (
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Clock className="w-2.5 h-2.5 shrink-0" /> {formatBookMinutes(book.minutes_read)}
+            </p>
+          )}
           {book.status === 'completed' && (
             <div onClick={(e) => e.stopPropagation()}>
               {renderStars(book.rating, (r) => updateBook(book.id, { rating: r }))}
@@ -623,6 +629,9 @@ export default function ReadingLibrary() {
                   <div className="flex-1 space-y-2">
                     <h3 className="font-medium">{currentBook.title}</h3>
                     {currentBook.author && <p className="text-sm text-muted-foreground">{currentBook.author}</p>}
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3 shrink-0" /> {formatBookMinutes(currentBook.minutes_read)} dedicadas
+                    </p>
                     {(effectiveStartDate(currentBook) || effectiveFinishDate(currentBook)) && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="w-3 h-3 shrink-0" />
@@ -997,6 +1006,12 @@ export default function ReadingLibrary() {
                         <p className="font-medium">{fmtBookDate(effectiveStartDate(selectedBook))}</p>
                       </div>
                     )}
+                    <div className="bg-muted/50 rounded-lg p-2.5 sm:p-3">
+                      <p className="text-muted-foreground text-xs flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Tiempo dedicado
+                      </p>
+                      <p className="font-medium">{formatBookMinutes(selectedBook.minutes_read)}</p>
+                    </div>
                     {effectiveFinishDate(selectedBook) && (
                       <div className="bg-muted/50 rounded-lg p-2.5 sm:p-3">
                         <p className="text-muted-foreground text-xs">Terminado</p>
