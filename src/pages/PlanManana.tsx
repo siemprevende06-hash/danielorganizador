@@ -49,6 +49,7 @@ import {
   type PlannerTask,
 } from "@/lib/planMananaTasks";
 import { useSystemSpeed } from "@/hooks/useSystemSpeed";
+import { useSystemActivityTags } from "@/hooks/useSystemActivityTags";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { PlanSystemCard } from "@/components/planificacion/PlanSystemCard";
 import { TaskInboxCard } from "@/components/planificacion/TaskInboxCard";
@@ -163,6 +164,7 @@ export default function PlanManana() {
   });
   const { covers } = useAreaCovers();
   const { map: speedMap, getSpeed, setSpeed, loadedFromPlan: systemSpeedLoaded } = useSystemSpeed(targetDate);
+  const { getTag: getActivityTag, setTag: setActivityTag } = useSystemActivityTags();
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -800,6 +802,8 @@ export default function PlanManana() {
       emoji={planSystemEmoji(system.id)}
       speed={getSpeed(system.id)}
       onSpeedChange={speed => setSpeed(system.id, speed)}
+      activityTag={getActivityTag(system.id)}
+      onActivityTagChange={tag => setActivityTag(system.id, tag)}
       plannedMinutes={speedSummary.bySystem[system.id]?.plannedMinutes ?? 0}
       tasks={systemTasks[system.id] ?? []}
       blocks={systemBlocks[system.id] ?? []}
@@ -895,6 +899,8 @@ export default function PlanManana() {
           </div>
           <p className="-mt-1 text-[10px] text-muted-foreground">
             Elige la velocidad de cada sistema y añade sus tareas: cada tarjeta las coloca en un bloque de tiempo.
+            Marca cada tarjeta como <span className="font-semibold text-amber-600 dark:text-amber-400">⚡ Activo</span> o{' '}
+            <span className="font-semibold text-blue-600 dark:text-blue-400">🌙 Pasivo</span> y la etiqueta aparecerá sobre su portada.
           </p>
 
           {/* Profesional / Académico en un cuadro */}

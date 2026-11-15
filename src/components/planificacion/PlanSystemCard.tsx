@@ -5,6 +5,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { getCoverGradient } from '@/components/areas/AreaCover';
 import { systemSpeedOptions, type DaySystem, type SystemSpeed } from '@/lib/daySystems';
 import type { PlannerTask } from '@/lib/planMananaTasks';
+import {
+  ACTIVITY_TAG_OPTIONS,
+  ACTIVITY_TAG_STYLES,
+  activityTagMeta,
+  type ActivityTag,
+} from '@/hooks/useSystemActivityTags';
 import { cn } from '@/lib/utils';
 
 interface PlanSystemCardProps {
@@ -13,6 +19,9 @@ interface PlanSystemCardProps {
   emoji: string;
   speed: SystemSpeed;
   onSpeedChange: (speed: SystemSpeed) => void;
+  /** Etiqueta Activo/Pasivo del sistema (null = sin etiqueta). */
+  activityTag?: ActivityTag | null;
+  onActivityTagChange?: (tag: ActivityTag | null) => void;
   plannedMinutes: number;
   tasks: PlannerTask[];
   /** Títulos de los bloques donde el sistema tiene minutos planificados. */
@@ -30,6 +39,8 @@ export function PlanSystemCard({
   emoji,
   speed,
   onSpeedChange,
+  activityTag = null,
+  onActivityTagChange,
   plannedMinutes,
   tasks,
   blocks,
@@ -40,6 +51,9 @@ export function PlanSystemCard({
 }: PlanSystemCardProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+
+  const tagMeta = activityTag ? activityTagMeta(activityTag) : null;
+  const tagStyles = activityTag ? ACTIVITY_TAG_STYLES[activityTag] : null;
 
   const options = useMemo(() => systemSpeedOptions(system), [system]);
   const selected = options.find(option => option.id === speed) ?? options[0];
@@ -89,6 +103,19 @@ export function PlanSystemCard({
         <span className="absolute right-1.5 top-1.5 rounded-full bg-black/45 px-1.5 py-0.5 text-[8px] font-bold text-white backdrop-blur-sm">
           {selected?.label ?? 'Máx'}
         </span>
+        {/* Etiqueta Activo / Pasivo pegada a la portada */}
+        {tagMeta && tagStyles && (
+          <span
+            className={cn(
+              'absolute bottom-1.5 left-1.5 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white shadow-sm ring-1 ring-white/50 backdrop-blur-sm',
+              tagStyles.cover,
+            )}
+            title={`Etiqueta ${tagMeta.label}: ${tagMeta.hint}`}
+          >
+            <span aria-hidden>{tagMeta.icon}</span>
+            {tagMeta.label}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-2.5">
@@ -100,6 +127,38 @@ export function PlanSystemCard({
               {blocks.length > 1 ? ` +${blocks.length - 1}` : ''}
             </span>
           )}
+        </div>
+
+        {/* Etiqueta Activo / Pasivo */}
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+            Etiqueta
+          </span>
+          <div className="ml-auto flex items-center gap-1">
+            {ACTIVITY_TAG_OPTIONS.map(option => {
+              const active = activityTag === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => onActivityTagChange?.(active ? null : option.id)}
+                  disabled={!onActivityTagChange}
+                  aria-pressed={active}
+                  title={active ? `Quitar etiqueta ${option.label}` : `${option.label} · ${option.hint}`}
+                  className={cn(
+                    'flex items-center gap-0.5 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[8px] font-bold transition-colors',
+                    active
+                      ? ACTIVITY_TAG_STYLES[option.id].chip
+                      : 'border-border/50 bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
+                    !onActivityTagChange && 'cursor-default opacity-60',
+                  )}
+                >
+                  <span aria-hidden>{option.icon}</span>
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Velocidad de avance del sistema */}
