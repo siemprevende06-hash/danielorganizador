@@ -40,6 +40,23 @@ const SETTING_KEY = "system_activity_tags";
 
 type TagMap = Record<string, ActivityTag>;
 
+/**
+ * Algunas tarjetas usan el id del hábito en lugar del id del sistema
+ * (`entrenamiento-fisico` → gym, `ingles`/`italiano` → idiomas). Normalizar
+ * los ids hace que la etiqueta puesta en Planificación Mañana aparezca en
+ * todas las tarjetas, sin importar con qué id las pinte cada página.
+ */
+const SYSTEM_ID_ALIASES: Record<string, string> = {
+  "entrenamiento-fisico": "gym",
+  ingles: "idiomas",
+  italiano: "idiomas",
+  "tareas-generales": "tareas",
+};
+
+export function canonicalSystemId(systemId: string): string {
+  return SYSTEM_ID_ALIASES[systemId] ?? systemId;
+}
+
 function isActivityTag(value: unknown): value is ActivityTag {
   return value === "activo" || value === "pasivo";
 }
@@ -48,7 +65,7 @@ function sanitize(raw: unknown): TagMap {
   const result: TagMap = {};
   if (!raw || typeof raw !== "object") return result;
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (isActivityTag(value)) result[key] = value;
+    if (isActivityTag(value)) result[canonicalSystemId(key)] = value;
   }
   return result;
 }
@@ -125,15 +142,17 @@ export function useSystemActivityTags() {
   const map = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   const getTag = useCallback(
-    (systemId: string): ActivityTag | null => map[systemId] ?? null,
+    (systemId: string): ActivityTag | null =>
+      map[canonicalSystemId(systemId)] ?? map[systemId] ?? null,
     [map],
   );
 
   const setTag = useCallback((systemId: string, tag: ActivityTag | null) => {
-    if ((snapshot[systemId] ?? null) === tag) return;
+    const key = canonicalSystemId(systemId);
+    if ((snapshot[key] ?? null) === tag) return;
     const next = { ...snapshot };
-    if (tag) next[systemId] = tag;
-    else delete next[systemId];
+    if (tag) next[key] = tag;
+    else delete next[key];
     snapshot = next;
     persistLocal(next);
     emit();
