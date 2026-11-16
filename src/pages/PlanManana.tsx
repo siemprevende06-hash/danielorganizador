@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfMonth, startOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { lifeAreas } from "@/lib/data";
@@ -53,6 +53,10 @@ import { FocusLockCard } from "@/components/planificacion/FocusLockCard";
 import { DaySettingsCard } from "@/components/planificacion/DaySettingsCard";
 import { BlockFocusControl, type FocusOwner } from "@/components/planificacion/BlockFocusControl";
 import { useStudySubjects } from "@/hooks/useStudySubjects";
+import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
+import { useChessGoalsSummary } from "@/hooks/useChessGoalsSummary";
+import { buildHabitPlanObjectives } from "@/lib/planObjectives";
+import { getWeekEloPlan } from "@/lib/chessPlan";
 
 interface TaskItem {
   id: string; title: string; source: string; area_id: string | null;
@@ -247,6 +251,34 @@ export default function PlanManana() {
     createSubject: createStudySubject,
     createTopic: createStudyTopic,
   } = useStudySubjects();
+
+  // Objetivos planificados del periodo para las tarjetas de sistemas.
+  const monthDate = useMemo(() => startOfMonth(targetDate), [targetDate]);
+  const weekStart = useMemo(() => startOfWeek(targetDate, { weekStartsOn: 1 }), [targetDate]);
+  const weekKey = useMemo(() => format(weekStart, 'yyyy-MM-dd'), [weekStart]);
+  const {
+    planData: monthPlanData,
+    books: monthPlanBooks,
+    songs: monthPlanSongs,
+    projects: monthPlanProjects,
+    subjects: monthPlanSubjects,
+  } = useMonthlyPlan(monthDate);
+  const { targetElo: chessTargetElo } = useChessGoalsSummary();
+  const weekElo = useMemo(() => getWeekEloPlan(weekStart, monthPlanData), [weekStart, monthPlanData]);
+  const monthEloGoal = Number(monthPlanData.chess?.elo_goal) || chessTargetElo || 0;
+  const objectivesByHabit = useMemo(
+    () => buildHabitPlanObjectives(
+      monthPlanData,
+      {
+        books: monthPlanBooks,
+        songs: monthPlanSongs,
+        projects: monthPlanProjects,
+        subjects: monthPlanSubjects,
+      },
+      { weekKey, weekElo, monthEloGoal },
+    ),
+    [monthPlanData, monthPlanBooks, monthPlanSongs, monthPlanProjects, monthPlanSubjects, weekKey, weekElo, monthEloGoal],
+  );
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1339,6 +1371,7 @@ export default function PlanManana() {
       blocks={systemBlocks[system.id] ?? []}
       availableTasks={availableBySystem[system.id] ?? []}
       focusPlans={focusPlansBySystem[system.id]}
+      objectives={objectivesByHabit[system.id]}
       onAddTask={task => assignTasks([task], system.id)}
       onCreateTask={() => openCreateForSystem(system.id)}
       onRemoveTask={handleRemoveTask}

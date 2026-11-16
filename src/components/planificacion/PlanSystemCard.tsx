@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { getCoverGradient } from '@/components/areas/AreaCover';
 import { systemSpeedOptions, type DaySystem, type SystemSpeed } from '@/lib/daySystems';
 import type { PlannerTask } from '@/lib/planMananaTasks';
+import type { PlanObjective, PlanObjectiveKind } from '@/lib/planObjectives';
 import {
   ACTIVITY_TAG_OPTIONS,
   ACTIVITY_TAG_STYLES,
@@ -18,6 +19,15 @@ const FOCUS_TONES: Record<string, { border: string; bg: string; text: string }> 
   universidad: { border: 'border-sky-400/40', bg: 'bg-sky-500/5', text: 'text-sky-700 dark:text-sky-300' },
   emprendimiento: { border: 'border-purple-400/40', bg: 'bg-purple-500/5', text: 'text-purple-700 dark:text-purple-300' },
   proyectos: { border: 'border-emerald-400/40', bg: 'bg-emerald-500/5', text: 'text-emerald-700 dark:text-emerald-300' },
+};
+
+/** Icono del objetivo cuando no tiene portada. */
+const OBJECTIVE_EMOJI: Record<PlanObjectiveKind, string> = {
+  libro: '📖',
+  cancion: '🎹',
+  materia: '🎓',
+  proyecto: '📦',
+  elo: '♟️',
 };
 
 interface PlanSystemCardProps {
@@ -37,6 +47,8 @@ interface PlanSystemCardProps {
   availableTasks: PlannerTask[];
   /** Enfoques elegidos en los bloques del día (estudio o trabajo). */
   focusPlans?: { blockTitle: string; emoji: string; primary: string; secondary: string | null }[];
+  /** Objetivos planificados del periodo para este sistema (libro, canción, materia…). */
+  objectives?: PlanObjective[];
   onAddTask: (task: PlannerTask) => void;
   onCreateTask: () => void;
   onRemoveTask: (taskId: string) => void;
@@ -55,6 +67,7 @@ export function PlanSystemCard({
   blocks,
   availableTasks,
   focusPlans,
+  objectives,
   onAddTask,
   onCreateTask,
   onRemoveTask,
@@ -191,6 +204,66 @@ export function PlanSystemCard({
           <span className="tabular-nums">{plannedMinutes} / {targetMinutes} min</span>
           <span className="tabular-nums">{tasks.length} tarea{tasks.length === 1 ? '' : 's'}</span>
         </div>
+
+        {/* Objetivos planificados del periodo (libro, canción, materia, proyecto, ELO) */}
+        {objectives && objectives.length > 0 && (
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+              <Target className="h-2.5 w-2.5" />
+              Objetivo
+            </div>
+            {objectives.map(objective => {
+              const isBook = objective.kind === 'libro';
+              const isRead = isBook && (objective.status === 'completed' || Boolean(objective.finishDate));
+              const isReading = isBook && objective.isCurrent && !isRead;
+              return (
+                <div
+                  key={`${objective.kind}-${objective.id}`}
+                  title={[objective.title, objective.subtitle, objective.tag].filter(Boolean).join(' · ')}
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-1.5 py-1 ring-1',
+                    isRead
+                      ? 'bg-emerald-500/10 ring-emerald-500/40'
+                      : isReading
+                        ? 'bg-blue-500/10 ring-blue-500/40'
+                        : 'bg-foreground/5 ring-transparent',
+                  )}
+                >
+                  {objective.cover ? (
+                    <img
+                      src={objective.cover}
+                      alt={objective.title}
+                      className="h-7 w-5 shrink-0 rounded border border-border/40 object-cover"
+                    />
+                  ) : (
+                    <span aria-hidden className="text-[10px] leading-none">{OBJECTIVE_EMOJI[objective.kind]}</span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[9px] font-bold leading-tight">{objective.title}</p>
+                    {objective.subtitle && (
+                      <p className="truncate text-[8px] leading-tight text-muted-foreground">{objective.subtitle}</p>
+                    )}
+                  </div>
+                  {objective.tag && (
+                    <span className="shrink-0 rounded border border-indigo-500/25 bg-indigo-500/10 px-1 py-0.5 text-[8px] font-bold text-indigo-600 dark:text-indigo-400">
+                      {objective.tag}
+                    </span>
+                  )}
+                  {isRead && (
+                    <span className="shrink-0 rounded border border-emerald-500/30 bg-emerald-500/15 px-1 py-0.5 text-[8px] font-bold text-emerald-600 dark:text-emerald-400">
+                      Leído ✓
+                    </span>
+                  )}
+                  {isReading && (
+                    <span className="shrink-0 rounded border border-blue-500/30 bg-blue-500/15 px-1 py-0.5 text-[8px] font-bold text-blue-600 dark:text-blue-400">
+                      Leyendo
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Tareas del sistema */}
         {tasks.length > 0 ? (
