@@ -1,4 +1,4 @@
-import { Activity, CheckCircle2, Target } from 'lucide-react';
+import { Activity, Target } from 'lucide-react';
 import { getCoverGradient } from '@/components/areas/AreaCover';
 import { Progress } from '@/components/ui/progress';
 import { coverKey } from '@/hooks/useAreaCovers';
@@ -41,7 +41,7 @@ function areaCoverFor(key: string, covers: Record<string, string>): string | nul
 const verdictFor = (pct: number | null) => {
   if (pct == null) return { label: 'Sin datos', cls: 'text-muted-foreground bg-muted' };
   if (pct >= 100) return { label: 'Cumplido', cls: 'text-emerald-600 bg-emerald-500/10 dark:text-emerald-400' };
-  if (pct >= 60) return { label: 'Parcial', cls: 'text-amber-600 bg-amber-500/10' };
+  if (pct >= 60) return { label: 'Parcial', cls: 'text-amber-600 bg-amber-500/10 dark:text-amber-400' };
   return { label: 'No cumplido', cls: 'text-destructive bg-destructive/10' };
 };
 
@@ -68,72 +68,47 @@ function AutocriticaAreaCard({ row, cover }: { row: AutocriticaAreaRow; cover: s
     ? Math.round(available.reduce((sum, value) => sum + value, 0) / available.length)
     : null;
   const verdict = verdictFor(combinedPct);
-  const complete = combinedPct != null && combinedPct >= 100;
 
   return (
-    <div
-      className={cn(
-        'relative flex flex-col overflow-hidden rounded-2xl ring-2 transition-colors',
-        complete
-          ? 'ring-emerald-500/40 bg-emerald-500/5'
-          : 'ring-border/40 bg-white/80 dark:bg-zinc-950/80',
-      )}
-    >
-      {/* Portada: mismo lenguaje visual que las tarjetas de Planificación. */}
-      <div className={cn('relative h-16 w-full shrink-0 overflow-hidden bg-gradient-to-br', getCoverGradient(row.key))}>
-        {cover ? (
-          <img src={cover} alt={row.label} className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 grid place-items-center">
-            <span className="text-2xl drop-shadow-sm">{emoji}</span>
+    <div className="flex flex-col gap-3 px-3.5 py-4 transition-colors hover:bg-muted/30 lg:flex-row lg:items-center lg:gap-4 lg:px-4">
+      <div className="flex min-w-0 items-center gap-3 lg:w-56 lg:shrink-0">
+        <div className={cn('relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br', getCoverGradient(row.key))}>
+          {cover ? (
+            <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 grid place-items-center text-xl drop-shadow-sm">{emoji}</div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="truncate text-sm font-semibold leading-tight">{row.label}</h4>
+            <span className="shrink-0 text-base font-bold tabular-nums leading-none lg:hidden">
+              {combinedPct != null ? `${combinedPct}%` : '—'}
+            </span>
           </div>
-        )}
-        {combinedPct != null && (
-          <span className="absolute right-1.5 top-1.5 rounded-full bg-black/45 px-1.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm">
-            {combinedPct}%
-          </span>
-        )}
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            <span className={cn('shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold', verdict.cls)}>
+              {verdict.label}
+            </span>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {row.resultTotal > 0
+                ? `${row.resultDone}/${row.resultTotal} ${row.resultUnit}`
+                : 'Sin objetivo marcable'}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-2.5">
-        <div className="flex items-center gap-1.5">
-          <h4 className="truncate text-[12px] font-bold leading-tight">{row.label}</h4>
-          <span className={cn('ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold', verdict.cls)}>
-            {verdict.label}
-          </span>
-        </div>
-
-        {/* Esfuerzo real vs objetivo planificado. */}
-        <div className="grid grid-cols-2 gap-1.5">
-          <div className="rounded-xl bg-indigo-500/10 p-2">
-            <p className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
-              <Activity className="h-2.5 w-2.5" />
-              Esfuerzo
-            </p>
-            <p className="mt-0.5 text-xl font-extrabold leading-none tabular-nums">
-              {row.real}
-              <span className="ml-0.5 text-[9px] font-semibold text-muted-foreground">min</span>
-            </p>
-            <p className="mt-0.5 text-[8px] text-muted-foreground">hechos</p>
-          </div>
-
-          <div className="rounded-xl bg-amber-500/10 p-2">
-            <p className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-              <Target className="h-2.5 w-2.5" />
-              Objetivo
-            </p>
-            <p className="mt-0.5 text-xl font-extrabold leading-none tabular-nums">
-              {row.plan}
-              <span className="ml-0.5 text-[9px] font-semibold text-muted-foreground">min</span>
-            </p>
-            <p className="mt-0.5 text-[8px] text-muted-foreground">planificados</p>
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex items-center justify-between gap-2 text-[8px]">
-            <span className="font-semibold uppercase tracking-wide text-muted-foreground">Esfuerzo vs plan</span>
-            <span className="font-bold tabular-nums">{effortPct != null ? `${effortPct}%` : '—'}</span>
+      <div className="grid flex-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-[11px]">
+            <span className="flex items-center gap-1 font-medium text-muted-foreground">
+              <Activity className="h-3 w-3" /> Esfuerzo
+            </span>
+            <span className="font-semibold tabular-nums">
+              {row.plan > 0 ? `${row.real}/${row.plan} min` : `${row.real} min`}
+              {effortPct != null ? ` · ${effortPct}%` : ''}
+            </span>
           </div>
           <Progress
             value={Math.min(effortPct ?? 0, 100)}
@@ -142,36 +117,26 @@ function AutocriticaAreaCard({ row, cover }: { row: AutocriticaAreaRow; cover: s
           />
         </div>
 
-        {/* Resultado / avance del objetivo del área. */}
-        <div
-          className={cn(
-            'mt-auto space-y-1 rounded-xl p-2',
-            resultPct != null && resultPct >= 100 ? 'bg-emerald-500/10' : 'bg-foreground/[0.04]',
-          )}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
-              Resultado objetivo
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-[11px]">
+            <span className="flex items-center gap-1 font-medium text-muted-foreground">
+              <Target className="h-3 w-3" /> Resultado
             </span>
-            <span className="text-sm font-extrabold leading-none tabular-nums">
-              {resultPct != null ? `${resultPct}%` : '—'}
-            </span>
+            <span className="font-semibold tabular-nums">{resultPct != null ? `${resultPct}%` : '—'}</span>
           </div>
           <Progress
             value={Math.min(resultPct ?? 0, 100)}
             className="h-1.5"
             indicatorClassName={resultBar(resultPct)}
           />
-          <div className="flex items-center justify-between gap-2 text-[8px] text-muted-foreground">
-            <span className="truncate">
-              {row.resultTotal > 0
-                ? `${row.resultDone}/${row.resultTotal} ${row.resultUnit}`
-                : 'Sin objetivos marcables'}
-            </span>
-            <span className="shrink-0">{resultPct != null ? 'avance' : 'sin datos'}</span>
-          </div>
         </div>
+      </div>
+
+      <div className="hidden w-16 shrink-0 text-right lg:block">
+        <div className="text-lg font-bold tabular-nums leading-none">
+          {combinedPct != null ? `${combinedPct}%` : '—'}
+        </div>
+        <div className="mt-1 text-[10px] text-muted-foreground">global</div>
       </div>
     </div>
   );
@@ -185,7 +150,7 @@ export function AutocriticaAreaCards({
   covers: Record<string, string>;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+    <div className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/60 bg-background/40">
       {rows.map(row => (
         <AutocriticaAreaCard key={row.key} row={row} cover={areaCoverFor(row.key, covers)} />
       ))}

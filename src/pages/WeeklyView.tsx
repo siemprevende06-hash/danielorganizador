@@ -353,7 +353,7 @@ export default function WeeklyView() {
             <WeekSystemsSection weekStart={weekStart} weekEnd={weekEnd} />
           </section>
         ) : viewMode === 'autocritica' ? (
-          <AutocriticaSection />
+          <AutocriticaSection start={weekStart} end={weekEnd} scope="week" />
         ) : (
           <ResultadosSemana weekStart={weekStart} />
         )}

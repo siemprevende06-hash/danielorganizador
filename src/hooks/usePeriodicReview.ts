@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCubaDate } from '@/lib/cubaTime';
 import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth,
-  startOfQuarter, endOfQuarter, format
+  startOfQuarter, endOfQuarter, format, parseISO,
+  startOfDay, differenceInCalendarDays,
 } from 'date-fns';
 
 export type ReviewType = 'weekly' | 'monthly' | 'quarterly';
@@ -44,11 +46,35 @@ export interface ConsistencySnapshot {
   totalMinutes?: number;
 }
 
-const createEmptyReview = (type: ReviewType, start: Date, end: Date): PeriodicReview => ({
+/** Áreas que se muestran en la tarjeta de consistencia del período. */
+const CONSISTENCY_AREAS: { id: string; label: string }[] = [
+  { id: 'universidad', label: 'Universidad' },
+  { id: 'emprendimiento', label: 'Emprendimiento' },
+  { id: 'proyectos', label: 'Proyectos' },
+  { id: 'lectura', label: 'Lectura' },
+  { id: 'musica', label: 'Música' },
+  { id: 'ajedrez', label: 'Ajedrez' },
+  { id: 'game', label: 'Game' },
+  { id: 'idiomas', label: 'Idiomas' },
+  { id: 'gym', label: 'Gimnasio' },
+];
+
+function normalizeConsistencyArea(area?: string | null): string {
+  const key = (area || '').toLowerCase();
+  if (key === 'italiano' || key === 'ingles' || key === 'idiomas') return 'idiomas';
+  if (key === 'university' || key === 'universidad') return 'universidad';
+  if (key === 'entrepreneurship' || key === 'entrepreneur' || key === 'emprendimiento') return 'emprendimiento';
+  if (key === 'project' || key === 'proyectos') return 'proyectos';
+  if (key === 'music' || key === 'musica') return 'musica';
+  if (key === 'fitness' || key === 'gym') return 'gym';
+  return key;
+}
+
+const createEmptyReview = (type: ReviewType, startKey: string, endKey: string): PeriodicReview => ({
   id: '',
   review_type: type,
-  period_start: format(start, 'yyyy-MM-dd'),
-  period_end: format(end, 'yyyy-MM-dd'),
+  period_start: startKey,
+  period_end: endKey,
   effort_objectives: [],
   result_objectives: [],
   overall_effort_score: null,
@@ -72,26 +98,60 @@ export function getPeriodRange(type: ReviewType, referenceDate: Date) {
   }
 }
 
-export function usePeriodicReview(type: ReviewType, referenceDate: Date) {
+interface UsePeriodicReviewOptions {
+  /** Permite calcular consistencia sin cargar/guardar una reseña. */
+  enabled?: boolean;
+  /** Rango explícito para consistencia (por ejemplo, un año completo). */
+  range?: { start: Date; end: Date };
+  /** Evita consultar consistencia en vistas que no la muestran (por ejemplo, el día). */
+  includeConsistency?: boolean;
+}
+
+export function usePeriodicReview(
+  type: ReviewType,
+  referenceDate: Date,
+  options?: UsePeriodicReviewOptions,
+) {
+  const enabled = options?.enabled ?? true;
+  const includeConsistency = options?.includeConsistency ?? true;
+
   const [review, setReview] = useState<PeriodicReview | null>(null);
   const [consistency, setConsistency] = useState<ConsistencySnapshot[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const { start, end } = useMemo(() => getPeriodRange(type, referenceDate), [type, referenceDate]);
-  const periodStart = format(start, 'yyyy-MM-dd');
-  const periodEnd = format(end, 'yyyy-MM-dd');
+  // Normalizar a clave evita bucles cuando el padre crea un `Date` nuevo en
+  // cada render (por ejemplo, `new Date(year, 0, 1)`).
+  const referenceKey = format(referenceDate, 'yyyy-MM-dd');
+  const reference = useMemo(() => parseISO(`${referenceKey}T12:00:00`), [referenceKey]);
+  const defaultRange = useMemo(() => getPeriodRange(type, reference), [type, reference]);
+
+  const periodStart = format(defaultRange.start, 'yyyy-MM-dd');
+  const periodEnd = format(defaultRange.end, 'yyyy-MM-dd');
+
+  const rangeStartKey = options?.range ? format(options.range.start, 'yyyy-MM-dd') : periodStart;
+  const rangeEndKey = options?.range ? format(options.range.end, 'yyyy-MM-dd') : periodEnd;
 
   const loadReview = useCallback(async () => {
-    try {
-      setLoading(true);
+    if (!enabled) {
+      setReview(null);
+      setLoading(false);
+      return;
+    }
 
+    setLoading(true);
+    // No mostrar la reseña del período anterior mientras llega la nueva.
+    setReview(null);
+
+    try {
       const { data, error } = await (supabase as any)
         .from('periodic_reviews')
         .select('*')
         .eq('review_type', type)
         .eq('period_start', periodStart)
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
@@ -114,101 +174,119 @@ export function usePeriodicReview(type: ReviewType, referenceDate: Date) {
           consistency_data: (data.consistency_data as Record<string, any>) || {},
         });
       } else {
-        setReview(createEmptyReview(type, start, end));
+        setReview(createEmptyReview(type, periodStart, periodEnd));
       }
     } catch (error) {
       console.error('Error loading periodic review:', error);
-      setReview(createEmptyReview(type, start, end));
+      setReview(createEmptyReview(type, periodStart, periodEnd));
     } finally {
       setLoading(false);
     }
-  }, [type, periodStart, periodEnd, start, end]);
+  }, [enabled, type, periodStart, periodEnd]);
 
-  // Load consistency data from focus_sessions and daily_area_stats
+  // Consistencia: días con actividad real en daily_area_stats (fuente de los
+  // minutos) más los días con sesiones de foco. El denominador son solo los
+  // días transcurridos del período, nunca días futuros.
   const loadConsistency = useCallback(async () => {
+    if (!includeConsistency) {
+      setConsistency([]);
+      return;
+    }
+
     try {
-      const areas = [
-        { id: 'universidad', label: 'Universidad' },
-        { id: 'gym', label: 'Gimnasio' },
-        { id: 'idiomas', label: 'Idiomas' },
-        { id: 'musica', label: 'Música' },
-        { id: 'lectura', label: 'Lectura' },
-        { id: 'emprendimiento', label: 'Emprendimiento' },
-      ];
+      const rangeStart = parseISO(`${rangeStartKey}T00:00:00`);
+      const rangeEnd = parseISO(`${rangeEndKey}T23:59:59`);
 
       const [focusRes, statsRes] = await Promise.all([
         supabase
           .from('focus_sessions')
           .select('task_area, duration_minutes, start_time')
-          .gte('start_time', `${periodStart}T00:00:00`)
-          .lte('start_time', `${periodEnd}T23:59:59`)
+          .gte('start_time', `${rangeStartKey}T00:00:00`)
+          .lte('start_time', `${rangeEndKey}T23:59:59`)
           .eq('completed', true),
         supabase
           .from('daily_area_stats')
           .select('area_id, stat_date, completed, time_spent_minutes')
-          .gte('stat_date', periodStart)
-          .lte('stat_date', periodEnd),
+          .gte('stat_date', rangeStartKey)
+          .lte('stat_date', rangeEndKey),
       ]);
 
       const focusSessions = focusRes.data || [];
       const areaStats = statsRes.data || [];
 
-      const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const today = parseISO(`${getCubaDate()}T00:00:00`);
+      const endDay = startOfDay(rangeEnd);
+      const effectiveEnd = endDay.getTime() > today.getTime() ? today : endDay;
+      const totalDays = effectiveEnd < rangeStart
+        ? 0
+        : differenceInCalendarDays(effectiveEnd, rangeStart) + 1;
 
-      const snapshots: ConsistencySnapshot[] = areas.map(area => {
-        // Count unique days with activity from focus_sessions
-        const areaSessions = focusSessions.filter(s => s.task_area === area.id);
-        const uniqueDaysFromFocus = new Set(
-          areaSessions.map(s => s.start_time?.split('T')[0])
-        );
+      const activeDays = new Map<string, Set<string>>();
+      const minutesByArea = new Map<string, number>();
 
-        // Count unique days from daily_area_stats
-        const areaStatEntries = areaStats.filter(s => s.area_id === area.id && s.completed);
-        const uniqueDaysFromStats = new Set(
-          areaStatEntries.map(s => s.stat_date)
-        );
+      const addDay = (area: string, day: string | null | undefined) => {
+        if (!day) return;
+        if (day < rangeStartKey || day > rangeEndKey) return;
+        const set = activeDays.get(area) || new Set<string>();
+        set.add(day);
+        activeDays.set(area, set);
+      };
 
-        // Merge unique days
-        const allDays = new Set([...uniqueDaysFromFocus, ...uniqueDaysFromStats]);
-        const daysActive = allDays.size;
+      areaStats.forEach((s: any) => {
+        const area = normalizeConsistencyArea(s.area_id);
+        const minutes = Number(s.time_spent_minutes) || 0;
+        if (minutes > 0 || s.completed) addDay(area, s.stat_date);
+        if (minutes > 0) minutesByArea.set(area, (minutesByArea.get(area) || 0) + minutes);
+      });
 
-        const totalMinutes = areaSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
-          + areaStatEntries.reduce((sum, s) => sum + (s.time_spent_minutes || 0), 0);
+      focusSessions.forEach((s: any) => {
+        const area = normalizeConsistencyArea(s.task_area);
+        addDay(area, s.start_time ? String(s.start_time).slice(0, 10) : null);
+      });
 
+      const snapshots: ConsistencySnapshot[] = CONSISTENCY_AREAS.map(area => {
+        const daysActive = activeDays.get(area.id)?.size || 0;
         return {
           area: area.id,
           label: area.label,
           daysActive,
-          totalDays: Math.min(totalDays, Math.ceil((new Date().getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1),
-          percentage: totalDays > 0 ? Math.round((daysActive / Math.min(totalDays, Math.ceil((new Date().getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1)) * 100) : 0,
-          totalMinutes,
+          totalDays,
+          percentage: totalDays > 0 ? Math.min(100, Math.round((daysActive / totalDays) * 100)) : 0,
+          totalMinutes: minutesByArea.get(area.id) || 0,
         };
       });
 
       setConsistency(snapshots);
     } catch (error) {
       console.error('Error loading consistency data:', error);
+      setConsistency([]);
     }
-  }, [periodStart, periodEnd, start, end]);
+  }, [rangeStartKey, rangeEndKey, includeConsistency]);
 
   useEffect(() => {
     loadReview();
+  }, [loadReview]);
+
+  useEffect(() => {
     loadConsistency();
-  }, [loadReview, loadConsistency]);
+  }, [loadConsistency]);
 
   const saveReview = async (updates: Partial<PeriodicReview>) => {
-    if (!review) return false;
+    if (!enabled || !review) return false;
     setSaving(true);
 
     try {
       const merged = { ...review, ...updates };
 
-      // Calculate scores
       const effortScore = merged.effort_objectives.length > 0
         ? merged.effort_objectives.reduce((sum, o) => sum + o.score, 0) / merged.effort_objectives.length
         : null;
       const resultScore = merged.result_objectives.length > 0
         ? merged.result_objectives.reduce((sum, o) => sum + o.score, 0) / merged.result_objectives.length
+        : null;
+
+      const rating = merged.overall_rating != null && merged.overall_rating >= 1
+        ? merged.overall_rating
         : null;
 
       const payload = {
@@ -219,21 +297,38 @@ export function usePeriodicReview(type: ReviewType, referenceDate: Date) {
         result_objectives: merged.result_objectives,
         overall_effort_score: effortScore,
         overall_result_score: resultScore,
-        overall_rating: merged.overall_rating,
+        overall_rating: rating,
         wins: merged.wins || null,
         struggles: merged.struggles || null,
         lessons_learned: merged.lessons_learned || null,
         next_period_focus: merged.next_period_focus || null,
-        consistency_data: Object.fromEntries(consistency.map(c => [c.area, { days: c.daysActive, total: c.totalDays, pct: c.percentage, minutes: c.totalMinutes }])),
+        consistency_data: consistency.length > 0
+          ? Object.fromEntries(consistency.map(c => [c.area, { days: c.daysActive, total: c.totalDays, pct: c.percentage, minutes: c.totalMinutes }]))
+          : (merged.consistency_data || {}),
         updated_at: new Date().toISOString(),
       };
 
+      // `user_id` es NULL en esta app y Postgres trata los NULL como distintos,
+      // así que la restricción única no impide duplicados: se busca primero.
+      let targetId = review.id;
+      if (!targetId) {
+        const { data: existing } = await (supabase as any)
+          .from('periodic_reviews')
+          .select('id')
+          .eq('review_type', type)
+          .eq('period_start', periodStart)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        targetId = existing?.id || '';
+      }
+
       let result;
-      if (review.id) {
+      if (targetId) {
         result = await (supabase as any)
           .from('periodic_reviews')
           .update(payload)
-          .eq('id', review.id)
+          .eq('id', targetId)
           .select()
           .single();
       } else {
@@ -250,6 +345,7 @@ export function usePeriodicReview(type: ReviewType, referenceDate: Date) {
         ...prev,
         ...updates,
         id: result.data.id,
+        overall_rating: rating,
         overall_effort_score: effortScore,
         overall_result_score: resultScore,
       } : prev);
@@ -277,7 +373,7 @@ export function usePeriodicReview(type: ReviewType, referenceDate: Date) {
     const key = objectiveType === 'effort' ? 'effort_objectives' : 'result_objectives';
     setReview(prev => prev ? {
       ...prev,
-      [key]: prev[key].map(o => o.id === id ? { ...o, ...updates } : o)
+      [key]: prev[key].map(o => o.id === id ? { ...o, ...updates } : o),
     } : prev);
   };
 
@@ -286,7 +382,7 @@ export function usePeriodicReview(type: ReviewType, referenceDate: Date) {
     const key = objectiveType === 'effort' ? 'effort_objectives' : 'result_objectives';
     setReview(prev => prev ? {
       ...prev,
-      [key]: prev[key].filter(o => o.id !== id)
+      [key]: prev[key].filter(o => o.id !== id),
     } : prev);
   };
 

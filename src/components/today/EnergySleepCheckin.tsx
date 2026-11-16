@@ -24,6 +24,8 @@ interface Props {
   onEnergyChange: (value: number) => void;
   onSleepChange: (value: number) => void;
   onSleepHoursChange: (value: number) => void;
+  /** Quita la tarjeta exterior cuando el componente vive dentro de otra tarjeta. */
+  embedded?: boolean;
 }
 
 function RatingRow({
@@ -42,30 +44,33 @@ function RatingRow({
   tone: string;
 }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <span className={cn('w-7 h-7 rounded-lg flex items-center justify-center', tone)}>{icon}</span>
+          <span className={cn('grid h-7 w-7 place-items-center rounded-lg', tone)}>{icon}</span>
           <span className="text-xs font-semibold">{label}</span>
         </div>
         <span className="text-[10px] text-muted-foreground">
           {value > 0 ? options.find(o => o.value === value)?.label : 'Toca para registrar'}
         </span>
       </div>
-      <div className="flex gap-1.5">
+      <div className="grid grid-cols-5 gap-1.5" role="group" aria-label={label}>
         {options.map(o => (
           <button
             key={o.value}
             type="button"
             onClick={() => onChange(o.value)}
+            aria-label={`${label}: ${o.label}`}
+            aria-pressed={value === o.value}
             className={cn(
-              'flex-1 h-12 rounded-xl border transition-all flex flex-col items-center justify-center gap-0.5 text-lg',
+              'flex h-14 flex-col items-center justify-center gap-0.5 rounded-xl border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               value === o.value
-                ? 'border-primary bg-primary/10 shadow-sm scale-[1.03]'
-                : 'border-border/60 bg-white/60 dark:bg-zinc-950/50 hover:border-primary/40'
+                ? 'border-primary bg-primary/10 shadow-sm'
+                : 'border-border/60 bg-background hover:border-primary/40',
             )}
           >
-            <span>{o.emoji}</span>
+            <span className="text-base leading-none">{o.emoji}</span>
+            <span className="text-[9px] leading-none text-muted-foreground">{o.label}</span>
           </button>
         ))}
       </div>
@@ -73,20 +78,31 @@ function RatingRow({
   );
 }
 
-export function EnergySleepCheckin({ energyRating, sleepRating, sleepHours, onEnergyChange, onSleepChange, onSleepHoursChange }: Props) {
+export function EnergySleepCheckin({
+  energyRating,
+  sleepRating,
+  sleepHours,
+  onEnergyChange,
+  onSleepChange,
+  onSleepHoursChange,
+  embedded = false,
+}: Props) {
   const hoursOptions = [5, 6, 7, 8, 9, 10];
 
   return (
-    <div className="bg-card rounded-lg border border-border p-6 space-y-5">
+    <div className={cn(
+      "space-y-4 rounded-xl border border-border bg-card p-5",
+      embedded && "rounded-2xl border-border/60 bg-muted/20 p-4",
+    )}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Check-in de energía y sueño
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Energía y sueño
         </h3>
         <span className="text-[10px] text-muted-foreground">1 tap</span>
       </div>
 
       <RatingRow
-        icon={<BatteryCharging className="w-3.5 h-3.5 text-amber-500" />}
+        icon={<BatteryCharging className="h-3.5 w-3.5 text-amber-500" />}
         label="Energía del día"
         value={energyRating}
         options={ENERGY_OPTIONS}
@@ -95,7 +111,7 @@ export function EnergySleepCheckin({ energyRating, sleepRating, sleepHours, onEn
       />
 
       <RatingRow
-        icon={<Moon className="w-3.5 h-3.5 text-indigo-500" />}
+        icon={<Moon className="h-3.5 w-3.5 text-indigo-500" />}
         label="Calidad de sueño"
         value={sleepRating}
         options={SLEEP_OPTIONS}
@@ -103,25 +119,27 @@ export function EnergySleepCheckin({ energyRating, sleepRating, sleepHours, onEn
         tone="bg-indigo-500/10"
       />
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <div className="flex items-center gap-1.5">
-          <span className={cn('w-7 h-7 rounded-lg flex items-center justify-center bg-sky-500/10')}>
-            <BedDouble className="w-3.5 h-3.5 text-sky-500" />
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-sky-500/10">
+            <BedDouble className="h-3.5 w-3.5 text-sky-500" />
           </span>
           <span className="text-xs font-semibold">Horas dormidas</span>
-          <span className="text-[10px] text-muted-foreground ml-auto">{sleepHours > 0 ? `${sleepHours}h` : '—'}</span>
+          <span className="ml-auto text-[10px] text-muted-foreground">{sleepHours > 0 ? `${sleepHours}h` : '—'}</span>
         </div>
-        <div className="flex gap-1.5">
+        <div className="grid grid-cols-6 gap-1.5">
           {hoursOptions.map(h => (
             <button
               key={h}
               type="button"
               onClick={() => onSleepHoursChange(sleepHours === h ? 0 : h)}
+              aria-label={`Dormir ${h} horas`}
+              aria-pressed={sleepHours === h}
               className={cn(
-                'flex-1 h-9 rounded-lg border text-xs font-semibold transition-all',
+                'h-9 rounded-lg border text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 sleepHours === h
                   ? 'border-primary bg-primary/10 shadow-sm'
-                  : 'border-border/60 bg-white/60 dark:bg-zinc-950/50 hover:border-primary/40'
+                  : 'border-border/60 bg-background hover:border-primary/40',
               )}
             >
               {h}h

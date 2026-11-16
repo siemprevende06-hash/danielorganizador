@@ -6,6 +6,7 @@ import { getQuarterFromDate, loadTrimestralPlanFromLocal } from '@/hooks/useTrim
 import { readActiveSelections } from '@/hooks/useActiveSelections';
 import { computeLanguagesStats } from '@/lib/languagePlan';
 import { computeGamePeriodStats } from '@/lib/game';
+import { getCubaDate } from '@/lib/cubaTime';
 
 export const AREA_ORDER = ['universidad', 'emprendimiento', 'proyectos', 'lectura', 'musica', 'ajedrez', 'game', 'idiomas', 'gym', 'general'] as const;
 export type AreaKey = (typeof AREA_ORDER)[number];
@@ -28,12 +29,22 @@ const AREA_DISPLAY: Record<string, string> = {
   ingles: 'idiomas',
   gym: 'gym',
   fitness: 'gym',
+  'entrenamiento-fisico': 'gym',
+  general: 'general',
 };
 
 export function normalizeArea(area?: string | null): AreaKey {
   if (!area) return 'general';
   const mapped = AREA_DISPLAY[area.toLowerCase()];
   return (mapped as AreaKey) || 'general';
+}
+
+// Las metas de minutos de hábitos y comidas (desayuno, skincare, etc.) no son
+// áreas de foco: si se suman a "General" inflan el plan y hunden el esfuerzo.
+// Para metas solo se aceptan áreas reales.
+function normalizeGoalArea(area?: string | null): AreaKey | null {
+  if (!area) return null;
+  return (AREA_DISPLAY[area.toLowerCase()] as AreaKey) || null;
 }
 
 export interface AreaResult {
@@ -130,7 +141,7 @@ export interface ResultadoPeriodo {
   projects: { list: ProjectResult[]; otherTasks: any[] };
   globalDone: number;
   globalTotal: number;
-  systems: { done: number; total: number; minutes: number };
+  systems: { done: number; total: number; active: number; minutes: number };
   workoutMin: number;
   focusMin: number;
   reviews: { count: number; avgRating: number };
@@ -184,7 +195,7 @@ export const EMPTY_RESULTADO: ResultadoPeriodo = {
   projects: { list: [], otherTasks: [] },
   globalDone: 0,
   globalTotal: 0,
-  systems: { done: 0, total: 0, minutes: 0 },
+  systems: { done: 0, total: 0, active: 0, minutes: 0 },
   workoutMin: 0,
   focusMin: 0,
   reviews: { count: 0, avgRating: 0 },
@@ -634,7 +645,8 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       });
       byDayGoal.forEach(day => {
         day.forEach((goal, area) => {
-          byArea[normalizeArea(area)].goalMinutes += goal;
+          const key = normalizeGoalArea(area);
+          if (key) byArea[key].goalMinutes += goal;
         });
       });
 
@@ -656,10 +668,21 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         });
       });
 
-      const systemsDone = systems.reduce((acc: number, s: any) => acc + Object.values(s.completions || {}).filter(v => v === true).length, 0);
-      const systemsTotal = systems.length > 0
-        ? Math.max(...systems.map((s: any) => Object.keys(s.completions || {}).filter(k => !k.startsWith('streak:')).length))
-        : 0;
+      const completionEntries = (s: any) => Object.entries(s.completions || {})
+        .filter(([key]) => !key.startsWith('streak:'));
+      // Cada día guarda un mapa de sistemas. El total del período son todas las
+      // casillas registradas (días × sistemas), no el máximo de un solo día.
+      // `completions` solo conserva las claves marcadas, así que done === total;
+      // por eso se expone también `active` (sistemas distintos con actividad)
+      // para no presentar un 100% de cumplimiento engañoso.
+      const activeSystems = new Set<string>();
+      systems.forEach((s: any) => completionEntries(s).forEach(([key, value]) => {
+        if (value === true) activeSystems.add(key);
+      }));
+      const systemsDone = systems.reduce((acc: number, s: any) =>
+        acc + completionEntries(s).filter(([, value]) => value === true).length, 0);
+      const systemsTotal = systems.reduce((acc: number, s: any) =>
+        acc + completionEntries(s).length, 0);
       const systemsMin = systems.reduce((a: number, s: any) => a + Object.entries(s.time_data || {})
         .filter(([key]) => key !== 'idiomas')
         .reduce((x: number, [, v]: [string, any]) => x + (Number(v) || 0), 0), 0);
@@ -730,19 +753,23 @@ export function useResultadosPeriodo(start: Date, end: Date) {
       chess.forEach((c: any) => allDates.add(c.session_date));
       logs.forEach((l: any) => allDates.add(l.log_date));
 
-      const perDay = [...allDates].sort().map(dt => {
+      // El período puede incluir días futuros (tareas planificadas); el score
+      // solo debe considerar días ya transcurridos.
+      const todayKey = getCubaDate();
+      const perDay = [...allDates].filter(dt => dt <= todayKey).sort().map(dt => {
         const dayTasks = tasks.filter((t: any) => t.due_date && format(new Date(t.due_date), 'yyyy-MM-dd') === dt);
         const review = reviews.find(r => r.review_date === dt);
         const spentMin = areaStats.filter(s => s.stat_date === dt).reduce((a, s) => a + (s.time_spent_minutes || 0), 0);
         let score = 0;
-        if (review?.overall_rating) score = review.overall_rating * 20;
+        // overall_rating va de 1 a 10: se normaliza a 0–100.
+        if (review?.overall_rating) score = Math.min(100, review.overall_rating * 10);
         else if (dayTasks.length > 0) score = Math.round((dayTasks.filter((t: any) => t.completed).length / dayTasks.length) * 100);
         else if (spentMin > 0) score = 50;
         return { date: dt, score, label: dayLabel(dt) };
       });
 
       const scores = perDay.filter(d => d.score > 0).map(d => d.score);
-      const score = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+      const score = scores.length ? Math.min(100, Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)) : 0;
 
       return {
         loading: false,
@@ -756,7 +783,7 @@ export function useResultadosPeriodo(start: Date, end: Date) {
         projects: { list: projectList, otherTasks: projOther },
         globalDone: tasks.filter((t: any) => t.completed).length,
         globalTotal: tasks.length,
-        systems: { done: systemsDone, total: systemsTotal, minutes: systemsMin },
+        systems: { done: systemsDone, total: systemsTotal, active: activeSystems.size, minutes: systemsMin },
         workoutMin,
         focusMin,
         reviews: {
