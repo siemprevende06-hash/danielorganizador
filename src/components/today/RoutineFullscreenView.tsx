@@ -5,7 +5,13 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { RoutineBlock } from '@/hooks/useRoutineBlocks';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
+import type { RoutineType } from '@/hooks/useRoutineSteps';
 import type { SpeedPlan } from '@/lib/speedPlan';
+import {
+  ROUTINE_CARDS_OPTIONS,
+  RoutineCardsBoard,
+  routineCardsOption,
+} from '@/components/routine/RoutineCardsBoard';
 import {
   autoSystemForBlock,
   describeSystemMinutes,
@@ -33,6 +39,7 @@ import {
   Book,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -263,6 +270,9 @@ export function RoutineFullscreenView({
   const [now, setNow] = useState(() => new Date());
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Rutina cuyas tarjetas se muestran en lugar del bloque (Activación, etc.)
+  const [activeRoutine, setActiveRoutine] = useState<RoutineType | null>(null);
+  const [routineMenuOpen, setRoutineMenuOpen] = useState(false);
 
   const {
     supported: wakeLockSupported,
@@ -422,8 +432,14 @@ export function RoutineFullscreenView({
     document.documentElement.style.overscrollBehavior = 'none';
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
-      else if (event.key === 'ArrowLeft') goPrev();
+      if (event.key === 'Escape') {
+        if (activeRoutine) {
+          setActiveRoutine(null);
+          setRoutineMenuOpen(false);
+        } else {
+          close();
+        }
+      } else if (event.key === 'ArrowLeft') goPrev();
       else if (event.key === 'ArrowRight') goNext();
       else if (event.key.toLowerCase() === 'f') toggleFullscreen();
     };
@@ -434,7 +450,7 @@ export function RoutineFullscreenView({
       document.documentElement.style.overscrollBehavior = previousOverscroll;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [close, goPrev, goNext, toggleFullscreen]);
+  }, [close, goPrev, goNext, toggleFullscreen, activeRoutine]);
 
   const showControls = useCallback(() => {
     setControlsVisible(true);
@@ -524,6 +540,11 @@ export function RoutineFullscreenView({
         : selectedState?.status === 'future'
           ? formatDuration(selectedState.untilStartMinutes)
           : '—';
+
+  const activeRoutineOption = activeRoutine
+    ? routineCardsOption(activeRoutine)
+    : null;
+  const ActiveRoutineIcon = activeRoutineOption?.icon;
 
   const systemDoses = useMemo(() => {
     if (!selectedBlock) return [];
@@ -649,6 +670,93 @@ export function RoutineFullscreenView({
                 {statusLabel}
               </span>
 
+              {/* Rutinas: abre las tarjetas de Activación, Desactivación, etc. */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setRoutineMenuOpen(open => !open)}
+                  aria-haspopup="menu"
+                  aria-expanded={routineMenuOpen}
+                  title="Abrir las tarjetas de una rutina"
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.16em] transition-colors',
+                    activeRoutine
+                      ? 'bg-white text-black hover:bg-white/90'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white',
+                  )}
+                >
+                  <ListChecks className="h-3.5 w-3.5" />
+                  {activeRoutineOption ? activeRoutineOption.shortLabel : 'Rutinas'}
+                  <ChevronDown
+                    className={cn(
+                      'h-3 w-3 transition-transform',
+                      routineMenuOpen && 'rotate-180',
+                    )}
+                  />
+                </button>
+
+                {routineMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-20"
+                      onClick={() => setRoutineMenuOpen(false)}
+                      aria-hidden="true"
+                    />
+                    <div
+                      role="menu"
+                      className="absolute left-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl"
+                    >
+                      <p className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">
+                        Tarjetas de rutina
+                      </p>
+                      {ROUTINE_CARDS_OPTIONS.map(option => {
+                        const OptionIcon = option.icon;
+                        const isActive = activeRoutine === option.type;
+                        return (
+                          <button
+                            key={option.type}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setActiveRoutine(option.type);
+                              setRoutineMenuOpen(false);
+                            }}
+                            className={cn(
+                              'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors',
+                              isActive
+                                ? 'bg-white text-black'
+                                : 'text-white/85 hover:bg-white/10 hover:text-white',
+                            )}
+                          >
+                            <OptionIcon className="h-4 w-4 shrink-0" />
+                            <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                            {isActive && <Check className="h-4 w-4 shrink-0" />}
+                          </button>
+                        );
+                      })}
+
+                      {activeRoutine && (
+                        <>
+                          <div className="my-1 h-px bg-white/10" />
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setActiveRoutine(null);
+                              setRoutineMenuOpen(false);
+                            }}
+                            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                          >
+                            <X className="h-4 w-4 shrink-0" />
+                            Volver al bloque
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
               {wakeLockSupported ? (
                 wakeLockEngaged ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-200">
@@ -767,6 +875,41 @@ export function RoutineFullscreenView({
           </div>
         </header>
 
+        {activeRoutine && activeRoutineOption && ActiveRoutineIcon ? (
+          <main className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1 lg:mt-6">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-black/35 px-3 py-2 backdrop-blur-md">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10">
+                  <ActiveRoutineIcon className="h-5 w-5 text-white" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-white sm:text-base">
+                    {activeRoutineOption.label}
+                  </p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
+                    Marca las tareas aquí · Bloque {selectedIndex + 1} de{' '}
+                    {sortedBlocks.length}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="hidden max-w-[18rem] truncate text-[11px] font-medium text-white/50 md:inline">
+                  {selectedBlock.title} · {countdownLabel}: {countdownValue}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveRoutine(null)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Volver al bloque
+                </button>
+              </div>
+            </div>
+
+            <RoutineCardsBoard type={activeRoutine} />
+          </main>
+        ) : (
         <main
           key={selectedBlock.id}
           className="mt-6 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pr-1 lg:mt-8 lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-center lg:gap-10"
@@ -1004,6 +1147,7 @@ export function RoutineFullscreenView({
             )}
           </aside>
         </main>
+        )}
 
         <footer className="mt-6 shrink-0 space-y-2">
           <div className="flex items-center justify-between gap-4 text-xs font-medium text-white/50 sm:text-sm">
