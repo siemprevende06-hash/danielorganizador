@@ -9,6 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> = {
+  'ultra-disciplina': {
+    active: "bg-red-500/20 border-red-500/60 text-red-500",
+    inactive: "border-red-500/20 text-red-400/60 hover:border-red-500/40",
+  },
   disciplina: {
     active: "bg-orange-500/20 border-orange-500/60 text-orange-500",
     inactive: "border-orange-500/20 text-orange-400/60 hover:border-orange-500/40",

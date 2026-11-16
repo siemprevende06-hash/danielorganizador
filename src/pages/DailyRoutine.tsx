@@ -19,6 +19,11 @@ const ROUTINE_STREAK_KEY = "routineStreakData";
 const DEFAULT_WEEK = [false, false, false, false, false, false, false];
 
 const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string; glow: string }> = {
+  'ultra-disciplina': {
+    active: "bg-red-500/20 border-red-500/60 text-red-500 shadow-lg shadow-red-500/10",
+    inactive: "border-red-500/20 text-red-400/60 hover:border-red-500/40 hover:text-red-400/80",
+    glow: "shadow-red-500/20",
+  },
   disciplina: {
     active: "bg-orange-500/20 border-orange-500/60 text-orange-500 shadow-lg shadow-orange-500/10",
     inactive: "border-orange-500/20 text-orange-400/60 hover:border-orange-500/40 hover:text-orange-400/80",

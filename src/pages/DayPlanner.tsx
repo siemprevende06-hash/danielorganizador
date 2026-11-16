@@ -68,6 +68,7 @@ const AREAS = [
 ];
 
 const ROUTINE_STYLES: Record<RoutineType, { active: string; inactive: string }> = {
+  'ultra-disciplina': { active: "bg-red-500/20 border-red-500/60 text-red-500", inactive: "border-red-500/20 text-red-400/60 hover:border-red-500/40" },
   disciplina: { active: "bg-orange-500/20 border-orange-500/60 text-orange-500", inactive: "border-orange-500/20 text-orange-400/60 hover:border-orange-500/40" },
   normal: { active: "bg-blue-500/20 border-blue-500/60 text-blue-500", inactive: "border-blue-500/20 text-blue-400/60 hover:border-blue-500/40" },
   descanso: { active: "bg-green-500/20 border-green-500/60 text-green-500", inactive: "border-green-500/20 text-green-400/60 hover:border-green-500/40" },

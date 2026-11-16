@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 
-export type RoutineType = 'disciplina' | 'normal' | 'descanso';
+export type RoutineType = 'ultra-disciplina' | 'disciplina' | 'normal' | 'descanso';
 
 export type ExtraMode = 'idiomas' | 'ocio' | 'focus' | 'sueno';
 
@@ -38,6 +38,7 @@ export interface RoutineInfo {
 
 export const ROUTINES: RoutineInfo[] = [
   { type: 'disciplina', label: 'Disciplina', shortLabel: 'Disciplina', wakeTime: '5:00', sleepTime: '21:00', icon: '🔥', color: 'orange', description: 'Máximo enfoque y estructura', totalBlocks: 17 },
+  { type: 'ultra-disciplina', label: 'Ultra Disciplina', shortLabel: 'Ultra Disciplina', wakeTime: '5:00', sleepTime: '22:00', icon: '⚡', color: 'red', description: 'Máxima exigencia: 8 bloques de trabajo', totalBlocks: 18 },
   { type: 'normal', label: 'Normal', shortLabel: 'Normal', wakeTime: '6:30', sleepTime: '10:00', icon: '⚖️', color: 'blue', description: 'Balance productivo diario', totalBlocks: 16 },
   { type: 'descanso', label: 'Descanso', shortLabel: 'Descanso', wakeTime: '8:00', sleepTime: '10:30', icon: '🌿', color: 'green', description: 'Recuperación y ocio', totalBlocks: 14 },
 ];
@@ -45,7 +46,7 @@ export const ROUTINES: RoutineInfo[] = [
 /**
  * La columna `daily_plans.mode` conserva el CHECK histórico de la tabla
  * ('alto-rendimiento' | 'normal' | 'minimo-energia' | 'minimo-emergencia').
- * Los tipos de rutina actuales ('disciplina' | 'normal' | 'descanso') se
+ * Los tipos de rutina actuales ('ultra-disciplina' | 'disciplina' | 'normal' | 'descanso') se
  * guardan aparte en `routine_type`; aquí se traducen para no violar el CHECK.
  */
 export type LegacyDailyPlanMode = 'alto-rendimiento' | 'normal' | 'minimo-energia';
@@ -103,6 +104,28 @@ const DISCIPLINA_BLOCKS: RoutineBlock[] = [
 ];
 DISCIPLINA_BLOCKS.find(b => b.id === 'd-bloque-extra')!.extraMode = 'focus';
 
+const ULTRA_DISCIPLINA_BLOCKS: RoutineBlock[] = [
+  makeBlock('u-activacion', 'Rutina de Activación', '05:00', '05:30', 0, false, ['Despertar', 'Hidratación', 'Estiramientos']),
+  makeBlock('u-focus-manana', 'Focus', '05:30', '07:00', 1, true, ['Tarea más importante del día']),
+  makeBlock('u-gym', 'Gym', '07:00', '08:00', 2, false, ['Calentamiento', 'Entrenamiento', 'Estiramientos']),
+  makeBlock('u-alistamiento', 'Alistamiento y Desayuno', '08:00', '08:30', 3, false, ['Ducha', 'Vestirse', 'Desayuno']),
+  makeBlock('u-lectura', 'Lectura o Podcast', '08:30', '09:00', 4, false, ['Lectura', 'Podcast educativo']),
+  makeBlock('u-deep1', '1er Deep Work', '09:00', '10:20', 5, true, ['Tarea más importante']),
+  makeBlock('u-deep2', '2do Deep Work', '10:30', '11:50', 6, true, ['Proyecto importante']),
+  makeBlock('u-deep3', '3er Deep Work', '12:00', '13:20', 7, true, ['Trabajo concentrado']),
+  makeBlock('u-almuerzo', 'Almuerzo + Video + Ajedrez', '13:20', '14:00', 8, false, ['Almorzar', 'Ver video', 'Jugar ajedrez']),
+  makeBlock('u-deep4', '4to Deep Work', '14:00', '15:20', 9, true, ['Tareas pendientes']),
+  makeBlock('u-deep5', '5to Deep Work', '15:30', '16:50', 10, true, ['Finalizar tareas']),
+  makeBlock('u-deep6', '6to Deep Work', '17:00', '18:30', 11, true, ['Trabajo profundo', 'Proyecto clave']),
+  makeBlock('u-idiomas', 'Idiomas', '18:30', '19:00', 12, false, ['Inglés', 'Italiano', 'Práctica']),
+  makeBlock('u-bloque-extra', 'Bloque Extra', '19:00', '20:30', 13, false, ['Tareas pendientes', 'Estudio extra']),
+  makeBlock('u-ocio', 'Ocio', '20:30', '21:00', 14, false, ['Entretenimiento', 'Descanso']),
+  makeBlock('u-musica', 'Música (Piano o Guitarra)', '21:00', '21:30', 15, false, ['Práctica musical']),
+  makeBlock('u-desactivacion', 'Rutina de Desactivación', '21:30', '22:00', 16, false, ['Skincare', 'Preparación para dormir']),
+  makeBlock('u-sueno', 'Sueño 😴', '22:00', '05:00', 17, false, ['Dormir 7 horas', 'Pantallas apagadas', 'Habitación oscura y fresca']),
+];
+ULTRA_DISCIPLINA_BLOCKS.find(b => b.id === 'u-bloque-extra')!.extraMode = 'focus';
+
 const shiftTime = (timeStr: string, deltaMinutes: number): string => {
   const [h, m] = timeStr.split(':').map(Number);
   let total = h * 60 + m - deltaMinutes;
@@ -112,15 +135,45 @@ const shiftTime = (timeStr: string, deltaMinutes: number): string => {
   return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
 };
 
-/** Aplica el modo del Bloque Extra para la rutina de disciplina. */
-export const resolveDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] => {
-  const extra = raw.find(b => b.id === 'd-bloque-extra');
+interface ExtraModeBlockIds {
+  extra: string;
+  idiomas: string;
+  ocio: string;
+  desactivacion: string;
+  sueno: string;
+}
+
+const DISCIPLINA_EXTRA_IDS: ExtraModeBlockIds = {
+  extra: 'd-bloque-extra',
+  idiomas: 'd-idiomas',
+  ocio: 'd-ocio',
+  desactivacion: 'd-desactivacion',
+  sueno: 'd-sueno',
+};
+
+const ULTRA_DISCIPLINA_EXTRA_IDS: ExtraModeBlockIds = {
+  extra: 'u-bloque-extra',
+  idiomas: 'u-idiomas',
+  ocio: 'u-ocio',
+  desactivacion: 'u-desactivacion',
+  sueno: 'u-sueno',
+};
+
+/** Bloque Extra configurable de cada rutina (las demás no tienen). */
+const EXTRA_MODE_BLOCK_ID: Partial<Record<RoutineType, string>> = {
+  'ultra-disciplina': ULTRA_DISCIPLINA_EXTRA_IDS.extra,
+  disciplina: DISCIPLINA_EXTRA_IDS.extra,
+};
+
+/** Aplica el modo del Bloque Extra a la rutina indicada. */
+const resolveExtraModeBlocks = (raw: RoutineBlock[], ids: ExtraModeBlockIds): RoutineBlock[] => {
+  const extra = raw.find(b => b.id === ids.extra);
   if (!extra) return raw;
   const mode = extra.extraMode || 'focus';
 
   if (mode === 'focus') {
     return raw.map(b =>
-      b.id === 'd-bloque-extra'
+      b.id === ids.extra
         ? { ...b, isFocusBlock: true, defaultFocus: b.currentFocus || 'none', title: 'Bloque Extra', blockType: 'focus' }
         : b
     );
@@ -129,9 +182,9 @@ export const resolveDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] => 
   if (mode === 'idiomas') {
     // Fusiona el Bloque Extra con el bloque de Idiomas contiguo
     return raw
-      .filter(b => b.id !== 'd-bloque-extra')
+      .filter(b => b.id !== ids.extra)
       .map(b =>
-        b.id === 'd-idiomas'
+        b.id === ids.idiomas
           ? {
               ...b,
               endTime: extra.endTime,
@@ -146,22 +199,22 @@ export const resolveDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] => 
   if (mode === 'ocio') {
     // Fusiona el Bloque Extra con el bloque de Ocio contiguo
     return raw
-      .filter(b => b.id !== 'd-bloque-extra')
-      .map(b => (b.id === 'd-ocio' ? { ...b, startTime: extra.startTime } : b))
+      .filter(b => b.id !== ids.extra)
+      .map(b => (b.id === ids.ocio ? { ...b, startTime: extra.startTime } : b))
       .map((b, index) => ({ ...b, order: index }));
   }
 
   // mode === 'sueno': el Bloque Extra se elimina y todo lo que venía después
   // sube para ocupar su hueco; el sueño arranca al terminar la desactivación
   // para poder acostarse antes.
-  const originalSleep = raw.find(b => b.id === 'd-sueno');
+  const originalSleep = raw.find(b => b.id === ids.sueno);
   const extraStart = parseTime(extra.startTime);
   let extraEnd = parseTime(extra.endTime);
   if (extraEnd <= extraStart) extraEnd += 24 * 60;
   const extraDuration = extraEnd - extraStart;
 
   const shifted = raw
-    .filter(b => b.id !== 'd-bloque-extra' && b.id !== 'd-sueno')
+    .filter(b => b.id !== ids.extra && b.id !== ids.sueno)
     .map(b =>
       b.order > extra.order
         ? {
@@ -172,11 +225,11 @@ export const resolveDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] => 
         : b
     );
 
-  const desactivacion = shifted.find(b => b.id === 'd-desactivacion');
+  const desactivacion = shifted.find(b => b.id === ids.desactivacion);
   const sleepStart = desactivacion ? desactivacion.endTime : extra.startTime;
   const sleepEnd = originalSleep?.endTime ?? '05:00';
   const sleepBlock: RoutineBlock = {
-    ...makeBlock('d-sueno', 'Sueño 😴', sleepStart, sleepEnd, shifted.length, false, [
+    ...makeBlock(ids.sueno, 'Sueño 😴', sleepStart, sleepEnd, shifted.length, false, [
       'Dormir más',
       'Pantallas apagadas',
       'Habitación oscura y fresca',
@@ -187,6 +240,13 @@ export const resolveDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] => 
   return [...shifted, sleepBlock].map((b, index) => ({ ...b, order: index }));
 };
 
+/** Aplica el modo del Bloque Extra para la rutina de disciplina. */
+export const resolveDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] =>
+  resolveExtraModeBlocks(raw, DISCIPLINA_EXTRA_IDS);
+
+/** Aplica el modo del Bloque Extra para Ultra Disciplina. */
+export const resolveUltraDisciplinaBlocks = (raw: RoutineBlock[]): RoutineBlock[] =>
+  resolveExtraModeBlocks(raw, ULTRA_DISCIPLINA_EXTRA_IDS);
 
 const NORMAL_BLOCKS: RoutineBlock[] = [
   makeBlock('n-activacion', 'Rutina de Activación', '06:30', '07:00', 0, false, ['Despertar', 'Hidratación', 'Estiramientos']),
@@ -226,6 +286,7 @@ const DESCANSO_BLOCKS: RoutineBlock[] = [
 ];
 
 const ROUTINE_MAP: Record<RoutineType, RoutineBlock[]> = {
+  'ultra-disciplina': ULTRA_DISCIPLINA_BLOCKS,
   disciplina: DISCIPLINA_BLOCKS,
   normal: NORMAL_BLOCKS,
   descanso: DESCANSO_BLOCKS,
@@ -296,10 +357,11 @@ export const useRoutineBlocks = () => {
     return ROUTINE_MAP[type];
   };
 
-  const blocks = useMemo(
-    () => (routineType === 'disciplina' ? resolveDisciplinaBlocks(rawBlocks) : rawBlocks),
-    [rawBlocks, routineType]
-  );
+  const blocks = useMemo(() => {
+    if (routineType === 'disciplina') return resolveDisciplinaBlocks(rawBlocks);
+    if (routineType === 'ultra-disciplina') return resolveUltraDisciplinaBlocks(rawBlocks);
+    return rawBlocks;
+  }, [rawBlocks, routineType]);
 
   const setRoutineType = useCallback((type: RoutineType) => {
     setRoutineTypeState(type);
@@ -415,15 +477,17 @@ export const useRoutineBlocks = () => {
     // no en localStorage, para que se vean en todos los dispositivos.
   }, []);
 
+  const extraBlockId = EXTRA_MODE_BLOCK_ID[routineType];
   const extraMode: ExtraMode =
-    (rawBlocks.find(b => b.id === 'd-bloque-extra')?.extraMode as ExtraMode) || 'focus';
+    (rawBlocks.find(b => b.id === extraBlockId)?.extraMode as ExtraMode) || 'focus';
 
   const setExtraMode = useCallback((mode: ExtraMode) => {
+    if (!extraBlockId) return;
     const newBlocks = rawBlocks.map(block =>
-      block.id === 'd-bloque-extra' ? { ...block, extraMode: mode } : block
+      block.id === extraBlockId ? { ...block, extraMode: mode } : block
     );
     saveBlocks(newBlocks);
-  }, [rawBlocks, saveBlocks]);
+  }, [rawBlocks, saveBlocks, extraBlockId]);
 
   return {
     blocks,
@@ -489,7 +553,12 @@ export const getCurrentRoutineBlockInfo = (now = new Date()): CurrentRoutineBloc
   const info = getRoutineInfoFromStorage();
   if (!info) return null;
   const raw = loadRoutineBlocksFromStorage(info.type);
-  const blocks = info.type === 'disciplina' ? resolveDisciplinaBlocks(raw) : raw;
+  const blocks =
+    info.type === 'disciplina'
+      ? resolveDisciplinaBlocks(raw)
+      : info.type === 'ultra-disciplina'
+        ? resolveUltraDisciplinaBlocks(raw)
+        : raw;
   if (blocks.length === 0) return null;
 
   const currentMinutes = now.getHours() * 60 + now.getMinutes();

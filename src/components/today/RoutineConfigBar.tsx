@@ -128,7 +128,7 @@ export function RoutineConfigBar({
             >🎸 Guitarra</button>
           </div>
 
-          {routineType === 'disciplina' && onExtraModeChange && (
+          {(routineType === 'disciplina' || routineType === 'ultra-disciplina') && onExtraModeChange && (
             <div className="flex items-center gap-1 ml-1">
               <span className="text-[10px] text-muted-foreground hidden sm:inline">Bloque Extra:</span>
               <div className="flex gap-1">

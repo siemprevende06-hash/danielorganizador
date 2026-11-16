@@ -727,7 +727,7 @@ export default function PlanManana() {
         let language = defaultLanguage;
         let instrument = defaultInstrument;
         if (plan) {
-          const validTypes: RoutineType[] = ['disciplina', 'normal', 'descanso'];
+          const validTypes: RoutineType[] = ['ultra-disciplina', 'disciplina', 'normal', 'descanso'];
           if (plan.routine_type && validTypes.includes(plan.routine_type as RoutineType)) {
             setRoutineType(plan.routine_type as RoutineType);
           }
