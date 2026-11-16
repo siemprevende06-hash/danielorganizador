@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ProgressRing } from './ProgressRing';
 import { ItemSelector } from './ItemSelector';
-import { Book, Music, FolderKanban, GraduationCap, Calendar, Target, Plus, Trash2, Check } from 'lucide-react';
+import { SystemPlanCard } from '@/components/systems/SystemPlanCard';
+import { Plus, Trash2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MonthlyPlanData, SongPlanType } from '@/hooks/useMonthlyPlan';
 
@@ -22,27 +21,30 @@ interface WidgetProps {
   updatePlanData: (updater: (prev: MonthlyPlanData) => MonthlyPlanData) => void;
 }
 
-function WidgetCard({ icon, title, count, children }: { icon: React.ReactNode; title: string; count: number; children: React.ReactNode }) {
+function WidgetCard({
+  systemId,
+  title,
+  count,
+  emoji,
+  children,
+}: {
+  systemId: string;
+  title: string;
+  count: number;
+  emoji?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <Card className="overflow-hidden border border-gray-200/70 dark:border-gray-800/70 shadow-sm">
-      <div className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-500">
-              {icon}
-            </div>
-            <div>
-              <p className="text-sm font-semibold">{title}</p>
-              {count > 0 && <p className="text-[11px] text-muted-foreground">{count} seleccionados</p>}
-            </div>
-          </div>
-          <ProgressRing progress={count > 0 ? 100 : 0} size={36} strokeWidth={3} strokeColor="indigo">
-            <span className="text-[9px] font-bold text-indigo-500">{count}</span>
-          </ProgressRing>
-        </div>
-        {children}
-      </div>
-    </Card>
+    <SystemPlanCard
+      systemId={systemId}
+      title={title}
+      subtitle={count > 0 ? `${count} seleccionados` : 'Sin seleccionar'}
+      emoji={emoji}
+      metric={count}
+      bodyClassName="gap-2.5"
+    >
+      {children}
+    </SystemPlanCard>
   );
 }
 
@@ -68,7 +70,7 @@ export function BookPlannerWidget({ planData, updatePlanData, items, monthKey }:
     : planData.books.selected.length;
 
   return (
-    <WidgetCard icon={<Book className="w-4 h-4" />} title="Libros" count={count}>
+    <WidgetCard systemId="lectura" title="Libros" count={count}>
       <div className="space-y-2.5">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground shrink-0">Meta:</span>
@@ -160,7 +162,7 @@ export function SongPlannerWidget({ planData, updatePlanData, items, monthKey }:
   };
 
   return (
-    <WidgetCard icon={<Music className="w-4 h-4" />} title="Canciones" count={currentIds.length}>
+    <WidgetCard systemId="musica" title="Canciones" count={currentIds.length}>
       <div className="space-y-2.5">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground shrink-0">Meta:</span>
@@ -237,7 +239,7 @@ export function SongPlannerWidget({ planData, updatePlanData, items, monthKey }:
 
 export function ProjectPlannerWidget({ planData, updatePlanData, items }: WidgetProps & { items: SelectableItem[] }) {
   return (
-    <WidgetCard icon={<FolderKanban className="w-4 h-4" />} title="Proyectos" count={planData.projects.length}>
+    <WidgetCard systemId="proyectos" title="Proyectos" count={planData.projects.length}>
       <ItemSelector
         items={items}
         selected={planData.projects}
@@ -251,7 +253,7 @@ export function ProjectPlannerWidget({ planData, updatePlanData, items }: Widget
 
 export function SubjectPlannerWidget({ planData, updatePlanData, items, topics }: WidgetProps & { items: SelectableItem[]; topics: SelectableItem[] }) {
   return (
-    <WidgetCard icon={<GraduationCap className="w-4 h-4" />} title="Asignaturas" count={planData.subjects.length}>
+    <WidgetCard systemId="universidad" title="Asignaturas" count={planData.subjects.length}>
       <ItemSelector
         items={items}
         selected={planData.subjects.map(s => s.subject_id)}
@@ -271,7 +273,7 @@ export function SubjectPlannerWidget({ planData, updatePlanData, items, topics }
 
 export function EventPlannerWidget({ planData, updatePlanData, items }: WidgetProps & { items: SelectableItem[] }) {
   return (
-    <WidgetCard icon={<Calendar className="w-4 h-4" />} title="Eventos" count={planData.events.length}>
+    <WidgetCard systemId="eventos" title="Eventos" count={planData.events.length} emoji="📅">
       <ItemSelector
         items={items}
         selected={planData.events}
@@ -327,7 +329,7 @@ export function GoalPlannerWidget({ planData, updatePlanData }: WidgetProps) {
   };
 
   return (
-    <WidgetCard icon={<Target className="w-4 h-4" />} title="Metas Personales" count={planData.personal_goals.length}>
+    <WidgetCard systemId="metas" title="Metas Personales" count={planData.personal_goals.length} emoji="🎯">
       <div className="space-y-2.5">
         <div className="flex gap-2">
           <Input

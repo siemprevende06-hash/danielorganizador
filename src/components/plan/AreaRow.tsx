@@ -5,6 +5,7 @@ import { CheckCircle2, CircleDashed, Clock, Crosshair } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MonthTaskCounts } from '@/hooks/useWeeklyPlanData';
 import { Ring } from './WeekMinutesRings';
+import { SystemPlanCard } from '@/components/systems/SystemPlanCard';
 
 export const fmtMin = (m: number) => {
   if (m <= 0) return '0m';
@@ -62,15 +63,15 @@ export function FocusSelector({
 }
 
 /**
- * Fila por área: esfuerzo en minutos + resultado al que se dirigen esos minutos
- * + tareas del mes hechas / sin hacer.
+ * Tarjeta por área: esfuerzo en minutos + resultado al que se dirigen esos
+ * minutos + tareas del mes hechas / sin hacer. Misma portada que las tarjetas
+ * de sistemas de /plan-manana.
  */
 export function AreaRow({
+  systemId,
   title,
   subtitle,
-  icon,
   accent,
-  border,
   counts,
   countsLabel = 'del mes',
   minutesThisWeek,
@@ -84,11 +85,11 @@ export function AreaRow({
   focusSelected,
   onFocusChange,
 }: {
+  /** Id del sistema para la portada (emprendimiento, proyectos, tareas…). */
+  systemId: string;
   title: string;
   subtitle?: string;
-  icon: ReactNode;
   accent: string;
-  border: string;
   counts: MonthTaskCounts;
   countsLabel?: string;
   minutesThisWeek: number;
@@ -105,65 +106,54 @@ export function AreaRow({
   const pct = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
 
   return (
-    <section
-      className={cn(
-        'rounded-2xl border-2 bg-gradient-to-br via-background to-background backdrop-blur-sm overflow-hidden',
-        border
-      )}
+    <SystemPlanCard
+      systemId={systemId}
+      title={title}
+      subtitle={subtitle}
+      metric={`${minutesThisWeek}′`}
+      badge={`${counts.done}/${counts.total} mes`}
     >
-      <div className="px-3.5 py-2.5 flex flex-wrap items-center gap-3">
-        <div className={cn('w-8 h-8 rounded-xl bg-muted/50 flex items-center justify-center shrink-0', accent)}>{icon}</div>
-
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold tracking-tight leading-tight">{title}</h3>
-          {subtitle && <p className="text-[10px] text-muted-foreground truncate">{subtitle}</p>}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Esfuerzo en minutos + resultado al que se dirige */}
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3 h-3 text-muted-foreground" />
-            <Input
-              type="number"
-              min={0}
-              step={15}
-              value={minutesGoal || ''}
-              onChange={e => onMinutesGoalChange(Math.max(0, parseInt(e.target.value) || 0))}
-              className="h-7 w-20 text-[11px] tabular-nums text-center"
-              title="Minutos de esfuerzo planificados para el área"
-            />
-            <span className="text-[10px] text-muted-foreground whitespace-nowrap">min →</span>
-            <select
-              value={results.some(r => r.id === result) ? result : result ? '__custom__' : ''}
-              onChange={e => onResultChange(e.target.value === '__custom__' ? '' : e.target.value)}
-              className="h-7 w-[150px] rounded-md border border-input bg-background px-1.5 text-[10px] outline-none focus:ring-1 focus:ring-ring"
-              title="Resultado al que se dirigen estos minutos"
-            >
-              <option value="">Resultado…</option>
-              {results.map(r => (
-                <option key={r.id} value={r.id}>
-                  {r.done ? '✓ ' : ''}{r.title}
-                </option>
-              ))}
-              <option value="__custom__">Otro…</option>
-            </select>
-            {!results.some(r => r.id === result) && result !== '' && (
-              <Input
-                value={result}
-                onChange={e => onResultChange(e.target.value)}
-                placeholder="Resultado…"
-                className="h-7 w-[150px] text-[10px]"
-              />
-            )}
-          </div>
-
-          <Ring label="Min" value={minutesThisWeek} goal={minutesGoal} size={48} stroke={5} color="currentColor" />
-        </div>
+      <div className="flex items-center gap-1.5">
+        <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <Input
+          type="number"
+          min={0}
+          step={15}
+          value={minutesGoal || ''}
+          onChange={e => onMinutesGoalChange(Math.max(0, parseInt(e.target.value) || 0))}
+          className="h-7 min-w-0 flex-1 text-[10px] tabular-nums text-center"
+          title="Minutos de esfuerzo planificados para el área"
+        />
+        <span className="text-[9px] text-muted-foreground">min</span>
+        <Ring label="Min" value={minutesThisWeek} goal={minutesGoal} size={40} stroke={4} color="currentColor" />
       </div>
+
+      <select
+        value={results.some(r => r.id === result) ? result : result ? '__custom__' : ''}
+        onChange={e => onResultChange(e.target.value === '__custom__' ? '' : e.target.value)}
+        className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-[10px] outline-none focus:ring-1 focus:ring-ring"
+        title="Resultado al que se dirigen estos minutos"
+      >
+        <option value="">Resultado al que apunta…</option>
+        {results.map(r => (
+          <option key={r.id} value={r.id}>
+            {r.done ? '✓ ' : ''}{r.title}
+          </option>
+        ))}
+        <option value="__custom__">Otro…</option>
+      </select>
+      {!results.some(r => r.id === result) && result !== '' && (
+        <Input
+          value={result}
+          onChange={e => onResultChange(e.target.value)}
+          placeholder="Resultado…"
+          className="h-7 text-[10px]"
+        />
+      )}
 
       {/* Enfoque de la semana: qué proyectos/emprendimientos atacar */}
       {focusOptions && focusOptions.length > 0 && onFocusChange && (
-        <div className="px-3.5 py-2 border-t border-muted/40">
+        <div className="border-t border-border/40 pt-1.5">
           <FocusSelector
             label="Enfoque de la semana"
             options={focusOptions}
@@ -175,23 +165,25 @@ export function AreaRow({
       )}
 
       {/* Tareas del mes hechas / sin hacer */}
-      <div className="px-3.5 py-2 border-t border-muted/40 flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 className="w-3 h-3 mr-1" />
-          {counts.done} hechas {countsLabel}
-        </Badge>
-        <Badge variant="outline" className="text-[10px] h-5">
-          <CircleDashed className="w-3 h-3 mr-1" />
-          {counts.pending} sin hacer
-        </Badge>
-        <div className="flex items-center gap-1.5 min-w-[120px] flex-1">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+      <div className="mt-auto space-y-1 border-t border-border/40 pt-1.5">
+        <div className="flex flex-wrap items-center gap-1">
+          <Badge variant="outline" className="h-5 border-emerald-500/40 text-[9px] text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="mr-1 w-3 h-3" />
+            {counts.done} hechas {countsLabel}
+          </Badge>
+          <Badge variant="outline" className="h-5 text-[9px]">
+            <CircleDashed className="mr-1 w-3 h-3" />
+            {counts.pending} sin hacer
+          </Badge>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
           </div>
-          <span className="text-[9px] tabular-nums text-muted-foreground w-8 text-right">{pct}%</span>
+          <span className="w-8 text-right text-[9px] tabular-nums text-muted-foreground">{pct}%</span>
         </div>
-        {extra}
       </div>
-    </section>
+      {extra}
+    </SystemPlanCard>
   );
 }

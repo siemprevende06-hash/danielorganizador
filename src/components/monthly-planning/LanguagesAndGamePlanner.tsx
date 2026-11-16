@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
 import { addMonths, endOfMonth, startOfMonth } from 'date-fns';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Languages, Flame, Target, Sparkles, Info } from 'lucide-react';
+import { Target, Sparkles, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SystemPlanCard } from '@/components/systems/SystemPlanCard';
 import type { MonthlyPlanData } from '@/hooks/useMonthlyPlan';
 import { GoalMeter } from '@/components/goals/GoalMeter';
 import { useLanguageStats } from '@/hooks/useLanguageStats';
@@ -107,14 +106,13 @@ export function LanguagesAndGamePlanner({ month, planData, updatePlanData }: Pro
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       {/* IDIOMAS */}
-      <Card className="border border-emerald-200/60 dark:border-emerald-800/40 shadow-sm overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-emerald-500 to-sky-500" />
-        <div className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Languages className="w-4 h-4 text-emerald-500" />
-            <h3 className="text-xs font-semibold">Idiomas · nivel, hito y autoevaluación</h3>
-          </div>
-
+      <SystemPlanCard
+        systemId="idiomas"
+        title="Idiomas"
+        subtitle="Nivel, hito y autoevaluación"
+        emoji="🌍"
+        bodyClassName="gap-3"
+      >
           {LANGUAGE_IDS.map(lang => {
             const plan = languageMonth[lang];
             const actual = currentLanguageStats[lang];
@@ -210,21 +208,18 @@ export function LanguagesAndGamePlanner({ month, planData, updatePlanData }: Pro
               </div>
             );
           })}
-        </div>
-      </Card>
+      </SystemPlanCard>
 
       {/* GAME */}
-      <Card className="border border-rose-200/60 dark:border-rose-800/40 shadow-sm overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-rose-500 to-orange-500" />
-        <div className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Flame className="w-4 h-4 text-rose-500" />
-            <h3 className="text-xs font-semibold">Game · habilidades, hito y metas</h3>
-            <Badge variant="outline" className="ml-auto text-[9px] border-rose-500/40 text-rose-600 dark:text-rose-400">
-              {totalXp} XP · {gameStats.xp} XP este mes
-            </Badge>
-          </div>
-
+      <SystemPlanCard
+        systemId="game"
+        title="Game"
+        subtitle="Habilidades, hito y metas"
+        emoji="🎲"
+        metric={`${totalXp} XP`}
+        badge={`${gameStats.xp} XP mes`}
+        bodyClassName="gap-3"
+      >
           <div className="rounded-lg bg-muted/40 p-2 grid grid-cols-4 gap-2 text-center">
             <div>
               <p className="text-[13px] font-bold tabular-nums">{gameStats.activeDays}</p>
@@ -313,8 +308,7 @@ export function LanguagesAndGamePlanner({ month, planData, updatePlanData }: Pro
             Las citas se registran en Vida Social; aquí solo se planifican.
             <Sparkles className="w-3 h-3 ml-auto text-amber-500" />
           </div>
-        </div>
-      </Card>
+      </SystemPlanCard>
     </div>
   );
 }

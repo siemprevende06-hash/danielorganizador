@@ -447,7 +447,7 @@ export default function WeeklyPlanningPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-24 max-w-5xl">
+    <div className="container mx-auto px-4 py-24 max-w-6xl">
 <header className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-500">
@@ -570,75 +570,86 @@ export default function WeeklyPlanningPage() {
         Áreas de la semana
       </h2>
       <div className="mb-4 space-y-4">
-        {/* Universidad: fila completa con el título profesional/académico */}
-        <UniversityRow
-          sessions={areaData.studySessions}
-          counts={areaData.month.universidad}
-          minutesThisWeek={areaMinutes.universidad}
-          minutesGoal={getWeekGoalEffective(weekStart, 'universidad')}
-          subjects={areaData.subjects}
-          results={resultOptions}
-          resultId={planData.areaResults?.universidad ?? ''}
-          onResultChange={v => setAreaResult('universidad', v)}
-          onMinutesGoalChange={v => applyWeekGoal('universidad', String(v))}
-          onRefresh={areaData.refresh}
-          focusSubjects={planData.areaFocus?.universidad ?? []}
-          onFocusSubjectsChange={ids => setAreaFocus('universidad', ids)}
-        />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" />
+            <Briefcase className="h-3.5 w-3.5 text-sky-500" />
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Profesional / Académico</h3>
+            <span className="h-px flex-1 bg-sky-200/70 dark:bg-sky-900/60" />
+            <Badge variant="secondary" className="h-5 text-[8px] tabular-nums">4 sistemas</Badge>
+          </div>
 
-        {/* Emprendimiento: fila completa con selector de emprendimientos */}
-        <AreaRow
-          title="Emprendimiento"
-          subtitle="Negocios y sus metas"
-          icon={<Briefcase className="w-4 h-4" />}
-          accent="text-purple-500"
-          border="border-purple-500/30"
-          counts={areaData.month.emprendimiento}
-          minutesThisWeek={areaMinutes.emprendimiento}
-          minutesGoal={getWeekGoalEffective(weekStart, 'emprendimiento')}
-          onMinutesGoalChange={v => applyWeekGoal('emprendimiento', String(v))}
-          result={planData.areaResults?.emprendimiento ?? ''}
-          results={resultOptions}
-          onResultChange={v => setAreaResult('emprendimiento', v)}
-          focusOptions={entreOptions}
-          focusSelected={planData.areaFocus?.emprendimiento ?? []}
-          onFocusChange={ids => setAreaFocus('emprendimiento', ids)}
-        />
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {/* Universidad: sesiones de estudio y asignaturas de enfoque */}
+            <div className="lg:col-span-3">
+              <UniversityRow
+                sessions={areaData.studySessions}
+                counts={areaData.month.universidad}
+                minutesThisWeek={areaMinutes.universidad}
+                minutesGoal={getWeekGoalEffective(weekStart, 'universidad')}
+                subjects={areaData.subjects}
+                results={resultOptions}
+                resultId={planData.areaResults?.universidad ?? ''}
+                onResultChange={v => setAreaResult('universidad', v)}
+                onMinutesGoalChange={v => applyWeekGoal('universidad', String(v))}
+                onRefresh={areaData.refresh}
+                focusSubjects={planData.areaFocus?.universidad ?? []}
+                onFocusSubjectsChange={ids => setAreaFocus('universidad', ids)}
+              />
+            </div>
 
-        {/* Proyectos: fila completa con selector de proyectos */}
-        <AreaRow
-          title="Proyectos"
-          subtitle="Proyectos activos"
-          icon={<FolderKanban className="w-4 h-4" />}
-          accent="text-amber-500"
-          border="border-amber-500/30"
-          counts={areaData.month.proyectos}
-          minutesThisWeek={areaMinutes.proyectos}
-          minutesGoal={getWeekGoalEffective(weekStart, 'proyectos')}
-          onMinutesGoalChange={v => applyWeekGoal('proyectos', String(v))}
-          result={planData.areaResults?.proyectos ?? ''}
-          results={resultOptions}
-          onResultChange={v => setAreaResult('proyectos', v)}
-          focusOptions={projectOptions}
-          focusSelected={planData.areaFocus?.proyectos ?? []}
-          onFocusChange={ids => setAreaFocus('proyectos', ids)}
-        />
+            {/* Emprendimiento: selector de emprendimientos de enfoque */}
+            <AreaRow
+              systemId="emprendimiento"
+              title="Emprendimiento"
+              subtitle="Negocios y sus metas"
+              accent="text-purple-500"
+              counts={areaData.month.emprendimiento}
+              minutesThisWeek={areaMinutes.emprendimiento}
+              minutesGoal={getWeekGoalEffective(weekStart, 'emprendimiento')}
+              onMinutesGoalChange={v => applyWeekGoal('emprendimiento', String(v))}
+              result={planData.areaResults?.emprendimiento ?? ''}
+              results={resultOptions}
+              onResultChange={v => setAreaResult('emprendimiento', v)}
+              focusOptions={entreOptions}
+              focusSelected={planData.areaFocus?.emprendimiento ?? []}
+              onFocusChange={ids => setAreaFocus('emprendimiento', ids)}
+            />
 
-        {/* Tareas generales: fila completa */}
-        <AreaRow
-          title="Tareas generales"
-          subtitle="Todo lo que no pertenece a un área concreta"
-          icon={<ListChecks className="w-4 h-4" />}
-          accent="text-slate-500"
-          border="border-slate-400/40"
-          counts={areaData.month.general}
-          minutesThisWeek={areaMinutes.general}
-          minutesGoal={getWeekGoalEffective(weekStart, 'general')}
-          onMinutesGoalChange={v => applyWeekGoal('general', String(v))}
-          result={planData.areaResults?.general ?? ''}
-          results={resultOptions}
-          onResultChange={v => setAreaResult('general', v)}
-        />
+            {/* Proyectos: selector de proyectos de enfoque */}
+            <AreaRow
+              systemId="proyectos"
+              title="Proyectos"
+              subtitle="Proyectos activos"
+              accent="text-amber-500"
+              counts={areaData.month.proyectos}
+              minutesThisWeek={areaMinutes.proyectos}
+              minutesGoal={getWeekGoalEffective(weekStart, 'proyectos')}
+              onMinutesGoalChange={v => applyWeekGoal('proyectos', String(v))}
+              result={planData.areaResults?.proyectos ?? ''}
+              results={resultOptions}
+              onResultChange={v => setAreaResult('proyectos', v)}
+              focusOptions={projectOptions}
+              focusSelected={planData.areaFocus?.proyectos ?? []}
+              onFocusChange={ids => setAreaFocus('proyectos', ids)}
+            />
+
+            {/* Tareas generales: lo que no pertenece a un área concreta */}
+            <AreaRow
+              systemId="tareas"
+              title="Tareas generales"
+              subtitle="Todo lo que no pertenece a un área concreta"
+              accent="text-slate-500"
+              counts={areaData.month.general}
+              minutesThisWeek={areaMinutes.general}
+              minutesGoal={getWeekGoalEffective(weekStart, 'general')}
+              onMinutesGoalChange={v => applyWeekGoal('general', String(v))}
+              result={planData.areaResults?.general ?? ''}
+              results={resultOptions}
+              onResultChange={v => setAreaResult('general', v)}
+            />
+          </div>
+        </div>
 
         {/* Desarrollo personal: lectura, idiomas, ajedrez, seducción y música */}
         <PersonalDevelopment

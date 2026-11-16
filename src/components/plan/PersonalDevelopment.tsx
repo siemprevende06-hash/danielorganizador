@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {
-  BookOpen, Brain, Flame, Languages, Music, Sparkles, Target, Timer, Trophy,
-} from 'lucide-react';
+import { BookOpen, Brain, Music, Target, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getWeekGoalEffective, getWeeksOfMonth, setWeekGoal } from '@/lib/hierarchy';
 import type { WeeklyAreaData } from '@/hooks/useWeeklyPlanData';
@@ -23,26 +21,21 @@ import {
 } from '@/lib/game';
 import { Ring } from './WeekMinutesRings';
 import { fmtMin } from './AreaRow';
+import { SystemPlanCard } from '@/components/systems/SystemPlanCard';
 
 function Tile({
+  systemId,
   title,
-  icon,
-  accent,
   children,
 }: {
+  systemId: string;
   title: string;
-  icon: React.ReactNode;
-  accent: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border-2 border-muted bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm p-3 space-y-2.5">
-      <div className="flex items-center gap-2">
-        <span className={cn('w-7 h-7 rounded-lg bg-muted/50 grid place-items-center shrink-0', accent)}>{icon}</span>
-        <h4 className="text-[11px] font-bold uppercase tracking-wider">{title}</h4>
-      </div>
+    <SystemPlanCard systemId={systemId} title={title} bodyClassName="gap-2.5">
       {children}
-    </div>
+    </SystemPlanCard>
   );
 }
 
@@ -229,24 +222,20 @@ export function PersonalDevelopment({
   const eloRemaining = eloTarget > eloCurrent ? eloTarget - eloCurrent : 0;
 
   return (
-    <section className="rounded-2xl border-2 border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 via-background to-background backdrop-blur-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-emerald-500/20 flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-xl bg-emerald-500/15 grid place-items-center">
-          <Brain className="w-4 h-4 text-emerald-500" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-base font-bold tracking-tight leading-tight">Desarrollo personal</h2>
-          <p className="text-[10px] text-muted-foreground">Lectura, idiomas, ajedrez, seducción y música</p>
-        </div>
-        <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-          {fmtMin(data.reading.minutes + data.musica.minutes + data.ajedrez.minutes + idiomasTotal + data.game.minutos)}
-          / semana
+    <section className="space-y-3">
+      <div className="flex items-center gap-2 px-1">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
+        <Brain className="h-3.5 w-3.5 text-violet-500" />
+        <h2 className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Desarrollo Personal</h2>
+        <span className="h-px flex-1 bg-violet-200/70 dark:bg-violet-900/60" />
+        <Badge variant="secondary" className="h-5 text-[8px] tabular-nums">
+          {fmtMin(data.reading.minutes + data.musica.minutes + data.ajedrez.minutes + idiomasTotal + data.game.minutos)} / semana
         </Badge>
       </div>
 
-      <div className="p-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {/* LECTURA */}
-        <Tile title="Lectura" icon={<BookOpen className="w-3.5 h-3.5" />} accent="text-cyan-600 dark:text-cyan-400">
+        <Tile systemId="lectura" title="Lectura">
           <div className="flex gap-2.5">
             {/* Portada del libro de la semana */}
             <div className="w-16 h-[84px] shrink-0 rounded-md overflow-hidden border bg-muted/40 grid place-items-center">
@@ -341,7 +330,7 @@ export function PersonalDevelopment({
         </Tile>
 
         {/* IDIOMAS: inglés + italiano */}
-        <Tile title="Idiomas" icon={<Languages className="w-3.5 h-3.5" />} accent="text-sky-600 dark:text-sky-400">
+        <Tile systemId="idiomas" title="Idiomas">
           <div className="flex items-center gap-2.5">
             <Ring label="Total" value={idiomasTotal} goal={idiomasGoal} size={58} stroke={5} color="#0ea5e9" />
             <div className="flex-1 space-y-1">
@@ -422,7 +411,7 @@ export function PersonalDevelopment({
         </Tile>
 
         {/* AJEDREZ */}
-        <Tile title="Ajedrez" icon={<Trophy className="w-3.5 h-3.5" />} accent="text-amber-600 dark:text-amber-400">
+        <Tile systemId="ajedrez" title="Ajedrez">
           <div className="flex items-center gap-2.5">
             <Ring label="Minutos" value={data.ajedrez.minutes} goal={ajedrezGoal} size={58} stroke={5} color="#f59e0b" />
             <div className="flex-1 space-y-1.5">
@@ -496,7 +485,7 @@ export function PersonalDevelopment({
         </Tile>
 
         {/* GAME / SEDUCCIÓN */}
-        <Tile title="Game · Seducción" icon={<Flame className="w-3.5 h-3.5" />} accent="text-rose-600 dark:text-rose-400">
+        <Tile systemId="game" title="Game · Seducción">
           <div className="flex items-center gap-2.5">
             <Ring
               label="XP semanal"
@@ -615,7 +604,7 @@ export function PersonalDevelopment({
         </Tile>
 
         {/* MÚSICA */}
-        <Tile title="Música" icon={<Music className="w-3.5 h-3.5" />} accent="text-pink-600 dark:text-pink-400">
+        <Tile systemId="musica" title="Música">
           <div className="flex gap-2.5">
             <div className="w-12 h-[62px] shrink-0 rounded-md overflow-hidden border bg-muted/40 grid place-items-center">
               {learningSong?.cover_image_url || masteringSong?.cover_image_url ? (
@@ -687,7 +676,7 @@ export function PersonalDevelopment({
         </Tile>
 
         {/* GYM */}
-        <Tile title="Gym" icon={<Sparkles className="w-3.5 h-3.5" />} accent="text-emerald-600 dark:text-emerald-400">
+        <Tile systemId="gym" title="Gym">
           <div className="flex items-center gap-2.5">
             <Ring label="Sesiones" value={data.gym.logs} goal={gymGoal} size={58} stroke={5} color="#10b981" />
             <div className="flex-1 space-y-1.5">

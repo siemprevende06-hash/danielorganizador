@@ -2,10 +2,10 @@
 import { useSearchParams } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Save, Target, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { SystemPlanCard } from '@/components/systems/SystemPlanCard';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyPlan } from '@/hooks/useMonthlyPlan';
 import { PeriodTaskCreator } from '@/components/tasks/PeriodTaskCreator';
@@ -67,6 +67,7 @@ const handleSave = async () => {
   };
 
   const monthGoalsSummary = getMonthGoalsSummary(month);
+  const monthGoalTotal = ALL_HIERARCHY_AREAS.reduce((sum, area) => sum + (monthGoalsSummary[area] || 0), 0);
 
   const [goalsVersion, setGoalsVersion] = useState(0);
 
@@ -107,7 +108,7 @@ const handleSave = async () => {
 
 
   return (
-    <div className="container mx-auto px-4 py-24 max-w-5xl">
+    <div className="container mx-auto px-4 py-24 max-w-6xl">
       {/* Header */}
       <header className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -167,14 +168,22 @@ const handleSave = async () => {
               }
             }}
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} />
-            <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} />
-            <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
-            <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={topicItems} />
-            <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
-            <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
-          </div>
+          <section className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
+              <h2 className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Sistemas del mes</h2>
+              <span className="h-px flex-1 bg-indigo-200/70 dark:bg-indigo-900/60" />
+              <span className="text-[9px] text-muted-foreground">Planifica cada sistema</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <SubjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={subjectItems} topics={topicItems} />
+              <ProjectPlannerWidget planData={planData} updatePlanData={updatePlanData} items={projectItems} />
+              <BookPlannerWidget planData={planData} updatePlanData={updatePlanData} items={bookItems} />
+              <SongPlannerWidget planData={planData} updatePlanData={updatePlanData} items={songItems} />
+              <GoalPlannerWidget planData={planData} updatePlanData={updatePlanData} />
+              <EventPlannerWidget planData={planData} updatePlanData={updatePlanData} items={eventItems} />
+            </div>
+          </section>
 
           <MonthBookSongOverview
             month={month}
@@ -206,40 +215,43 @@ const handleSave = async () => {
             description="Crea tareas por área con vencimiento en este mes."
           />
 
-          <Card className="border border-indigo-200/60 dark:border-indigo-800/40 shadow-sm overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
-            <div className="p-4">
-              <h3 className="text-xs font-semibold mb-1 flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 text-indigo-500" /> Metas de minutos del mes
-              </h3>
-              <p className="text-[10px] text-muted-foreground mb-3">
-                Se reparten a las semanas y días. Editarlas propaga a los niveles superiores.
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <SystemPlanCard
+              systemId="metas"
+              title="Metas de minutos"
+              subtitle="Se reparten a las semanas y días"
+              emoji="⏱️"
+              metric={`${monthGoalTotal}′`}
+              bodyClassName="gap-2.5"
+            >
+              <p className="text-[10px] text-muted-foreground">
+                Editarlas propaga a los niveles superiores.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
                 {ALL_HIERARCHY_AREAS.map(area => (
                   <div key={area} className="flex items-center justify-between gap-2">
-                    <span className="text-xs">{AREA_LABELS[area]}</span>
+                    <span className="text-[11px]">{AREA_LABELS[area]}</span>
                     <MinutesGoalInput value={monthGoalsSummary[area] || 0} onApply={v => applyMonthGoal(area, v)} className="h-6 w-20 text-[10px]" />
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-3">
-                Meta mes total: {ALL_HIERARCHY_AREAS.reduce((s, a) => s + (monthGoalsSummary[a] || 0), 0)} min
+              <p className="text-[10px] text-muted-foreground">
+                Meta mes total: {monthGoalTotal} min
               </p>
-            </div>
-          </Card>
+            </SystemPlanCard>
 
-          <Card className="border border-amber-200/60 dark:border-amber-800/40 shadow-sm overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
-            <div className="p-4">
-              <h3 className="text-xs font-semibold mb-1 flex items-center gap-2">
-                <Trophy className="w-3.5 h-3.5 text-amber-500" /> Ajedrez · ELO objetivo del mes
-              </h3>
-              <p className="text-[10px] text-muted-foreground mb-3">
+            <SystemPlanCard
+              systemId="ajedrez"
+              title="Ajedrez"
+              subtitle="ELO objetivo del mes"
+              metric={planData.chess?.elo_goal ? `${planData.chess.elo_goal} ELO` : undefined}
+              bodyClassName="gap-2.5"
+            >
+              <p className="text-[10px] text-muted-foreground">
                 El plan semanal reparte este tramo entre las semanas del mes. Déjalo en 0 para usar el ELO objetivo de la página Chess.
               </p>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs">ELO objetivo al cerrar el mes</span>
+                <span className="text-[11px]">ELO objetivo al cerrar el mes</span>
                 <Input
                   type="number"
                   min={0}
@@ -250,8 +262,8 @@ const handleSave = async () => {
                   className="h-7 w-24 text-xs text-center tabular-nums"
                 />
               </div>
-            </div>
-          </Card>
+            </SystemPlanCard>
+          </div>
 
           <LanguagesAndGamePlanner
             month={month}

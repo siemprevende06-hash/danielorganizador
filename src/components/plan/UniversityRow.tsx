@@ -3,12 +3,13 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Check, CheckCircle2, Circle, Clock, GraduationCap, Plus, Target, Timer, Trash2 } from 'lucide-react';
+import { Check, CheckCircle2, Circle, Clock, Target, Timer, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { StudySessionRow, MonthTaskCounts } from '@/hooks/useWeeklyPlanData';
 import { Ring } from './WeekMinutesRings';
 import { FocusSelector } from './AreaRow';
+import { SystemPlanCard } from '@/components/systems/SystemPlanCard';
 
 const fmtMin = (m: number) => {
   if (m <= 0) return '0m';
@@ -134,66 +135,56 @@ export function UniversityRow({
   };
 
   return (
-    <section className="rounded-2xl border-2 border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-background to-background backdrop-blur-sm overflow-hidden">
-      {/* Cabecera: título profesional / académico + universidad */}
-      <div className="px-4 py-3 border-b border-blue-500/20">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
-            <GraduationCap className="w-4 h-4 text-blue-500" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-blue-500">Profesional · Académico</p>
-            <h2 className="text-base font-bold tracking-tight leading-tight">Universidad</h2>
-            <p className="text-[10px] text-muted-foreground truncate">
-              {subjects.length > 0 ? subjects.map(s => s.name).join(' · ') : 'Sin asignaturas activas'}
-            </p>
-          </div>
-
-          <Ring label="Minutos" value={minutesThisWeek} goal={minutesGoal} size={54} stroke={5} color="#3b82f6" />
-
-          <div className="flex items-center gap-1.5">
-            <Badge variant="outline" className="text-[10px] h-5 border-blue-500/40 text-blue-600 dark:text-blue-400">
-              <CheckCircle2 className="w-3 h-3 mr-1" />
-              {counts.done}/{counts.total} tareas del mes
-            </Badge>
-            <Badge variant="outline" className="text-[10px] h-5">
-              {counts.pending} sin hacer
-            </Badge>
-          </div>
+    <SystemPlanCard
+      systemId="universidad"
+      title="Universidad"
+      subtitle={subjects.length > 0 ? subjects.map(s => s.name).join(' · ') : 'Sin asignaturas activas'}
+      metric={`${minutesThisWeek}′`}
+      badge={`${counts.done}/${counts.total} mes`}
+      bodyClassName="gap-2.5"
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge variant="outline" className="h-5 text-[9px] border-blue-500/40 text-blue-600 dark:text-blue-400">
+          <CheckCircle2 className="mr-1 w-3 h-3" />
+          {counts.done}/{counts.total} tareas del mes
+        </Badge>
+        <Badge variant="outline" className="h-5 text-[9px]">
+          {counts.pending} sin hacer
+        </Badge>
+        <div className="ml-auto">
+          <Ring label="Minutos" value={minutesThisWeek} goal={minutesGoal} size={42} stroke={4} color="#3b82f6" />
         </div>
-
-        <div className="mt-2.5 grid gap-2 sm:grid-cols-[1fr_auto] items-end">
-          <ResultTarget value={resultId} options={results} onChange={onResultChange} />
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3 h-3 text-muted-foreground" />
-            <Input
-              type="number"
-              min={0}
-              step={15}
-              value={minutesGoal || ''}
-              onChange={e => onMinutesGoalChange(Math.max(0, parseInt(e.target.value) || 0))}
-              className="h-7 w-20 text-[11px] tabular-nums text-center"
-              title="Objetivo de minutos de la semana"
-            />
-            <span className="text-[10px] text-muted-foreground">min/semana</span>
-          </div>
-        </div>
-
-        {subjects.length > 0 && (
-          <div className="mt-2">
-            <FocusSelector
-              label="Asignaturas de enfoque"
-              options={subjects}
-              selected={focusSubjects}
-              onChange={onFocusSubjectsChange}
-              accent="text-blue-500"
-            />
-          </div>
-        )}
       </div>
 
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto] items-end">
+        <ResultTarget value={resultId} options={results} onChange={onResultChange} />
+        <div className="flex items-center gap-1.5">
+          <Clock className="w-3 h-3 text-muted-foreground" />
+          <Input
+            type="number"
+            min={0}
+            step={15}
+            value={minutesGoal || ''}
+            onChange={e => onMinutesGoalChange(Math.max(0, parseInt(e.target.value) || 0))}
+            className="h-7 w-20 text-[11px] tabular-nums text-center"
+            title="Objetivo de minutos de la semana"
+          />
+          <span className="text-[10px] text-muted-foreground">min/semana</span>
+        </div>
+      </div>
+
+      {subjects.length > 0 && (
+        <FocusSelector
+          label="Asignaturas de enfoque"
+          options={subjects}
+          selected={focusSubjects}
+          onChange={onFocusSubjectsChange}
+          accent="text-blue-500"
+        />
+      )}
+
       {/* Resumen de esfuerzo */}
-      <div className="px-4 py-2 grid grid-cols-3 gap-2 border-b border-blue-500/10 text-center">
+      <div className="grid grid-cols-3 gap-2 border-y border-border/40 py-1.5 text-center">
         <div>
           <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Sesiones</p>
           <p className="text-sm font-bold tabular-nums">{sessions.length}</p>
@@ -209,7 +200,7 @@ export function UniversityRow({
       </div>
 
       {/* Filtro por asignatura + alta de sesión */}
-      <div className="px-4 py-2 flex flex-wrap items-center gap-1.5 border-b border-muted/40">
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border/40 pb-1.5">
         <button
           onClick={() => setFilter('all')}
           className={cn(
@@ -259,7 +250,7 @@ export function UniversityRow({
       </div>
 
       {/* Sesiones */}
-      <div className="px-4 py-2.5">
+      <div className="py-0.5">
         {visible.length === 0 ? (
           <p className="text-[11px] text-muted-foreground text-center py-5 italic">
             No hay sesiones de estudio creadas desde Universidad para esta semana.
@@ -335,10 +326,10 @@ export function UniversityRow({
         )}
       </div>
 
-      <div className="px-4 py-2 border-t border-muted/40 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-1.5 border-t border-border/40 pt-1.5 text-[10px] text-muted-foreground">
         <Target className="w-3 h-3" />
         El esfuerzo de las sesiones se dirige al resultado elegido arriba.
       </div>
-    </section>
+    </SystemPlanCard>
   );
 }
