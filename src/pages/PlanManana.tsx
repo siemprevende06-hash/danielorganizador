@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
@@ -17,7 +18,7 @@ import { lifeAreas } from "@/lib/data";
 import { flattenAreas } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES, legacyModeForRoutine } from "@/hooks/useRoutineBlocks";
 import { loadDailyPlan, saveDailyPlan } from "@/lib/dailyPlanStorage";
-import { DailyTimelinePlanner } from "@/components/today/DailyTimelinePlanner";
+import { DailyTimelinePlanner, type TimelineBlock } from "@/components/today/DailyTimelinePlanner";
 import { DaySpeedSection } from "@/components/today/DaySpeedSection";
 import { useDaySpeedPlan } from "@/hooks/useDaySpeedPlan";
 import { setDayGoal, getDayGoalEffective, ALL_HIERARCHY_AREAS } from "@/lib/hierarchy";
@@ -32,6 +33,7 @@ import {
   deriveSystemIntensity,
   isDeepWorkBlock,
   isExtraBlock,
+  isFragmentableBlock,
   setWholeBlock,
   summarizeSpeedPlan,
   type SpeedPlan,
@@ -49,6 +51,8 @@ import { PlanSystemCard } from "@/components/planificacion/PlanSystemCard";
 import { TaskInboxCard } from "@/components/planificacion/TaskInboxCard";
 import { FocusLockCard } from "@/components/planificacion/FocusLockCard";
 import { DaySettingsCard } from "@/components/planificacion/DaySettingsCard";
+import { BlockFocusControl, type FocusOwner } from "@/components/planificacion/BlockFocusControl";
+import { useStudySubjects } from "@/hooks/useStudySubjects";
 
 interface TaskItem {
   id: string; title: string; source: string; area_id: string | null;
@@ -71,6 +75,17 @@ interface ProjectRow {
 
 interface EntreTask {
   id: string; title: string; completed: boolean; entrepreneurship_id: string;
+}
+
+interface Venture {
+  id: string; name: string;
+}
+
+interface FocusPlanEntry {
+  blockTitle: string;
+  emoji: string;
+  primary: string;
+  secondary: string | null;
 }
 
 const SYSTEM_GROUP_DOT: Record<string, string> = {
@@ -226,9 +241,16 @@ export default function PlanManana() {
   const { covers } = useAreaCovers();
   const { map: speedMap, getSpeed, setSpeed, loadedFromPlan: systemSpeedLoaded } = useSystemSpeed(targetDate);
   const { getTag: getActivityTag, setTag: setActivityTag } = useSystemActivityTags();
+  const {
+    subjects: studySubjects,
+    loading: studySubjectsLoading,
+    createSubject: createStudySubject,
+    createTopic: createStudyTopic,
+  } = useStudySubjects();
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [ventures, setVentures] = useState<Venture[]>([]);
   const [entreTasks, setEntreTasks] = useState<EntreTask[]>([]);
   const [tasksLoaded, setTasksLoaded] = useState(false);
 
@@ -363,6 +385,51 @@ export default function PlanManana() {
     () => summarizeSpeedPlan(speedPlan, blocks),
     [speedPlan, blocks],
   );
+
+  /** Enfoques elegidos en los Deep Work: asignatura/tema, emprendimiento/tarea o proyecto/tarea. */
+  const focusPlansBySystem = useMemo(() => {
+    const result: Record<string, FocusPlanEntry[]> = {
+      universidad: [],
+      emprendimiento: [],
+      proyectos: [],
+    };
+    for (const block of blocks) {
+      const entry = speedPlan.blocks[block.id];
+      if (entry?.study?.subjectId) {
+        result.universidad.push({
+          blockTitle: block.title,
+          emoji: planSystemEmoji('universidad'),
+          primary: entry.study.subjectName || 'Asignatura',
+          secondary: entry.study.topicTitle,
+        });
+      }
+      if (entry?.work) {
+        const { kind, ownerName, itemTitle } = entry.work;
+        result[kind]?.push({
+          blockTitle: block.title,
+          emoji: planSystemEmoji(kind),
+          primary: ownerName || (kind === 'emprendimiento' ? 'Emprendimiento' : 'Proyecto'),
+          secondary: itemTitle,
+        });
+      }
+    }
+    return result;
+  }, [blocks, speedPlan]);
+
+  /** Catálogos para elegir emprendimiento/proyecto y su tarea dentro de un bloque. */
+  const ventureOwners = useMemo<FocusOwner[]>(() => ventures.map(venture => ({
+    id: venture.id,
+    name: venture.name,
+    items: entreTasks
+      .filter(task => task.entrepreneurship_id === venture.id)
+      .map(task => ({ id: task.id, title: task.title })),
+  })), [ventures, entreTasks]);
+
+  const projectOwners = useMemo<FocusOwner[]>(() => projects.map(project => ({
+    id: project.id,
+    name: project.name,
+    items: project.tasks.map(task => ({ id: task.id, title: task.title })),
+  })), [projects]);
 
   /** Sistemas que tocan un bloque (entero o por fragmentos). */
   const blockSystems = useCallback((blockId: string, plan: SpeedPlan): string[] => {
@@ -650,9 +717,10 @@ export default function PlanManana() {
 
     (async () => {
       try {
-        const [tasksRes, entreRes] = await Promise.all([
+        const [tasksRes, entreRes, venturesRes] = await Promise.all([
           supabase.from("tasks").select("id, title, source, area_id, completed, routine_block_id").eq("completed", false),
           supabase.from("entrepreneurship_tasks").select("id, title, completed, entrepreneurship_id").eq("completed", false),
+          supabase.from("entrepreneurships").select("id, name").order("created_at", { ascending: true }),
         ]);
         if (cancelled) return;
         let failed = false;
@@ -665,6 +733,11 @@ export default function PlanManana() {
           failed = true;
         } else if (entreRes.data) {
           setEntreTasks(entreRes.data as EntreTask[]);
+        }
+        if (venturesRes.error) {
+          failed = true;
+        } else if (venturesRes.data) {
+          setVentures(venturesRes.data as Venture[]);
         }
         if (failed) toast.error("Algunas tareas no se pudieron cargar");
       } catch {
@@ -911,6 +984,121 @@ export default function PlanManana() {
     }
   }, [markDirty, mode]);
 
+  /* ------------------------------------------------------------------ */
+  /* Creación rápida desde el enfoque de un bloque                       */
+  /* ------------------------------------------------------------------ */
+
+  const handleCreateVenture = useCallback(async (name: string): Promise<Venture | null> => {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    try {
+      const { data, error } = await supabase
+        .from('entrepreneurships')
+        .insert({ name: trimmed })
+        .select('id, name')
+        .single();
+      if (error) throw error;
+      if (!data) return null;
+      const venture = data as Venture;
+      setVentures(prev => (prev.some(existing => existing.id === venture.id) ? prev : [...prev, venture]));
+      toast.success(`Emprendimiento “${venture.name}” creado`);
+      return venture;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al crear el emprendimiento';
+      toast.error(message);
+      return null;
+    }
+  }, []);
+
+  const handleCreateVentureTask = useCallback(async (
+    ventureId: string,
+    title: string,
+  ): Promise<{ id: string; title: string } | null> => {
+    const trimmed = title.trim();
+    if (!trimmed) return null;
+    try {
+      const { data, error } = await supabase
+        .from('entrepreneurship_tasks')
+        .insert({
+          entrepreneurship_id: ventureId,
+          title: trimmed,
+          task_type: 'normal',
+          completed: false,
+        })
+        .select('id, title, completed, entrepreneurship_id')
+        .single();
+      if (error) throw error;
+      if (!data) return null;
+      const task = data as EntreTask;
+      setEntreTasks(prev => (prev.some(existing => existing.id === task.id) ? prev : [...prev, task]));
+      toast.success('Tarea de emprendimiento creada');
+      return { id: task.id, title: task.title };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al crear la tarea';
+      toast.error(message);
+      return null;
+    }
+  }, []);
+
+  const handleCreateProject = useCallback(async (name: string): Promise<Project | null> => {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({ title: trimmed, description: null, tasks: [], status: 'active' })
+        .select('id, title')
+        .single();
+      if (error) throw error;
+      if (!data) return null;
+      const project: Project = { id: data.id, name: data.title, tasks: [] };
+      setProjects(prev => (prev.some(existing => existing.id === project.id) ? prev : [...prev, project]));
+      toast.success(`Proyecto “${project.name}” creado`);
+      return project;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al crear el proyecto';
+      toast.error(message);
+      return null;
+    }
+  }, []);
+
+  const handleCreateProjectTask = useCallback(async (
+    projectId: string,
+    title: string,
+  ): Promise<{ id: string; title: string } | null> => {
+    const trimmed = title.trim();
+    if (!trimmed) return null;
+    try {
+      // Se relee la fila para no borrar las tareas ya completadas, que no se
+      // cargan en el estado local del planificador.
+      const { data: row, error: readError } = await supabase
+        .from('projects')
+        .select('tasks')
+        .eq('id', projectId)
+        .maybeSingle();
+      if (readError) throw readError;
+      if (!row) throw new Error('El proyecto ya no existe');
+
+      const existingTasks = Array.isArray(row.tasks) ? (row.tasks as unknown as ProjectTask[]) : [];
+      const task: ProjectTask = { id: crypto.randomUUID(), title: trimmed, completed: false };
+      const { error } = await supabase
+        .from('projects')
+        .update({ tasks: [...existingTasks, task] as unknown as Json })
+        .eq('id', projectId);
+      if (error) throw error;
+
+      setProjects(prev => prev.map(project =>
+        project.id === projectId ? { ...project, tasks: [...project.tasks, task] } : project,
+      ));
+      toast.success('Tarea de proyecto creada');
+      return { id: task.id, title: task.title };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al crear la tarea';
+      toast.error(message);
+      return null;
+    }
+  }, []);
+
   const syncTaskDueDates = async (taskIds: string[], dateStr: string | null) => {
     if (taskIds.length === 0) return;
     const entreTaskIds = new Set(entreTasks.map(task => task.id));
@@ -1056,6 +1244,41 @@ export default function PlanManana() {
     markDirty();
   }, [setSpeedPlan, markDirty]);
 
+  /** Selector de enfoque dentro de los Deep Work: universidad, emprendimiento o proyectos. */
+  const renderBlockExtra = useCallback((block: TimelineBlock) => {
+    if (!speedPlan || !isFragmentableBlock(block)) return null;
+    return (
+      <BlockFocusControl
+        block={block}
+        plan={speedPlan}
+        onChange={handleSpeedPlanChange}
+        subjects={studySubjects}
+        subjectsLoading={studySubjectsLoading}
+        onCreateSubject={createStudySubject}
+        onCreateTopic={createStudyTopic}
+        ventures={ventureOwners}
+        onCreateVenture={handleCreateVenture}
+        onCreateVentureTask={handleCreateVentureTask}
+        projects={projectOwners}
+        onCreateProject={handleCreateProject}
+        onCreateProjectTask={handleCreateProjectTask}
+      />
+    );
+  }, [
+    speedPlan,
+    handleSpeedPlanChange,
+    studySubjects,
+    studySubjectsLoading,
+    createStudySubject,
+    createStudyTopic,
+    ventureOwners,
+    handleCreateVenture,
+    handleCreateVentureTask,
+    projectOwners,
+    handleCreateProject,
+    handleCreateProjectTask,
+  ]);
+
   const handleUpdateFocus = useCallback((blockId: string, focus: string) => {
     updateBlockFocus(blockId, focus);
     markDirty();
@@ -1115,6 +1338,7 @@ export default function PlanManana() {
       tasks={systemTasks[system.id] ?? []}
       blocks={systemBlocks[system.id] ?? []}
       availableTasks={availableBySystem[system.id] ?? []}
+      focusPlans={focusPlansBySystem[system.id]}
       onAddTask={task => assignTasks([task], system.id)}
       onCreateTask={() => openCreateForSystem(system.id)}
       onRemoveTask={handleRemoveTask}
@@ -1361,6 +1585,10 @@ export default function PlanManana() {
                       {blocks.length} bloques
                     </Badge>
                   </div>
+                  <p className="mb-1.5 px-0.5 text-[9px] leading-tight text-muted-foreground">
+                    En cada <span className="font-semibold text-sky-600 dark:text-sky-400">Deep Work</span> elige qué
+                    vas a hacer: asignatura y tema, emprendimiento y tarea, o proyecto y tarea. Se guarda con el plan del día.
+                  </p>
                   <DailyTimelinePlanner
                     blocks={blocks}
                     tasksByBlock={tasksByBlockForPlanner}
@@ -1374,6 +1602,7 @@ export default function PlanManana() {
                     isFutureView={mode !== 'hoy'}
                     speedPlan={speedPlan}
                     onSpeedPlanChange={handleSpeedPlanChange}
+                    renderBlockExtra={renderBlockExtra}
                     hideHeader
                   />
                 </div>

@@ -25,9 +25,28 @@ export interface SpeedPlanFragment {
   systemId: string;
 }
 
+/** Asignatura y tema que se estudiarán en un bloque (Universidad). */
+export interface BlockStudyPlan {
+  subjectId: string;
+  subjectName: string;
+  topicId: string | null;
+  topicTitle: string | null;
+}
+
+export type BlockWorkKind = "emprendimiento" | "proyectos";
+
+/** Emprendimiento o proyecto (y su tarea) en el que se trabajará en un bloque. */
+export interface BlockWorkPlan {
+  kind: BlockWorkKind;
+  ownerId: string;
+  ownerName: string;
+  itemId: string | null;
+  itemTitle: string | null;
+}
+
 export type SpeedBlockPlan =
-  | { kind: "whole"; systemId: string }
-  | { kind: "fragments"; fragments: SpeedPlanFragment[] };
+  | { kind: "whole"; systemId: string; study?: BlockStudyPlan; work?: BlockWorkPlan }
+  | { kind: "fragments"; fragments: SpeedPlanFragment[]; study?: BlockStudyPlan; work?: BlockWorkPlan };
 
 export interface SpeedPlan {
   version: 1;
@@ -245,9 +264,16 @@ export function normalizeSpeedPlan(raw: unknown): SpeedPlan {
     for (const [blockId, entry] of Object.entries(rawBlocks as Record<string, unknown>)) {
       if (!entry || typeof entry !== "object") continue;
       const candidate = entry as Record<string, unknown>;
+      const study = normalizeBlockStudy(candidate.study);
+      const work = normalizeBlockWork(candidate.work);
 
       if (candidate.kind === "whole" && typeof candidate.systemId === "string" && candidate.systemId.trim()) {
-        blocks[blockId] = { kind: "whole", systemId: candidate.systemId };
+        blocks[blockId] = {
+          kind: "whole",
+          systemId: candidate.systemId,
+          ...(study ? { study } : {}),
+          ...(work ? { work } : {}),
+        };
         continue;
       }
 
@@ -267,7 +293,12 @@ export function normalizeSpeedPlan(raw: unknown): SpeedPlan {
           });
         });
         if (fragments.length > 0) {
-          blocks[blockId] = { kind: "fragments", fragments };
+          blocks[blockId] = {
+            kind: "fragments",
+            fragments,
+            ...(study ? { study } : {}),
+            ...(work ? { work } : {}),
+          };
         }
       }
     }
@@ -276,12 +307,156 @@ export function normalizeSpeedPlan(raw: unknown): SpeedPlan {
   return { version: 1, blocks };
 }
 
+function normalizeBlockStudy(raw: unknown): BlockStudyPlan | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  if (typeof value.subjectId !== "string" || !value.subjectId.trim()) return undefined;
+  return {
+    subjectId: value.subjectId,
+    subjectName: typeof value.subjectName === "string" ? value.subjectName : "",
+    topicId: typeof value.topicId === "string" && value.topicId.trim() ? value.topicId : null,
+    topicTitle: typeof value.topicTitle === "string" && value.topicTitle.trim() ? value.topicTitle : null,
+  };
+}
+
+function normalizeBlockWork(raw: unknown): BlockWorkPlan | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  if (value.kind !== "emprendimiento" && value.kind !== "proyectos") return undefined;
+  if (typeof value.ownerId !== "string" || !value.ownerId.trim()) return undefined;
+  return {
+    kind: value.kind,
+    ownerId: value.ownerId,
+    ownerName: typeof value.ownerName === "string" ? value.ownerName : "",
+    itemId: typeof value.itemId === "string" && value.itemId.trim() ? value.itemId : null,
+    itemTitle: typeof value.itemTitle === "string" && value.itemTitle.trim() ? value.itemTitle : null,
+  };
+}
+
+export function getBlockStudy(plan: SpeedPlan | null | undefined, blockId: string): BlockStudyPlan | null {
+  return plan?.blocks?.[blockId]?.study ?? null;
+}
+
+export function getBlockWork(plan: SpeedPlan | null | undefined, blockId: string): BlockWorkPlan | null {
+  return plan?.blocks?.[blockId]?.work ?? null;
+}
+
+/**
+ * Guarda la asignatura/tema de un bloque. Si el bloque no tenía plan, se crea
+ * como Universidad completa; si ya tenía sistema (entero o por tramos), se
+ * conserva y solo se añade el estudio. Estudio y trabajo son excluyentes.
+ */
+export function setBlockStudy(
+  plan: SpeedPlan,
+  blockId: string,
+  study: BlockStudyPlan | null,
+): SpeedPlan {
+  const current = plan.blocks[blockId];
+
+  if (!study) {
+    if (!current?.study) return plan;
+    if (current.kind === "fragments") {
+      return {
+        ...plan,
+        blocks: {
+          ...plan.blocks,
+          [blockId]: current.work
+            ? { kind: "fragments", fragments: current.fragments, work: current.work }
+            : { kind: "fragments", fragments: current.fragments },
+        },
+      };
+    }
+    return {
+      ...plan,
+      blocks: {
+        ...plan.blocks,
+        [blockId]: current.work
+          ? { kind: "whole", systemId: current.systemId, work: current.work }
+          : { kind: "whole", systemId: current.systemId },
+      },
+    };
+  }
+
+  if (current?.kind === "fragments") {
+    return { ...plan, blocks: { ...plan.blocks, [blockId]: { kind: "fragments", fragments: current.fragments, study } } };
+  }
+
+  // Elegir asignatura convierte el bloque entero en Universidad.
+  return {
+    ...plan,
+    blocks: { ...plan.blocks, [blockId]: { kind: "whole", systemId: "universidad", study } },
+  };
+}
+
+/**
+ * Guarda el emprendimiento/proyecto (y su tarea) de un bloque. El bloque pasa
+ * a ese sistema y se descarta cualquier asignatura previa.
+ */
+export function setBlockWork(
+  plan: SpeedPlan,
+  blockId: string,
+  work: BlockWorkPlan | null,
+): SpeedPlan {
+  const current = plan.blocks[blockId];
+
+  if (!work) {
+    if (!current?.work) return plan;
+    if (current.kind === "fragments") {
+      return {
+        ...plan,
+        blocks: {
+          ...plan.blocks,
+          [blockId]: current.study
+            ? { kind: "fragments", fragments: current.fragments, study: current.study }
+            : { kind: "fragments", fragments: current.fragments },
+        },
+      };
+    }
+    return {
+      ...plan,
+      blocks: {
+        ...plan.blocks,
+        [blockId]: current.study
+          ? { kind: "whole", systemId: current.systemId, study: current.study }
+          : { kind: "whole", systemId: current.systemId },
+      },
+    };
+  }
+
+  if (current?.kind === "fragments") {
+    return { ...plan, blocks: { ...plan.blocks, [blockId]: { kind: "fragments", fragments: current.fragments, work } } };
+  }
+
+  return {
+    ...plan,
+    blocks: { ...plan.blocks, [blockId]: { kind: "whole", systemId: work.kind, work } },
+  };
+}
+
+/** Quita a la vez asignatura y emprendimiento/proyecto del bloque. */
+export function clearBlockFocus(plan: SpeedPlan, blockId: string): SpeedPlan {
+  const current = plan.blocks[blockId];
+  if (!current?.study && !current?.work) return plan;
+  const next = current.kind === "fragments"
+    ? { kind: "fragments" as const, fragments: current.fragments }
+    : { kind: "whole" as const, systemId: current.systemId };
+  return { ...plan, blocks: { ...plan.blocks, [blockId]: next } };
+}
+
+function withBlockExtras(entry: SpeedBlockPlan | undefined) {
+  return {
+    ...(entry?.study ? { study: entry.study } : {}),
+    ...(entry?.work ? { work: entry.work } : {}),
+  };
+}
+
 export function setWholeBlock(plan: SpeedPlan, blockId: string, systemId: string): SpeedPlan {
+  const entry = plan.blocks[blockId];
   return {
     ...plan,
     blocks: {
       ...plan.blocks,
-      [blockId]: { kind: "whole", systemId },
+      [blockId]: { kind: "whole", systemId, ...withBlockExtras(entry) },
     },
   };
 }
@@ -291,18 +466,26 @@ export function setFragmentBlock(
   blockId: string,
   fragments: SpeedPlanFragment[],
 ): SpeedPlan {
+  const entry = plan.blocks[blockId];
   return {
     ...plan,
     blocks: {
       ...plan.blocks,
-      [blockId]: { kind: "fragments", fragments },
+      [blockId]: { kind: "fragments", fragments, ...withBlockExtras(entry) },
     },
   };
 }
 
 export function clearBlockPlan(plan: SpeedPlan, blockId: string): SpeedPlan {
   const blocks = { ...plan.blocks };
-  delete blocks[blockId];
+  // Si el bloque tenía asignatura/tema o emprendimiento/proyecto, se conserva
+  // aunque se deshaga la velocidad: el usuario puede volver a planificarlo.
+  const entry = blocks[blockId];
+  if (entry && (entry.study || entry.work)) {
+    blocks[blockId] = { kind: "whole", systemId: "none", ...withBlockExtras(entry) };
+  } else {
+    delete blocks[blockId];
+  }
   return { ...plan, blocks };
 }
 

@@ -8,7 +8,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Clock, BookOpen, Briefcase, FolderKanban, Dumbbell, Sun, Moon, Coffee,
-  Languages, Target, Music, Book, ChevronDown, GripVertical, X, Crown, Gamepad2
+  Languages, Target, Music, Book, ChevronDown, GripVertical, X, Crown, Gamepad2,
+  GraduationCap
 } from 'lucide-react';
 import { parseTime } from '@/hooks/useRoutineBlocksDB';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
@@ -59,6 +60,8 @@ interface Props {
   readOnly?: boolean;
   /** Oculta la cabecera interna para integrar la línea de tiempo en otra tarjeta. */
   hideHeader?: boolean;
+  /** Contenido extra por bloque (p. ej. selector de asignatura/tema del estudio). */
+  renderBlockExtra?: (block: TimelineBlock) => React.ReactNode;
 }
 
 const FOCUS_OPTIONS = [
@@ -208,6 +211,7 @@ export function DailyTimelinePlanner({
   onSpeedPlanChange,
   readOnly = false,
   hideHeader = false,
+  renderBlockExtra,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -422,6 +426,8 @@ export function DailyTimelinePlanner({
           const isFullRow = Boolean(isDW || block.isFocusBlock || isBloqueExtra);
           const blockType = identifyBlockType(block.title);
           const selectedFocus = block.currentFocus || block.defaultFocus || 'none';
+          const studyInfo = speedEntry?.study ?? null;
+          const workInfo = speedEntry?.work ?? null;
 
           const todayMuscleGroups = todayWorkout?.isWorkoutDay
             ? exercises.filter(e => e.day_of_week === todayWorkout.dayName.toLowerCase()).map(e => e.muscle_group || e.name).filter(Boolean)
@@ -515,6 +521,45 @@ export function DailyTimelinePlanner({
                       </div>
                     </div>
 
+                    {/* Asignatura / tema planificados para este bloque */}
+                    {studyInfo?.subjectName && (
+                      <div className="mt-1 ml-6 flex min-w-0 items-center gap-1.5">
+                        <GraduationCap className="h-2.5 w-2.5 shrink-0 text-sky-500" />
+                        <span className="truncate text-[9px] font-medium text-sky-600 dark:text-sky-400">
+                          {studyInfo.subjectName}
+                        </span>
+                        {studyInfo.topicTitle && (
+                          <span className="truncate text-[9px] text-muted-foreground">
+                            · {studyInfo.topicTitle}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Emprendimiento / proyecto planificados para este bloque */}
+                    {workInfo?.ownerName && (
+                      <div className="mt-1 ml-6 flex min-w-0 items-center gap-1.5">
+                        {workInfo.kind === 'emprendimiento' ? (
+                          <Briefcase className="h-2.5 w-2.5 shrink-0 text-purple-500" />
+                        ) : (
+                          <FolderKanban className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
+                        )}
+                        <span className={cn(
+                          'truncate text-[9px] font-medium',
+                          workInfo.kind === 'emprendimiento'
+                            ? 'text-purple-600 dark:text-purple-400'
+                            : 'text-emerald-600 dark:text-emerald-400',
+                        )}>
+                          {workInfo.ownerName}
+                        </span>
+                        {workInfo.itemTitle && (
+                          <span className="truncate text-[9px] text-muted-foreground">
+                            · {workInfo.itemTitle}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {/* System info row */}
                     {blockType === 'gym' && todayMuscleGroups.length > 0 && (
                       <div className="mt-1 ml-6 flex items-center gap-1.5">
@@ -590,6 +635,8 @@ export function DailyTimelinePlanner({
                         compact
                       />
                     )}
+
+                    {!readOnly && renderBlockExtra?.(block)}
                   </div>
 
                   {isCurrent && (

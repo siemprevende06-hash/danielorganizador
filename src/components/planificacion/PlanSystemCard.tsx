@@ -13,6 +13,13 @@ import {
 import { ActivityTagBadge } from '@/components/systems/ActivityTagBadge';
 import { cn } from '@/lib/utils';
 
+/** Colores del enfoque planificado según el sistema. */
+const FOCUS_TONES: Record<string, { border: string; bg: string; text: string }> = {
+  universidad: { border: 'border-sky-400/40', bg: 'bg-sky-500/5', text: 'text-sky-700 dark:text-sky-300' },
+  emprendimiento: { border: 'border-purple-400/40', bg: 'bg-purple-500/5', text: 'text-purple-700 dark:text-purple-300' },
+  proyectos: { border: 'border-emerald-400/40', bg: 'bg-emerald-500/5', text: 'text-emerald-700 dark:text-emerald-300' },
+};
+
 interface PlanSystemCardProps {
   system: DaySystem;
   cover?: string | null;
@@ -28,6 +35,8 @@ interface PlanSystemCardProps {
   blocks: string[];
   /** Tareas pendientes que todavía no están en ningún bloque. */
   availableTasks: PlannerTask[];
+  /** Enfoques elegidos en los bloques del día (estudio o trabajo). */
+  focusPlans?: { blockTitle: string; emoji: string; primary: string; secondary: string | null }[];
   onAddTask: (task: PlannerTask) => void;
   onCreateTask: () => void;
   onRemoveTask: (taskId: string) => void;
@@ -45,6 +54,7 @@ export function PlanSystemCard({
   tasks,
   blocks,
   availableTasks,
+  focusPlans,
   onAddTask,
   onCreateTask,
   onRemoveTask,
@@ -61,6 +71,7 @@ export function PlanSystemCard({
       ? 100
       : 0;
   const complete = targetMinutes > 0 && plannedMinutes >= targetMinutes;
+  const focusTone = FOCUS_TONES[system.id] ?? { border: 'border-border/50', bg: 'bg-foreground/5', text: 'text-foreground' };
 
   const matchingTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -208,6 +219,29 @@ export function PlanSystemCard({
           <p className="rounded-md border border-dashed border-border/50 px-1.5 py-1.5 text-[8px] leading-tight text-muted-foreground/80">
             Sin tareas asignadas. Añade una para planificarla en un bloque.
           </p>
+        )}
+
+        {/* Enfoques planificados en los bloques del día */}
+        {focusPlans && focusPlans.length > 0 && (
+          <div className={cn('space-y-0.5 rounded-md border px-1.5 py-1', focusTone.border, focusTone.bg)}>
+            {focusPlans.map((plan, index) => (
+              <div
+                key={`${plan.blockTitle}-${index}`}
+                className="flex items-center gap-1"
+                title={`${plan.blockTitle} · ${plan.primary}${plan.secondary ? ` · ${plan.secondary}` : ''}`}
+              >
+                <span aria-hidden className="text-[9px] leading-none">{plan.emoji}</span>
+                <span className={cn('min-w-0 flex-1 truncate text-[9px] font-medium leading-tight', focusTone.text)}>
+                  {plan.primary}
+                </span>
+                {plan.secondary && (
+                  <span className="min-w-0 max-w-[55%] truncate text-[8px] leading-tight text-muted-foreground" title={plan.secondary}>
+                    {plan.secondary}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Añadir tarea dentro de la tarjeta */}
