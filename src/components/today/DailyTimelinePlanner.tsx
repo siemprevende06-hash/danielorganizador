@@ -57,6 +57,8 @@ interface Props {
   onSpeedPlanChange?: (next: SpeedPlan) => void;
   /** Solo visualización: oculta toggles, edición de foco, arrastre y borrado. */
   readOnly?: boolean;
+  /** Oculta la cabecera interna para integrar la línea de tiempo en otra tarjeta. */
+  hideHeader?: boolean;
 }
 
 const FOCUS_OPTIONS = [
@@ -205,6 +207,7 @@ export function DailyTimelinePlanner({
   speedPlan,
   onSpeedPlanChange,
   readOnly = false,
+  hideHeader = false,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -360,20 +363,22 @@ export function DailyTimelinePlanner({
 
   return (
     <Card className="p-3 md:p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            {isFutureView ? 'Mañana' : 'Hoy'}
-          </h3>
-          <p className="text-xs text-muted-foreground">{format(isFutureView ? new Date(Date.now() + 86400000) : new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p>
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              {isFutureView ? 'Mañana' : 'Hoy'}
+            </h3>
+            <p className="text-xs text-muted-foreground">{format(isFutureView ? new Date(Date.now() + 86400000) : new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p>
+          </div>
+          {!isFutureView && (
+            <Badge variant="outline" className="text-xs font-mono">
+              {format(new Date(), 'h:mm a')}
+            </Badge>
+          )}
         </div>
-        {!isFutureView && (
-          <Badge variant="outline" className="text-xs font-mono">
-            {format(new Date(), 'h:mm a')}
-          </Badge>
-        )}
-      </div>
+      )}
 
       {allDayEvents.length > 0 && (
         <div className="mb-3 space-y-1">
@@ -390,6 +395,11 @@ export function DailyTimelinePlanner({
       )}
 
       <div ref={timelineRef} data-blocks-root className="relative space-y-1">
+        {sortedBlocks.length === 0 && (
+          <p className="rounded-xl border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+            No hay bloques para esta rutina.
+          </p>
+        )}
         {sortedBlocks.map((block, index) => {
           const blockId = block.id;
           const nextBlock = sortedBlocks[index + 1];

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Lock, Pause, Play, ShieldCheck, Square } from 'lucide-react';
+import { ChevronDown, Lock, Pause, Play, ShieldCheck, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -82,6 +82,7 @@ interface FocusLockCardProps {
 export function FocusLockCard({ onComplete }: FocusLockCardProps) {
   const [lock, setLock] = useState<StoredLock>(() => readStoredLock());
   const [now, setNow] = useState(() => Date.now());
+  const [expanded, setExpanded] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState<number>(() => {
     const stored = readStoredLock();
     const minutes = Math.round(stored.durationSec / 60);
@@ -195,81 +196,48 @@ export function FocusLockCard({ onComplete }: FocusLockCardProps) {
 
   return (
     <>
-      <Card className="overflow-hidden rounded-2xl border-0 bg-zinc-950 text-white shadow-sm">
-        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-950 via-zinc-950 to-violet-950 px-4 py-3">
+      <Card className="overflow-hidden rounded-2xl border-0 bg-white/80 shadow-sm dark:bg-zinc-950/80">
+        <div className="h-1 bg-gradient-to-r from-indigo-500 to-violet-400" />
+        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-950 via-zinc-950 to-violet-950 px-3.5 py-3 text-white">
           <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-indigo-500/20 blur-2xl" />
-          <div className="relative flex items-center gap-3">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10">
-              <Lock className="h-5 w-5 text-indigo-300" />
+          <div className="relative flex items-center gap-2.5">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/10">
+              <Lock className="h-4 w-4 text-indigo-300" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <h2 className="text-sm font-bold">Bloqueo de enfoque</h2>
+                <h2 className="text-xs font-bold">Bloqueo de enfoque</h2>
                 <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-white/70">
-                  {active ? (paused ? 'En pausa' : 'Activo') : 'Sistema'}
+                  {active ? (paused ? 'En pausa' : 'Activo') : 'Listo'}
                 </span>
               </div>
-              <p className="truncate text-[10px] text-white/60">
+              <p className="truncate text-[9px] text-white/60">
                 {active
                   ? `${system?.name ?? 'Enfoque profundo'} · ${formatCountdown(remainingSec)} restantes`
-                  : 'Bloquea la app y trabaja solo en una cosa hasta que suene el temporizador.'}
+                  : `${durationMinutes} min · ${system?.name ?? 'Enfoque libre'}`}
               </p>
             </div>
-            {active && (
-              <span className="shrink-0 text-2xl font-extrabold tabular-nums tracking-tight">
+            {active ? (
+              <span className="shrink-0 text-xl font-extrabold tabular-nums tracking-tight">
                 {formatCountdown(remainingSec)}
               </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setExpanded(value => !value)}
+                aria-expanded={expanded}
+                aria-label={expanded ? 'Ocultar configuración del enfoque' : 'Configurar enfoque'}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/15 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <ChevronDown
+                  className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')}
+                />
+              </button>
             )}
           </div>
         </div>
 
-        <CardContent className="space-y-3 bg-white/80 p-3 text-foreground dark:bg-zinc-950/80">
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            <div className="space-y-1">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Sistema objetivo</p>
-              <Select
-                value={lock.systemId ?? 'none'}
-                onValueChange={value =>
-                  setLock(prev => ({ ...prev, systemId: value === 'none' ? null : value }))
-                }
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Enfoque libre" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-xs">Enfoque libre</SelectItem>
-                  {SPEED_PLAN_SYSTEMS.map(candidate => (
-                    <SelectItem key={candidate.id} value={candidate.id} className="text-xs">
-                      {planSystemEmoji(candidate.id)} {candidate.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Duración</p>
-              <div className="flex gap-1">
-                {DURATIONS.map(minutes => (
-                  <button
-                    key={minutes}
-                    type="button"
-                    onClick={() => setDurationMinutes(minutes)}
-                    disabled={active}
-                    className={cn(
-                      'rounded-lg border px-2 py-1.5 text-[10px] font-bold tabular-nums transition-colors',
-                      durationMinutes === minutes
-                        ? 'border-indigo-500 bg-indigo-500 text-white'
-                        : 'border-border/60 bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
-                      active && 'opacity-50',
-                    )}
-                  >
-                    {minutes}′
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
+        <CardContent className="bg-white/80 p-3 text-foreground dark:bg-zinc-950/80">
           {active ? (
             <div className="space-y-2">
               <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -299,16 +267,81 @@ export function FocusLockCard({ onComplete }: FocusLockCardProps) {
               </div>
             </div>
           ) : (
-            <Button
-              className="h-9 w-full rounded-full gap-1.5 bg-indigo-600 text-xs font-semibold hover:bg-indigo-500"
-              onClick={start}
-            >
-              <ShieldCheck className="h-4 w-4" /> Bloquear enfoque {durationMinutes} min
-            </Button>
+            <div className="space-y-2.5">
+              {expanded && (
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Sistema objetivo
+                    </p>
+                    <Select
+                      value={lock.systemId ?? 'none'}
+                      onValueChange={value =>
+                        setLock(prev => ({ ...prev, systemId: value === 'none' ? null : value }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Enfoque libre" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" className="text-xs">Enfoque libre</SelectItem>
+                        {SPEED_PLAN_SYSTEMS.map(candidate => (
+                          <SelectItem key={candidate.id} value={candidate.id} className="text-xs">
+                            {planSystemEmoji(candidate.id)} {candidate.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Duración
+                    </p>
+                    <div className="flex gap-1">
+                      {DURATIONS.map(minutes => (
+                        <button
+                          key={minutes}
+                          type="button"
+                          onClick={() => setDurationMinutes(minutes)}
+                          aria-pressed={durationMinutes === minutes}
+                          className={cn(
+                            'rounded-lg border px-2 py-1.5 text-[10px] font-bold tabular-nums transition-colors',
+                            durationMinutes === minutes
+                              ? 'border-indigo-500 bg-indigo-500 text-white'
+                              : 'border-border/60 bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
+                          )}
+                        >
+                          {minutes}′
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  className="h-8 flex-1 rounded-full gap-1.5 bg-indigo-600 text-[11px] font-semibold hover:bg-indigo-500"
+                  onClick={start}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" /> Bloquear {durationMinutes} min
+                </Button>
+                {!expanded && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 rounded-full px-3 text-[10px]"
+                    onClick={() => setExpanded(true)}
+                  >
+                    Ajustar
+                  </Button>
+                )}
+              </div>
+              <p className="text-center text-[8px] text-muted-foreground">
+                La capa de bloqueo cubre toda la app. Puedes pausar o detener desde aquí.
+              </p>
+            </div>
           )}
-          <p className="text-center text-[8px] text-muted-foreground">
-            La capa de bloqueo cubre toda la app. Puedes pausar o detener desde aquí.
-          </p>
         </CardContent>
       </Card>
 

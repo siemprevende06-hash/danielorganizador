@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, GripVertical, Inbox, Loader2, Moon, Plus, Search, Target, X } from 'lucide-react';
+import { ArrowRight, GripVertical, Inbox, Loader2, Moon, Plus, Search, Sun, Target, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,8 +18,12 @@ interface TaskInboxCardProps {
   onAssignSelected: () => void;
   onRemove: (taskId: string) => void;
   onDragStart: (event: React.DragEvent, taskId: string) => void;
-  /** Acceso rápido: crea una tarea y la deja seleccionada en la pestaña Mañana. */
+  /** Acceso rápido: crea una tarea y la deja seleccionada para el día activo. */
   onCreateTask?: (title: string, systemId?: string) => Promise<boolean | void> | boolean | void;
+  /** Día que se está planificando (cambia las etiquetas de la bandeja). */
+  dayMode?: 'hoy' | 'manana';
+  /** Quita la selección de todas las tareas en espera. */
+  onClearSelection?: () => void;
 }
 
 const SYSTEM_ORDER = SPEED_PLAN_SYSTEMS.map(system => system.id);
@@ -34,11 +38,16 @@ export function TaskInboxCard({
   onRemove,
   onDragStart,
   onCreateTask,
+  dayMode = 'manana',
+  onClearSelection,
 }: TaskInboxCardProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
   const [quickTitle, setQuickTitle] = useState('');
   const [quickCreating, setQuickCreating] = useState(false);
+
+  const dayLabel = dayMode === 'hoy' ? 'Hoy' : 'Mañana';
+  const DayIcon = dayMode === 'hoy' ? Sun : Moon;
 
   const stagedIds = useMemo(() => {
     const known = new Set(tasks.map(task => task.id));
@@ -57,7 +66,7 @@ export function TaskInboxCard({
     if (filter === 'manana') {
       list = list.filter(task => stagedIds.has(task.id));
     } else if (filter === 'all') {
-      // Al seleccionar una tarea se mueve a la pestaña Mañana.
+      // Al seleccionar una tarea se mueve a la pestaña del día activo.
       list = list.filter(task => !stagedIds.has(task.id));
     } else {
       list = list.filter(task => task.systemId === filter && !stagedIds.has(task.id));
@@ -102,8 +111,8 @@ export function TaskInboxCard({
           <h2 className="text-sm font-semibold">Bandeja de tareas</h2>
           <Badge variant="secondary" className="ml-auto text-[9px]">{tasks.length}</Badge>
         </div>
-        <p className="text-[9px] text-muted-foreground">
-          Selecciona tareas: pasan a la pestaña <strong>Mañana</strong> y desde ahí las arrastras a los bloques de tiempo.
+        <p className="text-[10px] text-muted-foreground">
+          Selecciona tareas: pasan a la pestaña <strong>{dayLabel}</strong> y desde ahí las arrastras a los bloques de tiempo.
         </p>
 
         {onCreateTask && (
@@ -166,7 +175,7 @@ export function TaskInboxCard({
                 : 'border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-400',
             )}
           >
-            <Moon className="h-2.5 w-2.5" /> Mañana
+            <DayIcon className="h-2.5 w-2.5" /> {dayLabel}
             {stagedIds.size > 0 && (
               <span
                 className={cn(
@@ -220,11 +229,15 @@ export function TaskInboxCard({
                     <Checkbox
                       checked={selected}
                       onCheckedChange={() => onToggleSelect(task.id)}
+                      aria-label={`Seleccionar ${task.title} para ${dayLabel}`}
                       className="h-4 w-4 shrink-0"
                     />
                   )}
                   {!assigned && (
-                    <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/40 active:cursor-grabbing" />
+                    <GripVertical
+                      className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground/40 active:cursor-grabbing"
+                      aria-hidden
+                    />
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[11px] leading-tight">{task.title}</p>
@@ -232,7 +245,7 @@ export function TaskInboxCard({
                       <span>{planSystemEmoji(task.systemId)}</span>
                       <span>{planSystemName(task.systemId)}</span>
                       {assigned && <span className="font-semibold text-emerald-600 dark:text-emerald-400">· En un bloque</span>}
-                      {!assigned && selected && <span className="font-semibold text-amber-600 dark:text-amber-400">· En Mañana</span>}
+                      {!assigned && selected && <span className="font-semibold text-amber-600 dark:text-amber-400">· En {dayLabel}</span>}
                     </p>
                   </div>
                   {assigned ? (
@@ -240,6 +253,7 @@ export function TaskInboxCard({
                       type="button"
                       onClick={() => onRemove(task.id)}
                       title="Quitar del plan"
+                      aria-label={`Quitar ${task.title} del plan`}
                       className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground/60 transition-colors hover:bg-red-500/10 hover:text-red-500"
                     >
                       <X className="h-3 w-3" />
@@ -249,6 +263,7 @@ export function TaskInboxCard({
                       type="button"
                       onClick={() => onAssign(task)}
                       title="Colocar en un bloque"
+                      aria-label={`Asignar ${task.title} a un bloque`}
                       className="flex h-5 shrink-0 items-center gap-0.5 rounded px-1 text-[8px] font-semibold text-muted-foreground transition-colors hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400"
                     >
                       <Target className="h-3 w-3" />
@@ -262,7 +277,7 @@ export function TaskInboxCard({
             <div className="rounded-xl border border-dashed border-border/60 py-6 text-center">
               <p className="text-xs text-muted-foreground">
                 {filter === 'manana'
-                  ? 'Aún no has seleccionado tareas para Mañana.'
+                  ? `Aún no has seleccionado tareas para ${dayLabel}.`
                   : 'No hay tareas con este filtro.'}
               </p>
               {filter !== 'manana' && stagedIds.size > 0 && (
@@ -271,7 +286,7 @@ export function TaskInboxCard({
                   onClick={() => setFilter('manana')}
                   className="mt-1 text-[10px] font-semibold text-amber-600 hover:underline dark:text-amber-400"
                 >
-                  Ver {stagedIds.size} en Mañana
+                  Ver {stagedIds.size} en {dayLabel}
                 </button>
               )}
             </div>
@@ -279,12 +294,25 @@ export function TaskInboxCard({
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
-          <span className="text-[9px] font-medium text-muted-foreground">
-            {selectedCount > 0 ? `${selectedCount} en Mañana` : 'Selecciona tareas para Mañana'}
-          </span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-[10px] font-medium text-muted-foreground">
+              {selectedCount > 0
+                ? `${selectedCount} seleccionada${selectedCount === 1 ? '' : 's'}`
+                : `Elige tareas para ${dayLabel}`}
+            </span>
+            {selectedCount > 0 && onClearSelection && (
+              <button
+                type="button"
+                onClick={onClearSelection}
+                className="shrink-0 text-[9px] font-semibold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
           <Button
             size="sm"
-            className="h-7 rounded-full gap-1 text-[10px]"
+            className="h-7 shrink-0 rounded-full gap-1 text-[10px]"
             disabled={selectedCount === 0}
             onClick={onAssignSelected}
           >
