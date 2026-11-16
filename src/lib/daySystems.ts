@@ -54,9 +54,30 @@ export function systemMinForSpeed(system: DaySystem, speed: SystemSpeed): number
 // Opciones de velocidad de un sistema, incluyendo "Racha" (minutos para salvar la racha) cuando aplica
 export function systemSpeedOptions(system: DaySystem): SpeedOption[] {
   if (system.streakMinutes > 0) {
-    return [...system.speedOptions, { id: "racha", label: "Racha", minutes: system.streakMinutes }];
+    return [{ id: "racha", label: "Racha", minutes: system.streakMinutes }, ...system.speedOptions];
   }
   return system.speedOptions;
+}
+
+/** Meta base de un nivel. "Avance extra" no tiene techo: su meta es el máximo. */
+export function systemTargetMinutes(system: DaySystem, speed: SystemSpeed): number {
+  const options = systemSpeedOptions(system);
+  if (speed === "extra") {
+    return options.find(option => option.id === "maximo")?.minutes ?? 0;
+  }
+  return options.find(option => option.id === speed)?.minutes ?? 0;
+}
+
+/** Etiqueta compacta del nivel con su meta (Extra se muestra como ">máx"). */
+export function systemSpeedLevelLabel(system: DaySystem, speed: SystemSpeed): string {
+  const options = systemSpeedOptions(system);
+  if (speed === "extra") {
+    const max = options.find(option => option.id === "maximo")?.minutes ?? 0;
+    return `Extra >${max}′`;
+  }
+  const option = options.find(candidate => candidate.id === speed);
+  if (!option) return "Máx";
+  return `${option.label} ${option.minutes}′`;
 }
 
 const BLOCK80: SpeedOption[] = [
@@ -222,6 +243,17 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
 export const SPEED_PLAN_SYSTEMS: DaySystem[] = DAY_SYSTEMS
   .filter(area => area.id !== "finanzas")
   .flatMap(area => area.systems);
+
+/** Sistemas personales con niveles fijos de velocidad: Racha / Mín / Máx / Extra. */
+export const PERSONAL_SPEED_SYSTEM_IDS = ["lectura", "ajedrez", "game", "idiomas", "musica", "gym"] as const;
+
+export function isPersonalSpeedSystem(systemId: string): boolean {
+  return (PERSONAL_SPEED_SYSTEM_IDS as readonly string[]).includes(systemId);
+}
+
+export const PERSONAL_SPEED_SYSTEMS: DaySystem[] = PERSONAL_SPEED_SYSTEM_IDS
+  .map(id => SPEED_PLAN_SYSTEMS.find(system => system.id === id))
+  .filter((system): system is DaySystem => Boolean(system));
 
 export function findDaySystemMeta(id: string): { area: DaySystemArea; system: DaySystem } | null {
   for (const area of DAY_SYSTEMS) {

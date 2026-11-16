@@ -23,6 +23,10 @@ export interface SpeedPlanFragment {
   end: string;
   /** Vacío = tramo sin asignar. "none" no se usa en fragmentos. */
   systemId: string;
+  /** Enfoque detallado del tramo (Universidad). */
+  study?: BlockStudyPlan;
+  /** Enfoque detallado del tramo (Emprendimiento o Proyectos). */
+  work?: BlockWorkPlan;
 }
 
 /** Asignatura y tema que se estudiarán en un bloque (Universidad). */
@@ -51,6 +55,119 @@ export type SpeedBlockPlan =
 export interface SpeedPlan {
   version: 1;
   blocks: Record<string, SpeedBlockPlan>;
+}
+
+/** Enfoque detallado de un bloque o tramo. Estudio y trabajo son excluyentes. */
+export interface BlockFocus {
+  study?: BlockStudyPlan;
+  work?: BlockWorkPlan;
+}
+
+export type BlockFocusKind = "universidad" | BlockWorkKind;
+
+/** Sistemas que admiten enfoque detallado (asignatura/tema o tarea). */
+export const PROFESSIONAL_FOCUS_SYSTEM_IDS = ["universidad", "emprendimiento", "proyectos"] as const;
+
+export type ProfessionalFocusSystemId = (typeof PROFESSIONAL_FOCUS_SYSTEM_IDS)[number];
+
+export function isProfessionalFocusSystem(systemId: string): systemId is ProfessionalFocusSystemId {
+  return (PROFESSIONAL_FOCUS_SYSTEM_IDS as readonly string[]).includes(systemId);
+}
+
+/** Tipo de enfoque que corresponde a un sistema, o null si no admite enfoque. */
+export function focusKindForSystem(systemId: string): BlockFocusKind | null {
+  if (systemId === "universidad") return "universidad";
+  if (systemId === "emprendimiento" || systemId === "proyectos") return systemId;
+  return null;
+}
+
+/** Sistema que corresponde a un tipo de enfoque. */
+export function systemForFocusKind(kind: BlockFocusKind): ProfessionalFocusSystemId {
+  return kind;
+}
+
+export function hasFocus(focus: BlockFocus | null | undefined): boolean {
+  return Boolean(focus?.study || focus?.work);
+}
+
+/** Enfoque de un bloque entero. */
+export function blockFocusOf(entry: SpeedBlockPlan | undefined): BlockFocus {
+  return {
+    ...(entry?.study ? { study: entry.study } : {}),
+    ...(entry?.work ? { work: entry.work } : {}),
+  };
+}
+
+/** Enfoque de un tramo. */
+export function fragmentFocusOf(fragment: SpeedPlanFragment | undefined): BlockFocus {
+  return {
+    ...(fragment?.study ? { study: fragment.study } : {}),
+    ...(fragment?.work ? { work: fragment.work } : {}),
+  };
+}
+
+/** Conserva solo el enfoque compatible con un sistema (estudio→Universidad, trabajo→su tipo). */
+export function focusForSystem(focus: BlockFocus, systemId: string): BlockFocus {
+  if (focus.study && systemId === "universidad") return { study: focus.study };
+  if (focus.work && focus.work.kind === systemId) return { work: focus.work };
+  return {};
+}
+
+export interface BlockFocusSummary {
+  kind: BlockFocusKind;
+  primary: string;
+  secondary: string | null;
+}
+
+/** Resumen legible del enfoque para listas, tarjetas y modo tablet. */
+export function describeBlockFocus(focus: BlockFocus): BlockFocusSummary | null {
+  if (focus.study) {
+    return {
+      kind: "universidad",
+      primary: focus.study.subjectName.trim() || "Universidad",
+      secondary: focus.study.topicTitle?.trim() || null,
+    };
+  }
+  if (focus.work) {
+    return {
+      kind: focus.work.kind,
+      primary: focus.work.ownerName.trim()
+        || (focus.work.kind === "emprendimiento" ? "Emprendimiento" : "Proyectos"),
+      secondary: focus.work.itemTitle?.trim() || null,
+    };
+  }
+  return null;
+}
+
+/** Enfoque visible de cada tramo de un bloque (o del bloque entero). */
+export interface BlockFocusSlot {
+  fragmentId: string | null;
+  start: string;
+  end: string;
+  systemId: string;
+  focus: BlockFocus;
+}
+
+export function blockFocusSlots(
+  block: SpeedBlockLike,
+  entry: SpeedBlockPlan | undefined,
+): BlockFocusSlot[] {
+  if (entry?.kind === "fragments") {
+    return entry.fragments.map(fragment => ({
+      fragmentId: fragment.id,
+      start: fragment.start,
+      end: fragment.end,
+      systemId: fragment.systemId,
+      focus: fragmentFocusOf(fragment),
+    }));
+  }
+  return [{
+    fragmentId: null,
+    start: block.startTime,
+    end: block.endTime,
+    systemId: entry?.kind === "whole" ? entry.systemId : "",
+    focus: blockFocusOf(entry),
+  }];
 }
 
 export type SpeedState = "sin-plan" | "sin-dosis" | "racha" | "minimo" | "maximo" | "extra";
@@ -285,19 +402,31 @@ export function normalizeSpeedPlan(raw: unknown): SpeedPlan {
           if (typeof f.start !== "string" || typeof f.end !== "string") return;
           if (!/^\d{1,2}:\d{2}$/.test(f.start) || !/^\d{1,2}:\d{2}$/.test(f.end)) return;
           const systemId = typeof f.systemId === "string" ? f.systemId : "";
+          const fragmentStudy = normalizeBlockStudy(f.study);
+          const fragmentWork = normalizeBlockWork(f.work);
           fragments.push({
             id: typeof f.id === "string" && f.id ? f.id : `${blockId}-f${index}`,
             start: f.start,
             end: f.end,
             systemId,
+            ...(fragmentStudy ? { study: fragmentStudy } : {}),
+            ...(fragmentWork ? { work: fragmentWork } : {}),
           });
         });
         if (fragments.length > 0) {
+          // Compatibilidad: antes el enfoque vivía en el bloque completo aunque
+          // estuviera fragmentado. Ahora se guarda en cada tramo.
           blocks[blockId] = {
             kind: "fragments",
-            fragments,
-            ...(study ? { study } : {}),
-            ...(work ? { work } : {}),
+            fragments: fragments.map(fragment => {
+              if (study && !fragment.study && fragment.systemId === "universidad") {
+                return { ...fragment, study };
+              }
+              if (work && !fragment.work && fragment.systemId === work.kind) {
+                return { ...fragment, work };
+              }
+              return fragment;
+            }),
           };
         }
       }
@@ -339,6 +468,122 @@ export function getBlockStudy(plan: SpeedPlan | null | undefined, blockId: strin
 
 export function getBlockWork(plan: SpeedPlan | null | undefined, blockId: string): BlockWorkPlan | null {
   return plan?.blocks?.[blockId]?.work ?? null;
+}
+
+export function getFragmentStudy(
+  plan: SpeedPlan | null | undefined,
+  blockId: string,
+  fragmentId: string,
+): BlockStudyPlan | null {
+  const entry = plan?.blocks?.[blockId];
+  if (entry?.kind !== "fragments") return null;
+  return entry.fragments.find(fragment => fragment.id === fragmentId)?.study ?? null;
+}
+
+export function getFragmentWork(
+  plan: SpeedPlan | null | undefined,
+  blockId: string,
+  fragmentId: string,
+): BlockWorkPlan | null {
+  const entry = plan?.blocks?.[blockId];
+  if (entry?.kind !== "fragments") return null;
+  return entry.fragments.find(fragment => fragment.id === fragmentId)?.work ?? null;
+}
+
+/** Reemplaza un tramo conservando el resto del plan del bloque. */
+function updateFragment(
+  plan: SpeedPlan,
+  blockId: string,
+  fragmentId: string,
+  update: (fragment: SpeedPlanFragment) => SpeedPlanFragment,
+): SpeedPlan {
+  const entry = plan.blocks[blockId];
+  if (entry?.kind !== "fragments") return plan;
+
+  let changed = false;
+  const fragments = entry.fragments.map(fragment => {
+    if (fragment.id !== fragmentId) return fragment;
+    const next = update(fragment);
+    if (next !== fragment) changed = true;
+    return next;
+  });
+
+  if (!changed) return plan;
+  return { ...plan, blocks: { ...plan.blocks, [blockId]: { ...entry, fragments } } };
+}
+
+/**
+ * Cambia el sistema de un tramo. Si el nuevo sistema no admite el enfoque
+ * actual (asignatura, emprendimiento o proyecto), se descarta.
+ */
+export function setFragmentSystem(
+  plan: SpeedPlan,
+  blockId: string,
+  fragmentId: string,
+  systemId: string,
+): SpeedPlan {
+  return updateFragment(plan, blockId, fragmentId, fragment => {
+    if (fragment.systemId === systemId) return fragment;
+    const next: SpeedPlanFragment = { ...fragment, systemId };
+    if (systemId !== "universidad") delete next.study;
+    if (next.work && next.work.kind !== systemId) delete next.work;
+    return next;
+  });
+}
+
+/** Guarda la asignatura/tema de un tramo; el tramo pasa a Universidad. */
+export function setFragmentStudy(
+  plan: SpeedPlan,
+  blockId: string,
+  fragmentId: string,
+  study: BlockStudyPlan | null,
+): SpeedPlan {
+  return updateFragment(plan, blockId, fragmentId, fragment => {
+    if (!study) {
+      if (!fragment.study) return fragment;
+      const next: SpeedPlanFragment = { ...fragment };
+      delete next.study;
+      return next;
+    }
+    const next: SpeedPlanFragment = { ...fragment, systemId: systemForFocusKind("universidad"), study };
+    delete next.work;
+    return next;
+  });
+}
+
+/** Guarda el emprendimiento/proyecto (y su tarea) de un tramo. */
+export function setFragmentWork(
+  plan: SpeedPlan,
+  blockId: string,
+  fragmentId: string,
+  work: BlockWorkPlan | null,
+): SpeedPlan {
+  return updateFragment(plan, blockId, fragmentId, fragment => {
+    if (!work) {
+      if (!fragment.work) return fragment;
+      const next: SpeedPlanFragment = { ...fragment };
+      delete next.work;
+      return next;
+    }
+    const next: SpeedPlanFragment = { ...fragment, systemId: systemForFocusKind(work.kind), work };
+    delete next.study;
+    return next;
+  });
+}
+
+/** Quita asignatura y emprendimiento/proyecto de un tramo. */
+export function clearFragmentFocus(
+  plan: SpeedPlan,
+  blockId: string,
+  fragmentId: string,
+): SpeedPlan {
+  return updateFragment(plan, blockId, fragmentId, fragment => {
+    if (!fragment.study && !fragment.work) return fragment;
+    const next: SpeedPlanFragment = { ...fragment };
+    delete next.study;
+    delete next.work;
+    return next;
+  });
 }
 
 /**
@@ -433,14 +678,40 @@ export function setBlockWork(
   };
 }
 
-/** Quita a la vez asignatura y emprendimiento/proyecto del bloque. */
+/** Quita a la vez asignatura y emprendimiento/proyecto del bloque y de sus tramos. */
 export function clearBlockFocus(plan: SpeedPlan, blockId: string): SpeedPlan {
   const current = plan.blocks[blockId];
-  if (!current?.study && !current?.work) return plan;
-  const next = current.kind === "fragments"
-    ? { kind: "fragments" as const, fragments: current.fragments }
-    : { kind: "whole" as const, systemId: current.systemId };
-  return { ...plan, blocks: { ...plan.blocks, [blockId]: next } };
+  if (!current) return plan;
+
+  if (current.kind === "fragments") {
+    const hasFragmentFocus = current.fragments.some(fragment => fragment.study || fragment.work);
+    if (!current.study && !current.work && !hasFragmentFocus) return plan;
+    return {
+      ...plan,
+      blocks: {
+        ...plan.blocks,
+        [blockId]: {
+          kind: "fragments",
+          fragments: current.fragments.map(fragment => {
+            if (!fragment.study && !fragment.work) return fragment;
+            const next: SpeedPlanFragment = { ...fragment };
+            delete next.study;
+            delete next.work;
+            return next;
+          }),
+        },
+      },
+    };
+  }
+
+  if (!current.study && !current.work) return plan;
+  return {
+    ...plan,
+    blocks: {
+      ...plan.blocks,
+      [blockId]: { kind: "whole", systemId: current.systemId },
+    },
+  };
 }
 
 function withBlockExtras(entry: SpeedBlockPlan | undefined) {
@@ -450,13 +721,30 @@ function withBlockExtras(entry: SpeedBlockPlan | undefined) {
   };
 }
 
+/** Primer enfoque de los tramos compatible con el sistema destino. */
+function focusFromFragments(
+  entry: Extract<SpeedBlockPlan, { kind: "fragments" }>,
+  systemId: string,
+): BlockFocus {
+  for (const fragment of entry.fragments) {
+    if (fragment.systemId !== systemId) continue;
+    if (fragment.study) return { study: fragment.study };
+    if (fragment.work) return { work: fragment.work };
+  }
+  return {};
+}
+
 export function setWholeBlock(plan: SpeedPlan, blockId: string, systemId: string): SpeedPlan {
   const entry = plan.blocks[blockId];
+  const carried = entry?.kind === "fragments"
+    ? focusFromFragments(entry, systemId)
+    : {};
+  const focus = hasFocus(carried) ? carried : focusForSystem(blockFocusOf(entry), systemId);
   return {
     ...plan,
     blocks: {
       ...plan.blocks,
-      [blockId]: { kind: "whole", systemId, ...withBlockExtras(entry) },
+      [blockId]: { kind: "whole", systemId, ...focus },
     },
   };
 }
@@ -467,11 +755,26 @@ export function setFragmentBlock(
   fragments: SpeedPlanFragment[],
 ): SpeedPlan {
   const entry = plan.blocks[blockId];
+  // Al fragmentar un bloque entero, su enfoque se reparte entre los tramos
+  // que usan el mismo sistema.
+  const isInitial = Boolean(entry && entry.kind !== "fragments");
+  const carried = isInitial ? blockFocusOf(entry) : {};
+  const nextFragments = hasFocus(carried)
+    ? fragments.map(fragment => {
+        const focus = focusForSystem(carried, fragment.systemId);
+        return hasFocus(focus) ? { ...fragment, ...focus } : fragment;
+      })
+    : fragments;
+
   return {
     ...plan,
     blocks: {
       ...plan.blocks,
-      [blockId]: { kind: "fragments", fragments, ...withBlockExtras(entry) },
+      [blockId]: {
+        kind: "fragments",
+        fragments: nextFragments,
+        ...(isInitial ? {} : withBlockExtras(entry)),
+      },
     },
   };
 }

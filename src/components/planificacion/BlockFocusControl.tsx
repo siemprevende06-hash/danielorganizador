@@ -18,13 +18,23 @@ import { toast } from "sonner";
 import {
   blockDurationMinutes,
   clearBlockFocus,
+  clearFragmentFocus,
+  focusKindForSystem,
   getBlockStudy,
   getBlockWork,
+  getFragmentStudy,
+  getFragmentWork,
+  minutesBetween,
   setBlockStudy,
   setBlockWork,
+  setFragmentStudy,
+  setFragmentWork,
+  type BlockStudyPlan,
   type BlockWorkKind,
+  type BlockWorkPlan,
   type SpeedBlockLike,
   type SpeedPlan,
+  type SpeedPlanFragment,
 } from "@/lib/speedPlan";
 import type { StudySubject, StudyTopic } from "@/hooks/useStudySubjects";
 
@@ -46,6 +56,8 @@ interface CreatedItem {
 
 interface Props {
   block: SpeedBlockLike;
+  /** Si se indica, el enfoque se guarda en ese tramo del bloque. */
+  fragment?: SpeedPlanFragment;
   plan: SpeedPlan;
   onChange: (next: SpeedPlan) => void;
   /** Universidad */
@@ -228,6 +240,7 @@ function PickerRow({
  */
 export function BlockFocusControl({
   block,
+  fragment,
   plan,
   onChange,
   subjects,
@@ -243,17 +256,40 @@ export function BlockFocusControl({
   onCreateProject,
   onCreateProjectTask,
 }: Props) {
-  const study = getBlockStudy(plan, block.id);
-  const work = getBlockWork(plan, block.id);
+  const study = fragment
+    ? getFragmentStudy(plan, block.id, fragment.id)
+    : getBlockStudy(plan, block.id);
+  const work = fragment
+    ? getFragmentWork(plan, block.id, fragment.id)
+    : getBlockWork(plan, block.id);
 
+  const entry = plan.blocks[block.id];
+  const systemId = fragment?.systemId ?? (entry?.kind === "whole" ? entry.systemId : "");
+  const systemKind = focusKindForSystem(systemId);
   const derivedKind: FocusKind | null = study
     ? "universidad"
-    : work?.kind ?? null;
+    : work?.kind ?? systemKind;
   const [kind, setKind] = useState<FocusKind>(derivedKind ?? "universidad");
 
   useEffect(() => {
     if (derivedKind) setKind(derivedKind);
   }, [derivedKind]);
+
+  const applyStudy = (next: BlockStudyPlan | null) => {
+    onChange(
+      fragment
+        ? setFragmentStudy(plan, block.id, fragment.id, next)
+        : setBlockStudy(plan, block.id, next),
+    );
+  };
+
+  const applyWork = (next: BlockWorkPlan | null) => {
+    onChange(
+      fragment
+        ? setFragmentWork(plan, block.id, fragment.id, next)
+        : setBlockWork(plan, block.id, next),
+    );
+  };
 
   const meta = KIND_META[kind];
   const KindIcon = meta.icon;
@@ -280,67 +316,67 @@ export function BlockFocusControl({
 
   const handleOwnerChange = (id: string, label?: string) => {
     if (id === "none") {
-      if (kind === "universidad") onChange(setBlockStudy(plan, block.id, null));
-      else onChange(setBlockWork(plan, block.id, null));
+      if (kind === "universidad") applyStudy(null);
+      else applyWork(null);
       return;
     }
 
     if (kind === "universidad") {
       const name = label ?? subjects.find(candidate => candidate.id === id)?.name ?? "";
-      onChange(setBlockStudy(plan, block.id, {
+      applyStudy({
         subjectId: id,
         subjectName: name,
         topicId: null,
         topicTitle: null,
-      }));
+      });
       return;
     }
 
     const name = label
       ?? (kind === "emprendimiento" ? ventures : projects).find(candidate => candidate.id === id)?.name
       ?? "";
-    onChange(setBlockWork(plan, block.id, {
+    applyWork({
       kind,
       ownerId: id,
       ownerName: name,
       itemId: null,
       itemTitle: null,
-    }));
+    });
   };
 
   const handleItemChange = (id: string, label?: string) => {
     if (kind === "universidad") {
       if (!study) return;
       if (id === "none") {
-        onChange(setBlockStudy(plan, block.id, {
+        applyStudy({
           subjectId: study.subjectId,
           subjectName: study.subjectName,
           topicId: null,
           topicTitle: null,
-        }));
+        });
         return;
       }
       const topic = subject?.topics.find(candidate => candidate.id === id);
-      onChange(setBlockStudy(plan, block.id, {
+      applyStudy({
         subjectId: study.subjectId,
         subjectName: study.subjectName,
         topicId: id,
         topicTitle: label ?? topic?.title ?? "",
-      }));
+      });
       return;
     }
 
     if (!work) return;
     if (id === "none") {
-      onChange(setBlockWork(plan, block.id, { ...work, itemId: null, itemTitle: null }));
+      applyWork({ ...work, itemId: null, itemTitle: null });
       return;
     }
     const item = (kind === "emprendimiento" ? venture : project)?.items.find(candidate => candidate.id === id);
-    onChange(setBlockWork(plan, block.id, {
+    applyWork({
       ...work,
       itemId: id,
       itemTitle: label ?? item?.title ?? "",
-    }));
+    });
   };
 
   const createOwner = async (name: string): Promise<{ id: string; label: string } | null> => {
@@ -436,15 +472,27 @@ export function BlockFocusControl({
         <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
           <Target className="h-3 w-3" /> Enfoque
         </span>
-        <Badge variant="outline" className="h-4 shrink-0 px-1 text-[8px] tabular-nums">
-          {blockDurationMinutes(block)}′
+        <Badge
+          variant="outline"
+          className="h-4 shrink-0 px-1 text-[8px] tabular-nums"
+          title={fragment
+            ? `Tramo ${fragment.start}–${fragment.end} · ${minutesBetween(fragment.start, fragment.end)}′`
+            : undefined}
+        >
+          {fragment
+            ? `${fragment.start}–${fragment.end}`
+            : `${blockDurationMinutes(block)}′`}
         </Badge>
         {hasFocus && (
           <button
             type="button"
-            onClick={() => onChange(clearBlockFocus(plan, block.id))}
+            onClick={() => onChange(
+              fragment
+                ? clearFragmentFocus(plan, block.id, fragment.id)
+                : clearBlockFocus(plan, block.id),
+            )}
             className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-destructive/10"
-            title="Quitar el enfoque del bloque"
+            title={fragment ? "Quitar el enfoque del tramo" : "Quitar el enfoque del bloque"}
           >
             <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
           </button>
@@ -482,7 +530,11 @@ export function BlockFocusControl({
 
       <p className="flex items-center gap-1 text-[8px] leading-tight text-muted-foreground">
         <KindIcon className={cn("h-2.5 w-2.5 shrink-0", meta.iconClass)} />
-        {hasFocus ? "Se guarda con el plan del día." : meta.hint}
+        {hasFocus
+          ? "Se guarda con el plan del día."
+          : fragment
+            ? "Elige la asignatura o tarea de este tramo."
+            : meta.hint}
       </p>
     </div>
   );

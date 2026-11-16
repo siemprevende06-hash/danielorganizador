@@ -14,7 +14,10 @@ import {
 } from '@/components/routine/RoutineCardsBoard';
 import {
   autoSystemForBlock,
+  blockFocusOf,
+  describeBlockFocus,
   describeSystemMinutes,
+  fragmentFocusOf,
   minutesBetween,
   parseTimeToMinutes,
 } from '@/lib/speedPlan';
@@ -569,6 +572,7 @@ export function RoutineFullscreenView({
             end: fragment.end,
             minutes: minutesBetween(fragment.start, fragment.end),
             active: current >= start && current < end,
+            focus: describeBlockFocus(fragmentFocusOf(fragment)),
           };
         });
     }
@@ -588,6 +592,7 @@ export function RoutineFullscreenView({
           displayEnd ?? selectedBlock.endTime,
         ),
         active: selectedState?.status === 'active',
+        focus: describeBlockFocus(blockFocusOf(entry)),
       },
     ];
   }, [selectedBlock, speedPlan, now, displayEnd, selectedState?.status]);
@@ -988,6 +993,16 @@ export function RoutineFullscreenView({
                     >
                       <Gauge className="h-3 w-3" />
                       {info.name}
+                      {dose.focus && (
+                        <span
+                          className="max-w-[150px] truncate text-[10px] font-medium text-white/55"
+                          title={dose.focus.secondary
+                            ? `${dose.focus.primary} · ${dose.focus.secondary}`
+                            : dose.focus.primary}
+                        >
+                          {dose.focus.primary}
+                        </span>
+                      )}
                       <span className="font-mono text-[10px] text-white/50">
                         {dose.minutes}′
                       </span>

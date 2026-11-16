@@ -7,15 +7,21 @@ import { SPEED_PLAN_SYSTEMS } from "@/lib/daySystems";
 import {
   autoSystemForBlock,
   blockDurationMinutes,
+  blockFocusOf,
   clearBlockPlan,
+  describeBlockFocus,
   describeSystemMinutes,
+  fragmentFocusOf,
+  focusForSystem,
   fragmentSlots,
   isFragmentableBlock,
   minutesBetween,
   parseTimeToMinutes,
   setFragmentBlock,
+  setFragmentSystem,
   setWholeBlock,
   showSpeedPlanControl,
+  type BlockFocus,
   type SpeedBlockLike,
   type SpeedPlan,
   type SpeedPlanFragment,
@@ -70,6 +76,20 @@ function DoseLine({ entries }: { entries: { systemId: string; minutes: number }[
   );
 }
 
+function FocusLine({ focus }: { focus: BlockFocus }) {
+  const summary = describeBlockFocus(focus);
+  if (!summary) return null;
+  return (
+    <p
+      className="truncate pl-[78px] text-[8px] leading-tight text-muted-foreground"
+      title={summary.secondary ? `${summary.primary} · ${summary.secondary}` : summary.primary}
+    >
+      <span className="font-medium text-foreground/80">{summary.primary}</span>
+      {summary.secondary ? <span> · {summary.secondary}</span> : null}
+    </p>
+  );
+}
+
 export function BlockSpeedPlanControl({ block, nextBlock, plan, onChange, compact }: Props) {
   const fragmentable = isFragmentableBlock(block);
   const entry = plan.blocks[block.id];
@@ -102,15 +122,7 @@ export function BlockSpeedPlanControl({ block, nextBlock, plan, onChange, compac
   };
 
   const updateFragment = (fragmentId: string, systemId: string) => {
-    onChange(
-      setFragmentBlock(
-        plan,
-        block.id,
-        fragments.map(fragment =>
-          fragment.id === fragmentId ? { ...fragment, systemId } : fragment,
-        ),
-      ),
-    );
+    onChange(setFragmentSystem(plan, block.id, fragmentId, systemId));
   };
 
   const addFragment = () => {
@@ -186,40 +198,46 @@ export function BlockSpeedPlanControl({ block, nextBlock, plan, onChange, compac
 
       {isFragments ? (
         <div className="space-y-1">
-          {fragments.map(fragment => (
-            <div key={fragment.id} className="flex items-center gap-1">
-              <span className="w-[74px] shrink-0 font-mono text-[9px] text-muted-foreground">
-                {fragment.start}–{fragment.end}
-              </span>
-              <Select
-                value={fragment.systemId || "none"}
-                onValueChange={value => updateFragment(fragment.id, value === "none" ? "" : value)}
-              >
-                <SelectTrigger className="h-6 flex-1 text-[10px]">
-                  <SelectValue placeholder="Sistema" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-xs">Sin asignar</SelectItem>
-                  {SPEED_PLAN_SYSTEMS.map(system => (
-                    <SelectItem key={system.id} value={system.id} className="text-xs">
-                      {system.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Badge variant="outline" className="h-4 shrink-0 px-1 text-[8px]">
-                {minutesBetween(fragment.start, fragment.end)}′
-              </Badge>
-              <button
-                type="button"
-                onClick={() => removeFragment(fragment.id)}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-destructive/10"
-                title="Quitar tramo"
-              >
-                <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-              </button>
-            </div>
-          ))}
+          {fragments.map(fragment => {
+            const focus = focusForSystem(fragmentFocusOf(fragment), fragment.systemId);
+            return (
+              <div key={fragment.id} className="space-y-0.5">
+                <div className="flex items-center gap-1">
+                  <span className="w-[74px] shrink-0 font-mono text-[9px] text-muted-foreground">
+                    {fragment.start}–{fragment.end}
+                  </span>
+                  <Select
+                    value={fragment.systemId || "none"}
+                    onValueChange={value => updateFragment(fragment.id, value === "none" ? "" : value)}
+                  >
+                    <SelectTrigger className="h-6 flex-1 text-[10px]">
+                      <SelectValue placeholder="Sistema" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="text-xs">Sin asignar</SelectItem>
+                      {SPEED_PLAN_SYSTEMS.map(system => (
+                        <SelectItem key={system.id} value={system.id} className="text-xs">
+                          {system.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Badge variant="outline" className="h-4 shrink-0 px-1 text-[8px]">
+                    {minutesBetween(fragment.start, fragment.end)}′
+                  </Badge>
+                  <button
+                    type="button"
+                    onClick={() => removeFragment(fragment.id)}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-destructive/10"
+                    title="Quitar tramo"
+                  >
+                    <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                  </button>
+                </div>
+                <FocusLine focus={focus} />
+              </div>
+            );
+          })}
 
           {fragments.length < slots.length && (
             <button
@@ -267,6 +285,9 @@ export function BlockSpeedPlanControl({ block, nextBlock, plan, onChange, compac
           )}
           {wholeValue !== "none" && (
             <DoseLine entries={[{ systemId: wholeValue, minutes: blockDurationMinutes(block) }]} />
+          )}
+          {wholeValue !== "none" && entry && (
+            <FocusLine focus={focusForSystem(blockFocusOf(entry), wholeValue)} />
           )}
         </div>
       )}

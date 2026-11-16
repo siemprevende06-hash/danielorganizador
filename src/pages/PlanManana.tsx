@@ -30,13 +30,17 @@ import { SPEED_PLAN_SYSTEMS, systemSpeedOptions, type DaySystem, type SystemSpee
 import {
   autoSystemForBlock,
   blockDurationMinutes,
+  blockFocusSlots,
   deriveSystemIntensity,
+  describeBlockFocus,
   isDeepWorkBlock,
   isExtraBlock,
   isFragmentableBlock,
+  isProfessionalFocusSystem,
   setWholeBlock,
   summarizeSpeedPlan,
   type SpeedPlan,
+  type SpeedPlanFragment,
 } from "@/lib/speedPlan";
 import {
   planSystemEmoji,
@@ -427,21 +431,16 @@ export default function PlanManana() {
     };
     for (const block of blocks) {
       const entry = speedPlan.blocks[block.id];
-      if (entry?.study?.subjectId) {
-        result.universidad.push({
-          blockTitle: block.title,
-          emoji: planSystemEmoji('universidad'),
-          primary: entry.study.subjectName || 'Asignatura',
-          secondary: entry.study.topicTitle,
-        });
-      }
-      if (entry?.work) {
-        const { kind, ownerName, itemTitle } = entry.work;
-        result[kind]?.push({
-          blockTitle: block.title,
-          emoji: planSystemEmoji(kind),
-          primary: ownerName || (kind === 'emprendimiento' ? 'Emprendimiento' : 'Proyecto'),
-          secondary: itemTitle,
+      for (const slot of blockFocusSlots(block, entry)) {
+        const summary = describeBlockFocus(slot.focus);
+        if (!summary) continue;
+        result[summary.kind]?.push({
+          blockTitle: slot.fragmentId
+            ? `${block.title} · ${slot.start}–${slot.end}`
+            : block.title,
+          emoji: planSystemEmoji(summary.kind),
+          primary: summary.primary,
+          secondary: summary.secondary,
         });
       }
     }
@@ -1279,9 +1278,11 @@ export default function PlanManana() {
   /** Selector de enfoque dentro de los Deep Work: universidad, emprendimiento o proyectos. */
   const renderBlockExtra = useCallback((block: TimelineBlock) => {
     if (!speedPlan || !isFragmentableBlock(block)) return null;
-    return (
+
+    const control = (fragment?: SpeedPlanFragment) => (
       <BlockFocusControl
         block={block}
+        fragment={fragment}
         plan={speedPlan}
         onChange={handleSpeedPlanChange}
         subjects={studySubjects}
@@ -1296,6 +1297,21 @@ export default function PlanManana() {
         onCreateProjectTask={handleCreateProjectTask}
       />
     );
+
+    const entry = speedPlan.blocks[block.id];
+    if (entry?.kind === "fragments") {
+      const focused = entry.fragments.filter(fragment => isProfessionalFocusSystem(fragment.systemId));
+      if (focused.length === 0) return null;
+      return (
+        <div className="space-y-1">
+          {focused.map(fragment => (
+            <div key={fragment.id}>{control(fragment)}</div>
+          ))}
+        </div>
+      );
+    }
+
+    return control();
   }, [
     speedPlan,
     handleSpeedPlanChange,
