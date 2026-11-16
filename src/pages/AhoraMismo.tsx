@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Clock, ArrowRight, CheckCircle2, Circle, Moon, CalendarDays, CalendarRange, Calendar, Layers, Target, Sparkles, Eye } from 'lucide-react';
+import { Clock, ArrowRight, CheckCircle2, Circle, Moon, CalendarDays, CalendarRange, Calendar, Layers, Target, Sparkles, Eye, MonitorPlay } from 'lucide-react';
 import { useRoutineBlocks, parseTime, formatTimeDisplay, ROUTINES, type RoutineBlock } from '@/hooks/useRoutineBlocks';
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
+import { useSystemCardCovers } from '@/hooks/useSystemCardCovers';
+import { RoutineFullscreenView } from '@/components/today/RoutineFullscreenView';
 import { useWeeklyObjectives } from '@/hooks/useWeeklyObjectives';
 import { useGoalProgress } from '@/hooks/useGoalProgress';
 import { getMonthGoalsSummary } from '@/lib/hierarchy';
@@ -22,12 +25,23 @@ function isInBlock(block: RoutineBlock, mins: number) {
 }
 
 export default function AhoraMismo() {
-  const { blocks, isLoaded, routineType } = useRoutineBlocks();
-  const { tasksByBlock, tasks } = useDailyPlanData();
+  const { blocks, isLoaded, routineType, routineInfo } = useRoutineBlocks();
+  const {
+    tasksByBlock,
+    tasks,
+    isBlockCompleted,
+    toggleBlockComplete,
+    toggleTaskDone,
+    planLanguage,
+    planSpeedPlan,
+  } = useDailyPlanData();
+  const { covers } = useSystemCardCovers();
   const { objectives, loading: objectivesLoading } = useWeeklyObjectives();
   const { goals, loading: goalsLoading } = useGoalProgress();
   const [now, setNow] = useState(new Date());
   const [showCascade, setShowCascade] = useState('all');
+  const [tabletMode, setTabletMode] = useState<{ blockId: string; follow: boolean } | null>(null);
+  const closeTabletMode = useCallback(() => setTabletMode(null), []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000);
@@ -48,6 +62,13 @@ export default function AhoraMismo() {
     if (currentIndex >= 0) return ordered[currentIndex + 1] || ordered[0] || null;
     return ordered.find(b => parseTime(b.startTime) > mins) || ordered[0] || null;
   }, [ordered, currentIndex, mins]);
+
+  // Abre la rutina en pantalla completa (modo tablet) en el bloque actual o el siguiente
+  const openTabletMode = () => {
+    const target = current ?? next ?? ordered[0];
+    if (!target) return;
+    setTabletMode({ blockId: target.id, follow: true });
+  };
 
   const progress = useMemo(() => {
     if (!current) return 0;
@@ -157,13 +178,31 @@ export default function AhoraMismo() {
               Rutina {routine?.label || routineType} · {routine?.icon}
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold tabular-nums">
-              {now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          <div className="flex flex-col items-end gap-2">
+            <div className="text-right">
+              <div className="text-2xl font-bold tabular-nums">
+                {now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
+              </p>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
-            </p>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5 rounded-xl px-3 text-xs font-semibold"
+              onClick={openTabletMode}
+              disabled={ordered.length === 0}
+              title={
+                ordered.length === 0
+                  ? 'No hay bloques en la rutina para abrir en modo tablet'
+                  : 'Abrir la rutina actual en pantalla completa'
+              }
+            >
+              <MonitorPlay className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Modo tablet</span>
+              <span className="sm:hidden">Tablet</span>
+            </Button>
           </div>
         </div>
 
@@ -363,6 +402,26 @@ export default function AhoraMismo() {
           Bloques y tareas de la rutina seleccionada en la página Hoy. Cada nivel superior empuja al inferior.
         </p>
       </div>
+
+      {tabletMode && (
+        <RoutineFullscreenView
+          blocks={blocks}
+          initialBlockId={tabletMode.blockId}
+          startFollowing={tabletMode.follow}
+          tasksByBlock={tasksByBlock || {}}
+          tasks={tasks}
+          covers={covers}
+          isBlockCompleted={isBlockCompleted}
+          onToggleBlock={toggleBlockComplete}
+          onToggleTask={toggleTaskDone}
+          speedPlan={planSpeedPlan ?? undefined}
+          isToday
+          selectedDateLabel={now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+          routineLabel={routineInfo.label}
+          languageChoice={planLanguage ?? undefined}
+          onClose={closeTabletMode}
+        />
+      )}
     </div>
   );
 }
