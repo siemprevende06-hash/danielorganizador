@@ -17,7 +17,7 @@ import { useWorkoutTracking } from '@/hooks/useWorkoutTracking';
 import { useReadingLibrary } from '@/hooks/useReadingLibrary';
 import { useMusicRepertoire } from '@/hooks/useMusicRepertoire';
 import { BlockSpeedPlanControl } from '@/components/today/BlockSpeedPlanControl';
-import { blockEffectiveEnd, type SpeedPlan } from '@/lib/speedPlan';
+import { blockEffectiveEnd, type SpeedPlan, type SpeedPlanFragment } from '@/lib/speedPlan';
 
 interface CalendarEvent {
   id: string;
@@ -60,8 +60,8 @@ interface Props {
   readOnly?: boolean;
   /** Oculta la cabecera interna para integrar la línea de tiempo en otra tarjeta. */
   hideHeader?: boolean;
-  /** Contenido extra por bloque (p. ej. selector de asignatura/tema del estudio). */
-  renderBlockExtra?: (block: TimelineBlock) => React.ReactNode;
+  /** Selector de enfoque por bloque o tramo (Deep Work/Focus y Bloque Extra). */
+  renderBlockFocus?: (block: TimelineBlock, fragment?: SpeedPlanFragment) => React.ReactNode;
 }
 
 const FOCUS_OPTIONS = [
@@ -211,7 +211,7 @@ export function DailyTimelinePlanner({
   onSpeedPlanChange,
   readOnly = false,
   hideHeader = false,
-  renderBlockExtra,
+  renderBlockFocus,
 }: Props) {
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -632,11 +632,10 @@ export function DailyTimelinePlanner({
                         nextBlock={nextBlock}
                         plan={speedPlan}
                         onChange={onSpeedPlanChange}
+                        renderFocus={renderBlockFocus ? fragment => renderBlockFocus(block, fragment) : undefined}
                         compact
                       />
                     )}
-
-                    {!readOnly && renderBlockExtra?.(block)}
                   </div>
 
                   {isCurrent && (

@@ -19,14 +19,13 @@ import { flattenAreas } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES, legacyModeForRoutine } from "@/hooks/useRoutineBlocks";
 import { loadDailyPlan, saveDailyPlan } from "@/lib/dailyPlanStorage";
 import { DailyTimelinePlanner, type TimelineBlock } from "@/components/today/DailyTimelinePlanner";
-import { DaySpeedSection } from "@/components/today/DaySpeedSection";
 import { useDaySpeedPlan } from "@/hooks/useDaySpeedPlan";
-import { setDayGoal, getDayGoalEffective, ALL_HIERARCHY_AREAS } from "@/lib/hierarchy";
+import { ALL_HIERARCHY_AREAS } from "@/lib/hierarchy";
 import {
   Sun, Moon, Clock, CalendarDays, CheckCircle2, CircleDot, Save, PlusCircle, Loader2, Layers,
   Briefcase, Sparkles,
 } from "lucide-react";
-import { SPEED_PLAN_SYSTEMS, systemSpeedOptions, type DaySystem, type SystemSpeed } from "@/lib/daySystems";
+import { SPEED_PLAN_SYSTEMS, systemTargetMinutes, type DaySystem, type SystemSpeed } from "@/lib/daySystems";
 import {
   autoSystemForBlock,
   blockDurationMinutes,
@@ -35,8 +34,6 @@ import {
   describeBlockFocus,
   isDeepWorkBlock,
   isExtraBlock,
-  isFragmentableBlock,
-  isProfessionalFocusSystem,
   setWholeBlock,
   summarizeSpeedPlan,
   type SpeedPlan,
@@ -53,8 +50,7 @@ import { useSystemActivityTags } from "@/hooks/useSystemActivityTags";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { PlanSystemCard } from "@/components/planificacion/PlanSystemCard";
 import { TaskInboxCard } from "@/components/planificacion/TaskInboxCard";
-import { FocusLockCard } from "@/components/planificacion/FocusLockCard";
-import { DaySettingsCard } from "@/components/planificacion/DaySettingsCard";
+import { DayGoalsCard } from "@/components/planificacion/DayGoalsCard";
 import { BlockFocusControl, type FocusOwner } from "@/components/planificacion/BlockFocusControl";
 import { useStudySubjects } from "@/hooks/useStudySubjects";
 import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
@@ -301,7 +297,6 @@ export default function PlanManana() {
 
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
-  const [goalsVersion, setGoalsVersion] = useState(0);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -326,27 +321,6 @@ export default function PlanManana() {
     changeVersionRef.current += 1;
     setDirty(true);
   }, []);
-
-  const applyDayGoal = useCallback((area: string, value: string) => {
-    const mins = Math.max(0, parseInt(value, 10) || 0);
-    setDayGoal(targetDate, area, mins);
-    setGoalsVersion(version => version + 1);
-    markDirty();
-  }, [targetDate, markDirty]);
-
-  const dayGoals = useMemo(() => {
-    const result: Record<string, number> = {};
-    ALL_HIERARCHY_AREAS.forEach(area => {
-      result[area] = getDayGoalEffective(targetDate, area);
-    });
-    return result;
-    // goalsVersion fuerza a releer las metas tras editarlas.
-  }, [targetDate, goalsVersion]);
-
-  const dayGoalSum = useMemo(
-    () => ALL_HIERARCHY_AREAS.reduce((sum, area) => sum + (dayGoals[area] || 0), 0),
-    [dayGoals],
-  );
 
   /* ------------------------------------------------------------------ */
   /* Tareas normalizadas                                                 */
@@ -421,6 +395,33 @@ export default function PlanManana() {
     () => summarizeSpeedPlan(speedPlan, blocks),
     [speedPlan, blocks],
   );
+
+  /** Minutos planificados por sistema, listos para la tarjeta de metas. */
+  const plannedMinutesBySystem = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const system of SPEED_PLAN_SYSTEMS) {
+      result[system.id] = speedSummary.bySystem[system.id]?.plannedMinutes ?? 0;
+    }
+    return result;
+  }, [speedSummary]);
+
+  /**
+   * Metas por área para Resultados: solo cuentan los sistemas con minutos
+   * planificados ese día. Idiomas se asigna al idioma elegido.
+   */
+  const dayGoals = useMemo(() => {
+    const result: Record<string, number> = {};
+    ALL_HIERARCHY_AREAS.forEach(area => { result[area] = 0; });
+
+    for (const system of SPEED_PLAN_SYSTEMS) {
+      if ((plannedMinutesBySystem[system.id] ?? 0) <= 0) continue;
+      const areaId = system.id === 'idiomas' ? languageChoice : system.id;
+      if (!ALL_HIERARCHY_AREAS.some(area => area === areaId)) continue;
+      result[areaId] = systemTargetMinutes(system, getSpeed(system.id));
+    }
+
+    return result;
+  }, [plannedMinutesBySystem, languageChoice, getSpeed]);
 
   /** Enfoques elegidos en los Deep Work: asignatura/tema, emprendimiento/tarea o proyecto/tarea. */
   const focusPlansBySystem = useMemo(() => {
@@ -620,10 +621,8 @@ export default function PlanManana() {
     for (const task of incoming) {
       const systemId = forcedSystemId ?? task.systemId;
       const system = SPEED_PLAN_SYSTEMS.find(candidate => candidate.id === systemId);
-      const selectedSpeed = (speedMap[systemId] ?? 'maximo') as SystemSpeed;
-      const speedMinutes = system
-        ? systemSpeedOptions(system).find(option => option.id === selectedSpeed)?.minutes ?? 0
-        : 0;
+      const selectedSpeed = getSpeed(systemId);
+      const speedMinutes = system ? systemTargetMinutes(system, selectedSpeed) : 0;
 
       // 0) Un bloque natural del sistema (Lectura, Idiomas, Música...).
       let target = blocks.find(block =>
@@ -691,7 +690,7 @@ export default function PlanManana() {
     }
 
     return assignedNow.length > 0;
-  }, [speedPlan, blockAssignments, blocks, speedMap, setSpeedPlan, markDirty]);
+  }, [speedPlan, blockAssignments, blocks, getSpeed, setSpeedPlan, markDirty]);
 
   const assignSelectedTasks = useCallback(() => {
     const pending = plannerTasks.filter(
@@ -1166,11 +1165,8 @@ export default function PlanManana() {
       await syncTaskDueDates(toAdd, targetStr);
       await syncTaskDueDates(toRemove, null);
 
-      // Se releen las metas al guardar para no depender de un render previo.
-      const goalsForSave: Record<string, number> = {};
-      ALL_HIERARCHY_AREAS.forEach(area => {
-        goalsForSave[area] = getDayGoalEffective(targetDate, area);
-      });
+      // Las metas por área se derivan de los sistemas con minutos planificados.
+      const goalsForSave: Record<string, number> = { ...dayGoals };
 
       // Guardar el plan de velocidad, la velocidad por sistema y su espejo de intensidad.
       const systemIntensity = deriveSystemIntensity(speedPlan, blocks);
@@ -1204,6 +1200,28 @@ export default function PlanManana() {
         }));
       if (goalRows.length > 0) {
         const { error } = await supabase.from("daily_area_stats").upsert(goalRows, { onConflict: "area_id,stat_date" });
+        if (error) throw error;
+      }
+
+      // Si un área dejó de tener minutos planificados, su meta anterior no debe
+      // seguir contando en Resultados. Se pone a 0 sin borrar el tiempo real.
+      const { data: previousGoalRows, error: previousGoalsError } = await supabase
+        .from("daily_area_stats")
+        .select("area_id")
+        .eq("stat_date", targetStr)
+        .gt("time_goal_minutes", 0);
+      if (previousGoalsError) throw previousGoalsError;
+
+      const activeGoalAreas = new Set(goalRows.map(row => row.area_id));
+      const staleGoalAreas = (previousGoalRows ?? [])
+        .map(row => row.area_id)
+        .filter(area => !activeGoalAreas.has(area));
+      if (staleGoalAreas.length > 0) {
+        const { error } = await supabase
+          .from("daily_area_stats")
+          .update({ time_goal_minutes: 0 })
+          .eq("stat_date", targetStr)
+          .in("area_id", staleGoalAreas);
         if (error) throw error;
       }
 
@@ -1275,16 +1293,17 @@ export default function PlanManana() {
     markDirty();
   }, [setSpeedPlan, markDirty]);
 
-  /** Selector de enfoque dentro de los Deep Work: universidad, emprendimiento o proyectos. */
-  const renderBlockExtra = useCallback((block: TimelineBlock) => {
-    if (!speedPlan || !isFragmentableBlock(block)) return null;
+  /** Selector de enfoque integrado en cada Deep Work, Focus y tramo del Extra. */
+  const renderBlockFocus = useCallback((block: TimelineBlock, fragment?: SpeedPlanFragment) => {
+    if (!speedPlan) return null;
 
-    const control = (fragment?: SpeedPlanFragment) => (
+    return (
       <BlockFocusControl
         block={block}
         fragment={fragment}
         plan={speedPlan}
         onChange={handleSpeedPlanChange}
+        compact
         subjects={studySubjects}
         subjectsLoading={studySubjectsLoading}
         onCreateSubject={createStudySubject}
@@ -1297,21 +1316,6 @@ export default function PlanManana() {
         onCreateProjectTask={handleCreateProjectTask}
       />
     );
-
-    const entry = speedPlan.blocks[block.id];
-    if (entry?.kind === "fragments") {
-      const focused = entry.fragments.filter(fragment => isProfessionalFocusSystem(fragment.systemId));
-      if (focused.length === 0) return null;
-      return (
-        <div className="space-y-1">
-          {focused.map(fragment => (
-            <div key={fragment.id}>{control(fragment)}</div>
-          ))}
-        </div>
-      );
-    }
-
-    return control();
   }, [
     speedPlan,
     handleSpeedPlanChange,
@@ -1558,7 +1562,7 @@ export default function PlanManana() {
                 </Badge>
               </div>
               <p className="-mt-1 text-[10px] text-muted-foreground">
-                Elige la velocidad de cada sistema y añade sus tareas: cada tarjeta las coloca en un bloque de tiempo.
+                Elige la meta de cada sistema y añade sus tareas: cada tarjeta las coloca en un bloque de tiempo.
                 Marca cada tarjeta como <span className="font-semibold text-amber-600 dark:text-amber-400">⚡ Activo</span> o{' '}
                 <span className="font-semibold text-blue-600 dark:text-blue-400">🌙 Pasivo</span> y la etiqueta aparecerá sobre su portada.
               </p>
@@ -1612,16 +1616,6 @@ export default function PlanManana() {
                   dayMode={mode}
                   onClearSelection={clearSelection}
                 />
-
-                <FocusLockCard
-                  onComplete={systemId =>
-                    toast.success(
-                      systemId
-                        ? `Enfoque completado: ${planSystemName(systemId)}`
-                        : 'Bloqueo de enfoque completado',
-                    )
-                  }
-                />
               </div>
 
               <div className="space-y-4">
@@ -1635,8 +1629,9 @@ export default function PlanManana() {
                     </Badge>
                   </div>
                   <p className="mb-1.5 px-0.5 text-[9px] leading-tight text-muted-foreground">
-                    En cada <span className="font-semibold text-sky-600 dark:text-sky-400">Deep Work</span> elige qué
-                    vas a hacer: asignatura y tema, emprendimiento y tarea, o proyecto y tarea. Se guarda con el plan del día.
+                    En cada <span className="font-semibold text-sky-600 dark:text-sky-400">Deep Work</span> o{' '}
+                    <span className="font-semibold text-sky-600 dark:text-sky-400">Focus</span> elige la asignatura y el tema,
+                    el emprendimiento y su tarea, o el proyecto y su tarea. El Bloque Extra conserva su asignación por sistema.
                   </p>
                   <DailyTimelinePlanner
                     blocks={blocks}
@@ -1651,15 +1646,16 @@ export default function PlanManana() {
                     isFutureView={mode !== 'hoy'}
                     speedPlan={speedPlan}
                     onSpeedPlanChange={handleSpeedPlanChange}
-                    renderBlockExtra={renderBlockExtra}
+                    renderBlockFocus={renderBlockFocus}
                     hideHeader
                   />
                 </div>
 
-                <DaySettingsCard
-                  dayGoals={dayGoals}
-                  dayGoalSum={dayGoalSum}
-                  onGoalChange={applyDayGoal}
+                <DayGoalsCard
+                  systems={SPEED_PLAN_SYSTEMS}
+                  getSpeed={getSpeed}
+                  onSpeedChange={handleSystemSpeedChange}
+                  plannedBySystem={plannedMinutesBySystem}
                   languageChoice={languageChoice}
                   onLanguageChange={handleLanguageChange}
                   musicInstrument={musicInstrument}
@@ -1668,8 +1664,6 @@ export default function PlanManana() {
               </div>
             </div>
 
-            {/* Velocidad calculada desde bloques y fragmentos */}
-            <DaySpeedSection speedPlan={speedPlan} blocks={blocks} collapsible defaultOpen={false} />
           </>
         )}
 

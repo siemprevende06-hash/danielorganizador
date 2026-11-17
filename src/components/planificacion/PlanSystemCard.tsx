@@ -3,7 +3,7 @@ import { Plus, Search, Target, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getCoverGradient } from '@/components/areas/AreaCover';
-import { systemSpeedOptions, type DaySystem, type SystemSpeed } from '@/lib/daySystems';
+import { systemSpeedLevelLabel, systemSpeedOptions, systemTargetMinutes, type DaySystem, type SystemSpeed } from '@/lib/daySystems';
 import type { PlannerTask } from '@/lib/planMananaTasks';
 import type { PlanObjective, PlanObjectiveKind } from '@/lib/planObjectives';
 import {
@@ -77,13 +77,16 @@ export function PlanSystemCard({
 
   const options = useMemo(() => systemSpeedOptions(system), [system]);
   const selected = options.find(option => option.id === speed) ?? options[0];
-  const targetMinutes = selected?.minutes ?? 0;
+  const targetMinutes = systemTargetMinutes(system, speed);
+  const targetLabel = systemSpeedLevelLabel(system, speed);
   const pct = targetMinutes > 0
     ? Math.min(100, Math.round((plannedMinutes / targetMinutes) * 100))
     : plannedMinutes > 0
       ? 100
       : 0;
-  const complete = targetMinutes > 0 && plannedMinutes >= targetMinutes;
+  const complete = targetMinutes > 0 && (
+    speed === 'extra' ? plannedMinutes > targetMinutes : plannedMinutes >= targetMinutes
+  );
   const focusTone = FOCUS_TONES[system.id] ?? { border: 'border-border/50', bg: 'bg-foreground/5', text: 'text-foreground' };
 
   const matchingTasks = useMemo(() => {
@@ -117,7 +120,7 @@ export function PlanSystemCard({
             'absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-white backdrop-blur-sm',
             complete ? 'bg-emerald-600/80' : 'bg-black/45',
           )}
-          title={`${plannedMinutes} min planificados · meta ${targetMinutes} min`}
+          title={`${plannedMinutes} min planificados · meta ${targetLabel}`}
         >
           {plannedMinutes > 0 ? `${plannedMinutes}′` : '0′'}
         </span>
@@ -178,7 +181,7 @@ export function PlanSystemCard({
               key={option.id}
               type="button"
               onClick={() => onSpeedChange(option.id)}
-              title={`${option.label} · ${option.minutes} min`}
+              title={systemSpeedLevelLabel(system, option.id)}
               className={cn(
                 'rounded-md border px-1.5 py-0.5 text-[8px] font-bold tabular-nums transition-colors',
                 speed === option.id
@@ -186,7 +189,7 @@ export function PlanSystemCard({
                   : 'border-border/50 bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
               )}
             >
-              {option.label} {option.minutes}′
+              {systemSpeedLevelLabel(system, option.id)}
             </button>
           ))}
         </div>
@@ -201,7 +204,7 @@ export function PlanSystemCard({
           />
         </div>
         <div className="flex items-center justify-between text-[8px] text-muted-foreground">
-          <span className="tabular-nums">{plannedMinutes} / {targetMinutes} min</span>
+          <span className="tabular-nums">{plannedMinutes}′ / {targetLabel}</span>
           <span className="tabular-nums">{tasks.length} tarea{tasks.length === 1 ? '' : 's'}</span>
         </div>
 

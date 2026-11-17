@@ -228,8 +228,17 @@ export function blockDurationMinutes(block: SpeedBlockLike): number {
 }
 
 export function isDeepWorkBlock(block: SpeedBlockLike): boolean {
-  const title = block.title.toLowerCase();
-  return title.includes("deep work") || (block.id.includes("deep") && title.includes("bloque"));
+  // El Bloque Extra puede reutilizar `isFocusBlock` en algunos modos de rutina,
+  // así que se excluye antes de tratar Focus como Deep Work.
+  if (isExtraBlock(block)) return false;
+  const title = block.title.toLowerCase().trim();
+  return (
+    block.isFocusBlock === true ||
+    title.includes("deep work") ||
+    (block.id.includes("deep") && title.includes("bloque")) ||
+    title === "focus" ||
+    title.startsWith("focus ")
+  );
 }
 
 export function isExtraBlock(block: SpeedBlockLike): boolean {
@@ -297,18 +306,13 @@ export function autoSystemForBlock(block: SpeedBlockLike): string | null {
   return null;
 }
 
-/** Bloques donde tiene sentido mostrar el control de velocidad. */
+/**
+ * Solo Deep Work, Focus y Bloque Extra muestran control de planificación.
+ * Los bloques acumulativos (Gym, Lectura, Idiomas, Música, Almuerzo, Ocio...)
+ * se rigen por su título y no se asignan a mano.
+ */
 export function showSpeedPlanControl(block: SpeedBlockLike): boolean {
-  if (isFragmentableBlock(block)) return true;
-  if (block.isFocusBlock) return true;
-  if (naturalSystemForBlock(block)) return true;
-  const title = block.title.toLowerCase();
-  return (
-    title.includes("ocio") ||
-    title.includes("entretenimiento") ||
-    title.includes("almuerzo") ||
-    title.includes("video")
-  );
+  return isDeepWorkBlock(block) || isExtraBlock(block);
 }
 
 /**
@@ -783,9 +787,11 @@ export function clearBlockPlan(plan: SpeedPlan, blockId: string): SpeedPlan {
   const blocks = { ...plan.blocks };
   // Si el bloque tenía asignatura/tema o emprendimiento/proyecto, se conserva
   // aunque se deshaga la velocidad: el usuario puede volver a planificarlo.
+  // El sistema se deriva del enfoque para que sus minutos sigan contando.
   const entry = blocks[blockId];
   if (entry && (entry.study || entry.work)) {
-    blocks[blockId] = { kind: "whole", systemId: "none", ...withBlockExtras(entry) };
+    const systemId = entry.study ? "universidad" : entry.work!.kind;
+    blocks[blockId] = { kind: "whole", systemId, ...withBlockExtras(entry) };
   } else {
     delete blocks[blockId];
   }

@@ -80,28 +80,32 @@ export function systemSpeedLevelLabel(system: DaySystem, speed: SystemSpeed): st
   return `${option.label} ${option.minutes}′`;
 }
 
+/**
+ * Niveles fijos de los sistemas profesionales.
+ * "Extra" no tiene un objetivo propio: empieza por encima del máximo.
+ */
 const BLOCK80: SpeedOption[] = [
   { id: "minimo", label: "Mín", minutes: 80 },
   { id: "maximo", label: "Máx", minutes: 240 },
-  { id: "extra", label: "Extra", minutes: 300 },
+  { id: "extra", label: "Extra", minutes: 240 },
 ];
 
 const HOBBY_LARGE: SpeedOption[] = [
   { id: "minimo", label: "Mín", minutes: 15 },
   { id: "maximo", label: "Máx", minutes: 30 },
-  { id: "extra", label: "Extra", minutes: 60 },
+  { id: "extra", label: "Extra", minutes: 30 },
 ];
 
 const HOBBY_SMALL: SpeedOption[] = [
   { id: "minimo", label: "Mín", minutes: 15 },
   { id: "maximo", label: "Máx", minutes: 30 },
-  { id: "extra", label: "Extra", minutes: 60 },
+  { id: "extra", label: "Extra", minutes: 30 },
 ];
 
 const SEDUCCION_AJEDREZ: SpeedOption[] = [
   { id: "minimo", label: "Mín", minutes: 10 },
   { id: "maximo", label: "Máx", minutes: 20 },
-  { id: "extra", label: "Extra", minutes: 60 },
+  { id: "extra", label: "Extra", minutes: 20 },
 ];
 
 export const DAY_SYSTEMS: DaySystemArea[] = [
@@ -214,11 +218,10 @@ export const DAY_SYSTEMS: DaySystemArea[] = [
         id: "gym",
         name: "Gym",
         cover: { type: "sub", id: "gym" },
-        streakMinutes: 20,
+        streakMinutes: 0,
         speedOptions: [
           { id: "minimo", label: "Mín", minutes: 30 },
           { id: "maximo", label: "Máx", minutes: 60 },
-          { id: "extra", label: "Extra", minutes: 90 },
         ],
       },
     ],

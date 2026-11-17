@@ -28,7 +28,9 @@ import {
   setBlockStudy,
   setBlockWork,
   setFragmentStudy,
+  setFragmentSystem,
   setFragmentWork,
+  setWholeBlock,
   type BlockStudyPlan,
   type BlockWorkKind,
   type BlockWorkPlan,
@@ -60,6 +62,10 @@ interface Props {
   fragment?: SpeedPlanFragment;
   plan: SpeedPlan;
   onChange: (next: SpeedPlan) => void;
+  /** Versión compacta para integrarse dentro del control del bloque. */
+  compact?: boolean;
+  /** En Deep Work/Focus el sistema se deduce del enfoque: al quitarlo se limpia. */
+  clearSystem?: boolean;
   /** Universidad */
   subjects: StudySubject[];
   subjectsLoading?: boolean;
@@ -243,6 +249,8 @@ export function BlockFocusControl({
   fragment,
   plan,
   onChange,
+  compact = false,
+  clearSystem = false,
   subjects,
   subjectsLoading = false,
   onCreateSubject,
@@ -313,6 +321,18 @@ export function BlockFocusControl({
     : ((kind === "emprendimiento" ? venture : project)?.items ?? []).map(item => ({ id: item.id, label: item.title }));
 
   const hasFocus = Boolean(study || work);
+
+  const handleClearFocus = () => {
+    let next = fragment
+      ? clearFragmentFocus(plan, block.id, fragment.id)
+      : clearBlockFocus(plan, block.id);
+    if (clearSystem) {
+      next = fragment
+        ? setFragmentSystem(next, block.id, fragment.id, "")
+        : setWholeBlock(next, block.id, "none");
+    }
+    onChange(next);
+  };
 
   const handleOwnerChange = (id: string, label?: string) => {
     if (id === "none") {
@@ -466,39 +486,8 @@ export function BlockFocusControl({
     );
   }
 
-  return (
-    <div className={cn("mt-1.5 space-y-1 rounded-xl border border-dashed p-1.5", panelClass)}>
-      <div className="flex items-center gap-1.5">
-        <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <Target className="h-3 w-3" /> Enfoque
-        </span>
-        <Badge
-          variant="outline"
-          className="h-4 shrink-0 px-1 text-[8px] tabular-nums"
-          title={fragment
-            ? `Tramo ${fragment.start}–${fragment.end} · ${minutesBetween(fragment.start, fragment.end)}′`
-            : undefined}
-        >
-          {fragment
-            ? `${fragment.start}–${fragment.end}`
-            : `${blockDurationMinutes(block)}′`}
-        </Badge>
-        {hasFocus && (
-          <button
-            type="button"
-            onClick={() => onChange(
-              fragment
-                ? clearFragmentFocus(plan, block.id, fragment.id)
-                : clearBlockFocus(plan, block.id),
-            )}
-            className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-destructive/10"
-            title={fragment ? "Quitar el enfoque del tramo" : "Quitar el enfoque del bloque"}
-          >
-            <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-          </button>
-        )}
-      </div>
-
+  const picker = (
+    <>
       <div className="flex gap-0.5 rounded-lg bg-muted p-0.5" role="tablist" aria-label="Tipo de enfoque">
         {KIND_ORDER.map(option => {
           const optionMeta = KIND_META[option];
@@ -527,6 +516,42 @@ export function BlockFocusControl({
       <div key={kind} className="space-y-1">
         {body}
       </div>
+    </>
+  );
+
+  // Dentro del control del bloque la cabecera y el borde los pone el padre.
+  if (compact) return <div className="space-y-1">{picker}</div>;
+
+  return (
+    <div className={cn("mt-1.5 space-y-1 rounded-xl border border-dashed p-1.5", panelClass)}>
+      <div className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <Target className="h-3 w-3" /> Enfoque
+        </span>
+        <Badge
+          variant="outline"
+          className="h-4 shrink-0 px-1 text-[8px] tabular-nums"
+          title={fragment
+            ? `Tramo ${fragment.start}–${fragment.end} · ${minutesBetween(fragment.start, fragment.end)}′`
+            : undefined}
+        >
+          {fragment
+            ? `${fragment.start}–${fragment.end}`
+            : `${blockDurationMinutes(block)}′`}
+        </Badge>
+        {hasFocus && (
+          <button
+            type="button"
+            onClick={handleClearFocus}
+            className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-destructive/10"
+            title={fragment ? "Quitar el enfoque del tramo" : "Quitar el enfoque del bloque"}
+          >
+            <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+          </button>
+        )}
+      </div>
+
+      {picker}
 
       <p className="flex items-center gap-1 text-[8px] leading-tight text-muted-foreground">
         <KindIcon className={cn("h-2.5 w-2.5 shrink-0", meta.iconClass)} />
