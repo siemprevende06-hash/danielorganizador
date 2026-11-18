@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { normalizarTexto } from '@/lib/speakingMetrics';
 
 interface SpeechRecognitionAlternativeLike {
   transcript: string;
@@ -54,21 +55,19 @@ const getSpeechRecognition = (): SpeechRecognitionConstructor | undefined => {
 
 interface Options {
   lang: string;
-  /** Transcripción final completa al terminar la escucha (manual o por silencio). */
-  onFinal?: (text: string) => void;
+  /**
+   * Transcripción final completa al terminar la escucha (manual o por silencio).
+   * `confidence` es la media de las alternativas finales (0 si el navegador no
+   * la expone, como hace Chrome en muchos casos).
+   */
+  onFinal?: (text: string, meta: { confidence: number }) => void;
   /** Códigos de error relevantes: 'not-allowed', 'network', 'silencio'... */
   onError?: (code: string) => void;
+  /** El usuario soltó el micro sin decir nada: la UI puede avisar. */
+  onEmpty?: () => void;
 }
 
-/** Texto comparable: sin mayúsculas, tildes ni puntuación. */
-const normalizar = (texto: string) =>
-  texto
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+const normalizar = normalizarTexto;
 
 /**
  * Une los fragmentos finales evitando los solapamientos que produce Chrome:
@@ -167,17 +166,19 @@ const STOP_FALLBACK_MS = 1400;
  * que "hello hello hello" se entrega como "hello". `onFinal` se entrega como
  * máximo una vez por sesión de escucha.
  */
-export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
+export function useSpeechRecognition({ lang, onFinal, onError, onEmpty }: Options) {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState('');
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const finalsRef = useRef<Map<number, string>>(new Map());
+  const confidencesRef = useRef<number[]>([]);
   const sessionRef = useRef(0);
   const finalizedRef = useRef(false);
   const abortedRef = useRef(false);
   const langRef = useRef(lang);
   const onFinalRef = useRef(onFinal);
   const onErrorRef = useRef(onError);
+  const onEmptyRef = useRef(onEmpty);
   const manualRef = useRef(false);
   const listeningRef = useRef(false);
   const silenciosRef = useRef(0);
@@ -187,6 +188,7 @@ export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
     langRef.current = lang;
     onFinalRef.current = onFinal;
     onErrorRef.current = onError;
+    onEmptyRef.current = onEmpty;
   });
 
   const supported = !!getSpeechRecognition();
@@ -235,6 +237,8 @@ export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
 
     const text = finalText();
     finalsRef.current.clear();
+    const confidences = confidencesRef.current;
+    confidencesRef.current = [];
     listeningRef.current = false;
     setListening(false);
     setInterim('');
@@ -256,7 +260,17 @@ export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
 
     if (text) {
       silenciosRef.current = 0;
-      onFinalRef.current?.(text);
+      const validas = confidences.filter(value => value > 0);
+      const confidence = validas.length
+        ? validas.reduce((sum, value) => sum + value, 0) / validas.length
+        : 0;
+      onFinalRef.current?.(text, { confidence });
+      return;
+    }
+
+    // El usuario soltó el micro sin decir nada: aviso explícito, sin insistir.
+    if (manualRef.current) {
+      onEmptyRef.current?.();
       return;
     }
 
@@ -291,6 +305,7 @@ export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
     manualRef.current = true;
     finalizedRef.current = true;
     finalsRef.current.clear();
+    confidencesRef.current = [];
     soltar();
   }, [soltar]);
 
@@ -308,6 +323,7 @@ export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
 
     clearStopTimer();
     finalsRef.current.clear();
+    confidencesRef.current = [];
     finalizedRef.current = false;
     abortedRef.current = false;
     manualRef.current = false;
@@ -334,6 +350,10 @@ export function useSpeechRecognition({ lang, onFinal, onError }: Options) {
             // La clave es el índice absoluto del resultado: si Chrome repite
             // el mismo final, se sobrescribe en vez de duplicarse.
             finalsRef.current.set(i, text);
+            const confidence = Number(res?.[0]?.confidence);
+            if (Number.isFinite(confidence) && confidence > 0) {
+              confidencesRef.current.push(confidence);
+            }
             silenciosRef.current = 0;
           }
         } else if (text) {

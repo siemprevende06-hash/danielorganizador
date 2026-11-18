@@ -6,6 +6,7 @@ import type { CoachVisual } from '@/components/coach/VisualCanvas';
 import { engineDesdeRespuesta, type AiEngine } from '@/components/ai/AiModelBadge';
 import type { Language } from './useLanguageLearning';
 import type { TutorSkill } from '@/components/languages/tutorModes';
+import type { StructureReview, TutorFeedback } from './useLanguageTutorCoach';
 
 // El cliente tipado de Supabase dispara TS2589 (instantiation too deep) en estas cadenas.
 const db = supabase as any;
@@ -39,6 +40,35 @@ export interface TutorMessage {
   acciones: TutorAccion[];
   /** true mientras llega el texto en streaming */
   streaming?: boolean;
+  /** Mensaje interno (arranque de escenario/estructura): no se pinta. */
+  hidden?: boolean;
+  /** Corrección y revisión de estructura persistidas en `ai_messages.visual`. */
+  meta?: TutorMessageMeta;
+  /** id real en `ai_messages` (los ids temporales cambian en cada envío). */
+  dbId?: string;
+}
+
+export interface TutorMessageMeta {
+  feedback?: TutorFeedback;
+  structureReview?: StructureReview;
+}
+
+export interface TutorConversationSnapshot {
+  conversation: {
+    id: string;
+    title: string | null;
+    scope: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  messages: Array<{
+    id: string;
+    conversation_id: string;
+    role: string;
+    content: string;
+    visual: Record<string, unknown> | null;
+    created_at?: string;
+  }>;
 }
 
 export interface TutorConversation {
@@ -128,6 +158,10 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
   const messagesRef = useRef<TutorMessage[]>([]);
   messagesRef.current = messages;
   const convRef = useRef<string | null>(null);
+  /** Cambia al abrir/crear/borrar un hilo: invalida resoluciones tardías (B9). */
+  const epochRef = useRef(0);
+  /** id temporal del mensaje → promesa con el id real en `ai_messages`. */
+  const userRowRef = useRef<Map<string, Promise<string | null>>>(new Map());
   const busyRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const canceladoRef = useRef(false);
@@ -155,12 +189,14 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     setMemories((data as TutorMemory[] | null) || []);
   }, []);
 
-  const openConversation = useCallback(async (id: string) => {
+  const openConversation = useCallback(async (id: string): Promise<TutorMessage[]> => {
     abortRef.current?.abort();
     abortRef.current = null;
     busyRef.current = false;
     setLoading(false);
     canceladoRef.current = true;
+    epochRef.current += 1;
+    userRowRef.current.clear();
     setConversationId(id);
     convRef.current = id;
     const { data } = await db
@@ -168,15 +204,30 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
       .select('id,role,content,visual')
       .eq('conversation_id', id)
       .order('created_at', { ascending: true });
-    setMessages(
-      ((data as any[]) || []).map(m => ({
+    const rows = (data as unknown as
+      | Array<{ id: string; role: string; content: string | null; visual: unknown }>
+      | null) ?? [];
+    const loaded: TutorMessage[] = rows.map(m => {
+      const visual = (m.visual && typeof m.visual === 'object' ? m.visual : {}) as Record<string, unknown>;
+      const feedback =
+        visual.feedback && typeof visual.feedback === 'object' ? (visual.feedback as TutorFeedback) : undefined;
+      const structureReview =
+        visual.structureReview && typeof visual.structureReview === 'object'
+          ? (visual.structureReview as StructureReview)
+          : undefined;
+      return {
         id: m.id,
+        dbId: m.id,
         role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
         content: m.content || '',
-        visuals: Array.isArray(m.visual?.visuals) ? m.visual.visuals : [],
-        acciones: Array.isArray(m.visual?.acciones) ? m.visual.acciones : [],
-      }))
-    );
+        visuals: Array.isArray(visual.visuals) ? (visual.visuals as CoachVisual[]) : [],
+        acciones: Array.isArray(visual.acciones) ? (visual.acciones as TutorAccion[]) : [],
+        hidden: visual.hidden === true,
+        meta: feedback || structureReview ? { feedback, structureReview } : undefined,
+      };
+    });
+    setMessages(loaded);
+    return loaded;
   }, []);
 
   const newConversation = useCallback(() => {
@@ -185,6 +236,8 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     busyRef.current = false;
     setLoading(false);
     canceladoRef.current = true;
+    epochRef.current += 1;
+    userRowRef.current.clear();
     convRef.current = null;
     setConversationId(null);
     setMessages([]);
@@ -231,6 +284,8 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     busyRef.current = false;
     setLoading(false);
     canceladoRef.current = true;
+    epochRef.current += 1;
+    userRowRef.current.clear();
     convRef.current = null;
     setConversationId(null);
     setMessages([]);
@@ -255,16 +310,83 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     setMemories(prev => prev.filter(m => m.id !== id));
   }, []);
 
-  /** Borra un hilo completo. Si era el abierto, deja el panel limpio. */
+  /** Borra un hilo completo y devuelve lo necesario para deshacerlo (B18/U8). */
   const deleteConversation = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<TutorConversationSnapshot | null> => {
+      const { data: conv } = await db
+        .from('ai_conversations')
+        .select('id,title,scope,created_at,updated_at')
+        .eq('id', id)
+        .maybeSingle();
+      const { data: rows } = await db
+        .from('ai_messages')
+        .select('id,conversation_id,role,content,visual,created_at')
+        .eq('conversation_id', id)
+        .order('created_at', { ascending: true });
+      const snapshot: TutorConversationSnapshot | null = conv
+        ? {
+            conversation: conv as TutorConversationSnapshot['conversation'],
+            messages: ((rows as TutorConversationSnapshot['messages'] | null) ?? []).map(row => ({
+              ...row,
+              visual: row.visual ?? null,
+            })),
+          }
+        : null;
+
       await db.from('ai_messages').delete().eq('conversation_id', id);
       await db.from('ai_conversations').delete().eq('id', id);
       setConversations(prev => prev.filter(c => c.id !== id));
       if (convRef.current === id) newConversation();
+      return snapshot;
     },
     [newConversation]
   );
+
+  /** Reinserta un hilo borrado con sus mensajes (acción "Deshacer"). */
+  const restoreConversation = useCallback(
+    async (snapshot: TutorConversationSnapshot) => {
+      await db.from('ai_conversations').insert(snapshot.conversation);
+      if (snapshot.messages.length) {
+        await db.from('ai_messages').insert(snapshot.messages);
+      }
+      await loadConversations();
+    },
+    [loadConversations]
+  );
+
+  const renameConversation = useCallback(async (id: string, title: string) => {
+    const limpio = title.trim().slice(0, 80);
+    if (!limpio) return;
+    setConversations(prev => prev.map(item => (item.id === id ? { ...item, title: limpio } : item)));
+    await db.from('ai_conversations').update({ title: limpio }).eq('id', id);
+  }, []);
+
+  /**
+   * Guarda la corrección y la revisión de estructura dentro del mensaje del
+   * estudiante, para que sigan ahí al recargar o abrir el hilo de ayer (B8).
+   */
+  const persistUserMeta = useCallback(async (tempId: string, meta: TutorMessageMeta) => {
+    const pending = userRowRef.current.get(tempId);
+    // Los mensajes cargados de un hilo ya traen su id real en `ai_messages`.
+    const rowId = pending ? await pending : tempId.startsWith('tmp-') ? null : tempId;
+    if (!rowId) return;
+    const { data } = await db.from('ai_messages').select('visual').eq('id', rowId).maybeSingle();
+    const previous = (data?.visual ?? {}) as Record<string, unknown>;
+    const visual = { ...previous, ...meta };
+    await db.from('ai_messages').update({ visual }).eq('id', rowId);
+    setMessages(prev => prev.map(m => (m.id === tempId ? { ...m, meta } : m)));
+  }, []);
+
+  /** Edita la transcripción de un turno (U6) y deja el feedback listo para rehacer. */
+  const editUserMessage = useCallback(async (tempId: string, content: string) => {
+    const limpio = content.trim();
+    if (!limpio) return;
+    setMessages(prev => prev.map(m => (m.id === tempId ? { ...m, content: limpio } : m)));
+    const pending = userRowRef.current.get(tempId);
+    const rowId = pending ? await pending : tempId.startsWith('tmp-') ? null : tempId;
+    if (!rowId) return;
+    await db.from('ai_messages').update({ content: limpio }).eq('id', rowId);
+  }, []);
 
   /** Corta la respuesta en curso conservando lo ya escrito. */
   const stop = useCallback(() => {
@@ -298,6 +420,7 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
             : 12
           : 16;
       const history = buildHistory(messagesRef.current, historyLimit);
+      const convEpoch = epochRef.current;
 
       setMessages(prev => [
         ...prev,
@@ -307,32 +430,47 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
         { id: assistantId, role: 'assistant' as const, content: '', visuals: [], acciones: [], streaming: true },
       ]);
 
+      /** Inserta la fila del estudiante y devuelve su id real (para B8/U6). */
+      const insertUserRow = async (conversationId: string): Promise<string | null> => {
+        const { data } = await db
+          .from('ai_messages')
+          .insert({
+            conversation_id: conversationId,
+            role: 'user',
+            content: trimmed,
+            visual: hidden ? { hidden: true } : null,
+          })
+          .select('id')
+          .single();
+        return data?.id ?? null;
+      };
+
       // La conversación se crea en paralelo: no bloquea la llamada al modelo.
       const convId = convRef.current;
       const convPromise: Promise<string | null> = (async () => {
         try {
-          if (convId) {
-            if (!hidden) {
-              fire(db.from('ai_messages').insert({ conversation_id: convId, role: 'user', content: trimmed }));
-            }
-            return convId;
-          }
+          if (convId) return convId;
           const { data, error: convErr } = await db
             .from('ai_conversations')
             .insert({ title: options?.title || trimmed.slice(0, 60), scope })
             .select('id')
             .single();
           if (convErr || !data) return null;
-          convRef.current = data.id;
-          setConversationId(data.id);
-          if (!hidden) {
-            fire(db.from('ai_messages').insert({ conversation_id: data.id, role: 'user', content: trimmed }));
+          // B9: si mientras tanto se abrió/creó otro hilo, no secuestres el panel.
+          if (epochRef.current === convEpoch) {
+            convRef.current = data.id;
+            setConversationId(data.id);
           }
           return data.id;
         } catch {
           return null;
         }
       })();
+
+      // La fila del estudiante se inserta en cuanto existe el hilo. La promesa
+      // queda disponible antes de que llegue el feedback (B8).
+      const userRowPromise = convPromise.then(id => (id ? insertUserRow(id) : null));
+      if (!hidden) userRowRef.current.set(userId, userRowPromise);
 
       const ctrl = new AbortController();
       abortRef.current = ctrl;
@@ -492,6 +630,10 @@ export function useLanguageTutor(language: Language, level: string, skill: Tutor
     openConversation,
     newConversation,
     deleteConversation,
+    restoreConversation,
+    renameConversation,
+    persistUserMeta,
+    editUserMessage,
     deleteMemory,
   };
 }

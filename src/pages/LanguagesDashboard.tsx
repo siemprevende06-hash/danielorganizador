@@ -9,6 +9,7 @@ import { useSystemsTracking } from '@/hooks/useSystemsTracking';
 import { useLanguageStudyPlan } from '@/hooks/useLanguageStudyPlan';
 import { useLanguageFocus } from '@/hooks/useLanguageFocus';
 import { useVocabulary } from '@/hooks/useVocabulary';
+import { useSpeakingSessions, type SpeakingSessionRecord } from '@/hooks/useSpeakingSessions';
 import { useToast } from '@/hooks/use-toast';
 import { getDayGoalEffective, getWeekGoalEffective } from '@/lib/hierarchy';
 import {
@@ -41,7 +42,7 @@ import {
   type SessionStep,
 } from '@/components/languages/playbook';
 import { LANGUAGE_SKILLS } from '@/components/languages/skills';
-import type { TutorRequest } from '@/components/languages/LanguageTutorPanel';
+import type { TutorErrorInput, TutorRequest } from '@/components/languages/LanguageTutorPanel';
 import { getCubaDate } from '@/lib/cubaTime';
 
 const LEGACY_SKILL: Record<LanguageSkillId, string> = {
@@ -125,6 +126,10 @@ export default function LanguagesDashboard() {
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [closeOpen, setCloseOpen] = useState(false);
   const [closedKeys, setClosedKeys] = useState<Record<string, boolean>>(readClosedKeys);
+  /** Un solo cronómetro canónico por página (B6): Speaking avisa desde aquí. */
+  const [tutorTimerRunning, setTutorTimerRunning] = useState(false);
+
+  const speaking = useSpeakingSessions(currentLanguage);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trackingRef = useRef(tracking);
@@ -352,7 +357,9 @@ export default function LanguagesDashboard() {
       title,
       nonce: requestSeq.current,
     });
-    setPracticeView('tutor');
+    // Speaking tiene su propia pestaña (U1): la sesión se abre allí, con el
+    // micro delante, no escondida dentro del tutor genérico.
+    setPracticeView(skill === 'speaking' ? 'speaking' : 'tutor');
     setActiveTab('practice');
     scrollToTabs();
   };
@@ -414,6 +421,15 @@ export default function LanguagesDashboard() {
   };
 
   const startSkillTimer = (skill: LanguageSkillId) => {
+    // B6: un solo cronómetro canónico. Si Speaking está contando, no se abre otro.
+    if (tutorTimerRunning) {
+      toast({
+        title: 'Cierra antes Speaking',
+        description: 'Su cronómetro está en marcha. Pulsa «Terminar y guardar» o pausa la sesión para usar este temporizador.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setTimerSkill(skill);
     setTimerSeconds(0);
     setTimerActive(true);
@@ -423,6 +439,14 @@ export default function LanguagesDashboard() {
   };
 
   const startSelectedTimer = () => {
+    if (tutorTimerRunning) {
+      toast({
+        title: 'Cierra antes Speaking',
+        description: 'La sesión de Speaking está contando minutos. Termínala o descártala para iniciar este temporizador.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setTimerSeconds(0);
     setTimerActive(true);
   };
@@ -649,6 +673,11 @@ export default function LanguagesDashboard() {
               request={tutorRequest}
               onRequestHandled={() => setTutorRequest(null)}
               onLogPractice={registerPractice}
+              onAddError={(input: TutorErrorInput) => {
+                addError(input);
+              }}
+              onShowProgress={() => setActiveTab('progress')}
+              onSessionComplete={(record: SpeakingSessionRecord) => speaking.addSession(record)}
               timerActive={timerActive}
               timerSeconds={timerSeconds}
               timerSkill={timerSkill}
@@ -657,6 +686,8 @@ export default function LanguagesDashboard() {
               onCompleteTimer={completeTimer}
               onCancelTimer={cancelTimer}
               formatTime={formatTime}
+              timerBusy={tutorTimerRunning}
+              onTimerStateChange={setTutorTimerRunning}
             />
           </TabsContent>
 
@@ -687,6 +718,11 @@ export default function LanguagesDashboard() {
                 weekProgress={studyPlan.weekProgress}
                 dailyGoal={dailyGoal}
                 weeklyGoal={weeklyGoal}
+                speaking={{
+                  week: speaking.weekStats,
+                  total: speaking.stats,
+                  recent: speaking.sessions.slice(0, 3),
+                }}
               />
             )}
           </TabsContent>

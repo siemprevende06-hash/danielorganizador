@@ -180,12 +180,15 @@ export interface SpeechControls {
   speakingId: string | null;
   speaking: boolean;
   isSpeaking: (id: string) => boolean;
-  speak: (id: string, text: string) => void;
+  speak: (id: string, text: string, rateOverride?: number) => void;
   /** Añade texto nuevo de una respuesta en streaming y lo va leyendo por frases. */
   speakStream: (id: string, text: string, final?: boolean) => void;
   stop: () => void;
   autoSpeak: boolean;
   setAutoSpeak: (v: boolean) => void;
+  /** Velocidad de lectura actual (0,6–1,2). */
+  rate: number;
+  setRate: (rate: number) => void;
   /** false si el sistema no tiene ninguna voz del idioma objetivo instalada */
   voiceOk: boolean;
   voices: SpeechSynthesisVoice[];
@@ -202,18 +205,29 @@ export interface SpeechControls {
  * Lectura en voz alta con la Web Speech API del navegador (sin claves ni coste).
  * `lang` debe ser un BCP-47 del idioma objetivo, ej. 'en-US' o 'it-IT'.
  */
-export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): SpeechControls {
+export function useSpeechSynthesis(lang: string, initialRate = 1, onEnd?: () => void): SpeechControls {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [supported, setSupported] = useState(true);
   const [voiceOk, setVoiceOk] = useState(true);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceURI, setVoiceURIState] = useState<string | null>(() => (isSupported() ? leerVozGuardada(lang) : null));
+  const [rate, setRateState] = useState(initialRate);
+
+  // El panel puede cambiar la velocidad (M8): se acota y se aplica a la cola.
+  const setRate = useCallback((value: number) => {
+    const next = Number.isFinite(value) ? Math.min(1.2, Math.max(0.6, value)) : 1;
+    setRateState(next);
+  }, []);
+
+  useEffect(() => {
+    setRateState(initialRate);
+  }, [initialRate]);
 
   const idRef = useRef<string | null>(null);
   const activoRef = useRef<string | null>(null);
   const sonandoRef = useRef(false);
-  const colaRef = useRef<string[]>([]);
+  const colaRef = useRef<{ text: string; rate: number }[]>([]);
   const vozRef = useRef<SpeechSynthesisVoice | null>(null);
   const streamRef = useRef<{ id: string; consumed: number }>({ id: '', consumed: 0 });
   const canceladoEnRef = useRef(0);
@@ -302,11 +316,11 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
       return;
     }
 
-    const u = new SpeechSynthesisUtterance(siguiente);
+    const u = new SpeechSynthesisUtterance(siguiente.text);
     const voz = vozRef.current;
     u.lang = (voz?.lang ?? lang).replace('_', '-');
     if (voz) u.voice = voz;
-    u.rate = rate;
+    u.rate = siguiente.rate;
     u.pitch = 1;
     u.volume = 1;
 
@@ -328,7 +342,7 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
     } catch {
       avanzar();
     }
-  }, [lang, rate]);
+  }, [lang]);
 
   // Bug de Chrome: la síntesis se para sola a los ~15 s. Un resume periódico lo evita.
   // Además se detecta una utterance descartada (cancel + speak inmediato) y se relanza.
@@ -351,8 +365,9 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
   }, [pump]);
 
   const enqueue = useCallback(
-    (id: string, trozos: string[]) => {
+    (id: string, trozos: string[], customRate?: number) => {
       if (!isSupported() || !trozos.length) return;
+      const items = trozos.map(text => ({ text, rate: customRate ?? rate }));
 
       if (activoRef.current !== id) {
         window.speechSynthesis.cancel();
@@ -362,7 +377,7 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
         activoRef.current = id;
         idRef.current = id;
         setSpeakingId(id);
-        colaRef.current.push(...trozos);
+        colaRef.current.push(...items);
         // Chrome necesita un respiro entre cancel() y speak()
         window.setTimeout(() => pump(), 140);
         return;
@@ -372,10 +387,10 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
         idRef.current = id;
         setSpeakingId(id);
       }
-      colaRef.current.push(...trozos);
+      colaRef.current.push(...items);
       pump();
     },
-    [pump]
+    [pump, rate]
   );
 
   const stop = useCallback(() => {
@@ -392,14 +407,14 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
   }, []);
 
   const speak = useCallback(
-    (id: string, text: string) => {
+    (id: string, text: string, rateOverride?: number) => {
       if (!isSupported()) return;
       // Si ya se está leyendo este mismo mensaje, no reiniciar (evita repetir frases)
       if (activoRef.current === id) return;
       const limpio = stripForSpeech(text);
       if (!limpio) return;
       streamRef.current = { id, consumed: text.length };
-      enqueue(id, dividirEnFrases(limpio));
+      enqueue(id, dividirEnFrases(limpio), rateOverride);
     },
     [enqueue]
   );
@@ -439,6 +454,8 @@ export function useSpeechSynthesis(lang: string, rate = 1, onEnd?: () => void): 
     stop,
     autoSpeak,
     setAutoSpeak,
+    rate,
+    setRate,
     voiceOk,
     voices,
     voice,

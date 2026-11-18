@@ -1,13 +1,14 @@
-import { BookOpen, MessageCircle, Timer } from 'lucide-react';
+import { BookOpen, MessageCircle, Mic, Timer } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Language } from '@/hooks/useLanguageLearning';
+import type { SpeakingSessionRecord } from '@/hooks/useSpeakingSessions';
 import { LanguagePracticeTimerCard } from './LanguagePracticeTimerCard';
 import { LanguageResourcesCard } from './LanguageResourcesCard';
-import { LanguageTutorPanel, type TutorRequest } from './LanguageTutorPanel';
+import { LanguageTutorPanel, type TutorErrorInput, type TutorRequest } from './LanguageTutorPanel';
 import VocabularyPanel from './VocabularyPanel';
 import { LANGUAGE_SKILLS, type LanguageSkillId } from './skills';
 
-export type PracticeView = 'tutor' | 'timer' | 'vocab';
+export type PracticeView = 'speaking' | 'tutor' | 'timer' | 'vocab';
 
 export function PracticePanel({
   language,
@@ -18,6 +19,9 @@ export function PracticePanel({
   request,
   onRequestHandled,
   onLogPractice,
+  onAddError,
+  onShowProgress,
+  onSessionComplete,
   timerActive,
   timerSeconds,
   timerSkill,
@@ -26,6 +30,8 @@ export function PracticePanel({
   onCompleteTimer,
   onCancelTimer,
   formatTime,
+  timerBusy,
+  onTimerStateChange,
 }: {
   language: Language;
   level: string;
@@ -41,19 +47,29 @@ export function PracticePanel({
     blockType: 'morning' | 'afternoon',
     language?: Language
   ) => Promise<void>;
+  onAddError: (input: TutorErrorInput) => Promise<void> | void;
+  onShowProgress: () => void;
+  onSessionComplete: (record: SpeakingSessionRecord) => void;
   timerActive: boolean;
   timerSeconds: number;
   timerSkill: LanguageSkillId;
-  onSelectSkill: (skill: LanguageSkillId) => void;
+  onSelectSkill: (id: LanguageSkillId) => void;
   onStartTimer: () => void;
   onCompleteTimer: () => void;
   onCancelTimer: () => void;
   formatTime: (seconds: number) => string;
+  /** Hay un cronómetro del tutor en marcha (B6). */
+  timerBusy: boolean;
+  onTimerStateChange: (running: boolean) => void;
 }) {
   return (
     <div className="space-y-3">
       <Tabs value={view} onValueChange={value => onViewChange(value as PracticeView)}>
-        <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
+        <TabsList className="grid h-auto w-full grid-cols-4 gap-1">
+          <TabsTrigger value="speaking" className="gap-1.5 text-[11px] sm:text-xs">
+            <Mic className="h-3.5 w-3.5" />
+            Hablar
+          </TabsTrigger>
           <TabsTrigger value="tutor" className="gap-1.5 text-[11px] sm:text-xs">
             <MessageCircle className="h-3.5 w-3.5" />
             Tutor IA
@@ -68,18 +84,25 @@ export function PracticePanel({
           </TabsTrigger>
         </TabsList>
 
-        {/* El tutor se queda montado: así no se corta una conversación al
-            cambiar de sub-pestaña. `active` decide si la voz y el micro viven. */}
-        <TabsContent value="tutor" forceMount className="mt-3 data-[state=inactive]:hidden">
+        {/* El tutor vive una sola vez, fuera de las pestañas: así Speaking y
+            Tutor comparten la misma conversación y cambiar de pestaña no corta
+            nada. `active` decide si la voz y el micro viven. */}
+        <div className={view === 'speaking' || view === 'tutor' ? 'mt-3' : 'mt-3 hidden'}>
           <LanguageTutorPanel
             language={language}
             level={level}
-            active={active && view === 'tutor'}
+            active={active && (view === 'speaking' || view === 'tutor')}
+            speakingFocus={view === 'speaking'}
             request={request}
             onRequestHandled={onRequestHandled}
             onLogPractice={onLogPractice}
+            onAddError={onAddError}
+            onShowProgress={onShowProgress}
+            onSessionComplete={onSessionComplete}
+            timerBusy={timerBusy}
+            onTimerStateChange={onTimerStateChange}
           />
-        </TabsContent>
+        </div>
 
         <TabsContent value="timer" className="mt-3">
           <LanguagePracticeTimerCard
@@ -92,6 +115,8 @@ export function PracticePanel({
             onComplete={onCompleteTimer}
             onCancel={onCancelTimer}
             formatTime={formatTime}
+            disabled={timerBusy && !timerActive && timerSeconds === 0}
+            disabledReason="Hay una sesión de Speaking en marcha. Termínala o pausa su cronómetro para usar este temporizador."
           />
         </TabsContent>
 

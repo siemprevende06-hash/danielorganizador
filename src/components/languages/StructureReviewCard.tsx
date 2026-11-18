@@ -45,8 +45,8 @@ export function StructureReviewCard({ review, reviewing, error }: Props) {
 
       {covered.length > 0 && (
         <ul className="mt-1.5 space-y-1">
-          {covered.map(item => (
-            <li key={item.label} className="flex items-start gap-1.5 text-[11px] leading-snug">
+          {covered.map((item, index) => (
+            <li key={`${item.label}-${item.index ?? index}`} className="flex items-start gap-1.5 text-[11px] leading-snug">
               {item.ok ? (
                 <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-success" />
               ) : (

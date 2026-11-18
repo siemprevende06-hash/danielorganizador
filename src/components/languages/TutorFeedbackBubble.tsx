@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2, Sparkles, Volume2, XCircle } from 'lucide-react';
+import { BookMarked, Check, CheckCircle2, Loader2, Mic, Sparkles, Volume2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { TutorFeedback } from '@/hooks/useLanguageTutorCoach';
@@ -10,7 +10,13 @@ interface Props {
   explaining: boolean;
   onExplain: () => void;
   onSpeakCorrection: () => void;
+  onSpeakCorrectionSlow?: () => void;
   onRetry: () => void;
+  /** Guarda el error en el cuaderno de repaso (M3). */
+  onSaveError?: () => void;
+  savedInNotebook?: boolean;
+  /** Abre el entrenador de pronunciación con la frase corregida (M6). */
+  onRepeatCorrection?: () => void;
 }
 
 export function TutorFeedbackBubble({
@@ -20,7 +26,11 @@ export function TutorFeedbackBubble({
   explaining,
   onExplain,
   onSpeakCorrection,
+  onSpeakCorrectionSlow,
   onRetry,
+  onSaveError,
+  savedInNotebook,
+  onRepeatCorrection,
 }: Props) {
   if (evaluating) {
     return (
@@ -59,6 +69,18 @@ export function TutorFeedbackBubble({
         </p>
         {feedback.explanation && <p className="mt-0.5 leading-relaxed text-muted-foreground">{feedback.explanation}</p>}
         {feedback.tip && <p className="mt-0.5 leading-relaxed text-muted-foreground">💡 {feedback.tip}</p>}
+        {onRepeatCorrection && feedback.corrected && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-1.5 h-7 gap-1 px-2 text-[11px]"
+            onClick={onRepeatCorrection}
+          >
+            <Mic className="h-3 w-3" />
+            Practicar esta frase
+          </Button>
+        )}
       </div>
     );
   }
@@ -99,8 +121,20 @@ export function TutorFeedbackBubble({
           onClick={onSpeakCorrection}
         >
           <Volume2 className="h-3 w-3" />
-          Escuchar corrección
+          Escuchar
         </Button>
+        {onSpeakCorrectionSlow && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1 px-2 text-[11px]"
+            onClick={onSpeakCorrectionSlow}
+            title="Escuchar la corrección más despacio (0,75×)"
+          >
+            0,75×
+          </Button>
+        )}
         <Button
           type="button"
           size="sm"
@@ -111,6 +145,32 @@ export function TutorFeedbackBubble({
           {explaining ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
           {explaining ? 'Explicando…' : 'Explicar más'}
         </Button>
+        {onRepeatCorrection && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 px-2 text-[11px]"
+            onClick={onRepeatCorrection}
+          >
+            <Mic className="h-3 w-3" />
+            Repetir corregida
+          </Button>
+        )}
+        {onSaveError && (
+          <Button
+            type="button"
+            size="sm"
+            variant={savedInNotebook ? 'ghost' : 'outline'}
+            className={cn('h-7 gap-1 px-2 text-[11px]', savedInNotebook && 'text-success')}
+            onClick={onSaveError}
+            disabled={savedInNotebook}
+            title="Guardar este error en el cuaderno para la cola de repaso"
+          >
+            {savedInNotebook ? <Check className="h-3 w-3" /> : <BookMarked className="h-3 w-3" />}
+            {savedInNotebook ? 'Guardado' : 'Guardar'}
+          </Button>
+        )}
       </div>
     </div>
   );

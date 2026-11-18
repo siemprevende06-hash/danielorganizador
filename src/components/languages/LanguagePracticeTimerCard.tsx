@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Check, Timer, X } from 'lucide-react';
+import { AlertCircle, Check, Timer, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LanguageSkillDef, LanguageSkillId } from './skills';
 import { toneBgClass, toneTextClass } from './skills';
@@ -16,6 +16,8 @@ export function LanguagePracticeTimerCard({
   onComplete,
   onCancel,
   formatTime,
+  disabled = false,
+  disabledReason,
 }: {
   skills: LanguageSkillDef[];
   timerActive: boolean;
@@ -26,6 +28,9 @@ export function LanguagePracticeTimerCard({
   onComplete: () => void;
   onCancel: () => void;
   formatTime: (seconds: number) => string;
+  /** Otro cronómetro (Speaking) está en marcha: no se puede iniciar este (B6). */
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const skill = skills.find(s => s.id === selectedSkill) ?? skills[0];
   const minutes = Math.floor(timerSeconds / 60);
@@ -50,6 +55,12 @@ export function LanguagePracticeTimerCard({
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        {disabled && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-snug text-amber-700 dark:text-amber-300">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>{disabledReason ?? 'Hay otra sesión en marcha con su propio cronómetro.'}</span>
+          </div>
+        )}
         <ToggleGroup
           type="single"
           value={selectedSkill}
@@ -104,9 +115,9 @@ export function LanguagePracticeTimerCard({
               </Button>
             </>
           ) : (
-            <Button onClick={onStart} size="lg" className="w-full sm:w-auto">
+            <Button onClick={onStart} size="lg" className="w-full sm:w-auto" disabled={disabled}>
               <Timer className="mr-2 h-4 w-4" />
-              Iniciar {skill?.label ?? 'práctica'}
+              {disabled ? 'Espera a cerrar la otra sesión' : `Iniciar ${skill?.label ?? 'práctica'}`}
             </Button>
           )}
         </div>

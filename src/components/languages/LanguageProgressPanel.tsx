@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Flame,
   Gauge,
+  Mic,
   Sparkles,
   TrendingDown,
   TrendingUp,
@@ -36,6 +37,7 @@ import {
   type StudyErrorEntry,
 } from '@/lib/languageStudyPlan';
 import type { LanguageHistoryDay, LanguageWeeklyDay } from '@/hooks/useLanguageWeeklyStats';
+import type { SpeakingSessionRecord, SpeakingStats } from '@/hooks/useSpeakingSessions';
 import { SKILL_CATALOG } from './playbook';
 
 interface Props {
@@ -50,6 +52,12 @@ interface Props {
   weekProgress: { done: number; total: number; percent: number };
   dailyGoal: number;
   weeklyGoal: number;
+  /** Métricas reales de Speaking guardadas en el dispositivo (M2). */
+  speaking: {
+    week: SpeakingStats & { speakingDays: number };
+    total: SpeakingStats;
+    recent: SpeakingSessionRecord[];
+  };
 }
 
 /**
@@ -70,6 +78,7 @@ export function LanguageProgressPanel({
   weekProgress,
   dailyGoal,
   weeklyGoal,
+  speaking,
 }: Props) {
   const weekMinutes = weeklyData.reduce((sum, day) => sum + day.minutes, 0);
   const activeDays = weeklyData.filter(day => day.minutes > 0 || day.skills > 0).length;
@@ -147,6 +156,119 @@ export function LanguageProgressPanel({
           hint={`dominadas de ${vocabulary.total} guardadas`}
         />
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Mic className="h-4 w-4 text-muted-foreground" />
+            Speaking: cómo hablas
+            <Badge variant="outline" className="ml-auto text-[10px]">
+              7 días
+            </Badge>
+          </CardTitle>
+          <p className="text-[11px] text-muted-foreground">
+            Turnos, ritmo y frases correctas de tus sesiones con el tutor. Los minutos viven en la fuente canónica; aquí
+            solo se mide lo que esa tabla no sabe contar.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-2.5 pt-0">
+          {speaking.week.sessions === 0 ? (
+            <p className="rounded-lg border border-dashed border-border/70 p-3 text-center text-[11px] leading-snug text-muted-foreground">
+              Aún no hay sesiones de Speaking esta semana. Entra en Practicar → Hablar, elige un escenario y ciérrala con
+              «Terminar y guardar»: el informe guarda estas métricas.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <MiniStat
+                  label="Sesiones"
+                  value={`${speaking.week.sessions}`}
+                  hint={`${speaking.week.speakingDays} día(s) con voz`}
+                />
+                <MiniStat label="Minutos" value={`${speaking.week.minutes}`} hint="en el informe" />
+                <MiniStat
+                  label="Ritmo"
+                  value={speaking.week.avgWpm > 0 ? `${speaking.week.avgWpm} ppm` : '—'}
+                  hint="palabras por minuto"
+                />
+                <MiniStat
+                  label="Correctas"
+                  value={speaking.week.avgCorrect === null ? '—' : `${speaking.week.avgCorrect}%`}
+                  hint={
+                    speaking.week.lastPct === null
+                      ? 'sin frases evaluadas'
+                      : `última sesión ${speaking.week.lastPct}%`
+                  }
+                />
+              </div>
+
+              {speaking.week.lastPct !== null && speaking.week.bestPct !== null && (
+                <p className="flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                  {speaking.week.bestPct - speaking.week.lastPct >= 10 ? (
+                    <TrendingDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                  ) : (
+                    <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                  )}
+                  <span>
+                    Mejor sesión de la semana: <strong className="tabular-nums">{speaking.week.bestPct}%</strong> de frases
+                    correctas
+                    {speaking.week.bestPct - speaking.week.lastPct >= 10
+                      ? '. La última bajó: repite mañana el mismo escenario antes de subir de nivel.'
+                      : '. Vas estable: mantén el escenario y sube turnos, no velocidad.'}
+                  </span>
+                </p>
+              )}
+
+              {speaking.recent.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Últimas sesiones
+                  </p>
+                  {speaking.recent.slice(0, 3).map(session => (
+                    <div
+                      key={session.id}
+                      className="flex items-center gap-2 rounded-lg border border-border/60 px-2 py-1 text-[11px]"
+                    >
+                      <span className="w-14 shrink-0 tabular-nums text-muted-foreground">
+                        {format(new Date(session.createdAt), 'd MMM', { locale: es })}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {SKILL_CATALOG.find(item => item.id === session.skillId)?.label ?? session.skillId}
+                        <span className="text-muted-foreground">
+                          {' '}
+                          · {session.turns} turnos · {session.words} palabras
+                        </span>
+                      </span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">
+                        {session.wpm > 0 ? `${session.wpm} ppm` : '—'}
+                      </span>
+                      <span
+                        className={cn(
+                          'w-11 shrink-0 rounded-full px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums',
+                          session.correctPct === null
+                            ? 'bg-muted text-muted-foreground'
+                            : session.correctPct >= 80
+                              ? 'bg-success/10 text-success'
+                              : session.correctPct >= 50
+                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                : 'bg-destructive/10 text-destructive'
+                        )}
+                      >
+                        {session.correctPct === null ? '—' : `${session.correctPct}%`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                Histórico en este dispositivo: {speaking.total.sessions} sesión(es) · {speaking.total.minutes} min.
+                {speaking.total.bestPct !== null && ` Mejor marca: ${speaking.total.bestPct}%.`}
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-1">
@@ -401,6 +523,16 @@ function Kpi({
       </p>
       <p className="mt-0.5 text-xl font-bold tabular-nums leading-none">{value}</p>
       <p className="mt-1 truncate text-[10px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-lg border border-border/60 px-2 py-1.5">
+      <p className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-base font-bold leading-tight tabular-nums">{value}</p>
+      <p className="truncate text-[9px] leading-tight text-muted-foreground">{hint}</p>
     </div>
   );
 }

@@ -372,12 +372,12 @@ ${contexto || "(sin historial)"}
 
 Comprueba si la respuesta cubre cada paso POR SU INTENCIÓN, no por las palabras exactas. Devuelve SOLO JSON válido, sin markdown:
 {
-  "covered": [{ "label": "label exacto del paso", "ok": true|false, "note": "comentario breve en español o vacío" }],
+  "covered": [{ "index": 1, "label": "label exacto del paso", "ok": true|false, "note": "comentario breve en español o vacío" }],
   "verdict": "valoración general en español, máximo 2 frases, cercana y concreta",
   "missing": ["pasos o ideas que faltan, en español"]
 }
 
-Reglas: incluye un objeto por cada paso, en el mismo orden y con el mismo label; no inventes pasos; si la respuesta es muy corta, dilo sin dramatizar.`;
+Reglas: incluye un objeto por cada paso, en el mismo orden, con su número (1-based) y el mismo label; no inventes pasos; si la respuesta es muy corta, dilo sin dramatizar. El texto puede venir de dictado: ignora puntuación y mayúsculas.`;
 }
 
 function promptGeneral(
@@ -1193,7 +1193,30 @@ function promptFeedback(
   nivel: string,
   mensaje: string,
   contexto: string,
+  estructura?: any,
 ) {
+  const pasos = Array.isArray(estructura?.steps)
+    ? estructura.steps
+        .map(
+          (s: any, i: number) =>
+            `${i + 1}. ${cleanText(s?.label, 80) || `Paso ${i + 1}`} — ${cleanText(s?.template, 240)}`,
+        )
+        .join("\n")
+    : "";
+  const bloqueEstructura = estructura && pasos
+    ? `
+
+REVISIÓN DE ESTRUCTURA (además del feedback):
+Daniel está practicando cómo responder a: """${cleanText(estructura?.question, 300)}"""
+Pasos que debería cubrir:
+${pasos}
+
+Marca cada paso como cubierto solo si la idea está presente, aunque use otras palabras.
+Devuelve también "review" con esta forma:
+"review":{"covered":[{"index":1,"label":"nombre del paso","ok":true|false,"note":"qué faltó o dónde lo dijo, en español"}],"verdict":"valoración breve en español","missing":["paso que falta"]}
+"index" es el número de paso (1-based) del listado anterior. No cambies el orden ni inventes pasos.`
+    : "";
+
   return `Eres un profesor de ${info.nombre} evaluando a un estudiante hispanohablante de nivel ${nivel}.
 
 Evalúa SOLO la última intervención del estudiante, no la del tutor.
@@ -1204,6 +1227,12 @@ INTERVENCIÓN DEL ESTUDIANTE:
 CONTEXTO (última frase del tutor, si existe):
 """${contexto || "(sin contexto)"}"""
 
+IMPORTANTE — EL TEXTO VIENE DE RECONOCIMIENTO DE VOZ:
+- Ignora la puntuación, las mayúsculas y las muletillas ("um", "uh", "ehm", "like").
+- Evalúa gramática, orden de palabras y elección de palabras.
+- Si una palabra parece un error de transcripción (suena parecida a la correcta), NO la penalices: evalúa lo que probablemente dijo.
+- No reescribas toda la frase por una sola palabra mal oída.
+
 CRITERIOS:
 - "correcto": no hay errores gramaticales claros y la frase se entiende y suena natural para su nivel. Si hay una mejora opcional, ponla en "tip".
 - "incorrecto": hay al menos un error de gramática, vocabulario, orden, tiempo verbal, preposición o concordancia que un nativo corregiría.
@@ -1212,9 +1241,9 @@ CRITERIOS:
 Evalúa solo la forma: no penalices el contenido, las opiniones ni las elecciones personales.
 
 Devuelve SOLO un objeto JSON válido, sin markdown, con esta forma exacta:
-{"status":"correcto"|"incorrecto"|"no_aplica","corrected":"frase completa corregida en ${info.nombre}","explanation":"explicación breve en español, máximo 2 frases, clara y concreta","tip":"mejora opcional en español o vacío"}
+{"status":"correcto"|"incorrecto"|"no_aplica","corrected":"frase completa corregida en ${info.nombre}","explanation":"explicación breve en español, máximo 2 frases, clara y concreta","tip":"mejora opcional en español o vacío"${estructura ? ',"review":{"covered":[],"verdict":"","missing":[]}' : ""}}
 
-No inventes errores. Si la frase es correcta, "corrected" debe ser igual a la intervención y "explanation" puede explicar brevemente por qué está bien.`;
+No inventes errores. Si la frase es correcta, "corrected" debe ser igual a la intervención y "explanation" puede explicar brevemente por qué está bien.${bloqueEstructura}`;
 }
 
 function promptExplain(
@@ -1266,10 +1295,46 @@ Devuelve SOLO JSON válido, sin markdown:
 // Handler
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Límite de peticiones (T1)
+//
+// La función usa service_role y no hay login en la sección de idiomas. Además
+// del `Authorization` obligatorio, se limita por IP + credencial para que la
+// anon key del bundle no permita quemar la cuota de los proveedores.
+// ---------------------------------------------------------------------------
+const LIMITE_POR_MINUTO = 30;
+const ventanasLimite = new Map<string, number[]>();
+
+function permitirPeticion(clave: string): boolean {
+  const ahora = Date.now();
+  const previas = (ventanasLimite.get(clave) ?? []).filter((t) => ahora - t < 60_000);
+  if (previas.length >= LIMITE_POR_MINUTO) {
+    ventanasLimite.set(clave, previas);
+    return false;
+  }
+  previas.push(ahora);
+  ventanasLimite.set(clave, previas);
+  if (ventanasLimite.size > 500) {
+    for (const [key, values] of ventanasLimite) {
+      if (!values.some((t) => ahora - t < 60_000)) ventanasLimite.delete(key);
+    }
+  }
+  return true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    const autorizacion = req.headers.get("authorization") || "";
+    if (!autorizacion.startsWith("Bearer ")) {
+      return json({ error: "No autorizado" }, 401);
+    }
+    const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
+    if (!permitirPeticion(`${ip}:${autorizacion.slice(-16)}`)) {
+      return json({ error: "Demasiadas peticiones seguidas. Espera un minuto y vuelve a intentarlo." }, 429);
+    }
+
     const body = await req.json().catch(() => null);
     const message = body?.message;
     if (!message || typeof message !== "string") return json({ error: "Falta el mensaje" }, 400);
@@ -1298,14 +1363,24 @@ Deno.serve(async (req) => {
       const history = sanitizeHistory(body?.history);
 
       if (action === "feedback") {
+        const started = Date.now();
         const contexto =
           [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+        const estructura =
+          body?.structure && typeof body.structure === "object" ? body.structure : undefined;
         const raw = await completar(
           [
-            { role: "system", content: promptFeedback(info, nivel, message, contexto) },
+            {
+              role: "system",
+              content: promptFeedback(info, nivel, message, contexto, estructura),
+            },
             { role: "user", content: "Evalúa la intervención y devuelve solo el JSON." },
           ],
-          { maxTokens: 700, temperature: 0.2, validar: (t: string) => parseJsonLoose(t) !== null },
+          {
+            maxTokens: estructura ? 1200 : 700,
+            temperature: 0.2,
+            validar: (t: string) => parseJsonLoose(t) !== null,
+          },
           proveedor,
         );
         const parsed = raw ? parseJsonLoose(raw) : null;
@@ -1316,11 +1391,31 @@ Deno.serve(async (req) => {
             cuota ? 429 : 502,
           );
         }
+        console.log(`[language-tutor] feedback ${Date.now() - started} ms (${proveedor})`);
+        const revision = estructura
+          ? {
+              covered: (Array.isArray(parsed.review?.covered) ? parsed.review.covered : [])
+                .map((c: any, index: number) => ({
+                  index: Number.isFinite(Number(c?.index)) ? Number(c.index) - 1 : index,
+                  label: cleanText(c?.label, 80),
+                  ok: c?.ok === true,
+                  note: cleanText(c?.note, 240),
+                }))
+                .filter((c: any) => c.label)
+                .slice(0, 8),
+              verdict: cleanText(parsed.review?.verdict, 500),
+              missing: (Array.isArray(parsed.review?.missing) ? parsed.review.missing : [])
+                .map((m: any) => cleanText(m, 160))
+                .filter(Boolean)
+                .slice(0, 6),
+            }
+          : undefined;
         return json({
           status: cleanText(parsed.status, 30) || "no_aplica",
           corrected: cleanText(parsed.corrected, 500),
           explanation: cleanText(parsed.explanation, 900),
           tip: cleanText(parsed.tip, 400),
+          ...(revision ? { review: revision } : {}),
         });
       }
 
@@ -1424,7 +1519,8 @@ Deno.serve(async (req) => {
         return json({
           review: {
             covered: (Array.isArray(parsed.covered) ? parsed.covered : [])
-              .map((c: any) => ({
+              .map((c: any, index: number) => ({
+                index: Number.isFinite(Number(c?.index)) ? Number(c.index) - 1 : index,
                 label: cleanText(c?.label, 80),
                 ok: c?.ok === true,
                 note: cleanText(c?.note, 240),

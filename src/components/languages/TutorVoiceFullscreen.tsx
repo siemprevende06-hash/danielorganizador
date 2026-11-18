@@ -170,6 +170,7 @@ export function TutorVoiceFullscreen({
   const holdingRef = useRef(false);
   const startYRef = useRef(0);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -179,7 +180,31 @@ export function TutorVoiceFullscreen({
     document.body.style.overflow = 'hidden';
     const focusTimer = window.setTimeout(() => closeRef.current?.focus(), 60);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      // B20: trampa de foco. Sin esto, Tabulador se escapa al dashboard que
+      // queda tapado y el usuario escribe en un campo que no ve.
+      if (e.key !== 'Tab') return;
+      const root = panelRef.current;
+      if (!root) return;
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter(el => el.offsetParent !== null || el === document.activeElement);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && (!active || active === first || !root.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -234,6 +259,7 @@ export function TutorVoiceFullscreen({
 
   return (
     <div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="tutor-fullscreen-title"

@@ -78,13 +78,13 @@ export const PLAYBOOK: Record<LanguageSkillId, SkillPlaybook> = {
       'Modo escucha (nivel {nivel}). Dicta 5 frases cortas, una por una, esperando a que yo escriba cada una antes de seguir. Cuando envíe mi transcripción, corrígeme palabra por palabra, marca lo que fallé y repite solo esas frases. No me enseñes el texto antes de que lo intente.',
   },
   speaking: {
-    goal: 'Hablar sin guion y corregir sobre la marcha.',
-    tactic: 'Shadowing → roleplay → corrección',
-    steps: ['Imita 3 frases (shadowing)', 'Responde 60 s sin guion', 'Corrige y repite'],
-    metric: 'Minutos hablados y errores por turno',
+    goal: 'Hablar sin guion y convertir cada error en una frase que repites bien.',
+    tactic: 'Shadowing → roleplay → repetición correctiva',
+    steps: ['Escucha e imita una frase', 'Responde sin guion 60 s', 'Repite tu frase corregida'],
+    metric: 'Minutos hablados, % de frases correctas y ppm',
     minutes: 15,
     prompt:
-      'Modo speaking (nivel {nivel}). Empezamos un roleplay: tú eres mi interlocutor y yo tengo que resolver la situación. Hazme una pregunta a la vez y espera mi respuesta. Corrige solo lo importante al final de cada turno, con una versión mejor de mi frase para que la repita.',
+      'Modo speaking (nivel {nivel}). Empezamos un roleplay: tú eres mi interlocutor y yo tengo que resolver la situación. Habla solo en el idioma objetivo, una pregunta a la vez, y espera mi respuesta. NO corrijas mis errores dentro del chat: hay un sistema de feedback aparte que los revisa. Si te pido "corrígeme", da una nota breve en español después del turno, sin mezclarla con la conversación. Lleva tú la iniciativa y termina cada turno con una pregunta abierta.',
   },
   escritura: {
     goal: 'Escribir mejor en cada versión, no en la primera.',

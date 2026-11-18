@@ -24,7 +24,12 @@ export function ActiveStructurePanel({ structure, language, review, onSpeak, onC
   const question = structure.question[language];
   const example = structure.example[language];
   const phrases = structure.phrases[language];
-  const covered = new Map((review?.covered ?? []).map(item => [item.label.toLowerCase(), item.ok]));
+  const covered = new Map<number, boolean>(
+    (review?.covered ?? [])
+      .filter(item => typeof item.index === 'number')
+      .map(item => [item.index as number, item.ok])
+  );
+  const coveredByLabel = new Map((review?.covered ?? []).map(item => [item.label.toLowerCase(), item.ok]));
 
   return (
     <div className="flex h-full flex-col">
@@ -74,7 +79,7 @@ export function ActiveStructurePanel({ structure, language, review, onSpeak, onC
 
         <ol className="space-y-2">
           {structure.steps.map((step, index) => {
-            const state = covered.get(step.label.toLowerCase());
+            const state = covered.get(index) ?? coveredByLabel.get(step.label.toLowerCase());
             return (
               <li
                 key={`${structure.id}-${index}`}

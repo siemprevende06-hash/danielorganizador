@@ -1,6 +1,7 @@
 import { Briefcase, Coffee, Compass, HeartHandshake, MessageSquareQuote, Scale, Sparkles, Stethoscope } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Language } from '@/hooks/useLanguageLearning';
+import type { SpeakingLevel } from '@/lib/speakingMetrics';
 
 export type StructureCategory = 'entrevista' | 'dia' | 'opinion' | 'historia' | 'servicio' | 'personalizada';
 
@@ -16,6 +17,8 @@ export interface StructureStep {
 export interface SpeakingStructure {
   id: string;
   category: StructureCategory;
+  /** Banda CEFR para la que está pensada (M4). */
+  level?: SpeakingLevel;
   question: Record<Language, string>;
   questionEs: string;
   /** Objetivo de la respuesta, en español. */
@@ -41,6 +44,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'about-me',
     category: 'entrevista',
+    level: 'A2',
     question: {
       english: 'Tell me about yourself.',
       italian: 'Parlami di te.',
@@ -97,6 +101,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'why-job',
     category: 'entrevista',
+    level: 'B1',
     question: {
       english: 'Why do you want this job?',
       italian: 'Perché vuoi questo lavoro?',
@@ -145,6 +150,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'strengths-weaknesses',
     category: 'entrevista',
+    level: 'B1',
     question: {
       english: 'What are your strengths and weaknesses?',
       italian: 'Quali sono i tuoi punti di forza e di debolezza?',
@@ -193,6 +199,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'challenge-star',
     category: 'historia',
+    level: 'B2',
     question: {
       english: 'Describe a challenge you overcame.',
       italian: 'Descrivi una sfida che hai superato.',
@@ -249,6 +256,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'trip-story',
     category: 'historia',
+    level: 'A2',
     question: {
       english: 'Tell me about a memorable trip.',
       italian: 'Raccontami un viaggio indimenticabile.',
@@ -305,6 +313,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'free-time',
     category: 'dia',
+    level: 'A2',
     question: {
       english: 'What do you do in your free time?',
       italian: 'Cosa fai nel tempo libero?',
@@ -361,6 +370,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'hometown',
     category: 'dia',
+    level: 'A2',
     question: {
       english: 'Describe your hometown.',
       italian: 'Descrivi la tua città natale.',
@@ -417,6 +427,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'opinion-prep',
     category: 'opinion',
+    level: 'B1',
     question: {
       english: 'What do you think about ...?',
       italian: 'Cosa ne pensi di ...?',
@@ -473,6 +484,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'compare-options',
     category: 'opinion',
+    level: 'B2',
     question: {
       english: 'Which is better: ... or ...?',
       italian: 'Qual è meglio: ... o ...?',
@@ -529,6 +541,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'doctor-symptoms',
     category: 'servicio',
+    level: 'A2',
     question: {
       english: 'What seems to be the problem?',
       italian: 'Che cosa si sente?',
@@ -585,6 +598,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'complaint-service',
     category: 'servicio',
+    level: 'B1',
     question: {
       english: 'I’m afraid there’s a problem with your order.',
       italian: 'Mi dispiace, c’è un problema con il suo ordine.',
@@ -641,6 +655,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'small-talk',
     category: 'dia',
+    level: 'A2',
     question: {
       english: 'Nice to meet you! What do you do?',
       italian: 'Piacere! Cosa fai?',
@@ -689,6 +704,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'future-plans',
     category: 'dia',
+    level: 'B1',
     question: {
       english: 'What are your plans for the future?',
       italian: 'Quali sono i tuoi progetti per il futuro?',
@@ -745,6 +761,7 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   {
     id: 'problem-solving',
     category: 'servicio',
+    level: 'B2',
     question: {
       english: 'We have a problem. Can you help?',
       italian: 'Abbiamo un problema. Puoi aiutarci?',
@@ -800,59 +817,3 @@ export const SPEAKING_STRUCTURES: SpeakingStructure[] = [
   },
 ];
 
-/** Estructura genérica para preguntas que no están en la lista. */
-export function structureFallback(question: string, language: Language): SpeakingStructure {
-  const target = language === 'italian' ? 'italian' : 'english';
-  return {
-    id: `fallback-${Date.now()}`,
-    category: 'personalizada',
-    question: { english: question, italian: question },
-    questionEs: question,
-    goal: 'Responde con una idea clara, una razón, un ejemplo y un cierre. Luego devuelve la pregunta.',
-    steps: [
-      {
-        label: 'Respuesta',
-        template: {
-          english: 'I think ... / In my case, ...',
-          italian: 'Penso che ... / Nel mio caso, ...',
-        },
-        tip: 'Contesta directamente en la primera frase.',
-      },
-      {
-        label: 'Razón',
-        template: {
-          english: 'The main reason is ...',
-          italian: 'Il motivo principale è ...',
-        },
-        tip: 'Explica por qué, sin repetir la respuesta.',
-      },
-      {
-        label: 'Ejemplo',
-        template: {
-          english: 'For example, ...',
-          italian: 'Per esempio, ...',
-        },
-        tip: 'Un caso concreto y breve.',
-      },
-      {
-        label: 'Cierre',
-        template: {
-          english: 'So, overall, ... What about you?',
-          italian: 'Quindi, nel complesso, ... E tu?',
-        },
-        tip: 'Cierra y devuelve la pregunta para seguir hablando.',
-      },
-    ],
-    phrases: {
-      english: ['In my opinion...', 'For example...', 'That’s why...', 'What about you?'],
-      italian: ['Secondo me...', 'Per esempio...', 'Ecco perché...', 'E tu?'],
-    },
-    example: {
-      english: `In my case, ${question.replace(/[?.!]+$/, '')} is something I think about often. The main reason is that it affects my daily routine. For example, I try to plan my week and leave time for it. So, overall, I think it is worth it. What about you?`,
-      italian: `Nel mio caso, ${question.replace(/[?.!]+$/, '')} è qualcosa a cui penso spesso. Il motivo principale è che influisce sulla mia routine quotidiana. Per esempio, cerco di pianificare la settimana e lasciare tempo per questo. Quindi, nel complesso, penso che ne valga la pena. E tu?`,
-    },
-    exampleEs:
-      'En mi caso, es algo en lo que pienso a menudo. La razón principal es que afecta mi rutina diaria. Por ejemplo, intento planificar la semana y dejar tiempo para ello. Así que, en general, creo que vale la pena. ¿Y tú?',
-    custom: true,
-  };
-}

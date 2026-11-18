@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { edgeFunctionUrl, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/env';
 import { getAIProvider } from '@/lib/aiProvider';
+import { hashTexto } from '@/lib/speakingMetrics';
 import type { Language } from './useLanguageLearning';
 import type { SpeakingStructure } from '@/components/languages/speakingStructures';
 
@@ -31,6 +32,8 @@ export interface TutorSuggestion {
 }
 
 export interface StructureReviewStep {
+  /** Orden del paso dentro de la estructura (0-based). */
+  index?: number;
   label: string;
   ok: boolean;
   note?: string;
@@ -40,6 +43,19 @@ export interface StructureReview {
   covered: StructureReviewStep[];
   verdict: string;
   missing: string[];
+}
+
+/** Mensaje ya guardado, con su corrección y revisión (B8). */
+export interface PersistedCoachMessage {
+  id: string;
+  feedback?: TutorFeedback | null;
+  structureReview?: StructureReview | null;
+}
+
+export interface EvaluateOptions {
+  structure?: SpeakingStructure | null;
+  /** Permite al panel guardar el resultado en `ai_messages.visual`. */
+  onPersist?: (meta: { feedback?: TutorFeedback; structureReview?: StructureReview }) => void;
 }
 
 function clean(value: unknown, max = 1200): string {
@@ -87,10 +103,61 @@ async function callCoach(payload: Record<string, unknown>): Promise<Record<strin
   }
 }
 
+/** Convierte la estructura local al formato compacto que espera la función. */
+function structurePayload(structure: SpeakingStructure, language: Language) {
+  return {
+    id: structure.id,
+    question: structure.question[language],
+    steps: structure.steps.map((step, index) => ({
+      index,
+      label: step.label,
+      template: step.template[language],
+    })),
+  };
+}
+
+/** Forma cruda de un paso de revisión tal como lo devuelve el modelo. */
+interface RawReviewStep {
+  index?: unknown;
+  step?: unknown;
+  stepIndex?: unknown;
+  label?: unknown;
+  ok?: unknown;
+  note?: unknown;
+}
+
+function parseReview(raw: Record<string, unknown>): StructureReview | null {
+  const source = (raw.review ?? raw) as Record<string, unknown>;
+  const rawSteps = Array.isArray(source?.covered) ? (source.covered as RawReviewStep[]) : [];
+  const covered = rawSteps
+    .map((c, position) => {
+      const index = Number(c?.index ?? c?.step ?? c?.stepIndex);
+      return {
+        index: Number.isFinite(index) ? index : position,
+        label: clean(c?.label, 80),
+        ok: c?.ok === true,
+        note: clean(c?.note, 240) || undefined,
+      };
+    })
+    .filter(c => c.label)
+    .slice(0, 8);
+  const verdict = clean(source?.verdict, 500);
+  const rawMissing = Array.isArray(source?.missing) ? (source.missing as unknown[]) : [];
+  const missing = rawMissing
+    .map(m => clean(m, 160))
+    .filter(Boolean)
+    .slice(0, 6);
+  if (!covered.length && !verdict) return null;
+  return { covered, verdict, missing };
+}
+
 /**
  * Evalúa lo que dice el estudiante y genera respuestas sugeridas.
  * Va separado del chat para que el tutor pueda seguir la conversación sin
  * corregir dentro del hilo: el feedback vive en su propia burbuja.
+ *
+ * T2: feedback + revisión de estructura se piden en una sola llamada.
+ * T6: cada acción deja su latencia en consola para detectar proveedores lentos.
  */
 export function useLanguageTutorCoach(language: Language, level: string) {
   const [feedback, setFeedback] = useState<Record<string, TutorFeedback>>({});
@@ -109,6 +176,8 @@ export function useLanguageTutorCoach(language: Language, level: string) {
   const suggestTokenRef = useRef(0);
   const structureTokenRef = useRef(0);
   const reviewTokenRef = useRef(0);
+  /** Cache por hash de texto + estructura: la misma frase no se evalúa dos veces. */
+  const cacheRef = useRef<Map<string, { feedback: TutorFeedback; review: StructureReview | null }>>(new Map());
 
   const reset = useCallback(() => {
     tokenRef.current += 1;
@@ -133,11 +202,52 @@ export function useLanguageTutorCoach(language: Language, level: string) {
     reset();
   }, [language, reset]);
 
+  /** Rehidrata correcciones guardadas al abrir un hilo (B8). */
+  const hydrate = useCallback((items: PersistedCoachMessage[]) => {
+    if (!items.length) return;
+    setFeedback(prev => {
+      const next = { ...prev };
+      for (const item of items) {
+        if (item.feedback) next[item.id] = item.feedback;
+      }
+      return next;
+    });
+    setStructureReviews(prev => {
+      const next = { ...prev };
+      for (const item of items) {
+        if (item.structureReview) next[item.id] = item.structureReview;
+      }
+      return next;
+    });
+  }, []);
+
   const evaluate = useCallback(
-    async (messageId: string, utterance: string, history: TutorHistoryEntry[]) => {
+    async (
+      messageId: string,
+      utterance: string,
+      history: TutorHistoryEntry[],
+      options?: EvaluateOptions
+    ) => {
       const token = tokenRef.current;
+      const structure = options?.structure ?? null;
+      const cacheKey = `${language}|${level}|${hashTexto(utterance)}|${
+        structure ? `${structure.id}:${structure.steps.map(step => step.label).join('|')}` : 'sin-estructura'
+      }`;
+
+      const cached = cacheRef.current.get(cacheKey);
+      if (cached) {
+        setFeedback(prev => ({ ...prev, [messageId]: cached.feedback }));
+        if (cached.review) setStructureReviews(prev => ({ ...prev, [messageId]: cached.review as StructureReview }));
+        options?.onPersist?.({
+          feedback: cached.feedback,
+          structureReview: cached.review ?? undefined,
+        });
+        return;
+      }
+
       setEvaluating(prev => ({ ...prev, [messageId]: true }));
 
+      const started = typeof performance !== 'undefined' ? performance.now() : Date.now();
       try {
         const data = await callCoach({
           action: 'feedback',
@@ -145,6 +255,7 @@ export function useLanguageTutorCoach(language: Language, level: string) {
           level,
           message: utterance,
           history: normalizeHistory(history),
+          ...(structure ? { structure: structurePayload(structure, language) } : {}),
         });
         if (token !== tokenRef.current) return;
 
@@ -180,11 +291,23 @@ export function useLanguageTutorCoach(language: Language, level: string) {
         const corrected = clean(data.corrected, 500) || utterance;
         const explanation = clean(data.explanation, 900);
         const tip = clean(data.tip, 400);
+        const result: TutorFeedback = { status, corrected, explanation, tip: tip || undefined };
+        const review = structure ? parseReview(data) : null;
 
-        setFeedback(prev => ({
-          ...prev,
-          [messageId]: { status, corrected, explanation, tip: tip || undefined },
-        }));
+        setFeedback(prev => ({ ...prev, [messageId]: result }));
+        if (review) setStructureReviews(prev => ({ ...prev, [messageId]: review }));
+
+        cacheRef.current.set(cacheKey, { feedback: result, review });
+        if (cacheRef.current.size > 120) {
+          const first = cacheRef.current.keys().next().value;
+          if (first) cacheRef.current.delete(first);
+        }
+        options?.onPersist?.({ feedback: result, structureReview: review ?? undefined });
+
+        if (typeof console !== 'undefined') {
+          const ms = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - started);
+          console.debug(`[language-tutor] feedback ${ms} ms${structure ? ' + estructura' : ''}`);
+        }
       } catch (e) {
         if (token !== tokenRef.current) return;
         setFeedback(prev => ({
@@ -328,6 +451,7 @@ export function useLanguageTutorCoach(language: Language, level: string) {
         return {
           id: `custom-${Date.now()}`,
           category: 'personalizada',
+          level: undefined,
           question: { english: targetQuestion, italian: targetQuestion },
           questionEs,
           goal: clean(raw.goal, 400) || 'Responde con una idea clara, una razón y un ejemplo.',
@@ -354,7 +478,10 @@ export function useLanguageTutorCoach(language: Language, level: string) {
     [language, level]
   );
 
-  /** Comprueba si la última respuesta cubre los pasos de la estructura. */
+  /**
+   * Revisión aislada de estructura. El flujo normal la pide junto al feedback
+   * (T2); se conserva para reintentos puntuales sin reevaluar la gramática.
+   */
   const reviewStructure = useCallback(
     async (
       messageId: string,
@@ -377,32 +504,12 @@ export function useLanguageTutorCoach(language: Language, level: string) {
           level,
           message: utterance,
           history: normalizeHistory(history),
-          structure: {
-            question: structure.question[language],
-            steps: structure.steps.map(step => ({
-              label: step.label,
-              template: step.template[language],
-            })),
-          },
+          structure: structurePayload(structure, language),
         });
         if (token !== reviewTokenRef.current) return null;
 
-        const raw = (data.review ?? {}) as Record<string, unknown>;
-        const review: StructureReview = {
-          covered: (Array.isArray(raw.covered) ? raw.covered : [])
-            .map((c: any) => ({
-              label: clean(c?.label, 80),
-              ok: c?.ok === true,
-              note: clean(c?.note, 240) || undefined,
-            }))
-            .filter((c: any) => c.label)
-            .slice(0, 8),
-          verdict: clean(raw.verdict, 500),
-          missing: (Array.isArray(raw.missing) ? raw.missing : [])
-            .map((m: any) => clean(m, 160))
-            .filter(Boolean)
-            .slice(0, 6),
-        };
+        const review = parseReview(data);
+        if (!review) throw new Error('La revisión no llegó completa');
         setStructureReviews(prev => ({ ...prev, [messageId]: review }));
         return review;
       } catch (e) {
@@ -452,6 +559,7 @@ export function useLanguageTutorCoach(language: Language, level: string) {
     structureReviewErrors,
     reviewStructure,
     clearStructureReviews,
+    hydrate,
     reset,
   };
 }
