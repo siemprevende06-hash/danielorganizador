@@ -19,6 +19,7 @@ import { InstallPrompt } from '@/components/InstallPrompt';
 import { PageCoverMenu } from '@/components/PageCoverMenu';
 import { usePageIcons } from '@/contexts/PageIconsContext';
 import { usePageNames } from '@/contexts/PageNamesContext';
+import { useQuickAccess } from '@/contexts/QuickAccessContext';
 
 interface SidebarItem {
   path?: string;
@@ -271,6 +272,8 @@ export const Navigation = () => {
   const { isOnline, pendingMutations } = useOffline();
   const { toggleTheme, isDark } = useAutoTheme();
   const [favoritePages, setFavoritePages] = useState<{ id: string; title: string; icon: string }[]>([]);
+  const [customPages, setCustomPages] = useState<Record<string, { title: string; icon: string }>>({});
+  const { paths: quickAccessPaths, removeQuickAccess } = useQuickAccess();
 
   useEffect(() => {
     const load = () => {
@@ -278,11 +281,22 @@ export const Navigation = () => {
         const raw = localStorage.getItem('pages_meta');
         if (raw) {
           const all = JSON.parse(raw) as any[];
+          const pageMap: Record<string, { title: string; icon: string }> = {};
+          for (const page of all) {
+            if (page?.id) {
+              pageMap[`/paginas/${page.id}`] = {
+                title: page.title || 'Sin título',
+                icon: page.icon || '📄',
+              };
+            }
+          }
+          setCustomPages(pageMap);
           setFavoritePages(all.filter((p: any) => p.is_favorite).map((p: any) => ({ id: p.id, title: p.title, icon: p.icon || '📄' })));
         } else {
+          setCustomPages({});
           setFavoritePages([]);
         }
-      } catch { setFavoritePages([]); }
+      } catch { setCustomPages({}); setFavoritePages([]); }
     };
     load();
     window.addEventListener('storage', load);
@@ -370,6 +384,88 @@ export const Navigation = () => {
   const customCurrentName = getPageName(location.pathname);
   const currentPage = getPageTitle(location.pathname, customCurrentName);
 
+  /** Resuelve nombre e icono de una ruta marcada como acceso rápido. */
+  const resolveQuickAccessItem = (path: string) => {
+    let navItem: SidebarItem | undefined;
+    for (const item of allNavItems) {
+      if (item.path === path) {
+        navItem = item;
+        break;
+      }
+      const sub = item.submenu?.find(s => s.path === path);
+      if (sub) {
+        navItem = { path: sub.path, label: sub.label, icon: item.icon };
+        break;
+      }
+    }
+
+    const customPage = customPages[path];
+    const knownTitle = getPageTitle(path);
+    const fallbackLabel = path === '/'
+      ? 'Inicio'
+      : path.split('/').filter(Boolean).pop()?.replace(/-/g, ' ').replace(/^\w/, c => c.toUpperCase()) || 'Página';
+
+    return {
+      label: customPage?.title || getPageName(path) || navItem?.label || (knownTitle !== 'Segundo Cerebro' ? knownTitle : fallbackLabel),
+      emoji: customPage?.icon || getIcon(path),
+      Icon: navItem?.icon || Star,
+    };
+  };
+
+  const renderQuickAccessGroup = (isCollapsed: boolean) => {
+    if (quickAccessPaths.length === 0) return null;
+
+    return (
+      <div key="quick-access">
+        {!isCollapsed && (
+          <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600/80 dark:text-amber-400/80 px-3 pb-1">
+            <Star className="h-2.5 w-2.5 fill-current" />
+            Acceso rápido
+          </p>
+        )}
+        <div className="space-y-0.5">
+          {quickAccessPaths.map(path => {
+            const { label, emoji, Icon } = resolveQuickAccessItem(path);
+            const isActive = location.pathname === path;
+            return (
+              <div key={path} className="group/quick-access flex items-center">
+                <Link
+                  to={path}
+                  title={isCollapsed ? label : undefined}
+                  className={cn(
+                    "flex min-w-0 flex-1 items-center gap-2.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                    isCollapsed && "justify-center px-2",
+                    isActive
+                      ? "bg-accent text-accent-foreground"
+                      : "text-foreground/80 hover:text-foreground hover:bg-accent/50"
+                  )}
+                >
+                  {emoji ? (
+                    <span className="text-sm shrink-0">{emoji}</span>
+                  ) : (
+                    <Icon className="h-4 w-4 shrink-0" />
+                  )}
+                  {!isCollapsed && <span className="truncate">{label}</span>}
+                </Link>
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => removeQuickAccess(path)}
+                    aria-label={`Quitar ${label} de acceso rápido`}
+                    title="Quitar de acceso rápido"
+                    className="mr-1 grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground/50 opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/quick-access:opacity-100 focus-visible:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Mobile top bar */}
@@ -415,6 +511,7 @@ export const Navigation = () => {
             </div>
           </div>
           <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
+            {renderQuickAccessGroup(false)}
             {sidebarGroups.map((group, gi) => (
               <div key={gi}>
                 {group.label && (
@@ -497,6 +594,7 @@ export const Navigation = () => {
 
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4">
+          {renderQuickAccessGroup(collapsed)}
           {sidebarGroups.map((group, gi) => (
             <div key={gi}>
               {group.label && !collapsed && (

@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Clock, ArrowRight, CheckCircle2, Circle, Moon, CalendarDays, CalendarRange, Calendar, Layers, Target, Sparkles, Eye, MonitorPlay } from 'lucide-react';
 import { useRoutineBlocks, parseTime, formatTimeDisplay, ROUTINES, type RoutineBlock } from '@/hooks/useRoutineBlocks';
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
+import { applyDayBlockOverrides } from '@/lib/dayBlockOverrides';
 import { useSystemCardCovers } from '@/hooks/useSystemCardCovers';
 import { RoutineFullscreenView } from '@/components/today/RoutineFullscreenView';
 import { useWeeklyObjectives } from '@/hooks/useWeeklyObjectives';
@@ -34,6 +35,7 @@ export default function AhoraMismo() {
     toggleTaskDone,
     planLanguage,
     planSpeedPlan,
+    planSkipGym,
   } = useDailyPlanData();
   const { covers } = useSystemCardCovers();
   const { objectives, loading: objectivesLoading } = useWeeklyObjectives();
@@ -51,9 +53,15 @@ export default function AhoraMismo() {
   const routine = ROUTINES.find(r => r.type === routineType);
   const mins = nowMinutes(now);
 
+  // Si el gym está saltado, su bloque se muestra como horario libre.
+  const displayBlocks = useMemo(
+    () => applyDayBlockOverrides(blocks, { skipGym: planSkipGym }),
+    [blocks, planSkipGym]
+  );
+
   const ordered = useMemo(
-    () => [...blocks].sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime)),
-    [blocks]
+    () => [...displayBlocks].sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime)),
+    [displayBlocks]
   );
 
   const currentIndex = useMemo(() => ordered.findIndex(b => isInBlock(b, mins)), [ordered, mins]);
@@ -405,7 +413,7 @@ export default function AhoraMismo() {
 
       {tabletMode && (
         <RoutineFullscreenView
-          blocks={blocks}
+          blocks={displayBlocks}
           initialBlockId={tabletMode.blockId}
           startFollowing={tabletMode.follow}
           tasksByBlock={tasksByBlock || {}}

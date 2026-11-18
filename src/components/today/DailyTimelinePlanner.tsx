@@ -9,7 +9,7 @@ import { es } from 'date-fns/locale';
 import {
   Clock, BookOpen, Briefcase, FolderKanban, Dumbbell, Sun, Moon, Coffee,
   Languages, Target, Music, Book, ChevronDown, GripVertical, X, Crown, Gamepad2,
-  GraduationCap
+  GraduationCap, Unlock
 } from 'lucide-react';
 import { parseTime } from '@/hooks/useRoutineBlocksDB';
 import type { TaskItem } from '@/hooks/useDailyPlanData';
@@ -17,7 +17,14 @@ import { useWorkoutTracking } from '@/hooks/useWorkoutTracking';
 import { useReadingLibrary } from '@/hooks/useReadingLibrary';
 import { useMusicRepertoire } from '@/hooks/useMusicRepertoire';
 import { BlockSpeedPlanControl } from '@/components/today/BlockSpeedPlanControl';
-import { blockEffectiveEnd, type SpeedPlan, type SpeedPlanFragment } from '@/lib/speedPlan';
+import {
+  blockEffectiveEnd,
+  isFreeBlock,
+  studyModeLabel,
+  studyModeOf,
+  type SpeedPlan,
+  type SpeedPlanFragment,
+} from '@/lib/speedPlan';
 
 interface CalendarEvent {
   id: string;
@@ -94,6 +101,7 @@ const FOCUS_COLORS: Record<string, { border: string; bg: string; dot: string; la
   ocio: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Ocio' },
   entretenimiento: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Entretenimiento' },
   gym: { border: 'border-l-orange-500', bg: 'bg-orange-500/10', dot: 'bg-orange-500', label: 'Gym' },
+  libre: { border: 'border-l-emerald-500', bg: 'bg-emerald-500/10', dot: 'bg-emerald-500', label: 'Horario libre' },
   estructural: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', dot: 'bg-indigo-500', label: 'Estructural' },
   alimentacion: { border: 'border-l-amber-500', bg: 'bg-amber-500/10', dot: 'bg-amber-500', label: 'Alimentación' },
   hobbys: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', dot: 'bg-pink-500', label: 'Hobbys' },
@@ -153,6 +161,7 @@ function identifyBlockType(title: string): string {
 }
 
 function getBlockFocus(block: TimelineBlock): string {
+  if (isFreeBlock(block)) return 'libre';
   const focus = block.currentFocus || block.defaultFocus;
   if (focus && focus !== 'none') return focus;
   const title = block.title.toLowerCase();
@@ -180,6 +189,7 @@ function getBlockIcon(block: TimelineBlock) {
     case 'game': return <Gamepad2 className="h-4 w-4 text-violet-500" />;
     case 'entretenimiento': return <Target className="h-4 w-4 text-orange-500" />;
     case 'gym': return <Dumbbell className="h-4 w-4 text-orange-500" />;
+    case 'libre': return <Unlock className="h-4 w-4 text-emerald-500" />;
     case 'estructural': return <Sun className="h-4 w-4 text-indigo-500" />;
     case 'alimentacion': return <Coffee className="h-4 w-4 text-amber-500" />;
     case 'hobbys': return <Music className="h-4 w-4 text-pink-500" />;
@@ -194,6 +204,12 @@ function formatTime(time: string) {
   const hour = h % 12 || 12;
   return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
+
+const STUDY_MODE_STYLES: Record<string, string> = {
+  teoria: 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  ejercicios: 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  clase: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+};
 
 export function DailyTimelinePlanner({
   blocks,
@@ -423,10 +439,12 @@ export function DailyTimelinePlanner({
           const tasks = safeTasksByBlock[blockId] || [];
           const isDW = isDeepWork(block.title) || (block.id && block.id.includes('bloque-extra'));
           const isBloqueExtra = block.title.toLowerCase().includes('bloque extra') || (block.id && block.id.includes('bloque-extra'));
-          const isFullRow = Boolean(isDW || block.isFocusBlock || isBloqueExtra);
+          const isFree = isFreeBlock(block);
+          const isFullRow = Boolean(isDW || block.isFocusBlock || isBloqueExtra || isFree);
           const blockType = identifyBlockType(block.title);
           const selectedFocus = block.currentFocus || block.defaultFocus || 'none';
           const studyInfo = speedEntry?.study ?? null;
+          const studyMode = studyInfo ? studyModeOf(studyInfo) : null;
           const workInfo = speedEntry?.work ?? null;
 
           const todayMuscleGroups = todayWorkout?.isWorkoutDay
@@ -528,11 +546,36 @@ export function DailyTimelinePlanner({
                         <span className="truncate text-[9px] font-medium text-sky-600 dark:text-sky-400">
                           {studyInfo.subjectName}
                         </span>
-                        {studyInfo.topicTitle && (
+                        {studyMode && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'h-3.5 shrink-0 px-1 py-0 text-[8px] font-semibold',
+                              STUDY_MODE_STYLES[studyMode],
+                            )}
+                          >
+                            {studyModeLabel(studyMode)}
+                          </Badge>
+                        )}
+                        {studyMode === 'clase' && studyInfo.classStart && studyInfo.classEnd ? (
+                          <span className="shrink-0 text-[9px] text-muted-foreground">
+                            · {studyInfo.classStart}–{studyInfo.classEnd}
+                          </span>
+                        ) : studyInfo.topicTitle ? (
                           <span className="truncate text-[9px] text-muted-foreground">
                             · {studyInfo.topicTitle}
                           </span>
-                        )}
+                        ) : null}
+                      </div>
+                    )}
+
+                    {/* Horario liberado sin plan todavía */}
+                    {isFree && !studyInfo && !workInfo && tasks.length === 0 && (
+                      <div className="mt-1 ml-6 flex items-center gap-1.5">
+                        <Unlock className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
+                        <span className="text-[9px] text-muted-foreground">
+                          Horario liberado: asigna estudio, trabajo o tareas.
+                        </span>
                       </div>
                     )}
 
@@ -695,6 +738,7 @@ export function DailyTimelinePlanner({
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.lectura.dot)} /> Lec
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.musica.dot)} /> Mus
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.gym.dot)} /> Gym
+        <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.libre.dot)} /> Libre
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.estructural.dot)} /> Est
         <span className={cn("w-1.5 h-1.5 rounded-full", FOCUS_COLORS.alimentacion.dot)} /> Ali
       </div>

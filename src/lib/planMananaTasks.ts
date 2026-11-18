@@ -28,6 +28,7 @@ const AREA_TO_SYSTEM: Record<string, string> = {
   gym: 'gym',
   tareas: 'tareas',
   general: 'tareas',
+  'ruido-mental': 'tareas',
 };
 
 const SOURCE_TO_SYSTEM: Record<string, string> = {

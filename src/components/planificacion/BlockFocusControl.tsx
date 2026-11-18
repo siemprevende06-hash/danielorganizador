@@ -4,12 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
+  BookOpen,
   Briefcase,
   Check,
+  Clock,
   FolderKanban,
   GraduationCap,
   Loader2,
+  PencilLine,
   Plus,
+  School,
   Target,
   X,
   type LucideIcon,
@@ -31,14 +35,18 @@ import {
   setFragmentSystem,
   setFragmentWork,
   setWholeBlock,
+  STUDY_MODES,
+  studyModeOf,
   type BlockStudyPlan,
   type BlockWorkKind,
   type BlockWorkPlan,
   type SpeedBlockLike,
   type SpeedPlan,
   type SpeedPlanFragment,
+  type StudyMode,
 } from "@/lib/speedPlan";
 import type { StudySubject, StudyTopic } from "@/hooks/useStudySubjects";
+import type { AcademicClass } from "@/hooks/useUniversitySchedule";
 
 export interface FocusOwner {
   id: string;
@@ -71,6 +79,8 @@ interface Props {
   subjectsLoading?: boolean;
   onCreateSubject: (name: string) => Promise<StudySubject | null>;
   onCreateTopic: (subjectId: string, title: string) => Promise<StudyTopic | null>;
+  /** Clases del día según el horario académico (para el modo Clase). */
+  classes?: AcademicClass[];
   /** Emprendimiento */
   ventures: FocusOwner[];
   venturesLoading?: boolean;
@@ -87,6 +97,12 @@ type FocusKind = "universidad" | BlockWorkKind;
 
 const KIND_ORDER: FocusKind[] = ["universidad", "emprendimiento", "proyectos"];
 
+const STUDY_MODE_ICONS: Record<StudyMode, LucideIcon> = {
+  teoria: BookOpen,
+  ejercicios: PencilLine,
+  clase: School,
+};
+
 const KIND_META: Record<FocusKind, {
   label: string;
   icon: LucideIcon;
@@ -101,7 +117,7 @@ const KIND_META: Record<FocusKind, {
     icon: GraduationCap,
     iconClass: "text-sky-500",
     panel: "border-sky-300/60 bg-sky-50/50 dark:border-sky-900/50 dark:bg-sky-950/20",
-    hint: "Elige la asignatura y el tema que estudiarás en este bloque.",
+    hint: "Elige la asignatura y cómo la trabajarás: teoría, ejercicios o clase.",
     ownerLabel: "Asignatura",
     itemLabel: "Tema",
   },
@@ -255,6 +271,7 @@ export function BlockFocusControl({
   subjectsLoading = false,
   onCreateSubject,
   onCreateTopic,
+  classes,
   ventures,
   venturesLoading = false,
   onCreateVenture,
@@ -297,6 +314,74 @@ export function BlockFocusControl({
         ? setFragmentWork(plan, block.id, fragment.id, next)
         : setBlockWork(plan, block.id, next),
     );
+  };
+
+  const [pickingClassId, setPickingClassId] = useState<string | null>(null);
+  const rangeStart = fragment?.start ?? block.startTime;
+  const rangeEnd = fragment?.end ?? block.endTime;
+  const currentStudyMode = studyModeOf(study);
+
+  const buildStudy = (
+    subjectId: string,
+    subjectName: string,
+    mode: StudyMode,
+    base: BlockStudyPlan | null = study,
+  ): BlockStudyPlan => {
+    if (mode === "clase") {
+      return {
+        subjectId,
+        subjectName,
+        topicId: null,
+        topicTitle: null,
+        mode,
+        classStart: base?.classStart ?? rangeStart,
+        classEnd: base?.classEnd ?? rangeEnd,
+      };
+    }
+    return {
+      subjectId,
+      subjectName,
+      topicId: base?.topicId ?? null,
+      topicTitle: base?.topicTitle ?? null,
+      mode,
+    };
+  };
+
+  const handleStudyModeChange = (mode: StudyMode) => {
+    if (!study || mode === currentStudyMode) return;
+    applyStudy(buildStudy(study.subjectId, study.subjectName, mode, study));
+  };
+
+  const handlePickClass = async (entry: AcademicClass) => {
+    if (pickingClassId) return;
+    let subjectId = entry.subjectId;
+    let subjectName = entry.subjectName;
+
+    if (!subjectId) {
+      if (!subjectName) return;
+      setPickingClassId(entry.id);
+      try {
+        const created = await onCreateSubject(subjectName);
+        if (!created) {
+          toast.error(`No se pudo crear la asignatura “${subjectName}”`);
+          return;
+        }
+        subjectId = created.id;
+        subjectName = created.name;
+      } finally {
+        setPickingClassId(null);
+      }
+    }
+
+    applyStudy({
+      subjectId,
+      subjectName,
+      topicId: null,
+      topicTitle: null,
+      mode: "clase",
+      classStart: entry.start,
+      classEnd: entry.end,
+    });
   };
 
   const meta = KIND_META[kind];
@@ -343,12 +428,8 @@ export function BlockFocusControl({
 
     if (kind === "universidad") {
       const name = label ?? subjects.find(candidate => candidate.id === id)?.name ?? "";
-      applyStudy({
-        subjectId: id,
-        subjectName: name,
-        topicId: null,
-        topicTitle: null,
-      });
+      // Al cambiar de asignatura se conserva el modo, pero no el tema anterior.
+      applyStudy({ ...buildStudy(id, name, currentStudyMode, study), topicId: null, topicTitle: null });
       return;
     }
 
@@ -368,18 +449,12 @@ export function BlockFocusControl({
     if (kind === "universidad") {
       if (!study) return;
       if (id === "none") {
-        applyStudy({
-          subjectId: study.subjectId,
-          subjectName: study.subjectName,
-          topicId: null,
-          topicTitle: null,
-        });
+        applyStudy({ ...study, topicId: null, topicTitle: null });
         return;
       }
       const topic = subject?.topics.find(candidate => candidate.id === id);
       applyStudy({
-        subjectId: study.subjectId,
-        subjectName: study.subjectName,
+        ...study,
         topicId: id,
         topicTitle: label ?? topic?.title ?? "",
       });
@@ -440,16 +515,92 @@ export function BlockFocusControl({
           disabled={loading && ownerOptions.length === 0}
         />
         {study && (
-          <PickerRow
-            value={study.topicId ?? "none"}
-            options={withCurrent(itemOptions, study.topicId, study.topicTitle)}
-            placeholder="Tema"
-            emptyLabel="Sin tema"
-            onChange={handleItemChange}
-            onCreate={createItem}
-            createPlaceholder="Nuevo tema"
-            createTitle="tema"
-          />
+          <div className="space-y-1">
+            <div className="flex gap-0.5 rounded-lg bg-muted p-0.5" role="group" aria-label="Modo de estudio">
+              {STUDY_MODES.map(option => {
+                const ModeIcon = STUDY_MODE_ICONS[option.id];
+                const active = currentStudyMode === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => handleStudyModeChange(option.id)}
+                    title={option.hint}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-0.5 rounded-md px-0.5 py-0.5 text-[8px] font-semibold transition-all",
+                      active
+                        ? "bg-background text-sky-700 shadow-sm dark:text-sky-300"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <ModeIcon className="h-2.5 w-2.5" />
+                    <span className="truncate">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {currentStudyMode === "clase" && (
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <School className="h-2.5 w-2.5 text-sky-500" /> Clase del día
+                </div>
+                {!classes ? (
+                  <p className="text-[8px] leading-tight text-muted-foreground">
+                    Elige la clase desde Planificación para ajustar su horario.
+                  </p>
+                ) : classes.length === 0 ? (
+                  <p className="text-[8px] leading-tight text-muted-foreground">
+                    No hay clases configuradas para este día. Añádelas en el horario académico de Universidad.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {classes.map(entry => {
+                      const active = study?.classStart === entry.start
+                        && study?.classEnd === entry.end
+                        && (entry.subjectId
+                          ? study?.subjectId === entry.subjectId
+                          : study?.subjectName === entry.subjectName);
+                      const busy = pickingClassId === entry.id;
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => void handlePickClass(entry)}
+                          disabled={Boolean(pickingClassId)}
+                          title={`${entry.subjectName || "Clase"} · ${entry.start}–${entry.end}`}
+                          className={cn(
+                            "flex max-w-full items-center gap-1 rounded-full border px-1.5 py-0.5 text-[8px] font-medium transition-colors disabled:opacity-60",
+                            active
+                              ? "border-sky-500 bg-sky-500/15 text-sky-700 dark:text-sky-300"
+                              : "border-border/60 text-muted-foreground hover:border-sky-400/60 hover:text-foreground",
+                          )}
+                        >
+                          {busy ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Clock className="h-2.5 w-2.5" />}
+                          <span className="font-mono">{entry.start}–{entry.end}</span>
+                          <span className="truncate">{entry.subjectName || "Clase"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentStudyMode !== "clase" && (
+              <PickerRow
+                value={study.topicId ?? "none"}
+                options={withCurrent(itemOptions, study.topicId, study.topicTitle)}
+                placeholder="Tema"
+                emptyLabel="Sin tema"
+                onChange={handleItemChange}
+                onCreate={createItem}
+                createPlaceholder="Nuevo tema"
+                createTitle="tema"
+              />
+            )}
+          </div>
         )}
       </>
     );

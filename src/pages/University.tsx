@@ -356,7 +356,7 @@ export default function UniversityPage() {
 
           {/* Routine Block Schedule */}
           <div className="mt-6">
-            <RoutineBlockSchedule studySessionsByTask={studyMeta.byTask} />
+            <RoutineBlockSchedule studySessionsByTask={studyMeta.byTask} subjects={subjects} />
           </div>
         </TabsContent>
 

@@ -20,7 +20,7 @@ import {
   ListTodo, ArrowUpDown, LayoutGrid, List, Zap, Play,
   BookOpen, Briefcase, FolderKanban, Sparkles, Languages,
   TrendingUp, BarChart3, Layers, ChevronRight, Repeat, Tags as TagsIcon, Timer,
-  Search, CheckCheck, Flame, X, ChevronDown, Inbox
+  Search, CheckCheck, Flame, X, ChevronDown, Inbox, Brain, Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, isPast, isThisWeek, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, isWithinInterval, addDays, addWeeks, addMonths } from 'date-fns';
@@ -35,6 +35,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
 import { useRoutineBlocks } from '@/hooks/useRoutineBlocks';
 import NotionCalendar from '@/components/calendar/NotionCalendar';
+import { RUIDO_MENTAL_AREA, RUIDO_MENTAL_AREA_ID, isRuidoMentalArea } from '@/lib/taskGroups';
 
 const taskSchema = z.object({
   title: z.string().trim().min(1, "El título es requerido").max(200),
@@ -64,11 +65,12 @@ interface TaskItem {
   parentId?: string;
 }
 
-type Category = 'all' | 'universidad' | 'emprendimiento' | 'proyectos' | 'idiomas' | 'tareas';
+type Category = 'all' | 'universidad' | 'emprendimiento' | 'proyectos' | 'idiomas' | 'tareas' | 'ruido-mental';
 type PriorityAbcd = 'a' | 'b' | 'c' | 'd';
 type PriorityFilter = 'all' | PriorityAbcd;
 
 const categorize = (t: { areaId?: string; source?: string }): Exclude<Category, 'all'> => {
+  if (t.areaId === RUIDO_MENTAL_AREA_ID) return 'ruido-mental';
   if (t.areaId === 'universidad' || t.source === 'university') return 'universidad';
   if (t.areaId === 'emprendimiento' || t.source === 'entrepreneurship') return 'emprendimiento';
   if (t.areaId === 'proyectos' || t.source === 'projects') return 'proyectos';
@@ -76,31 +78,42 @@ const categorize = (t: { areaId?: string; source?: string }): Exclude<Category, 
   return 'tareas';
 };
 
-const AREA_CONFIG: Record<string, { icon: React.ReactNode; gradient: string; lightBg: string }> = {
+const AREA_CONFIG: Record<string, { icon: React.ReactNode; gradient: string; lightBg: string; label: string }> = {
   universidad: {
     icon: <BookOpen className="w-4 h-4" />,
     gradient: 'from-blue-600 to-blue-400',
     lightBg: 'bg-blue-500/10',
+    label: 'Universidad',
   },
   emprendimiento: {
     icon: <Briefcase className="w-4 h-4" />,
     gradient: 'from-purple-600 to-purple-400',
     lightBg: 'bg-purple-500/10',
+    label: 'Emprendimiento',
   },
   proyectos: {
     icon: <FolderKanban className="w-4 h-4" />,
     gradient: 'from-amber-600 to-amber-400',
     lightBg: 'bg-amber-500/10',
+    label: 'Proyectos',
   },
   tareas: {
     icon: <ListTodo className="w-4 h-4" />,
     gradient: 'from-emerald-600 to-emerald-400',
     lightBg: 'bg-emerald-500/10',
+    label: 'Tareas',
   },
   idiomas: {
     icon: <Languages className="w-4 h-4" />,
     gradient: 'from-teal-600 to-teal-400',
     lightBg: 'bg-teal-500/10',
+    label: 'Idiomas',
+  },
+  'ruido-mental': {
+    icon: <Brain className="w-4 h-4 text-rose-500" />,
+    gradient: 'from-rose-600 to-pink-400',
+    lightBg: 'bg-rose-500/10',
+    label: 'Ruido Mental',
   },
 };
 
@@ -220,7 +233,7 @@ function PendingStatCard({ pending, critical, overdue }: { pending: number; crit
 function AreaCard({ category, active, counts, onClick }: { category: Category; active: boolean; counts: { pending: number; total: number; done: number }; onClick: () => void }) {
   const config = category === 'all'
     ? { icon: <Sparkles className="w-4 h-4" />, gradient: 'from-primary to-primary/60', lightBg: 'bg-primary/10', label: 'Todas' }
-    : { ...AREA_CONFIG[category], label: category.charAt(0).toUpperCase() + category.slice(1) };
+    : AREA_CONFIG[category];
   const pct = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
 
   return (
@@ -295,6 +308,9 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [tagFilter, setTagFilter] = useState<string>('all');
 
+  const [mentalNoiseTitle, setMentalNoiseTitle] = useState('');
+  const [creatingMentalNoise, setCreatingMentalNoise] = useState(false);
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirmCompleteAll, setConfirmCompleteAll] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -311,6 +327,7 @@ export default function TasksPage() {
   const allAreas = useMemo(() => [
     ...flattenAreas(lifeAreas),
     ...flattenAreas(centralAreas),
+    RUIDO_MENTAL_AREA,
   ], []);
 
   useEffect(() => { loadTasks(); }, []);
@@ -381,6 +398,12 @@ export default function TasksPage() {
     setTitle(''); setDescription(''); setPriorityAbcd('c');
     setDueDate(''); setSelectedAreaId(''); setSelectedBlockId('');
     setEstimatedMinutes(''); setRecurrence('none'); setTags([]); setTagInput(''); setParentTaskId('none');
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    if (activeCategory === 'ruido-mental') setSelectedAreaId(RUIDO_MENTAL_AREA_ID);
+    setIsDialogOpen(true);
   };
 
   const addTag = () => {
@@ -465,6 +488,44 @@ export default function TasksPage() {
       } else {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       }
+    }
+  };
+
+  const handleQuickAddMentalNoise = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const cleanTitle = mentalNoiseTitle.trim();
+    if (!cleanTitle || creatingMentalNoise) return;
+
+    setCreatingMentalNoise(true);
+    try {
+      const { queued, error } = await cachedMutation("tasks", "insert", {
+        title: cleanTitle,
+        description: null,
+        status: 'pendiente',
+        priority: 'medium',
+        due_date: null,
+        completed: false,
+        source: 'general',
+        area_id: RUIDO_MENTAL_AREA_ID,
+        routine_block_id: null,
+        estimated_minutes: null,
+        recurrence: 'none',
+        tags: null,
+        parent_id: null,
+        priority_abcd: 'c',
+      });
+      if (queued) {
+        toast({ title: 'Añadido a Ruido Mental (offline) — se sincronizará al reconectar' });
+      } else if (error) {
+        toast({ variant: 'destructive', title: 'No se pudo añadir', description: error?.message || 'Error desconocido' });
+        return;
+      } else {
+        toast({ title: 'Añadido a Ruido Mental ✓' });
+      }
+      setMentalNoiseTitle('');
+      await loadTasks();
+    } finally {
+      setCreatingMentalNoise(false);
     }
   };
 
@@ -638,10 +699,11 @@ export default function TasksPage() {
   const todayTasks = pendingTasks.filter(t => t.dueDate && isToday(t.dueDate)).length;
   const overdueTasks = pendingTasks.filter(t => t.dueDate && isPast(t.dueDate) && !isToday(t.dueDate)).length;
   const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
+  const mentalNoisePending = pendingTasks.filter(t => isRuidoMentalArea(t.areaId)).length;
 
   // === AREAS ===
   const areaStats = useMemo(() => {
-    const cats: Category[] = ['universidad', 'emprendimiento', 'proyectos', 'tareas', 'idiomas'];
+    const cats: Category[] = ['universidad', 'emprendimiento', 'proyectos', 'tareas', 'idiomas', 'ruido-mental'];
     const stats: Record<string, { pending: number; total: number; done: number }> = {};
     cats.forEach(c => {
       const catTasks = tasks.filter(t => categorize(t) === c);
@@ -879,6 +941,12 @@ export default function TasksPage() {
           </div>
         </div>
       </div>
+      {selectedAreaId === RUIDO_MENTAL_AREA_ID && (
+        <p className="flex items-start gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/5 px-2.5 py-1.5 text-[11px] text-rose-700 dark:text-rose-300">
+          <Brain className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>Esta tarea se guardará en <strong>Ruido Mental</strong> y aparecerá en Planificación → Mañana.</span>
+        </p>
+      )}
       <div>
         <Label className="text-sm font-medium">Sub-tarea de</Label>
         <Select value={parentTaskId} onValueChange={setParentTaskId}>
@@ -1057,7 +1125,7 @@ export default function TasksPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
+            <Button size="sm" onClick={openCreateDialog}>
               <PlusCircle className="mr-1.5 h-4 w-4" /> Nueva
             </Button>
           </DialogTrigger>
@@ -1115,7 +1183,7 @@ export default function TasksPage() {
       <div>
         <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">ÁREAS</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {(['all', 'universidad', 'emprendimiento', 'proyectos', 'tareas', 'idiomas'] as Category[]).map(cat => {
+          {(['all', 'universidad', 'emprendimiento', 'proyectos', 'tareas', 'idiomas', 'ruido-mental'] as Category[]).map(cat => {
             const counts = cat === 'all'
               ? { pending: pendingTasks.length, total: tasks.length, done: completedTasks.length }
               : areaStats[cat] || { pending: 0, total: 0, done: 0 };
@@ -1131,6 +1199,58 @@ export default function TasksPage() {
           })}
         </div>
       </div>
+
+      {/* Ruido Mental: captura rápida al grupo */}
+      <Card className={cn(
+        'overflow-hidden border-rose-500/30 bg-rose-500/[0.04] transition-shadow',
+        activeCategory === 'ruido-mental' && 'ring-2 ring-rose-500/40',
+      )}>
+        <div className="h-1 bg-gradient-to-r from-rose-600 to-pink-400" />
+        <CardContent className="space-y-2.5 p-3.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-lg bg-rose-500/10 p-1.5">
+              <Brain className="h-4 w-4 text-rose-500" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold">Ruido Mental</h2>
+              <p className="text-[11px] text-muted-foreground">
+                Saca de tu cabeza lo que te distrae. Estas tareas aparecen también en Planificación → Mañana.
+              </p>
+            </div>
+            <Badge variant="secondary" className="text-[10px] tabular-nums">
+              {mentalNoisePending} pendiente{mentalNoisePending === 1 ? '' : 's'}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setActiveCategory('ruido-mental')}
+            >
+              Ver grupo
+            </Button>
+          </div>
+          <form onSubmit={handleQuickAddMentalNoise} className="flex items-center gap-2">
+            <Input
+              value={mentalNoiseTitle}
+              onChange={event => setMentalNoiseTitle(event.target.value)}
+              placeholder='Ej. "Pensar en la conversación de ayer", "Corregir el correo"...'
+              disabled={creatingMentalNoise}
+              className="bg-background/80"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              className="shrink-0 gap-1 bg-rose-600 hover:bg-rose-700"
+              disabled={!mentalNoiseTitle.trim() || creatingMentalNoise}
+            >
+              {creatingMentalNoise
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <PlusCircle className="h-3.5 w-3.5" />}
+              Añadir
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Search + Filters + Task List */}
       <div className="flex flex-col gap-3">

@@ -29,12 +29,36 @@ export interface SpeedPlanFragment {
   work?: BlockWorkPlan;
 }
 
+/** Cómo se aprovecha un bloque de Universidad. */
+export type StudyMode = "teoria" | "ejercicios" | "clase";
+
 /** Asignatura y tema que se estudiarán en un bloque (Universidad). */
 export interface BlockStudyPlan {
   subjectId: string;
   subjectName: string;
   topicId: string | null;
   topicTitle: string | null;
+  /** Teoría, ejercicios o una clase del horario académico. */
+  mode?: StudyMode;
+  /** Horario de la clase cuando `mode` es "clase". */
+  classStart?: string;
+  classEnd?: string;
+}
+
+export const STUDY_MODES: { id: StudyMode; label: string; hint: string }[] = [
+  { id: "teoria", label: "Teoría", hint: "Estudiar la teoría del tema" },
+  { id: "ejercicios", label: "Ejercicios", hint: "Practicar con ejercicios" },
+  { id: "clase", label: "Clase", hint: "Asistir a una clase del horario" },
+];
+
+/** Modo de estudio visible; los planes antiguos sin modo cuentan como teoría. */
+export function studyModeOf(study: BlockStudyPlan | null | undefined): StudyMode {
+  if (study?.mode === "ejercicios" || study?.mode === "clase") return study.mode;
+  return "teoria";
+}
+
+export function studyModeLabel(mode: StudyMode): string {
+  return STUDY_MODES.find(option => option.id === mode)?.label ?? "Teoría";
 }
 
 export type BlockWorkKind = "emprendimiento" | "proyectos";
@@ -117,15 +141,22 @@ export interface BlockFocusSummary {
   kind: BlockFocusKind;
   primary: string;
   secondary: string | null;
+  /** Solo para Universidad: teoría, ejercicios o clase. */
+  mode?: StudyMode;
 }
 
 /** Resumen legible del enfoque para listas, tarjetas y modo tablet. */
 export function describeBlockFocus(focus: BlockFocus): BlockFocusSummary | null {
   if (focus.study) {
+    const mode = studyModeOf(focus.study);
+    const classRange = mode === "clase" && focus.study.classStart && focus.study.classEnd
+      ? `${focus.study.classStart}–${focus.study.classEnd}`
+      : null;
     return {
       kind: "universidad",
       primary: focus.study.subjectName.trim() || "Universidad",
-      secondary: focus.study.topicTitle?.trim() || null,
+      secondary: classRange ?? (focus.study.topicTitle?.trim() || null),
+      mode,
     };
   }
   if (focus.work) {
@@ -245,9 +276,23 @@ export function isExtraBlock(block: SpeedBlockLike): boolean {
   return block.title.toLowerCase().includes("bloque extra") || block.id.includes("bloque-extra");
 }
 
-/** Solo Deep Work y Bloque Extra se fragmentan. */
+export const FREE_BLOCK_ID_PREFIX = "libre-";
+export const FREE_BLOCK_TITLE = "Horario libre";
+
+/** Bloque de gimnasio/entrenamiento de la rutina. */
+export function isGymBlock(block: SpeedBlockLike): boolean {
+  const title = block.title.toLowerCase();
+  return title.includes("gym") || title.includes("entreno") || title.includes("gimnasio");
+}
+
+/** Hueco liberado (por ejemplo, al saltar el gym) que admite cualquier plan. */
+export function isFreeBlock(block: SpeedBlockLike): boolean {
+  return block.id.startsWith(FREE_BLOCK_ID_PREFIX) || block.title.toLowerCase().includes("horario libre");
+}
+
+/** Solo Deep Work, Bloque Extra y horarios libres se fragmentan. */
 export function isFragmentableBlock(block: SpeedBlockLike): boolean {
-  return isDeepWorkBlock(block) || isExtraBlock(block);
+  return isDeepWorkBlock(block) || isExtraBlock(block) || isFreeBlock(block);
 }
 
 function focusToSystem(focus?: string): string | null {
@@ -275,6 +320,8 @@ function focusToSystem(focus?: string): string | null {
  * Los bloques ambiguos (almuerzo, ocio, comida) no se asignan solos.
  */
 export function naturalSystemForBlock(block: SpeedBlockLike): string | null {
+  // Un horario libre no pertenece a ningún sistema: el usuario decide qué va ahí.
+  if (isFreeBlock(block)) return null;
   const title = block.title.toLowerCase();
   if (
     title.includes("almuerzo") ||
@@ -307,12 +354,12 @@ export function autoSystemForBlock(block: SpeedBlockLike): string | null {
 }
 
 /**
- * Solo Deep Work, Focus y Bloque Extra muestran control de planificación.
+ * Deep Work, Bloque Extra y horarios libres muestran control de planificación.
  * Los bloques acumulativos (Gym, Lectura, Idiomas, Música, Almuerzo, Ocio...)
  * se rigen por su título y no se asignan a mano.
  */
 export function showSpeedPlanControl(block: SpeedBlockLike): boolean {
-  return isDeepWorkBlock(block) || isExtraBlock(block);
+  return isDeepWorkBlock(block) || isExtraBlock(block) || isFreeBlock(block);
 }
 
 /**
@@ -440,15 +487,33 @@ export function normalizeSpeedPlan(raw: unknown): SpeedPlan {
   return { version: 1, blocks };
 }
 
+function normalizeClockTime(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours > 23 || minutes > 59) return null;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
 function normalizeBlockStudy(raw: unknown): BlockStudyPlan | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const value = raw as Record<string, unknown>;
   if (typeof value.subjectId !== "string" || !value.subjectId.trim()) return undefined;
+  const mode: StudyMode | undefined =
+    value.mode === "teoria" || value.mode === "ejercicios" || value.mode === "clase"
+      ? value.mode
+      : undefined;
+  const classStart = normalizeClockTime(value.classStart);
+  const classEnd = normalizeClockTime(value.classEnd);
   return {
     subjectId: value.subjectId,
     subjectName: typeof value.subjectName === "string" ? value.subjectName : "",
     topicId: typeof value.topicId === "string" && value.topicId.trim() ? value.topicId : null,
     topicTitle: typeof value.topicTitle === "string" && value.topicTitle.trim() ? value.topicTitle : null,
+    ...(mode ? { mode } : {}),
+    ...(classStart && classEnd ? { classStart, classEnd } : {}),
   };
 }
 

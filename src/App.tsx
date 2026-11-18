@@ -16,6 +16,7 @@ import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
 import { PageCoversProvider } from "./contexts/PageCoversContext";
 import { PageIconsProvider } from "./contexts/PageIconsContext";
 import { PageNamesProvider } from "./contexts/PageNamesContext";
+import { QuickAccessProvider } from "./contexts/QuickAccessContext";
 import { PageCoverBanner } from "./components/PageCoverBanner";
 import Index from "./pages/Index";
 import Inicio2 from "./pages/Inicio2";
@@ -117,12 +118,13 @@ function AppContent() {
 
   return (
     <div className={cn("pt-12 lg:pt-0 min-h-screen transition-all duration-200", collapsed ? "lg:ml-14" : "lg:ml-56")}>
-      <PageCoversProvider>
-        <PageIconsProvider>
-          <PageNamesProvider>
-            <Navigation />
-            <PageCoverBanner />
-          <Routes>
+      <QuickAccessProvider>
+        <PageCoversProvider>
+          <PageIconsProvider>
+            <PageNamesProvider>
+              <Navigation />
+              <PageCoverBanner />
+            <Routes>
         <Route path="/" element={<Inicio2 />} />
         <Route path="/inicio-2" element={<Inicio2 />} />
         <Route path="/inicio-clasico" element={<Index />} />
@@ -216,6 +218,7 @@ function AppContent() {
         </PageNamesProvider>
         </PageIconsProvider>
       </PageCoversProvider>
+      </QuickAccessProvider>
     </div>
   );
 }

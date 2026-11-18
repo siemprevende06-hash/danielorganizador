@@ -34,71 +34,69 @@ export function useDailyPlanData(date?: Date) {
   const [planGoals, setPlanGoals] = useState<Record<string, number> | null>(null);
   const [planIntensity, setPlanIntensity] = useState<Record<string, string> | null>(null);
   const [planSpeedPlan, setPlanSpeedPlan] = useState<SpeedPlan | null>(null);
+  const [planSkipGym, setPlanSkipGym] = useState(false);
   const [planLoaded, setPlanLoaded] = useState(false);
 
   const dateStr = format(targetDate, 'yyyy-MM-dd');
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  useEffect(() => {
-    loadTasks();
-    loadPlanForDate();
-  }, [dateStr]);
-
-  const loadPlanForDate = async () => {
+  const loadPlanForDate = useCallback(async () => {
     setPlanLoaded(false);
+    // Se limpia todo antes de leer: las notas pueden existir sin asignaciones
+    // (por ejemplo, un día con solo el gym saltado o el plan de velocidad).
+    setPlanAssignments(null);
+    setPlanRoutineType(null);
+    setPlanLanguage(null);
+    setPlanGoals(null);
+    setPlanIntensity(null);
     setPlanSpeedPlan(null);
+    setPlanSkipGym(false);
+
     try {
       const plan = await loadDailyPlan(dateStr);
+      if (!plan) return;
 
-if (plan && plan.block_assignments) {
+      setPlanRoutineType(plan.routine_type ?? null);
+      if (plan.block_assignments) {
         setPlanAssignments(plan.block_assignments as Record<string, string[]>);
-        setPlanRoutineType(plan.routine_type);
-        if (plan.notes) {
-          try {
-            const parsed = typeof plan.notes === 'string' ? JSON.parse(plan.notes) : plan.notes;
-            if (parsed.language === 'ingles' || parsed.language === 'italiano') {
-              setPlanLanguage(parsed.language);
-            }
-            if (parsed.dayGoals && typeof parsed.dayGoals === 'object') {
-              setPlanGoals(parsed.dayGoals);
-            } else {
-              setPlanGoals(null);
-            }
-            const si = parsed.systemIntensity || parsed.planIntensity;
-            if (si && typeof si === 'object') {
-              setPlanIntensity(si);
-            } else {
-              setPlanIntensity(null);
-            }
-            if (parsed.speedPlan) {
-              setPlanSpeedPlan(normalizeSpeedPlan(parsed.speedPlan));
-            } else {
-              setPlanSpeedPlan(null);
-            }
-          } catch {}
-        }
-      } else {
-        setPlanAssignments(null);
-        setPlanRoutineType(null);
-        setPlanLanguage(null);
-        setPlanGoals(null);
-        setPlanIntensity(null);
-        setPlanSpeedPlan(null);
       }
+      if (!plan.notes) return;
+
+      let parsed: Record<string, unknown> | null = null;
+      if (typeof plan.notes === 'string') {
+        try {
+          const value = JSON.parse(plan.notes);
+          parsed = value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+        } catch {
+          parsed = null;
+        }
+      } else if (plan.notes && typeof plan.notes === 'object') {
+        parsed = plan.notes as Record<string, unknown>;
+      }
+      if (!parsed) return;
+
+      if (parsed.language === 'ingles' || parsed.language === 'italiano') {
+        setPlanLanguage(parsed.language);
+      }
+      if (parsed.dayGoals && typeof parsed.dayGoals === 'object') {
+        setPlanGoals(parsed.dayGoals as Record<string, number>);
+      }
+      const si = parsed.systemIntensity || parsed.planIntensity;
+      if (si && typeof si === 'object') {
+        setPlanIntensity(si as Record<string, string>);
+      }
+      if (parsed.speedPlan) {
+        setPlanSpeedPlan(normalizeSpeedPlan(parsed.speedPlan));
+      }
+      setPlanSkipGym(parsed.skipGym === true);
     } catch (error) {
       console.error('Error loading plan for date:', error);
-      setPlanAssignments(null);
-      setPlanRoutineType(null);
-      setPlanLanguage(null);
-      setPlanGoals(null);
-      setPlanIntensity(null);
-      setPlanSpeedPlan(null);
     } finally {
       setPlanLoaded(true);
     }
-  };
+  }, [dateStr]);
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     setTasksLoading(true);
     try {
       const dayStart = `${dateStr}T00:00:00`;
@@ -130,7 +128,12 @@ if (plan && plan.block_assignments) {
     } finally {
       setTasksLoading(false);
     }
-  };
+  }, [dateStr]);
+
+  useEffect(() => {
+    loadTasks();
+    loadPlanForDate();
+  }, [loadTasks, loadPlanForDate]);
 
   // Derive tasksByBlock: prefer plan assignments, fallback to routine_block_id
   const tasksByBlock = useMemo(() => {
@@ -310,6 +313,8 @@ if (plan && plan.block_assignments) {
     planGoals,
     planIntensity,
     planSpeedPlan,
+    planSkipGym,
     planLoaded,
+    refreshPlan: loadPlanForDate,
   };
 }

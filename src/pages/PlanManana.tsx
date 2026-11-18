@@ -18,12 +18,13 @@ import { lifeAreas } from "@/lib/data";
 import { flattenAreas } from "@/lib/utils";
 import { useRoutineBlocks, type RoutineType, ROUTINES, legacyModeForRoutine } from "@/hooks/useRoutineBlocks";
 import { loadDailyPlan, saveDailyPlan } from "@/lib/dailyPlanStorage";
+import { RUIDO_MENTAL_AREA_ID, RUIDO_MENTAL_NAME, isRuidoMentalArea } from "@/lib/taskGroups";
 import { DailyTimelinePlanner, type TimelineBlock } from "@/components/today/DailyTimelinePlanner";
 import { useDaySpeedPlan } from "@/hooks/useDaySpeedPlan";
 import { ALL_HIERARCHY_AREAS } from "@/lib/hierarchy";
 import {
   Sun, Moon, Clock, CalendarDays, CheckCircle2, CircleDot, Save, PlusCircle, Loader2, Layers,
-  Briefcase, Sparkles,
+  Briefcase, Sparkles, Dumbbell, Unlock,
 } from "lucide-react";
 import { SPEED_PLAN_SYSTEMS, systemTargetMinutes, type DaySystem, type SystemSpeed } from "@/lib/daySystems";
 import {
@@ -34,11 +35,15 @@ import {
   describeBlockFocus,
   isDeepWorkBlock,
   isExtraBlock,
+  isFreeBlock,
+  isGymBlock,
+  FREE_BLOCK_ID_PREFIX,
   setWholeBlock,
   summarizeSpeedPlan,
   type SpeedPlan,
   type SpeedPlanFragment,
 } from "@/lib/speedPlan";
+import { applyDayBlockOverrides, parseDayBlockOverrides } from "@/lib/dayBlockOverrides";
 import {
   planSystemEmoji,
   planSystemName,
@@ -50,9 +55,11 @@ import { useSystemActivityTags } from "@/hooks/useSystemActivityTags";
 import { useAreaCovers, coverKey } from "@/hooks/useAreaCovers";
 import { PlanSystemCard } from "@/components/planificacion/PlanSystemCard";
 import { TaskInboxCard } from "@/components/planificacion/TaskInboxCard";
+import { MentalNoiseCard } from "@/components/planificacion/MentalNoiseCard";
 import { DayGoalsCard } from "@/components/planificacion/DayGoalsCard";
 import { BlockFocusControl, type FocusOwner } from "@/components/planificacion/BlockFocusControl";
 import { useStudySubjects } from "@/hooks/useStudySubjects";
+import { useUniversitySchedule } from "@/hooks/useUniversitySchedule";
 import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
 import { useChessGoalsSummary } from "@/hooks/useChessGoalsSummary";
 import { buildHabitPlanObjectives } from "@/lib/planObjectives";
@@ -118,6 +125,7 @@ const CREATE_AREA_OPTIONS = (() => {
     { id: 'musica', name: 'Música' },
     { id: 'game', name: 'Game' },
     { id: 'tareas', name: 'Tareas generales' },
+    { id: RUIDO_MENTAL_AREA_ID, name: RUIDO_MENTAL_NAME },
   ].filter(candidate => !base.some(area => area.id === candidate.id));
   return [...base, ...extra];
 })();
@@ -230,13 +238,21 @@ export default function PlanManana() {
 
   // --- TODOS LOS HOOKS SON INCONDICIONALES (antes de cualquier return) ---
   const {
-    blocks,
+    blocks: routineBlocks,
     isLoaded: routineLoaded,
     routineType,
     setRoutineType,
     updateBlockFocus,
     routineInfo,
   } = useRoutineBlocks();
+
+  // Saltar el gym conserva su horario, pero lo convierte en un bloque libre.
+  const [skipGym, setSkipGym] = useState(false);
+  const blocks = useMemo(
+    () => applyDayBlockOverrides(routineBlocks, { skipGym }),
+    [routineBlocks, skipGym],
+  );
+
   const { plan: speedPlan, setPlan: setSpeedPlan, isLoaded: speedPlanLoaded } = useDaySpeedPlan(targetDate, {
     autoSave: false,
     routineType,
@@ -251,6 +267,8 @@ export default function PlanManana() {
     createSubject: createStudySubject,
     createTopic: createStudyTopic,
   } = useStudySubjects();
+  const { classesForDate } = useUniversitySchedule(studySubjects);
+  const targetClasses = useMemo(() => classesForDate(targetDate), [classesForDate, targetDate]);
 
   // Objetivos planificados del periodo para las tarjetas de sistemas.
   const monthDate = useMemo(() => startOfMonth(targetDate), [targetDate]);
@@ -368,6 +386,18 @@ export default function PlanManana() {
   }, [tasks, entreTasks, projects]);
 
   const taskById = useMemo(() => new Map(plannerTasks.map(task => [task.id, task])), [plannerTasks]);
+
+  /** Tareas del grupo Ruido Mental: tienen su propia sección en el planificador. */
+  const mentalNoiseTasks = useMemo(
+    () => plannerTasks.filter(task => isRuidoMentalArea(task.areaId)),
+    [plannerTasks],
+  );
+
+  /** La bandeja general no repite las tareas que ya viven en Ruido Mental. */
+  const generalInboxTasks = useMemo(
+    () => plannerTasks.filter(task => !isRuidoMentalArea(task.areaId)),
+    [plannerTasks],
+  );
 
   const assignedIds = useMemo(
     () => new Set(Object.values(blockAssignments).flat()),
@@ -538,6 +568,8 @@ export default function PlanManana() {
     for (const system of SPEED_PLAN_SYSTEMS) result[system.id] = [];
     for (const task of plannerTasks) {
       if (assignedIds.has(task.id)) continue;
+      // Ruido Mental se coloca desde su propia tarjeta, no desde la tarjeta del sistema.
+      if (isRuidoMentalArea(task.areaId)) continue;
       if (!result[task.systemId]) result[task.systemId] = [];
       result[task.systemId].push(task);
     }
@@ -603,7 +635,7 @@ export default function PlanManana() {
 
     let nextPlan = speedPlan;
     const nextAssignments: Record<string, string[]> = { ...blockAssignments };
-    const candidates = blocks.filter(block => isDeepWorkBlock(block) || isExtraBlock(block));
+    const candidates = blocks.filter(block => isDeepWorkBlock(block) || isExtraBlock(block) || isFreeBlock(block));
     const assignedNow: string[] = [];
     const failedTasks: PlannerTask[] = [];
 
@@ -709,7 +741,7 @@ export default function PlanManana() {
 
     // Solo los bloques de trabajo (Deep Work, extra o con sistema natural)
     // reciben un plan de velocidad; así no se inflan minutos de Gym u ocio.
-    const planable = isDeepWorkBlock(block) || isExtraBlock(block) || autoSystemForBlock(block) != null;
+    const planable = isDeepWorkBlock(block) || isExtraBlock(block) || isFreeBlock(block) || autoSystemForBlock(block) != null;
     if (planable) {
       setSpeedPlan(prev => {
         if (prev.blocks[blockId]) return prev;
@@ -818,6 +850,7 @@ export default function PlanManana() {
       setPrevPlanSnapshot(null);
       setLanguageChoice(defaultLanguage);
       setMusicInstrument(defaultInstrument);
+      setSkipGym(false);
     };
 
     (async () => {
@@ -829,11 +862,13 @@ export default function PlanManana() {
         // bloques guardados: así no se pierden al reeditar un día.
         let language = defaultLanguage;
         let instrument = defaultInstrument;
+        let skipGymValue = false;
         if (plan) {
           const validTypes: RoutineType[] = ['ultra-disciplina', 'disciplina', 'normal', 'descanso'];
           if (plan.routine_type && validTypes.includes(plan.routine_type as RoutineType)) {
             setRoutineType(plan.routine_type as RoutineType);
           }
+          skipGymValue = parseDayBlockOverrides(plan.notes).skipGym;
           if (plan.notes) {
             try {
               const parsed = JSON.parse(plan.notes as string);
@@ -850,6 +885,7 @@ export default function PlanManana() {
         }
         setLanguageChoice(language);
         setMusicInstrument(instrument);
+        setSkipGym(skipGymValue);
 
         const rawAssignments = plan?.block_assignments;
         if (rawAssignments != null) {
@@ -982,6 +1018,38 @@ export default function PlanManana() {
       setCreating(false);
     }
   };
+
+  const handleQuickCreateMentalNoise = useCallback(async (title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return false;
+
+    try {
+      const { data: created, error } = await supabase.from('tasks').insert({
+        title: trimmed,
+        description: null,
+        priority: 'medium',
+        due_date: null,
+        area_id: RUIDO_MENTAL_AREA_ID,
+        completed: false,
+        source: 'general',
+        status: 'pendiente',
+        priority_abcd: 'c',
+      }).select('id, title, source, area_id, completed, routine_block_id').single();
+      if (error) throw error;
+      if (!created) return false;
+
+      const task = created as TaskItem;
+      setTasks(prev => (prev.some(existing => existing.id === task.id) ? prev : [...prev, task]));
+      setSelectedTasks(prev => new Set(prev).add(task.id));
+      markDirty();
+      toast.success('Añadido a Ruido Mental');
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al añadir la tarea';
+      toast.error(message);
+      return false;
+    }
+  }, [markDirty]);
 
   const handleQuickCreateTask = useCallback(async (title: string, systemId?: string) => {
     const trimmed = title.trim();
@@ -1178,6 +1246,7 @@ export default function PlanManana() {
         language: languageChoice,
         instrument: musicInstrument,
         dayGoals: goalsForSave,
+        skipGym,
       });
 
       const persistedIn = await saveDailyPlan({
@@ -1293,6 +1362,38 @@ export default function PlanManana() {
     markDirty();
   }, [setSpeedPlan, markDirty]);
 
+  /** Salta el gym y traslada sus tareas al horario libre que ocupa su lugar. */
+  const toggleSkipGym = useCallback(() => {
+    const nextSkip = !skipGym;
+    const gymIds = new Set(routineBlocks.filter(isGymBlock).map(block => block.id));
+
+    if (gymIds.size > 0) {
+      setBlockAssignments(previous => {
+        let changed = false;
+        const updated: Record<string, string[]> = {};
+        for (const [blockId, ids] of Object.entries(previous)) {
+          const freeSource = blockId.startsWith(FREE_BLOCK_ID_PREFIX)
+            ? blockId.slice(FREE_BLOCK_ID_PREFIX.length)
+            : null;
+
+          if (nextSkip && gymIds.has(blockId)) {
+            updated[`${FREE_BLOCK_ID_PREFIX}${blockId}`] = ids;
+            changed = true;
+          } else if (!nextSkip && freeSource && gymIds.has(freeSource)) {
+            updated[freeSource] = ids;
+            changed = true;
+          } else {
+            updated[blockId] = ids;
+          }
+        }
+        return changed ? updated : previous;
+      });
+    }
+
+    setSkipGym(nextSkip);
+    markDirty();
+  }, [skipGym, routineBlocks, markDirty]);
+
   /** Selector de enfoque integrado en cada Deep Work, Focus y tramo del Extra. */
   const renderBlockFocus = useCallback((block: TimelineBlock, fragment?: SpeedPlanFragment) => {
     if (!speedPlan) return null;
@@ -1308,6 +1409,7 @@ export default function PlanManana() {
         subjectsLoading={studySubjectsLoading}
         onCreateSubject={createStudySubject}
         onCreateTopic={createStudyTopic}
+        classes={targetClasses}
         ventures={ventureOwners}
         onCreateVenture={handleCreateVenture}
         onCreateVentureTask={handleCreateVentureTask}
@@ -1323,6 +1425,7 @@ export default function PlanManana() {
     studySubjectsLoading,
     createStudySubject,
     createStudyTopic,
+    targetClasses,
     ventureOwners,
     handleCreateVenture,
     handleCreateVentureTask,
@@ -1535,6 +1638,52 @@ export default function PlanManana() {
                 </button>
               ))}
             </div>
+
+            {routineBlocks.some(isGymBlock) && (
+              <div
+                className={cn(
+                  "flex items-center gap-2 rounded-xl border px-2.5 py-1.5 transition-colors",
+                  skipGym
+                    ? "border-emerald-400/60 bg-emerald-500/10"
+                    : "border-dashed border-border/60 bg-background/40",
+                )}
+              >
+                <span
+                  className={cn(
+                    "grid h-7 w-7 shrink-0 place-items-center rounded-lg",
+                    skipGym
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      : "bg-orange-500/10 text-orange-500",
+                  )}
+                >
+                  {skipGym ? <Unlock className="h-3.5 w-3.5" /> : <Dumbbell className="h-3.5 w-3.5" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium leading-tight">
+                    {skipGym ? "Gym saltado: horario libre" : "Saltar gym"}
+                  </p>
+                  <p className="truncate text-[9px] leading-tight text-muted-foreground">
+                    {skipGym
+                      ? "El bloque de gym ahora es un horario libre que puedes asignar a cualquier sistema."
+                      : "El bloque de gym se convierte en horario libre listo para asignar."}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={skipGym ? "default" : "outline"}
+                  className={cn(
+                    "h-7 shrink-0 rounded-full px-2.5 text-[10px]",
+                    skipGym && "bg-emerald-600 text-white hover:bg-emerald-600/90",
+                  )}
+                  onClick={toggleSkipGym}
+                  disabled={planLoading || saving}
+                  aria-pressed={skipGym}
+                >
+                  {skipGym ? "Deshacer" : "Saltar gym"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1603,8 +1752,19 @@ export default function PlanManana() {
             {/* Bandeja + bloques de tiempo */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
               <div className="space-y-4">
+                <MentalNoiseCard
+                  tasks={mentalNoiseTasks}
+                  assignedIds={assignedIds}
+                  selectedIds={selectedTasks}
+                  onToggleSelect={toggleTask}
+                  onAssign={task => assignTasks([task])}
+                  onRemove={handleRemoveFromPlan}
+                  onDragStart={handlePoolDragStart}
+                  onCreateTask={handleQuickCreateMentalNoise}
+                  dayMode={mode}
+                />
                 <TaskInboxCard
-                  tasks={plannerTasks}
+                  tasks={generalInboxTasks}
                   assignedIds={assignedIds}
                   selectedIds={selectedTasks}
                   onToggleSelect={toggleTask}
@@ -1630,8 +1790,9 @@ export default function PlanManana() {
                   </div>
                   <p className="mb-1.5 px-0.5 text-[9px] leading-tight text-muted-foreground">
                     En cada <span className="font-semibold text-sky-600 dark:text-sky-400">Deep Work</span> o{' '}
-                    <span className="font-semibold text-sky-600 dark:text-sky-400">Focus</span> elige la asignatura y el tema,
-                    el emprendimiento y su tarea, o el proyecto y su tarea. El Bloque Extra conserva su asignación por sistema.
+                    <span className="font-semibold text-sky-600 dark:text-sky-400">Focus</span> elige la asignatura y el modo:
+                    teoría, ejercicios o clase. El emprendimiento y el proyecto también se planifican aquí; el Bloque Extra y el{' '}
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">horario libre</span> admiten cualquier sistema.
                   </p>
                   <DailyTimelinePlanner
                     blocks={blocks}

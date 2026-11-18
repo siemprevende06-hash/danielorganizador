@@ -54,6 +54,7 @@ import { WorkBlocksSection } from '@/components/today/WorkBlocksSection';
 import { DailyControlPanel } from '@/components/today/DailyControlPanel';
 
 import { useDailyPlanData } from '@/hooks/useDailyPlanData';
+import { applyDayBlockOverrides } from '@/lib/dayBlockOverrides';
 import { usePeriodFocus } from '@/hooks/usePeriodFocus';
 import { useRoutineConfig } from '@/hooks/useRoutineConfig';
 import { useRoutineBlocksDB } from '@/hooks/useRoutineBlocksDB';
@@ -177,6 +178,7 @@ export default function DailyView() {
     planLanguage,
     planGoals,
     planIntensity,
+    planSkipGym,
   } = dailyPlanData;
   const planAssignments = dailyPlanData.planAssignments ?? null;
 
@@ -280,11 +282,17 @@ export default function DailyView() {
   const plannedPct = plannedTasksTotal.length > 0 ? Math.round((plannedTasksDone / plannedTasksTotal.length) * 100) : 0;
 
   // Bloques de rutina reales — fuente única para la línea de tiempo, Enfoque y Mis Sistemas
-  const planBlocks = useMemo(
+  const basePlanBlocks = useMemo(
     () => (routineLoaded && Array.isArray(routineBlocks) && routineBlocks.length > 0
       ? routineBlocks
       : (Array.isArray(adjustedBlocks) ? adjustedBlocks : [])) as any,
     [routineLoaded, routineBlocks, adjustedBlocks]
+  );
+
+  // Ajustes del día (gym saltado → horario libre) sin alterar la rutina base.
+  const planBlocks = useMemo(
+    () => applyDayBlockOverrides(basePlanBlocks, { skipGym: planSkipGym }) as any,
+    [basePlanBlocks, planSkipGym]
   );
 
   const { plan: speedPlan, setPlan: setSpeedPlan } = useDaySpeedPlan(selectedDate, {

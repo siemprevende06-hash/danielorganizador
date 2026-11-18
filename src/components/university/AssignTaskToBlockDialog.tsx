@@ -1,23 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, Clock, GraduationCap, Briefcase, FolderKanban, Zap, Check, Loader2 } from 'lucide-react';
+import {
+  Calendar, Clock, GraduationCap, Briefcase, FolderKanban, Zap, Check, Loader2, Unlock,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-
-interface RoutineBlockData {
-  id: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  blockType: string;
-  defaultFocus: string;
-  currentFocus?: string;
-}
+import { useRoutineBlocks } from '@/hooks/useRoutineBlocks';
+import { useDailyPlanData } from '@/hooks/useDailyPlanData';
+import { applyDayBlockOverrides } from '@/lib/dayBlockOverrides';
+import { loadDailyPlan, saveDailyPlan } from '@/lib/dailyPlanStorage';
+import { isFreeBlock } from '@/lib/speedPlan';
 
 interface TaskData {
   id: string;
@@ -47,107 +44,98 @@ const FOCUS_ICONS: Record<string, typeof GraduationCap> = {
   none: Zap,
 };
 
+/** Copia las asignaciones guardadas, ignorando ids que no sean listas válidas. */
+function normalizeAssignments(raw: unknown): Record<string, string[]> {
+  if (!raw || typeof raw !== 'object') return {};
+  const result: Record<string, string[]> = {};
+  for (const [blockId, ids] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(ids)) continue;
+    result[blockId] = ids.filter((id): id is string => typeof id === 'string');
+  }
+  return result;
+}
+
 export function AssignTaskToBlockDialog({ open, onOpenChange, task, onAssigned }: AssignTaskToBlockDialogProps) {
-  const [blocks, setBlocks] = useState<RoutineBlockData[]>([]);
-  const [loading, setLoading] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<'today' | 'tomorrow'>('today');
 
-  const dateKey = selectedDate === 'today'
-    ? format(new Date(), 'yyyy-MM-dd')
-    : format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
+  const targetDate = useMemo(
+    () => (selectedDate === 'today' ? new Date() : new Date(Date.now() + 86400000)),
+    [selectedDate],
+  );
+  const dateKey = format(targetDate, 'yyyy-MM-dd');
+
+  const { blocks: routineBlocks, isLoaded: routineLoaded, routineType } = useRoutineBlocks();
+  const {
+    tasks,
+    planAssignments,
+    planSkipGym,
+    planLoaded,
+    tasksLoading,
+    refreshPlan,
+    refreshTasks,
+  } = useDailyPlanData(targetDate);
+
+  const blocks = useMemo(
+    () => applyDayBlockOverrides(routineBlocks, { skipGym: planSkipGym }),
+    [routineBlocks, planSkipGym],
+  );
 
   useEffect(() => {
     if (open) {
-      loadBlocks();
       setSelectedBlockId(null);
+      void refreshPlan();
+      void refreshTasks();
     }
-  }, [open]);
+  }, [open, dateKey, refreshPlan, refreshTasks]);
 
-  const loadBlocks = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('routine_blocks')
-        .select('*')
-        .order('order_index', { ascending: true });
-
-      if (error) throw error;
-
-      const mapped: RoutineBlockData[] = (data || []).map((row: any) => ({
-        id: row.block_id,
-        title: row.title,
-        startTime: row.start_time,
-        endTime: row.end_time,
-        blockType: row.block_type || 'fijo',
-        defaultFocus: row.default_focus || 'none',
-        currentFocus: row.current_focus || undefined,
-      }));
-
-      setBlocks(mapped);
-    } catch (error) {
-      console.error('Error loading routine blocks:', error);
-    } finally {
-      setLoading(false);
+  const assignedFromPlan = useMemo(() => {
+    if (!task || !planAssignments) return null;
+    for (const [blockId, ids] of Object.entries(planAssignments)) {
+      if (ids.includes(task.id)) return blockId;
     }
-  };
+    return null;
+  }, [planAssignments, task]);
 
-  const isAssignedToCurrentTask = (blockId: string) => {
-    if (!open || !task) return false;
-    try {
-      const stored = localStorage.getItem(`dailyPlanTasks_${dateKey}`);
-      if (!stored) return false;
-      const parsed = JSON.parse(stored);
-      const taskItem = (parsed.tasks || []).find((t: any) => t.id === task.id);
-      return taskItem?.routine_block_id === blockId;
-    } catch {
-      return false;
-    }
-  };
-
-  const getAssignedBlockId = (): string | null => {
-    if (!task) return null;
-    try {
-      const stored = localStorage.getItem(`dailyPlanTasks_${dateKey}`);
-      if (!stored) return null;
-      const parsed = JSON.parse(stored);
-      const taskItem = (parsed.tasks || []).find((t: any) => t.id === task.id);
-      return taskItem?.routine_block_id || null;
-    } catch {
-      return null;
-    }
-  };
+  const assignedFromTask = task
+    ? tasks.find(item => item.id === task.id)?.routine_block_id ?? null
+    : null;
+  const alreadyAssignedBlockId = assignedFromPlan ?? assignedFromTask;
+  const alreadyAssignedBlock = alreadyAssignedBlockId
+    ? blocks.find(block => block.id === alreadyAssignedBlockId)
+    : null;
 
   const handleSave = async () => {
     if (!task || !selectedBlockId) return;
 
     setSaving(true);
     try {
-      const stored = localStorage.getItem(`dailyPlanTasks_${dateKey}`);
-      let data: { tasks: any[]; completedIds: string[] } = stored
-        ? JSON.parse(stored)
-        : { tasks: [], completedIds: [] };
+      const existing = await loadDailyPlan(dateKey);
+      const assignments = normalizeAssignments(existing?.block_assignments);
 
-      const existingIndex = data.tasks.findIndex((t: any) => t.id === task.id);
+      for (const blockId of Object.keys(assignments)) {
+        assignments[blockId] = assignments[blockId].filter(id => id !== task.id);
+      }
+      if (!assignments[selectedBlockId]) assignments[selectedBlockId] = [];
+      assignments[selectedBlockId].push(task.id);
 
-      const taskEntry = {
-        id: task.id,
-        title: task.title,
-        source: task.source as 'tasks' | 'university',
-        sourceName: task.subjectName,
-        routine_block_id: selectedBlockId,
-        completed: false,
-        dueDate: undefined,
-      };
+      await saveDailyPlan({
+        plan_date: dateKey,
+        routine_type: existing?.routine_type ?? routineType,
+        block_assignments: assignments,
+        notes: existing?.notes ?? null,
+      });
 
-      if (existingIndex >= 0) {
-        data.tasks[existingIndex] = { ...data.tasks[existingIndex], ...taskEntry };
-      } else {
-        data.tasks.push(taskEntry);
+      // El vínculo directo de la tarea se actualiza solo para hoy: la tarea
+      // puede estar planificada para mañana y no debe moverse en el día actual.
+      if (selectedDate === 'today') {
+        await supabase.from('tasks').update({ routine_block_id: selectedBlockId }).eq('id', task.id);
       }
 
-      localStorage.setItem(`dailyPlanTasks_${dateKey}`, JSON.stringify(data));
+      await refreshPlan();
+      await refreshTasks();
+      window.dispatchEvent(new CustomEvent('taskAssignmentChanged'));
       onAssigned?.();
       onOpenChange(false);
     } catch (error) {
@@ -161,11 +149,32 @@ export function AssignTaskToBlockDialog({ open, onOpenChange, task, onAssigned }
     if (!task) return;
     setSaving(true);
     try {
-      const stored = localStorage.getItem(`dailyPlanTasks_${dateKey}`);
-      if (!stored) return;
-      const data = JSON.parse(stored);
-      data.tasks = (data.tasks || []).filter((t: any) => t.id !== task.id);
-      localStorage.setItem(`dailyPlanTasks_${dateKey}`, JSON.stringify(data));
+      const existing = await loadDailyPlan(dateKey);
+      const assignments = normalizeAssignments(existing?.block_assignments);
+      let changed = false;
+
+      for (const blockId of Object.keys(assignments)) {
+        const filtered = assignments[blockId].filter(id => id !== task.id);
+        if (filtered.length !== assignments[blockId].length) changed = true;
+        assignments[blockId] = filtered;
+      }
+
+      if (changed) {
+        await saveDailyPlan({
+          plan_date: dateKey,
+          routine_type: existing?.routine_type ?? routineType,
+          block_assignments: assignments,
+          notes: existing?.notes ?? null,
+        });
+      }
+
+      if (selectedDate === 'today') {
+        await supabase.from('tasks').update({ routine_block_id: null }).eq('id', task.id);
+      }
+
+      await refreshPlan();
+      await refreshTasks();
+      window.dispatchEvent(new CustomEvent('taskAssignmentChanged'));
       onAssigned?.();
       onOpenChange(false);
     } catch (error) {
@@ -175,12 +184,8 @@ export function AssignTaskToBlockDialog({ open, onOpenChange, task, onAssigned }
     }
   };
 
-  const alreadyAssignedBlockId = getAssignedBlockId();
-  const alreadyAssignedBlock = alreadyAssignedBlockId
-    ? blocks.find(b => b.id === alreadyAssignedBlockId)
-    : null;
-
   const size = 'h-3.5 w-3.5';
+  const loading = !routineLoaded || !planLoaded || tasksLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -216,18 +221,18 @@ export function AssignTaskToBlockDialog({ open, onOpenChange, task, onAssigned }
         {/* Already assigned info */}
         {alreadyAssignedBlock && (
           <Card className="p-3 bg-primary/5 border-primary/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm">
-                <Check className="h-4 w-4 text-green-600" />
-                <span className="font-medium">Asignado a:</span>
-                <Badge variant="outline" className="text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2 text-sm">
+                <Check className="h-4 w-4 shrink-0 text-green-600" />
+                <span className="font-medium shrink-0">Asignado a:</span>
+                <Badge variant="outline" className="truncate text-xs">
                   {alreadyAssignedBlock.title}
                 </Badge>
-                <span className="text-xs text-muted-foreground">
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {alreadyAssignedBlock.startTime} - {alreadyAssignedBlock.endTime}
                 </span>
               </div>
-              <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={handleRemoveAssignment} disabled={saving}>
+              <Button variant="destructive" size="sm" className="h-7 shrink-0 text-xs" onClick={handleRemoveAssignment} disabled={saving}>
                 Quitar
               </Button>
             </div>
@@ -244,12 +249,12 @@ export function AssignTaskToBlockDialog({ open, onOpenChange, task, onAssigned }
             <ScrollArea className="h-[350px] pr-2">
               <div className="space-y-1.5">
                 {blocks.map(block => {
-                  const focus = block.currentFocus || block.defaultFocus;
+                  const focus = block.currentFocus || block.defaultFocus || 'none';
                   const FocusIcon = FOCUS_ICONS[focus] || Zap;
                   const focusCfg = FOCUS_LABELS[focus] || FOCUS_LABELS.none;
                   const isSelected = selectedBlockId === block.id;
-                  const alreadyAssigned = isAssignedToCurrentTask(block.id);
-                  const canAssign = block.blockType !== 'fijo';
+                  const alreadyAssigned = alreadyAssignedBlockId === block.id;
+                  const isFree = isFreeBlock(block);
 
                   return (
                     <div
@@ -261,20 +266,25 @@ export function AssignTaskToBlockDialog({ open, onOpenChange, task, onAssigned }
                           : alreadyAssigned
                             ? 'border-green-500/50 bg-green-500/5'
                             : 'hover:bg-accent/50 border-border',
-                        !canAssign && 'opacity-50 cursor-not-allowed'
+                        isFree && !isSelected && !alreadyAssigned && 'border-emerald-500/30 bg-emerald-500/5',
                       )}
-                      onClick={() => canAssign && setSelectedBlockId(block.id)}
+                      onClick={() => setSelectedBlockId(block.id)}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-sm">{block.title}</span>
-                          <Badge variant="outline" className={cn('text-[10px] px-1.5', focusCfg.color)}>
-                            <FocusIcon className={cn('mr-0.5', size)} />
-                            {focusCfg.label}
-                          </Badge>
-                          {block.blockType !== 'configurable' && block.blockType !== 'dinamico' && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              {block.blockType}
+                          {isFree ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            >
+                              <Unlock className="mr-0.5 h-2.5 w-2.5" />
+                              Libre
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className={cn('text-[10px] px-1.5', focusCfg.color)}>
+                              <FocusIcon className={cn('mr-0.5', size)} />
+                              {focusCfg.label}
                             </Badge>
                           )}
                         </div>

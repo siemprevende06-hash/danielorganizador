@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ImagePlus, MoreHorizontal, Pencil, SmilePlus, Trash2 } from 'lucide-react';
+import { ImagePlus, MoreHorizontal, Pencil, SmilePlus, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { usePageCovers } from '@/contexts/PageCoversContext';
 import { usePageIcons } from '@/contexts/PageIconsContext';
 import { usePageNames } from '@/contexts/PageNamesContext';
+import { useQuickAccess } from '@/contexts/QuickAccessContext';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { emojiList } from '@/lib/pages';
 
@@ -28,13 +29,20 @@ export function PageCoverMenu({ className, currentName }: { className?: string; 
   const { covers, setCover, removeCover } = usePageCovers();
   const { icons, setIcon, removeIcon } = usePageIcons();
   const { setPageName, removePageName, getPageName } = usePageNames();
+  const { isQuickAccess, toggleQuickAccess } = useQuickAccess();
   const { uploadImage } = useImageUpload();
   const fileRef = useRef<HTMLInputElement>(null);
   const hasCover = !!covers?.[pathname];
   const hasIcon = !!icons?.[pathname];
   const customName = getPageName(pathname);
+  const isPinned = isQuickAccess(pathname);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+
+  const handleToggleQuickAccess = () => {
+    const added = toggleQuickAccess(pathname);
+    toast.success(added ? 'Añadido a acceso rápido' : 'Quitado de acceso rápido');
+  };
 
   const openRename = () => {
     setRenameValue(customName || currentName || '');
@@ -81,6 +89,13 @@ export function PageCoverMenu({ className, currentName }: { className?: string; 
             <Pencil className="h-4 w-4 mr-2" />
             Editar nombre
           </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={handleToggleQuickAccess}>
+            <Star className={cn('h-4 w-4 mr-2', isPinned && 'fill-amber-400 text-amber-400')} />
+            {isPinned ? 'Quitar de acceso rápido' : 'Añadir a acceso rápido'}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={() => fileRef.current?.click()}>
             <ImagePlus className="h-4 w-4 mr-2" />
