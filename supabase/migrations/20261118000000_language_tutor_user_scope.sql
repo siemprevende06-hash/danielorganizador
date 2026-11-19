@@ -67,6 +67,11 @@ DROP POLICY IF EXISTS "Allow all on ai_conversations" ON public.ai_conversations
 DROP POLICY IF EXISTS "Allow all on ai_messages" ON public.ai_messages;
 DROP POLICY IF EXISTS "Allow all on ai_memories" ON public.ai_memories;
 
+-- Idempotente: si la migración se reaplica (o se aplicó a mano), no falla.
+DROP POLICY IF EXISTS "Owner or legacy on ai_conversations" ON public.ai_conversations;
+DROP POLICY IF EXISTS "Owner or legacy on ai_messages" ON public.ai_messages;
+DROP POLICY IF EXISTS "Owner or legacy on ai_memories" ON public.ai_memories;
+
 CREATE POLICY "Owner or legacy on ai_conversations"
   ON public.ai_conversations
   FOR ALL

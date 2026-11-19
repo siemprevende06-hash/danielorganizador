@@ -399,3 +399,23 @@ pasa limpio y los tests nuevos pasan (`npm test`).
 - `npm test` tiene dos archivos heredados que ya fallaban antes de este plan
   (`DireccionSection.test.tsx` por un texto duplicado y `MejoraRepro.test.tsx` por el mock de
   Supabase). No se tocaron porque no pertenecen a Idiomas.
+
+### Desplegado en Supabase (18/11/2026)
+
+Proyecto `fuqmrtenzlslkeqgdjwy`:
+
+- **Migración aplicada** con el SQL de `20261118000000_language_tutor_user_scope.sql` y registrada
+  en `supabase_migrations.schema_migrations`, así que `supabase db push` no la repetirá.
+  Verificado: `user_id UUID DEFAULT auth.uid()` en las tres tablas, los 4 índices creados,
+  RLS activo y políticas `Owner or legacy on …` sustituyendo a `Allow all …`.
+- **Edge Function `language-tutor` desplegada** (versión 20, `verify_jwt = false`). Prueba de humo:
+  sin cabecera `Authorization` responde `401`, con cabecera y sin mensaje responde `400`.
+
+**Aviso importante:** `auth.users` está vacío (0 usuarios). Por eso:
+
+1. El backfill del propietario no asignó nada: las 167 conversaciones, 654 mensajes y 36 recuerdos
+   existentes siguen con `user_id = NULL` y visibles vía la rama heredada de la política.
+2. Mientras no haya sesión, `auth.uid()` es `NULL` y las filas nuevas también nacen sin dueño,
+   así que el aislamiento real por usuario **aún no está activo**. Se activará solo cuando la app
+   corra con un usuario autenticado; en ese momento conviene hacer un backfill manual del historial
+   y, después, endurecer las políticas quitando las ramas `IS NULL`.
